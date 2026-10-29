@@ -5,8 +5,8 @@ export const CUBE_NAME = '謎の立方体船'
 
 /** 一辺の長さ（表示単位。自機の長さは約0.3） */
 export const CUBE_EDGE = 3
-/** 小惑星帯と木星のあいだ、黄道面の少し上を漂う */
-export const CUBE_ORBIT = 100
+/** 小惑星帯と木星のあいだ、黄道面の少し上を漂う（太陽からの距離は、天文単位で。距離のスライダーで広がる） */
+export const CUBE_AU = 3.55
 export const CUBE_HEIGHT = 5
 
 /** この距離まで近づくと案内を出す */

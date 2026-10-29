@@ -23,7 +23,15 @@ export type WindowRow = {
   to?: number
   /** true なら縦に並べる（v を横位置、from/to を縦の範囲として使う） */
   vertical?: boolean
+  /** 長方形の窓の大きさ（ピクセル、横・縦）。指定すると、数個ずつのかたまりで並べる */
+  size?: [number, number]
+  /** かたまりの窓の数（最小・最大） */
+  groups?: [number, number]
 }
+
+/** 外板に塗る文字（船名・型式）。u・v は中心、height は文字の高さ（ピクセル）、stretch は横の伸ばし具合。
+ * mirror は、UV が裏返しに貼られる面（Blender から書き出したモデル）で文字を正しい向きに戻す */
+export type HullText = { text: string; u: number; v: number; height: number; stretch?: number; rotate?: number; mirror?: boolean; color?: string }
 
 /** 窓以外の細部。v はテクスチャ縦方向の位置（0〜1） */
 export type Detail = {
@@ -46,6 +54,7 @@ export function hullTextures(opts: {
   seed: number
   windows: WindowRow[]
   details?: Detail[]
+  texts?: HullText[]
   panelScale?: number
 }): HullTextures {
   const { width, height, windows } = opts
@@ -189,6 +198,29 @@ export function hullTextures(opts: {
     const y = row.v * height
     const from = (row.from ?? 0) * width
     const to = (row.to ?? 1) * width
+    if (row.size) {
+      // 長方形の窓を数個ずつのかたまりで（デッキの区画ごとに並ぶ）。明かりの消えた窓も多い
+      const [w, h] = row.size
+      const [gMin, gMax] = row.groups ?? [3, 7]
+      let x = from + rand() * w * 3
+      while (x < to - w) {
+        const n = gMin + Math.floor(rand() * (gMax - gMin + 1))
+        if (rand() < row.density) {
+          for (let k = 0; k < n && x < to - w; k++, x += w * 1.6) {
+            cc.fillStyle = '#2f333a'
+            cc.fillRect(x - 1, y - h / 2 - 1, w + 2, h + 2)
+            bc.fillStyle = '#4a4a4a'
+            bc.fillRect(x - 1, y - h / 2 - 1, w + 2, h + 2)
+            if (rand() < 0.6) {
+              gc.fillStyle = rand() < 0.85 ? '#ffe7b0' : '#cfe3ff'
+              gc.fillRect(x, y - h / 2, w, h)
+            }
+          }
+        } else x += n * w * 1.6
+        x += w * (2.5 + rand() * 4)
+      }
+      continue
+    }
     const step = 9
     for (let x = from; x < to; x += step) {
       if (rand() > row.density) continue
@@ -200,6 +232,23 @@ export function hullTextures(opts: {
       bc.fillStyle = '#505050'
       bc.fillRect(x - 1, y - 2.5, 7, 5)
     }
+  }
+
+  // 文字：塗料で描いた船名や型式（少し暗い色に、明るい縁取り）
+  for (const t of opts.texts ?? []) {
+    cc.save()
+    cc.translate(t.u * width, t.v * height)
+    cc.rotate(t.rotate ?? 0)
+    cc.scale(t.stretch ?? 1, t.mirror ? -1 : 1)
+    cc.font = `800 ${t.height}px "Helvetica Neue", Arial, sans-serif`
+    cc.textAlign = 'center'
+    cc.textBaseline = 'middle'
+    cc.lineWidth = Math.max(1, t.height * 0.08)
+    cc.strokeStyle = 'rgba(225,230,238,0.8)'
+    cc.strokeText(t.text, 0, 0)
+    cc.fillStyle = t.color ?? '#5d6b86'
+    cc.fillText(t.text, 0, 0)
+    cc.restore()
   }
 
   const make = (canvas: HTMLCanvasElement, srgb: boolean) => {

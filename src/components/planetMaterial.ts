@@ -30,7 +30,17 @@ export type SurfaceOptions = {
   ring?: { inner: number; outer: number }
   /** テクスチャが無い衛星の模様の種 */
   seed?: number
+  /** テクスチャが無い天体の目立つ地域（冥王星のハート、イアペトゥスの黒い半球など）。最大 MAX_REGIONS 個 */
+  regions?: Region[]
 }
+
+/**
+ * 球の上の丸い地域。lat・lon は度（lon は球の座標で、+X が 0 度・-Z が 90 度）、size は半径（度）。
+ * crater を付けると色でなく、大きなクレーターとして掘る
+ */
+export type Region = { lat: number; lon: number; size: number; color?: string; amount?: number; crater?: boolean }
+
+const MAX_REGIONS = 6
 
 const vertexShader = /* glsl */ `
   #include <common>
@@ -51,6 +61,7 @@ const vertexShader = /* glsl */ `
 `
 
 const fragmentShader = /* glsl */ `
+  #define MAX_REGIONS ${MAX_REGIONS}
   #include <common>
   #include <logdepthbuf_pars_fragment>
   uniform sampler2D uMap;
@@ -74,6 +85,9 @@ const fragmentShader = /* glsl */ `
   uniform float uRingHasMap;
   uniform float uDetail;
   uniform float uSeed;
+  uniform vec4 uRegion[${MAX_REGIONS}];
+  uniform vec4 uRegionColor[${MAX_REGIONS}];
+  uniform int uRegionCount;
   varying vec2 vUv;
   varying vec3 vNormalW;
   varying vec3 vPosW;
@@ -122,6 +136,12 @@ const fragmentShader = /* glsl */ `
       h += (bowl + rim) * rad;
     }
     return h;
+  }
+
+  // 地域の中心からの距離（半径を1とする）。縁はノイズで少しぎざぎざにする
+  float regionDist(vec3 unit, vec4 region) {
+    float d = acos(clamp(dot(unit, region.xyz), -1.0, 1.0)) / region.w;
+    return d + (fbm3(unit * 7.0 + region.xyz * 3.0 + uSeed) - 0.5) * 0.45;
   }
 
   // ---- ガスの流れ ----
@@ -193,6 +213,12 @@ const fragmentShader = /* glsl */ `
       float m = fbm3(unit * 3.5 + uSeed * 13.0);
       float s = fbm3(unit * 11.0 + uSeed * 7.0);
       albedo *= 0.62 + 0.55 * m + 0.25 * (s - 0.5);
+      for (int i = 0; i < MAX_REGIONS; i++) {
+        if (i >= uRegionCount) break;
+        if (uRegionColor[i].w <= 0.0) continue;
+        float w = 1.0 - smoothstep(0.8, 1.05, regionDist(unit, uRegion[i]));
+        albedo = mix(albedo, uRegionColor[i].rgb * (0.85 + 0.3 * s), w * uRegionColor[i].w);
+      }
     }
     if (uStyle == 3) {
       // 氷の巨大惑星：かすかな縞
@@ -213,6 +239,13 @@ const fragmentShader = /* glsl */ `
     if (solid) {
       float h = 0.0;
       if (uHasMap > 0.5) h = dot(albedo, vec3(0.3, 0.59, 0.11)) * 0.6;
+      for (int i = 0; i < MAX_REGIONS; i++) {
+        if (i >= uRegionCount) break;
+        if (uRegionColor[i].w > 0.0) continue;
+        // 大きなクレーター：くぼみと盛り上がった縁、真ん中の山
+        float t = acos(clamp(dot(unit, uRegion[i].xyz), -1.0, 1.0)) / uRegion[i].w;
+        h += ((t < 1.0 ? (t * t - 1.0) : 0.0) + exp(-pow((t - 1.0) * 6.0, 2.0)) * 0.4 + exp(-t * t * 90.0) * 0.5) * uRegion[i].w * 6.0;
+      }
       if (uDetail > 0.001) {
         // 近づいたときだけ、細かいクレーターと岩肌を足す（画面上で細かすぎる模様は消す）
         float px = length(fwidth(unit));
@@ -279,8 +312,24 @@ const fragmentShader = /* glsl */ `
   }
 `
 
+const DEG = Math.PI / 180
+
 export function createSurfaceMaterial(opts: SurfaceOptions) {
   const spot = opts.spot
+  const regions = (opts.regions ?? []).slice(0, MAX_REGIONS)
+  const regionDirs = Array.from({ length: MAX_REGIONS }, (_, i) => {
+    const r = regions[i]
+    if (!r) return new THREE.Vector4()
+    const lat = r.lat * DEG
+    const lon = r.lon * DEG
+    return new THREE.Vector4(Math.cos(lat) * Math.cos(lon), Math.sin(lat), -Math.cos(lat) * Math.sin(lon), r.size * DEG)
+  })
+  const regionColors = Array.from({ length: MAX_REGIONS }, (_, i) => {
+    const r = regions[i]
+    if (!r || r.crater) return new THREE.Vector4()
+    const c = new THREE.Color(r.color ?? opts.color)
+    return new THREE.Vector4(c.r, c.g, c.b, r.amount ?? 1)
+  })
   return new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
@@ -306,6 +355,9 @@ export function createSurfaceMaterial(opts: SurfaceOptions) {
       uRingHasMap: { value: 0 },
       uDetail: { value: 0 },
       uSeed: { value: opts.seed ?? 0 },
+      uRegion: { value: regionDirs },
+      uRegionColor: { value: regionColors },
+      uRegionCount: { value: regions.length },
     },
   })
 }
@@ -334,6 +386,28 @@ export function surfaceOptions(id: string, radius: number, color: string, extra:
       return { style: 'ice', radius, color, haze: '#7f9cff', hazeAmount: 0.22, jets: 4, flow: 0.005, spot: { u: 0.55, v: 0.36, ru: 0.03, rv: 0.018, spin: 0.8, dark: true }, seed }
     case 'titan':
       return { style: 'clouds', radius, color, haze: '#e0a85a', hazeAmount: 0.7, jets: 1, flow: 0.004, seed }
+    case 'pluto':
+      // ハート形の明るい窒素の氷（トンボー領域）と、赤道の暗い赤茶色の地域（クトゥルフ斑）
+      return {
+        style: 'airless', radius, color, seed, haze: '#9fb8e6', hazeAmount: 0.12,
+        regions: [
+          { lat: 22, lon: 172, size: 26, color: '#f6f1e8' },
+          { lat: 20, lon: 205, size: 25, color: '#ece2d2', amount: 0.85 },
+          { lat: 2, lon: 188, size: 13, color: '#f1eadf', amount: 0.9 },
+          { lat: -8, lon: 115, size: 26, color: '#4a2a1d' },
+          { lat: -6, lon: 65, size: 24, color: '#55301f' },
+          { lat: -10, lon: 25, size: 16, color: '#5d3624', amount: 0.85 },
+        ],
+      }
+    case 'charon':
+      // 北極の赤黒い地域（モルドール斑）。冥王星から逃げた大気が凍りついたもの
+      return { style: 'airless', radius, color, seed, regions: [{ lat: 90, lon: 0, size: 28, color: '#5a3426', amount: 0.9 }] }
+    case 'iapetus':
+      // 公転の進む向きの半球が黒い（カッシーニ地域）。衛星はいつも同じ面を土星に向け、-Z の向きへ進む
+      return { style: 'airless', radius, color, seed, regions: [{ lat: 0, lon: 90, size: 72, color: '#2a2018' }] }
+    case 'mimas':
+      // 直径の3分の1もある巨大なハーシェル・クレーター（進む向きの半球）
+      return { style: 'airless', radius, color, seed, regions: [{ lat: 2, lon: 70, size: 19, crater: true }] }
     default:
       return { style: 'airless', radius, color, seed }
   }

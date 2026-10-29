@@ -7,6 +7,7 @@ import { useStore } from '../state/store'
 import { CHARGE_SECONDS, EXIT_SECONDS, flightControl, ship, standoff, warpFx } from '../state/flight'
 import { APPROACH_TEXT, approachKind, limitDistance } from '../data/approach'
 import { approachSpeedFactor, nearInfo, proximity, updateProximity } from '../state/proximity'
+import { computeLayout } from '../data/layout'
 
 const SHIP_SCALE = 0.3
 const THRUST = 10
@@ -19,7 +20,12 @@ const TURN_EASE = 2.2
 const TURN_BACKLOG = 0.5 // rad。溜められる旋回量の上限（手を止めたらすぐ落ち着く）
 const ROLL_SPEED = 0.6
 const ROLL_EASE = 2
+// 旋回するとき、曲がる側へ少し傾ける（見た目だけ。宇宙には空気がないので本当は傾けなくても曲がれる）
+const BANK_MAX = 0.2 // rad（約11度）
+const BANK_EASE = 1.6
 const OVERVIEW = new THREE.Vector3(0, 120, 220)
+/** OVERVIEW から全体が見える、いちばん外の軌道の半径 */
+const OVERVIEW_FITS = 200
 
 const keys = new Set<string>()
 const mouse = { dx: 0, dy: 0 }
@@ -40,6 +46,9 @@ const qLook = new THREE.Quaternion()
 const qDelta = new THREE.Quaternion()
 const euler = new THREE.Euler()
 const camOffset = new THREE.Vector3(0, 0.095, 0.6)
+const prevQuat = new THREE.Quaternion()
+const qTurn = new THREE.Quaternion()
+const eTurn = new THREE.Euler(0, 0, 0, 'YXZ')
 
 /** 目標の方向を向く姿勢（前方は -Z） */
 function facing(from: THREE.Vector3, to: THREE.Vector3, upRef: THREE.Vector3) {
@@ -49,6 +58,7 @@ function facing(from: THREE.Vector3, to: THREE.Vector3, upRef: THREE.Vector3) {
 
 export function Ship() {
   const group = useRef<THREE.Group>(null!)
+  const bank = useRef<THREE.Group>(null!)
   const { gl, camera } = useThree()
   const mode = useStore((s) => s.mode)
 
@@ -92,7 +102,9 @@ export function Ship() {
   useEffect(() => {
     if (mode !== 'flight') {
       if (document.pointerLockElement) document.exitPointerLock()
-      camera.position.copy(OVERVIEW)
+      // 距離のスライダーで太陽系を広げていたら、全体が入るところまで引く
+      const layout = computeLayout(useStore.getState().settings.distance)
+      camera.position.copy(OVERVIEW).multiplyScalar(Math.max(1, Math.max(...layout.orbit.values()) / OVERVIEW_FITS))
       camera.up.set(0, 1, 0)
       return
     }
@@ -179,7 +191,8 @@ export function Ship() {
         if (v.lengthSq() < 1e-6) v.set(0, 0.2, 1)
         v.setLength(standoff(target.radius)).add(tp).sub(ship.position)
         const d = v.length()
-        ship.velocity.copy(v).setLength(Math.min(AUTO_SPEED, d * 1.5 + 0.2)).add(targetVel)
+        // 遠い目標ほど速く進む（距離のスライダーで太陽系を広げても、40秒ほどで着く）
+        ship.velocity.copy(v).setLength(Math.min(Math.max(AUTO_SPEED, d / 40), d * 1.5 + 0.2)).add(targetVel)
         ship.quaternion.slerp(facing(ship.position, tp, up), 1 - Math.exp(-2.5 * dt))
         if (d < 0.05) {
           ship.velocity.set(0, 0, 0)
@@ -200,6 +213,13 @@ export function Ship() {
 
     group.current.position.copy(ship.position)
     group.current.quaternion.copy(ship.quaternion)
+    // 船体の傾き：機首の左右の回りの速さ（ヨー）に合わせて、ゆっくり傾けて戻す
+    qTurn.copy(prevQuat).invert().multiply(ship.quaternion)
+    eTurn.setFromQuaternion(qTurn, 'YXZ')
+    prevQuat.copy(ship.quaternion)
+    const yawRate = dt > 0 && st.warpPhase === 'idle' ? eTurn.y / dt : 0
+    const bankTo = st.settings.banking ? THREE.MathUtils.clamp(yawRate / TURN_MAX, -1, 1) * BANK_MAX : 0
+    bank.current.rotation.z += (bankTo - bank.current.rotation.z) * (1 - Math.exp(-BANK_EASE * dt))
     v.copy(ship.position).negate()
     if (v.lengthSq() < 1e-6) v.set(0, 1, 0)
     sunSpot.current.position.copy(ship.position).addScaledVector(v.normalize(), 2)
@@ -224,7 +244,9 @@ export function Ship() {
   return (
     <>
       <group ref={group} scale={SHIP_SCALE}>
-        <ShipModel unitScale={SHIP_SCALE} />
+        <group ref={bank}>
+          <ShipModel unitScale={SHIP_SCALE} />
+        </group>
       </group>
       <spotLight
         ref={sunSpot}

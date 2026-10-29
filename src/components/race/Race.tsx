@@ -2,90 +2,20 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CubeModel } from '../cube/CubeModel'
-import { bodies, markerOverride } from '../../state/registry'
+import { markerOverride } from '../../state/registry'
 import { flightControl, ship } from '../../state/flight'
 import { useStore } from '../../state/store'
 import { RACE_TEXT, useRace } from '../../state/race'
 import { playBeep } from '../../audio/sfx'
+import { GATE_RADIUS, MAX_GATES, buildCourse, type Course } from './course'
 
-const GATE_RADIUS = 1.3
-const GATE_SPACING = 22
 const RIVAL_SPEED = 7
 const BOOST = 1.7
 const BOOST_SECONDS = 15
-const MAX_GATES = 64
 // 確認用：#raceauto（または #raceauto=速さ）で自機が自動で飛ぶ
 const AUTO = location.hash.match(/raceauto(?:=(\d+))?/)
 const AUTO_SPEED = Number(AUTO?.[1] ?? 8)
 const UP = new THREE.Vector3(0, 1, 0)
-
-type Gate = { pos: THREE.Vector3; normal: THREE.Vector3; u: number; event: 'jupiter' | 'swingby' | null }
-type Course = { curve: THREE.CatmullRomCurve3; length: number; gates: Gate[] }
-
-const world = (id: string) => {
-  const b = bodies.get(id)
-  if (!b) return null
-  return { pos: b.object.getWorldPosition(new THREE.Vector3()), radius: b.radius }
-}
-
-const angleOf = (v: THREE.Vector3) => Math.atan2(v.z, v.x)
-const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
-
-/**
- * 今の惑星の位置からコースを作る。
- * 火星 → 木星の横 → 土星の向こう側を回り込む弧（スイングバイ）→ 行きとは別の道すじで火星へ。
- */
-function buildCourse(): Course | null {
-  const mars = world('mars')
-  const jup = world('jupiter')
-  const sat = world('saturn')
-  if (!mars || !jup || !sat) return null
-  const M = mars.pos.clone().setY(0)
-  const J = jup.pos.clone().setY(0)
-  const S = sat.pos.clone().setY(0)
-
-  const toJ = J.clone().sub(M).normalize()
-  const side = new THREE.Vector3().crossVectors(UP, toJ)
-  const start = M.clone().addScaledVector(toJ, mars.radius * 4 + 2)
-  const jFly = J.clone().addScaledVector(side, jup.radius * 3.2).setY(1.5)
-
-  // 土星のまわりの弧：入ってくる向きと、火星へ戻る向きのあいだを、向こう側を通って回る
-  const R = sat.radius * 6 // 大きな船でも曲がり切れる半径
-  const inAng = angleOf(jFly.clone().sub(S))
-  const outAng = angleOf(M.clone().sub(S))
-  const farAng = angleOf(S.clone().sub(M))
-  const ccw = ((outAng - inAng) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2)
-  const cw = ccw - Math.PI * 2
-  const midOf = (sweep: number) => inAng + sweep / 2
-  const sweep = Math.abs(wrap(midOf(ccw) - farAng)) < Math.abs(wrap(midOf(cw) - farAng)) ? ccw : cw
-  // 入口と出口は少し内側に寄せて、弧の大部分で土星のまわりを回る
-  const arc: THREE.Vector3[] = []
-  for (let i = 0; i <= 6; i++) {
-    const a = inAng + sweep * (0.08 + 0.84 * (i / 6))
-    arc.push(new THREE.Vector3(S.x + Math.cos(a) * R, -1 + Math.sin((i / 6) * Math.PI) * 2, S.z + Math.sin(a) * R))
-  }
-  const exit = arc[arc.length - 1]
-  const back = M.clone().sub(exit)
-  const backSide = new THREE.Vector3().crossVectors(UP, back).normalize()
-  const backMid = exit.clone().lerp(M, 0.5)
-  if (backSide.dot(jFly.clone().sub(backMid)) > 0) backSide.negate()
-  backMid.addScaledVector(backSide, 14).setY(-2)
-  const finish = M.clone().addScaledVector(back.clone().normalize().negate(), mars.radius * 4 + 2)
-
-  const points = [start, start.clone().lerp(jFly, 0.5).setY(2.5), jFly, jFly.clone().lerp(arc[0], 0.5).setY(1), ...arc, backMid, finish.clone().lerp(backMid, 0.35), finish]
-  const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal')
-  const length = curve.getLength()
-  const n = THREE.MathUtils.clamp(Math.round(length / GATE_SPACING), 12, MAX_GATES)
-  const gates: Gate[] = []
-  for (let i = 0; i < n; i++) {
-    const u = 0.004 + (0.996 * i) / (n - 1)
-    gates.push({ pos: curve.getPointAt(u), normal: curve.getTangentAt(u), u, event: null })
-  }
-  const nearest = (p: THREE.Vector3) => gates.reduce((best, g, i) => (g.pos.distanceTo(p) < gates[best].pos.distanceTo(p) ? i : best), 0)
-  gates[nearest(jFly)].event = 'jupiter'
-  gates[nearest(arc[3])].event = 'swingby'
-  return { curve, length, gates }
-}
 
 /** コース上の輪（ゲート）、薄い道すじ、ライバルの立方体船、進行の判定 */
 export function Race() {
@@ -114,44 +44,50 @@ export function Race() {
     return l
   }, [pathMaterial])
 
-  // 開始：コースを作り、自機を最初の輪の手前に置いてカウントダウン
+  // 開始：コースを作り、自機を最初の輪の手前に置いてカウントダウン。
+  // 距離のスライダーを広げていたときは、惑星が見やすい距離にもどってから（次のフレームで）作る
+  const pending = useRef(false)
+  const begin = () => {
+    const r = run.current
+    const st = useStore.getState()
+    const c = buildCourse()
+    if (!c) {
+      useRace.getState().stop()
+      return
+    }
+    course.current = c
+    useRace.getState().update({ gateCount: c.gates.length })
+    line.geometry.dispose()
+    line.geometry = new THREE.BufferGeometry().setFromPoints(c.curve.getSpacedPoints(800))
+    line.computeLineDistances()
+
+    const first = c.gates[0]
+    ship.position.copy(first.pos).addScaledVector(first.normal, -4)
+    ship.velocity.set(0, 0, 0)
+    ship.quaternion.setFromRotationMatrix(new THREE.Matrix4().lookAt(ship.position, first.pos.clone().addScaledVector(first.normal, 10), UP))
+    flightControl.releaseHold = true
+    flightControl.locked = true
+    flightControl.speedScale = 1
+    r.prevTimeScale = st.timeScale || 1
+    st.setTimeScale(0) // レース中は惑星を止めて、コースがずれないようにする
+    st.setAutopilot(false)
+    st.setTarget(null)
+    st.setMode('flight')
+    st.setCameraMode('chase')
+    r.lastCount = 4
+    r.t = 0
+    r.prevSide = -1
+    r.boost = 0
+    r.rivalS = 0
+    r.rivalTime = null
+    r.rivalBoost = false
+    st.showToast(RACE_TEXT.start)
+  }
+
   useEffect(() => {
     const r = run.current
     const st = useStore.getState()
-    if (phase === 'countdown') {
-      const c = buildCourse()
-      if (!c) {
-        useRace.getState().stop()
-        return
-      }
-      course.current = c
-      useRace.getState().update({ gateCount: c.gates.length })
-      line.geometry.dispose()
-      line.geometry = new THREE.BufferGeometry().setFromPoints(c.curve.getSpacedPoints(800))
-      line.computeLineDistances()
-
-      const first = c.gates[0]
-      ship.position.copy(first.pos).addScaledVector(first.normal, -4)
-      ship.velocity.set(0, 0, 0)
-      ship.quaternion.setFromRotationMatrix(new THREE.Matrix4().lookAt(ship.position, first.pos.clone().addScaledVector(first.normal, 10), UP))
-      flightControl.releaseHold = true
-      flightControl.locked = true
-      flightControl.speedScale = 1
-      r.prevTimeScale = st.timeScale || 1
-      st.setTimeScale(0) // レース中は惑星を止めて、コースがずれないようにする
-      st.setAutopilot(false)
-      st.setTarget(null)
-      st.setMode('flight')
-      st.setCameraMode('chase')
-      r.lastCount = 4
-      r.t = 0
-      r.prevSide = -1
-      r.boost = 0
-      r.rivalS = 0
-      r.rivalTime = null
-      r.rivalBoost = false
-      st.showToast(RACE_TEXT.start)
-    }
+    if (phase === 'countdown') pending.current = true
     if (phase === 'idle' || phase === 'finished') {
       flightControl.locked = false
       flightControl.speedScale = 1
@@ -174,6 +110,10 @@ export function Race() {
   )
 
   useFrame(({ clock }, rawDelta) => {
+    if (pending.current) {
+      pending.current = false
+      begin()
+    }
     const c = course.current
     const race = useRace.getState()
     const visible = c !== null && race.phase !== 'idle'

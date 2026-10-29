@@ -55,13 +55,39 @@ export function playWarp(chargeSeconds: number, seconds: number) {
   rush.start(now)
 }
 
-/** ブラウザの音声合成で読み上げる */
+// 艦長の声：落ち着いた、低めのイギリス英語の男性の声。端末に入っている声から選ぶ
+// （Chrome の Google UK English Male、Mac・iPhone の Daniel、Windows の George など）
+const CAPTAIN_VOICES = ['Google UK English Male', 'Microsoft Ryan', 'Microsoft Thomas', 'Microsoft George', 'Daniel', 'Arthur', 'Oliver', 'Malcolm']
+const FEMALE = /female|woman|serena|kate|stephanie|martha|libby|sonia|hazel|susan|mia|maisie|fiona|moira|karen|tessa|samantha|victoria|zira|aria|jenny/i
+
+let captain: SpeechSynthesisVoice | null | undefined
+
+function captainVoice() {
+  if (captain !== undefined) return captain
+  const voices = window.speechSynthesis.getVoices()
+  if (voices.length === 0) return null // まだ読み込み中。次の呼び出しで選ぶ
+  const byName = CAPTAIN_VOICES.map((name) => voices.find((v) => v.name.includes(name) && v.lang.startsWith('en'))).find(Boolean)
+  const british = voices.filter((v) => v.lang.replace('_', '-').startsWith('en-GB'))
+  const english = voices.filter((v) => v.lang.startsWith('en'))
+  captain = byName ?? british.find((v) => !FEMALE.test(v.name)) ?? english.find((v) => /male/i.test(v.name) && !FEMALE.test(v.name)) ?? british[0] ?? english[0] ?? null
+  return captain
+}
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  window.speechSynthesis.addEventListener?.('voiceschanged', () => {
+    captain = undefined
+  })
+}
+
+/** ブラウザの音声合成で、艦長の声（英語）で読み上げる */
 export function speak(text: string, opts: { rate?: number; pitch?: number } = {}) {
   if (!('speechSynthesis' in window)) return
   const u = new SpeechSynthesisUtterance(text)
-  u.lang = 'ja-JP'
-  u.rate = opts.rate ?? 1.05
-  u.pitch = opts.pitch ?? 1
+  const voice = captainVoice()
+  if (voice) u.voice = voice
+  u.lang = voice?.lang ?? 'en-GB'
+  u.rate = opts.rate ?? 0.88
+  u.pitch = opts.pitch ?? 0.78
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(u)
 }

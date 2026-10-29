@@ -25,6 +25,8 @@ type State = {
   scopeNear: ScopeId | null
   /** のぞいている望遠鏡（写真の画面を開いている） */
   scope: ScopeId | null
+  /** 表示の設定（端末に保存する） */
+  settings: Settings
   setMode: (mode: Mode) => void
   setTarget: (id: string | null) => void
   setWarpFactor: (factor: number) => void
@@ -38,6 +40,25 @@ type State = {
   showToast: (text: string) => void
   setScopeNear: (id: ScopeId | null) => void
   setScope: (id: ScopeId | null) => void
+  updateSettings: (patch: Partial<Settings>) => void
+}
+
+export type Settings = {
+  /** 旋回するとき船体を少し傾ける（映画のような見た目。宇宙では本当は傾けなくても曲がれる） */
+  banking: boolean
+  /** 距離の広さ：0 は見やすい距離、1 は衛星が本物の比率・惑星どうしが本物の約20〜50分の1（data/layout.ts） */
+  distance: number
+}
+
+const SETTINGS_KEY = 'solar-voyager:settings'
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0 }
+
+function loadSettings(): Settings {
+  try {
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') }
+  } catch {
+    return DEFAULT_SETTINGS
+  }
 }
 
 const VISITED_KEY = 'solar-voyager:visited'
@@ -64,6 +85,7 @@ export const useStore = create<State>((set) => ({
   toast: null,
   scopeNear: null,
   scope: null,
+  settings: loadSettings(),
   setMode: (mode) => set({ mode }),
   setTarget: (targetId) => set({ targetId, autopilot: false, logOpen: false }),
   setWarpFactor: (warpFactor) => set({ warpFactor }),
@@ -87,6 +109,16 @@ export const useStore = create<State>((set) => ({
   showToast: (text) => set({ toast: { id: Date.now(), text } }),
   setScopeNear: (scopeNear) => set({ scopeNear }),
   setScope: (scope) => set(scope ? { scope, logOpen: false, autopilot: false } : { scope }),
+  updateSettings: (patch) =>
+    set((s) => {
+      const settings = { ...s.settings, ...patch }
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+      } catch {
+        // 保存できなくても遊べる
+      }
+      return { settings }
+    }),
 }))
 
 // 動作確認用：URL に #debug を付けると、ブラウザのコンソールから状態を見られる

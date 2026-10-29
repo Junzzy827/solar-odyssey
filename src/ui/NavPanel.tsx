@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { PLANETS } from '../data/bodies'
+import { computeLayout } from '../data/layout'
+import { bodyRadius } from '../data/scale'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { CUBE_ID, CUBE_NAME } from '../data/cube'
@@ -15,6 +17,36 @@ function TargetButton({ id, name, sub }: { id: string; name: string; sub?: boole
     <button className={`nav-item${sub ? ' sub' : ''}${targetId === id ? ' active' : ''}`} onClick={() => setTarget(id)}>
       {name}
     </button>
+  )
+}
+
+const EARTH = PLANETS.find((p) => p.id === 'earth')!
+
+/** 表示の設定：距離の広さと、旋回の傾き */
+function Settings({ racing }: { racing: boolean }) {
+  const settings = useStore((s) => s.settings)
+  const update = useStore((s) => s.updateSettings)
+  // 月までの距離を、地球の直径いくつ分かで見せる（本物は約30個分）
+  const moonGap = computeLayout(settings.distance).moon.get('moon')!.radius / (2 * bodyRadius(EARTH.radiusKm))
+  return (
+    <details className="nav-settings">
+      <summary>表示の設定</summary>
+      <label className="nav-slider">
+        <span>
+          距離 <span className="muted">{settings.distance < 0.01 ? '見やすい距離' : settings.distance > 0.99 ? '本物に近い' : ''}</span>
+        </span>
+        <input type="range" min={0} max={1} step={0.01} value={settings.distance} onChange={(e) => update({ distance: Number(e.target.value) })} disabled={racing} />
+      </label>
+      <div className="muted small">
+        月まで：地球の直径の約{moonGap < 10 ? moonGap.toFixed(1) : Math.round(moonGap)}個分（本物は約30個分）。右にすると衛星は本物の比率に、惑星どうしも本物の約20〜50分の1まで離れます。
+        {racing && 'レース中は見やすい距離で走ります。'}
+      </div>
+      <label className="nav-check">
+        <input type="checkbox" checked={settings.banking} onChange={(e) => update({ banking: e.target.checked })} />
+        旋回で船体を傾ける
+      </label>
+      <div className="muted small">宇宙には空気がないので、本当は傾けなくても曲がれます（飛行機が傾くのは、翼で空気を押して曲がるため）。</div>
+    </details>
   )
 }
 
@@ -35,6 +67,7 @@ export function NavPanel() {
         <TargetButton id="sun" name="太陽" />
         {PLANETS.map((p) => (
           <div key={p.id}>
+            {p.dwarf && <div className="nav-heading">準惑星</div>}
             <div className="nav-row">
               <TargetButton id={p.id} name={p.name} />
               {p.moons.length > 0 && (
@@ -89,6 +122,7 @@ export function NavPanel() {
           </button>
         ))}
       </div>
+      <Settings racing={racing} />
     </aside>
   )
 }

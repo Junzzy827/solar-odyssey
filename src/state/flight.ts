@@ -50,8 +50,19 @@ export function engage() {
   warpFx.seconds = warpSeconds(distance, s.warpFactor)
   s.setAutopilot(false)
   s.setWarpPhase('charge')
-  speak(`ワープ${s.warpFactor}、エンゲージ`)
+  speak(warpCall(s.targetId, s.warpFactor))
   playWarp(CHARGE_SECONDS, warpFx.seconds)
+}
+
+/** 英語の掛け声で呼ぶ行き先の名前 */
+const SPOKEN: Record<string, string> = { sun: 'the Sun', moon: 'the Moon', hubble: 'the Hubble Space Telescope', webb: 'the Webb Space Telescope', [CUBE_ID]: 'the unknown vessel' }
+const spokenName = (id: string) => SPOKEN[id] ?? id[0].toUpperCase() + id.slice(1)
+
+/** ワープの掛け声（艦長の号令。英語） */
+function warpCall(id: string, factor: number) {
+  const name = spokenName(id)
+  const lines = [`Warp ${factor}. Set course for ${name}... and proceed.`, `Heading for ${name}, warp ${factor}. Proceed.`, `${name}. Warp ${factor}... onward.`]
+  return lines[Math.floor(Math.random() * lines.length)]
 }
 
 /** 天体の名前と、太陽からの実際の距離（衛星は親の惑星の距離） */

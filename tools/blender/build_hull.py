@@ -136,20 +136,29 @@ def round_box(px, py, pz, hx, hy, hz, r):
     return outside + np.minimum(np.maximum(qx, np.maximum(qy, qz)), 0) - r
 
 
-# ワープコイルの溝（ナセルの内側と外側の側面）。ShipModel.tsx の COIL_SLOT と同じ値
-SLOT_H = 0.012      # 溝の高さの半分
-SLOT_X = 0.0325     # 溝の底（ナセル中心からの横の距離）
-SLOT_FRONT = 0.135  # 前端（ナセル先端からの距離）。上ほど前に出る斜めの切り口
-SLOT_FRONT_SLANT = 0.9
-SLOT_REAR = 0.39    # 後端。上ほど後ろへ流れる
-SLOT_REAR_SLANT = 0.5
+# 推進コイルの光る帯の溝。ナセルの側面をぐるっと一周（外側の側面 → 後端 → 内側の側面）し、
+# 先端の赤い集光器に向かってふくらむ。ShipModel.tsx の COIL_BAND と同じ値
+BAND_FRONT = 0.085     # 帯の前端（ナセル先端からの距離）
+BAND_THIN = 0.0055     # 帯の高さの半分（細いところ）
+BAND_WIDE = 0.019      # 先端の手前でふくらんだところ
+BAND_SWELL = (0.27, 0.15)  # この区間でふくらむ
+BAND_ROUND = 0.022     # 前端を丸める長さ
+BAND_DEPTH = 0.0035    # 溝の深さ
 
 
-def coil_slot(xx, yy, zz):
-    """溝の部分の距離（溝の中が負）"""
-    front = (SLOT_FRONT - SLOT_FRONT_SLANT * yy - zz) / math.hypot(1, SLOT_FRONT_SLANT)
-    rear = (zz - SLOT_REAR - SLOT_REAR_SLANT * yy) / math.hypot(1, SLOT_REAR_SLANT)
-    return np.maximum(np.maximum(np.abs(yy) - SLOT_H, SLOT_X - np.abs(xx)), np.maximum(front, rear))
+def smoothstep(e0, e1, x):
+    t = np.clip((x - e0) / (e1 - e0), 0, 1)
+    return t * t * (3 - 2 * t)
+
+
+def band_half_height(zz):
+    h = BAND_THIN + (BAND_WIDE - BAND_THIN) * smoothstep(BAND_SWELL[0], BAND_SWELL[1], zz)
+    return h * np.sqrt(np.clip((zz - BAND_FRONT) / BAND_ROUND, 0, 1))
+
+
+def coil_band(yy, zz, d):
+    """帯の溝の部分の距離（溝の中が負）。d は溝を彫る前のナセルの距離"""
+    return np.maximum(np.abs(yy) - band_half_height(zz), -(d + BAND_DEPTH))
 
 
 def nacelle_sdf(x, y, z, side):
@@ -160,7 +169,7 @@ def nacelle_sdf(x, y, z, side):
     p = 3.0
     rho = (np.abs(xx) ** p + np.abs(yy / NACELLE_H) ** p) ** (1 / p)
     d = revolved(rho, zz, NAC_FN) * NACELLE_H
-    return smax(d, -coil_slot(xx, yy, zz), 0.0012)
+    return smax(d, -coil_band(yy, zz, d), 0.0012)
 
 
 def round_rect(px, pz, hx, hz, r):

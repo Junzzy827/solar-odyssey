@@ -18,5 +18,5 @@ export const angularSpeed = (periodDays: number) => (2 * Math.PI * 365.25) / (EA
 /** 自転は実時間比だと速すぎるので、1日を8秒に固定する */
 export const spinSpeed = (rotationHours: number) => (2 * Math.PI) / ((rotationHours / 24) * 8)
 
-/** 衛星は周期差が大きいので平方根で圧縮（月の1周＝20秒） */
-export const moonSpeed = (orbitDays: number) => Math.sign(orbitDays) * (2 * Math.PI) / (20 * Math.sqrt(Math.abs(orbitDays) / 27.3))
+/** 衛星は周期差が大きいので平方根で圧縮（月の1周＝20秒）。フォボスなど速すぎるものも、1周4秒より速くはしない */
+export const moonSpeed = (orbitDays: number) => Math.sign(orbitDays) * (2 * Math.PI) / Math.max(4, 20 * Math.sqrt(Math.abs(orbitDays) / 27.3))

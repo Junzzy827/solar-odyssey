@@ -21,6 +21,13 @@ import { Hud, useGlobalKeys } from './ui/Hud'
 import { NavPanel } from './ui/NavPanel'
 import { LogPanel } from './ui/LogPanel'
 import { TelescopeView } from './ui/TelescopeView'
+import { useLayout } from './state/useLayout'
+
+/** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
+function MapControls() {
+  const layout = useLayout()
+  return <OrbitControls enablePan maxDistance={Math.max(1200, Math.max(...layout.orbit.values()) * 3)} />
+}
 
 export default function App() {
   const mode = useStore((s) => s.mode)
@@ -28,7 +35,7 @@ export default function App() {
 
   return (
     <>
-      <Canvas shadows camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 5000 }} gl={{ logarithmicDepthBuffer: true }}>
+      <Canvas shadows camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
         <SimClock />
         <ambientLight intensity={0.08} />
         <Sky />
@@ -45,7 +52,7 @@ export default function App() {
         <WarpStreaks />
         <TargetMarker />
         <Phaser />
-        {mode === 'map' && <OrbitControls enablePan maxDistance={1200} />}
+        {mode === 'map' && <MapControls />}
         <EffectComposer>
           <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />
         </EffectComposer>

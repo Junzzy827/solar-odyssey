@@ -2,7 +2,8 @@ import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { asteroidGeometry, asteroidMaterial } from './asteroidShape'
-import { angularSpeed, orbitRadius } from '../data/scale'
+import { angularSpeed } from '../data/scale'
+import { useLayout } from '../state/useLayout'
 import { asteroids, sim, type RockType } from '../state/registry'
 
 const COUNT = 3000
@@ -30,6 +31,8 @@ function random(seed: number) {
 export function AsteroidBelt() {
   const belt = useRef<THREE.Group>(null!)
   const meshes = useRef<THREE.InstancedMesh[]>([])
+  // 距離のスライダーを広げると、帯も火星と木星のあいだで広がる（岩の数は同じなので、本物のようにまばらになる）
+  const { belt: beltRadius } = useLayout()
 
   const { geometries, material } = useMemo(() => {
     const rand = random(7)
@@ -48,7 +51,7 @@ export function AsteroidBelt() {
     let large = 0
     for (let i = 0; i < COUNT; i++) {
       const au = INNER_AU + (OUTER_AU - INNER_AU) * (rand() + rand()) * 0.5
-      const r = orbitRadius(au)
+      const r = beltRadius(au)
       const a = rand() * Math.PI * 2
       const p = new THREE.Vector3(Math.cos(a) * r, (rand() - 0.5) * 3, Math.sin(a) * r)
       const size = 0.04 + rand() ** 3 * 0.4
@@ -60,7 +63,7 @@ export function AsteroidBelt() {
       groups[shape].push({ matrix: new THREE.Matrix4().compose(p, q, new THREE.Vector3(size, size, size)), type })
     }
     return groups
-  }, [])
+  }, [beltRadius])
 
   useLayoutEffect(() => {
     const color = new THREE.Color()
@@ -75,6 +78,7 @@ export function AsteroidBelt() {
       asteroids.types.set(mesh, types)
       mesh.instanceMatrix.needsUpdate = true
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+      mesh.computeBoundingSphere() // 帯が広がったら、見えているかの判定も広げる
     })
     return () => {
       asteroids.meshes.length = 0

@@ -25,14 +25,16 @@ function lathe(profile: Profile, segments: number, samples = 96) {
   const points = curve.getSpacedPoints(samples).map((p) => new THREE.Vector2(Math.max(0, p.x), p.y))
   const geometry = new THREE.LatheGeometry(points, segments)
   const rimIndex = points.reduce((best, p, i) => (p.x > points[best].x ? i : best), 0)
-  /** 縁より下（bottom）または上（top）で、半径 r を通る位置のテクスチャ座標 v */
+  // テクスチャは上下が反転して貼られる（flipY）ので、絵の縦位置は 1 - v で返す
+  const canvasV = (i: number) => 1 - i / samples
+  /** 縁より下（bottom）または上（top）で、半径 r を通る位置の、絵の縦位置 */
   const vAt = (r: number, side: 'top' | 'bottom') => {
     const range = side === 'bottom' ? [rimIndex, 0] : [rimIndex, samples]
     const step = side === 'bottom' ? -1 : 1
-    for (let i = range[0]; i !== range[1]; i += step) if (points[i].x <= r) return i / samples
-    return range[1] / samples
+    for (let i = range[0]; i !== range[1]; i += step) if (points[i].x <= r) return canvasV(i)
+    return canvasV(range[1])
   }
-  return { geometry, vRim: rimIndex / samples, vAt }
+  return { geometry, vRim: canvasV(rimIndex), vAt }
 }
 
 // 円盤部（下面中央 → 縁 → 上面中央の順で、法線が外を向く）
@@ -109,6 +111,18 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
         { v: r + 0.065, density: 0.6 },
         { v: r + 0.12, density: 0.35 },
         { v: r + 0.2, density: 0.25 },
+        // 下面：同心円に並ぶ長方形の窓（外側ほど多く、内側は区画ごとにまばらに）。
+        // テクスチャの横は円周方向なので、内側ほど同じ大きさに見えるよう横に広げる
+        ...[0.93, 0.87, 0.8, 0.73, 0.65, 0.57, 0.49, 0.4, 0.32].map((radius, i) => ({
+          v: saucer.vAt(radius, 'bottom'),
+          density: 0.78 - i * 0.05,
+          size: [Math.round(8.5 / radius), 5] as [number, number],
+          groups: (i < 4 ? [4, 9] : [2, 6]) as [number, number],
+        })),
+      ],
+      texts: [
+        // 下面の前寄りに、架空の型式番号（円周に沿って弧を描く）
+        { text: 'SV-01', u: 0.5, v: saucer.vAt(0.6, 'bottom'), height: 44, stretch: 1.9 },
       ],
       details: [
         { v: saucer.vAt(0.86, 'top'), kind: 'phaser' },
@@ -133,6 +147,11 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
         { v: 0.71, vertical: true, from: 0.12, to: 0.82, density: 0.7 },
         { v: 0.34, vertical: true, from: 0.15, to: 0.7, density: 0.5 },
         { v: 0.66, vertical: true, from: 0.15, to: 0.7, density: 0.5 },
+      ],
+      texts: [
+        // 副船体の左右に、型式と船の種類（調査船）
+        { text: 'SV-01  SURVEY VESSEL', u: 0.75, v: 0.5, height: 34, stretch: 0.55, rotate: Math.PI / 2, mirror: true },
+        { text: 'SV-01  SURVEY VESSEL', u: 0.25, v: 0.5, height: 34, stretch: 0.55, rotate: -Math.PI / 2, mirror: true },
       ],
     })
     const nacelleTex = hullTextures({ width: 512, height: 512, seed: 37, panelScale: 0.6, windows: [] })
@@ -167,8 +186,8 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
       bay: shuttleBayTexture(),
       coil: coilTexture(),
       coilSpillTex: coilSpillTexture(),
-      coilPlate: coilPlate(-0.0006),
-      coilSpill: coilPlate(0.008),
+      coilPlate: coilBand(0.0006, 0),
+      coilSpill: coilBand(COIL_BAND.depth + 0.0007, 0.007),
       name: nameTexture('SV-01  SOLAR VOYAGER'),
     }
   }, [envMap])
@@ -180,6 +199,7 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
   const deflector = useRef<THREE.MeshBasicMaterial>(null!)
   const impulse = useRef<THREE.MeshBasicMaterial>(null!)
   const strobes = useRef<THREE.MeshBasicMaterial[]>([])
+  const halos = useRef<THREE.SpriteMaterial[]>([])
   const navLights = useRef<THREE.MeshBasicMaterial[]>([])
 
   useFrame(({ clock }) => {
@@ -200,9 +220,12 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
     const d = (1.15 + w * 1.4) * (0.94 + 0.06 * Math.sin(t * 1.7))
     deflector.current.color.setRGB(d, d, d * 1.1)
     impulse.current.color.setRGB(w > 0 ? 0.6 : 1.8, 0.15, 0.08)
-    // ストロボは約2秒おきに短く光る。航行灯はゆっくり明滅
-    const flash = t % 2 < 0.08 ? 4 : 0.35
+    // 衝突防止灯（ストロボ）：飛行機の翼端灯のように、1.5秒おきに「チカッチカッ」と2回光る。航行灯はゆっくり明滅
+    const phase = t % STROBE_PERIOD
+    const on = phase < STROBE_FLASH || (phase > STROBE_GAP && phase < STROBE_GAP + STROBE_FLASH)
+    const flash = on ? 5 : 0.3
     strobes.current.forEach((m) => m.color.setRGB(flash, flash, flash))
+    halos.current.forEach((m) => (m.opacity = on ? 1 : 0))
     const nav = 0.7 + 0.5 * (Math.sin(t * Math.PI) > 0 ? 1 : 0)
     navLights.current.forEach((m, i) => (i % 2 === 0 ? m.color.setRGB(1.3 * nav, 0.04, 0.04) : m.color.setRGB(0.04, 1.3 * nav, 0.15)))
   })
@@ -220,6 +243,22 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
   const saucerBottom = SAUCER_POS[1] - 0.13 * SAUCER_SCALE[1]
   const rimX = SAUCER_SCALE[0]
 
+  const haloMat = (m: THREE.SpriteMaterial | null) => {
+    if (m && !halos.current.includes(m)) halos.current.push(m)
+  }
+  /** ストロボ：小さな光る玉と、光ったときだけ広がる光のにじみ */
+  const strobe = (position: [number, number, number], size: number) => (
+    <group position={position}>
+      <mesh>
+        <sphereGeometry args={[size, 10, 10]} />
+        <meshBasicMaterial ref={glowMat(strobes)} toneMapped={false} />
+      </mesh>
+      <sprite scale={size * 18}>
+        <spriteMaterial ref={haloMat} map={haloTexture()} color={new THREE.Color(2.2, 2.3, 2.6)} transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+      </sprite>
+    </group>
+  )
+
   const glowMat = (ref: React.MutableRefObject<THREE.MeshBasicMaterial[]>) => (m: THREE.MeshBasicMaterial | null) => {
     if (m && !ref.current.includes(m)) ref.current.push(m)
   }
@@ -236,11 +275,9 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
           <cylinderGeometry args={[0.0313, 0.0313, 0.0012, 64, 1, true]} />
           <meshBasicMaterial map={parts.bridgeWindows} transparent toneMapped={false} />
         </mesh>
-        <mesh position={[0, 0.0145, 0]}>
-          <sphereGeometry args={[0.0018, 12, 12]} />
-          <meshBasicMaterial color={new THREE.Color(0.9, 1.0, 1.3)} toneMapped={false} />
-        </mesh>
       </group>
+      {/* 艦橋のてっぺんのストロボ（ブリッジの縦の縮みを受けないよう外に置く） */}
+      {strobe([0, saucerTop - 0.004 + 0.0148, SAUCER_POS[2] + 0.01], 0.0022)}
       {/* 下部センサードーム */}
       <mesh position={[0, saucerBottom + 0.002, SAUCER_POS[2]]} scale={[1, 0.6, 1]}>
         <sphereGeometry args={[0.02, 24, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
@@ -273,6 +310,8 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
         <circleGeometry args={[0.038, 48]} />
         <meshBasicMaterial ref={deflector} map={parts.deflector} toneMapped={false} />
       </mesh>
+      {/* 副船体の後ろ、背中のストロボ */}
+      {strobe([0, SECONDARY_Y + 0.0375, 0.448], 0.0028)}
       {/* シャトルベイ：副船体の後端をえぐった奥にある扉（build_hull.py の BAY_* と同じ位置） */}
       <mesh position={[0, SECONDARY_Y + 0.005, 0.495 - 0.007 + 0.0003]}>
         <planeGeometry args={[0.033, 0.016]} />
@@ -297,30 +336,23 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
             <mesh position={[nx, NACELLE_Y, NACELLE_Z + 0.022]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.03, 1.37, 0.77]} material={parts.bussardGlass}>
               <sphereGeometry args={[0.033, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2]} />
             </mesh>
-            {/* ワープコイル：ナセル側面の溝の奥で光る板と、溝からあふれて外板を染める光 */}
-            {[-1, 1].map((face) => (
-              <group key={face}>
-                <mesh geometry={parts.coilPlate} position={[nx + face * (COIL_SLOT.x + 0.0003), NACELLE_Y, NACELLE_Z]}>
-                  <meshBasicMaterial ref={glowMat(grilles)} map={parts.coil} side={THREE.DoubleSide} toneMapped={false} />
-                </mesh>
-                <mesh geometry={parts.coilSpill} position={[nx + face * 0.0392, NACELLE_Y, NACELLE_Z]}>
-                  <meshBasicMaterial
-                    ref={glowMat(spills)}
-                    map={parts.coilSpillTex}
-                    transparent
-                    blending={THREE.AdditiveBlending}
-                    depthWrite={false}
-                    side={THREE.DoubleSide}
-                    toneMapped={false}
-                  />
-                </mesh>
-              </group>
-            ))}
-            {/* ナセル後端のストロボ */}
-            <mesh position={[nx, NACELLE_Y + 0.02, NACELLE_Z + 0.42]}>
-              <sphereGeometry args={[0.004, 8, 8]} />
-              <meshBasicMaterial ref={glowMat(strobes)} toneMapped={false} />
+            {/* 推進コイル：ナセルをぐるっと一周する溝の奥で光る帯と、溝からあふれて外板を染める光 */}
+            <mesh geometry={parts.coilPlate} position={[nx, NACELLE_Y, NACELLE_Z]}>
+              <meshBasicMaterial ref={glowMat(grilles)} map={parts.coil} side={THREE.DoubleSide} toneMapped={false} />
             </mesh>
+            <mesh geometry={parts.coilSpill} position={[nx, NACELLE_Y, NACELLE_Z]}>
+              <meshBasicMaterial
+                ref={glowMat(spills)}
+                map={parts.coilSpillTex}
+                transparent
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+                side={THREE.DoubleSide}
+                toneMapped={false}
+              />
+            </mesh>
+            {/* ナセル後端のストロボ */}
+            {strobe([nx, NACELLE_Y + 0.02, NACELLE_Z + 0.42], 0.0035)}
           </group>
         )
       })}
@@ -380,34 +412,134 @@ function Floodlights({ unitScale, saucerTop }: { unitScale: number; saucerTop: n
 }
 
 // ワープコイルの溝（tools/blender/build_hull.py の SLOT_* と同じ値。ナセル先端からの距離）
-const COIL_SLOT = { h: 0.012, x: 0.0325, front: 0.135, frontSlant: 0.9, rear: 0.39, rearSlant: 0.5 }
+// ストロボの光り方（秒）：周期、1回の光る長さ、2回目までの間
+const STROBE_PERIOD = 1.5
+const STROBE_FLASH = 0.06
+const STROBE_GAP = 0.2
+
+/** ストロボの光のにじみ（中心が明るく外へ消える丸） */
+let halo: THREE.CanvasTexture | null = null
+function haloTexture() {
+  if (halo) return halo
+  const size = 64
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const g = canvas.getContext('2d')!
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  grad.addColorStop(0, 'rgba(255,255,255,1)')
+  grad.addColorStop(0.15, 'rgba(255,255,255,0.6)')
+  grad.addColorStop(0.45, 'rgba(255,255,255,0.12)')
+  grad.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, size, size)
+  halo = new THREE.CanvasTexture(canvas)
+  halo.colorSpace = THREE.SRGBColorSpace
+  return halo
+}
+
+// 推進コイルの光る帯（tools/blender/build_hull.py の BAND_* と同じ値）。ナセルの側面をぐるっと一周し、
+// 先端の赤い集光器に向かってふくらむ
+const COIL_BAND = { front: 0.085, thin: 0.0055, wide: 0.019, swell: [0.27, 0.15], round: 0.022, depth: 0.0035 }
+// ナセルの断面（build_hull.py の NACELLE と同じ。半径, 先端からの距離）。断面の形は超楕円で、縦は NACELLE_H 倍
+const NACELLE_PROFILE: [number, number][] = [
+  [0, 0], [0.024, 0.004], [0.033, 0.018], [0.037, 0.045], [0.038, 0.12], [0.038, 0.36], [0.035, 0.4],
+  [0.028, 0.425], [0.013, 0.435], [0, 0.437],
+]
+const NACELLE_H = 0.75
+
+const smooth = (e0: number, e1: number, x: number) => {
+  const t = THREE.MathUtils.clamp((x - e0) / (e1 - e0), 0, 1)
+  return t * t * (3 - 2 * t)
+}
+function bandHalfHeight(zz: number) {
+  const { front, thin, wide, swell, round } = COIL_BAND
+  return (thin + (wide - thin) * smooth(swell[0], swell[1], zz)) * Math.sqrt(THREE.MathUtils.clamp((zz - front) / round, 0, 1))
+}
 
 /**
- * ワープコイルの発光板。溝の輪郭（前端は上ほど前、後端は上ほど後ろに流れる台形）を
- * expand だけ広げた平板を、ナセル側面の向き（X 方向）に立てて作る。
- * UV は u が長さ方向、v が高さ方向（0〜1）。
+ * 推進コイルの帯の面。lift は溝の底からの高さ（溝の底の少し上に光る板、外板の少し外にあふれる光）、
+ * extra は帯の高さに足す幅。ナセルの中心を原点に、z はナセルの先端からの距離。
+ * u は帯に沿って（外側の前端 0 → 後端 → 内側の前端 1）、v は帯の高さ方向（0〜1）。
  */
-function coilPlate(expand: number) {
-  const { h, front, frontSlant, rear, rearSlant } = COIL_SLOT
-  const H = h + expand
-  const pts: [number, number][] = [
-    [front - frontSlant * H - expand, H],
-    [front + frontSlant * H - expand, -H],
-    [rear - rearSlant * H + expand, -H],
-    [rear + rearSlant * H + expand, H],
-  ]
-  const shape = new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(z, y)))
-  const g = new THREE.ShapeGeometry(shape)
-  const pos = g.attributes.position
-  const uv = g.attributes.uv
-  const zMin = Math.min(...pts.map((p) => p[0]))
-  const zMax = Math.max(...pts.map((p) => p[0]))
-  for (let i = 0; i < pos.count; i++) {
-    const z = pos.getX(i)
-    const y = pos.getY(i)
-    pos.setXYZ(i, 0, y, z)
-    uv.setXY(i, (z - zMin) / (zMax - zMin), (y + H) / (2 * H))
+function coilBand(lift: number, extra: number) {
+  const curve = new THREE.SplineCurve(NACELLE_PROFILE.map(([r, z]) => new THREE.Vector2(r, z)))
+  const line = curve.getPoints(320)
+  const maxR = (z: number) => {
+    for (let i = 1; i < line.length; i++) {
+      if (line[i].y >= z) {
+        const a = line[i - 1]
+        const b = line[i]
+        return a.x + ((b.x - a.x) * (z - a.y)) / Math.max(b.y - a.y, 1e-9)
+      }
+    }
+    return 0
   }
+  // 断面の空間（横は正規化した半径）での、外板からの符号付き距離。build_hull.py の revolved と同じ考え方
+  // near は輪郭の点の番号。その前後だけ調べて速くする（帯は細いので、いちばん近い所はその近くにある）
+  const signed = (x: number, y: number, z: number, near: number) => {
+    const rho = Math.cbrt(Math.abs(x) ** 3 + Math.abs(y / NACELLE_H) ** 3)
+    let d2 = Infinity
+    for (let i = Math.max(1, near - 36); i < Math.min(line.length, near + 36); i++) {
+      const ax = line[i - 1].x
+      const az = line[i - 1].y
+      const bx = line[i].x - ax
+      const bz = line[i].y - az
+      const t = THREE.MathUtils.clamp(((rho - ax) * bx + (z - az) * bz) / (bx * bx + bz * bz || 1), 0, 1)
+      d2 = Math.min(d2, (rho - ax - bx * t) ** 2 + (z - az - bz * t) ** 2)
+    }
+    const inside = z > 0 && z < line[line.length - 1].y && rho < maxR(z)
+    return (inside ? -1 : 1) * Math.sqrt(d2) * NACELLE_H
+  }
+  const target = -COIL_BAND.depth + lift
+
+  // 帯の通り道：真横から見た輪郭（y=0）に沿って、前端から後端へ
+  const path = line.map((p, index) => ({ p, index })).filter(({ p }) => p.y >= COIL_BAND.front && p.x > 0)
+  const along = path.filter((_, i) => i % 2 === 0 || i === path.length - 1)
+  const rows = 7
+  const verts: number[] = []
+  const uvs: number[] = []
+  const columns: { x: number; z: number; nx: number; nz: number; len: number; index: number }[] = []
+  let len = 0
+  along.forEach(({ p, index }, i) => {
+    const prev = along[Math.max(0, i - 1)].p
+    const next = along[Math.min(along.length - 1, i + 1)].p
+    if (i > 0) len += p.distanceTo(prev)
+    const tx = next.x - prev.x
+    const tz = next.y - prev.y
+    const n = Math.hypot(tx, tz) || 1
+    columns.push({ x: p.x, z: p.y, nx: tz / n, nz: -tx / n, len, index })
+  })
+  // 外側の側面と内側の側面（後端でつながる）
+  const loop = [...columns.map((c) => ({ ...c, side: 1 })), ...columns.slice(0, -1).reverse().map((c) => ({ ...c, side: -1, len: 2 * len - c.len }))]
+  for (const c of loop) {
+    const h = bandHalfHeight(c.z) + extra
+    for (let j = 0; j < rows; j++) {
+      const y = (j / (rows - 1) * 2 - 1) * h
+      // 輪郭の外向きの向きに沿って、ねらった深さの面まで動かす（二分法）
+      let lo = -0.03
+      let hi = 0.012
+      for (let k = 0; k < 14; k++) {
+        const t = (lo + hi) / 2
+        if (signed(c.x + c.nx * t, y, c.z + c.nz * t, c.index) > target) hi = t
+        else lo = t
+      }
+      const t = (lo + hi) / 2
+      verts.push(c.side * (c.x + c.nx * t), y, c.z + c.nz * t)
+      uvs.push(c.len / (2 * len), j / (rows - 1))
+    }
+  }
+  const index: number[] = []
+  for (let i = 0; i < loop.length - 1; i++) {
+    for (let j = 0; j < rows - 1; j++) {
+      const a = i * rows + j
+      const b = (i + 1) * rows + j
+      index.push(a, b, a + 1, b, b + 1, a + 1)
+    }
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3))
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+  g.setIndex(index)
   g.computeVertexNormals()
   return g
 }

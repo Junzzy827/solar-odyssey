@@ -200,6 +200,41 @@ button:disabled {
   padding: 4px;
 }
 
+.nav-settings summary {
+  cursor: pointer;
+  color: #c9c0f0;
+}
+
+.nav-settings[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nav-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.nav-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.small {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.moon-label span {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
 #target-marker {
   display: none;
   position: fixed;
