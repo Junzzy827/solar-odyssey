@@ -3,7 +3,6 @@
 import { mkdir, writeFile, access } from 'node:fs/promises'
 
 const files = [
-  '2k_sun.jpg',
   '2k_mercury.jpg',
   '2k_venus_atmosphere.jpg',
   '2k_earth_daymap.jpg',

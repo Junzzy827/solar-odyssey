@@ -4,7 +4,6 @@
 const base = `${import.meta.env.BASE_URL}textures/`
 
 export const TEXTURES: Record<string, string> = {
-  sun: '2k_sun.jpg',
   mercury: '2k_mercury.jpg',
   venus: '2k_venus_atmosphere.jpg',
   earth: '2k_earth_daymap.jpg',

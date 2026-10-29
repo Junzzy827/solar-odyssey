@@ -110,7 +110,8 @@ export function Ship() {
 
     if (st.warpPhase !== 'idle' && target) {
       const w = warp.current
-      w.t += dt
+      // 音声と合わせるため、ワープの進行は実時間で数える
+      w.t += Math.min(rawDelta, 0.25)
       if (st.warpPhase === 'charge') {
         ship.velocity.multiplyScalar(Math.exp(-3 * dt))
         ship.position.addScaledVector(ship.velocity, dt)

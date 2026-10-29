@@ -1,5 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
+import { Bloom, EffectComposer } from '@react-three/postprocessing'
 import { PLANETS } from './data/bodies'
 import { useStore } from './state/store'
 import { Sun } from './components/Sun'
@@ -7,6 +8,7 @@ import { PlanetBody } from './components/PlanetBody'
 import { Sky } from './components/Sky'
 import { SimClock } from './components/SimClock'
 import { Ship } from './components/Ship'
+import { AsteroidBelt } from './components/AsteroidBelt'
 import { WarpStreaks } from './components/WarpStreaks'
 import { TargetMarker } from './components/TargetMarker'
 import { Hud, useGlobalKeys } from './ui/Hud'
@@ -26,10 +28,14 @@ export default function App() {
         {PLANETS.map((planet, i) => (
           <PlanetBody key={planet.id} planet={planet} startAngle={i * 2.39} />
         ))}
+        <AsteroidBelt />
         <Ship />
         <WarpStreaks />
         <TargetMarker />
         {mode === 'map' && <OrbitControls enablePan maxDistance={1200} />}
+        <EffectComposer>
+          <Bloom intensity={1.2} luminanceThreshold={0.85} luminanceSmoothing={0.2} mipmapBlur />
+        </EffectComposer>
       </Canvas>
       <Hud />
       <NavPanel />
