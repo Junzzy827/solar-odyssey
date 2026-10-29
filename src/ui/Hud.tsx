@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { RACE_TEXT, raceActive } from '../state/race'
+import type { Near } from '../state/proximity'
 
 /** 全体のキー操作：M 全体マップ／Enter エンゲージ／G 自動航行／C カメラ／1〜9 ワープ速度 */
 export function useGlobalKeys() {
@@ -48,6 +49,37 @@ function Toast() {
   )
 }
 
+/** 大きな数を「約22万」のように読みやすくする */
+function roughly(n: number) {
+  if (n >= 1e8) return `${(n / 1e8).toPrecision(2)}億`
+  if (n >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}万`
+  if (n >= 100) return Math.round(n / 10) * 10 + ''
+  return n < 10 ? n.toFixed(1) : Math.round(n) + ''
+}
+
+/** 天体のそばでの高さ・雲の中の様子と、大きさくらべ */
+function NearReadout({ near }: { near: Near }) {
+  const earth = near.timesEarth >= 1.5 ? `地球の約${roughly(near.timesEarth)}倍、` : ''
+  return (
+    <div className="near">
+      {near.dive ? (
+        <div className="near-dive">
+          {near.name}の雲の下 約{roughly(near.dive.km)}km・{near.dive.bar.toFixed(1)}気圧・{Math.round(near.dive.celsius)}℃
+        </div>
+      ) : (
+        near.altitudeKm !== null && (
+          <div>
+            {near.name}の{near.kind === 'gas' ? '雲の上' : near.kind === 'star' ? '表面から' : '地表から'} 約{roughly(near.altitudeKm)}km
+          </div>
+        )
+      )}
+      <div className="muted">
+        直径は{earth}この船の約{roughly(near.timesShip)}倍
+      </div>
+    </div>
+  )
+}
+
 export function Hud() {
   const locked = usePointerLocked()
   const mode = useStore((s) => s.mode)
@@ -74,6 +106,7 @@ export function Hud() {
           </div>
         )}
         <div className="muted">速度 {telemetry.speed.toFixed(1)}</div>
+        {mode === 'flight' && telemetry.near && <NearReadout near={telemetry.near} />}
       </div>
 
       <button className="mode-button" onClick={() => setMode(mode === 'map' ? 'flight' : 'map')}>

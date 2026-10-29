@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -12,6 +12,8 @@ import { OrbitLine } from './OrbitLine'
 import { Atmosphere } from './Atmosphere'
 import { EarthSurface } from './EarthSurface'
 import { SaturnRing } from './SaturnRing'
+import { CloudInterior } from './CloudInterior'
+import { approachKind } from '../data/approach'
 
 const DEG = Math.PI / 180
 
@@ -20,7 +22,8 @@ function TexturedSphere({ textureKey, radius, color }: { textureKey: string; rad
   return (
     <mesh>
       <sphereGeometry args={[radius, 64, 64]} />
-      {map ? <meshStandardMaterial map={map} roughness={0.95} metalness={0} /> : <meshStandardMaterial color={color} roughness={0.9} />}
+      {/* テクスチャが届いたらシェーダーを作り直すため、key で別の材質にする */}
+      {map ? <meshStandardMaterial key="tex" map={map} roughness={0.95} metalness={0} /> : <meshStandardMaterial key="flat" color={color} roughness={0.9} />}
     </mesh>
   )
 }
@@ -40,11 +43,15 @@ function MoonBody({ moon, position }: { moon: Moon; position: [number, number, n
 export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle: number }) {
   const orbit = useRef<THREE.Group>(null!)
   const spin = useRef<THREE.Group>(null!)
+  const surface = useRef<THREE.Group>(null!)
   const moonPivots = useRef<THREE.Group[]>([])
 
   const distance = orbitRadius(planet.distanceAu)
   const radius = bodyRadius(planet.radiusKm)
   const isEarth = planet.id === 'earth'
+  const isGas = approachKind(planet.id) === 'gas'
+  const map = useOptionalTexture(isGas ? textureUrl(planet.id) : undefined)
+  const deep = useMemo(() => '#' + new THREE.Color(planet.color).multiplyScalar(0.18).getHexString(), [planet.color])
 
   useEffect(() => registerBody({ id: planet.id, name: planet.name, radius, object: orbit.current }), [planet, radius])
 
@@ -64,7 +71,10 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
       <group ref={orbit}>
         <group rotation={[0, 0, planet.tiltDeg * DEG]}>
           <group ref={spin}>
-            {isEarth ? <EarthOrFallback radius={radius} color={planet.color} /> : <TexturedSphere textureKey={planet.id} radius={radius} color={planet.color} />}
+            <group ref={surface}>
+              {isEarth ? <EarthOrFallback radius={radius} color={planet.color} /> : <TexturedSphere textureKey={planet.id} radius={radius} color={planet.color} />}
+            </group>
+            {isGas && <CloudInterior id={planet.id} radius={radius} haze={planet.atmosphere ?? planet.color} deep={deep} map={map} surface={surface} />}
           </group>
           {planet.atmosphere && <Atmosphere radius={radius} color={planet.atmosphere} power={isEarth ? 1 : 1.6} />}
           {planet.ring && <SaturnRing inner={radius * planet.ring.inner} outer={radius * planet.ring.outer} color={planet.ring.color} />}

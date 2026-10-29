@@ -22,9 +22,9 @@ export function SaturnRing({ inner, outer, color }: { inner: number; outer: numb
   return (
     <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]}>
       {alpha ? (
-        <meshStandardMaterial map={alpha} transparent side={THREE.DoubleSide} depthWrite={false} />
+        <meshStandardMaterial key="tex" map={alpha} transparent side={THREE.DoubleSide} depthWrite={false} />
       ) : (
-        <meshStandardMaterial color={color} transparent opacity={0.7} side={THREE.DoubleSide} />
+        <meshStandardMaterial key="flat" color={color} transparent opacity={0.7} side={THREE.DoubleSide} />
       )}
     </mesh>
   )

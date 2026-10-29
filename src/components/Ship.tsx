@@ -5,6 +5,8 @@ import { ShipModel } from './ship/ShipModel'
 import { bodies } from '../state/registry'
 import { useStore } from '../state/store'
 import { CHARGE_SECONDS, EXIT_SECONDS, flightControl, ship, standoff, warpFx } from '../state/flight'
+import { APPROACH_TEXT, approachKind, limitDistance } from '../data/approach'
+import { approachSpeedFactor, nearInfo, proximity, updateProximity } from '../state/proximity'
 
 const SHIP_SCALE = 0.3
 const THRUST = 10
@@ -187,6 +189,7 @@ export function Ship() {
       }
       ship.position.addScaledVector(ship.velocity, dt)
       avoidBodies()
+      updateProximity(ship.position)
 
       // 待機中に操縦したら相対位置を更新、離れたら待機を解除
       if (hold.current && held) {
@@ -214,7 +217,7 @@ export function Ship() {
       telemetryClock.current = 0
       const distance = target ? Math.max(0, tp.distanceTo(ship.position) - target.radius) : null
       const speed = ship.velocity.length()
-      st.setTelemetry({ distance, speed, eta: distance !== null && speed > 0.1 ? distance / speed : null })
+      st.setTelemetry({ distance, speed, eta: distance !== null && speed > 0.1 ? distance / speed : null, near: nearInfo(proximity) })
     }
   })
 
@@ -272,25 +275,51 @@ function steer(dt: number, enabled: boolean) {
     (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0),
   )
   const thrusting = v.lengthSq() > 0
+  const before = ship.velocity.length()
   if (thrusting) {
     v.normalize().applyQuaternion(ship.quaternion)
     ship.velocity.addScaledVector(v, THRUST * dt)
-    if (ship.velocity.length() > MAX_SPEED * flightControl.speedScale) ship.velocity.setLength(MAX_SPEED * flightControl.speedScale)
   } else {
     ship.velocity.multiplyScalar(Math.exp(-0.8 * dt))
   }
+  // 天体のそばでは上限が下がる。急ブレーキにならないよう、なめらかに落とす
+  const cap = MAX_SPEED * flightControl.speedScale * approachSpeedFactor()
+  const speed = ship.velocity.length()
+  if (speed > cap) ship.velocity.setLength(Math.max(cap, Math.min(speed, before * Math.exp(-2.5 * dt))))
   return thrusting || turned
 }
 
-/** 天体にめり込まないよう押し出す */
+/** 天体ごとの接近限界で止める。止まったときと雲に入ったときに説明を出す */
+const lastNotice = new Map<string, number>()
+function notice(key: string, text: string) {
+  const now = performance.now()
+  if (now - (lastNotice.get(key) ?? -Infinity) < 15000) return
+  lastNotice.set(key, now)
+  useStore.getState().showToast(text)
+}
+let insideGas: string | null = null
+
 function avoidBodies() {
   for (const body of bodies.values()) {
     body.object.getWorldPosition(v)
-    const min = body.radius * 1.05 + 0.15
+    const min = limitDistance(body.id, body.radius)
     const d = ship.position.distanceTo(v)
+    const kind = approachKind(body.id)
+    if (kind === 'gas') {
+      if (d < body.radius && insideGas !== body.id) {
+        insideGas = body.id
+        notice(`${body.id}:dive`, APPROACH_TEXT.diveStart(body.name))
+      } else if (d > body.radius * 1.02 && insideGas === body.id) insideGas = null
+    }
     if (d < min) {
+      // 自分から突っ込んだときだけ説明する（衛星のほうが近づいてきたときは黙って避ける）
+      const pushing = ship.velocity.dot(fwd.copy(v).sub(ship.position).normalize()) > 0.2
       ship.position.sub(v).setLength(min).add(v)
       ship.velocity.multiplyScalar(0.5)
+      if (!pushing) continue
+      if (kind === 'star') notice('sun', APPROACH_TEXT.star)
+      else if (kind === 'rock') notice(body.id, APPROACH_TEXT.rock(body.name))
+      else if (kind === 'gas') notice(body.id, APPROACH_TEXT.gasLimit(body.name))
     }
   }
 }

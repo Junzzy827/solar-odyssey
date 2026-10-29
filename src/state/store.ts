@@ -1,10 +1,11 @@
 import { create } from 'zustand'
+import type { Near } from './proximity'
 
 export type Mode = 'map' | 'flight'
 export type CameraMode = 'chase' | 'hero'
 export type WarpPhase = 'idle' | 'charge' | 'warp' | 'exit'
 
-type Telemetry = { distance: number | null; speed: number; eta: number | null }
+type Telemetry = { distance: number | null; speed: number; eta: number | null; near?: Near | null }
 
 type State = {
   mode: Mode
