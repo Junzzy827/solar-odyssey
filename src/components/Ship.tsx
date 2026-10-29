@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { ShipModel } from './ship/ShipModel'
+import { BRIDGE_BASE, METERS_PER_UNIT, ShipModel } from './ship/ShipModel'
 import { GalleryScene } from './ship/GalleryScene'
 import { bodies } from '../state/registry'
 import { useStore } from '../state/store'
@@ -10,6 +10,8 @@ import { APPROACH_TEXT, approachKind, limitDistance } from '../data/approach'
 import { approachSpeedFactor, nearInfo, proximity, updateProximity } from '../state/proximity'
 import { useLayout } from '../state/useLayout'
 import { isTouchDevice, touchInput } from '../state/input'
+import { bridgeEye, useBridge } from '../state/bridge'
+import { FLOOR_ABOVE_BASE, lookAngles, viewpoint } from '../data/bridge'
 
 const THRUST = 10
 const MAX_SPEED = 8
@@ -24,6 +26,14 @@ const ROLL_EASE = 2
 // 旋回するとき、曲がる側へ少し傾ける（見た目だけ。宇宙には空気がないので本当は傾けなくても曲がれる）
 const BANK_MAX = 0.2 // rad（約11度）
 const BANK_EASE = 1.6
+// ブリッジ視点：首を振る速さと、振れる範囲
+const HEAD_SENSITIVITY = 0.0024
+const HEAD_YAW_MAX = 2.7
+const HEAD_PITCH_MIN = -1.2
+const HEAD_PITCH_MAX = 1.45
+/** ふだんのカメラの手前の限界。ブリッジでは窓のすぐ外の円盤まで見えるよう、ぐっと近くまで描く */
+const NEAR = 0.01
+const BRIDGE_NEAR = 0.0004
 const OVERVIEW = new THREE.Vector3(0, 120, 220)
 /** OVERVIEW から全体が見える、いちばん外の軌道の半径 */
 const OVERVIEW_FITS = 200
@@ -87,6 +97,20 @@ export function Ship() {
       mouse.dy += e.movementY
     }
     const blur = () => keys.clear()
+    // ブリッジの艦長席では、右ボタンを押しているあいだ首を振る（船の向きは変えない）
+    const bridgeLook = (on: boolean) => (e: MouseEvent) => {
+      if (e.button !== 2) return
+      const st = useStore.getState()
+      if (st.mode === 'flight' && st.cameraMode === 'bridge') useBridge.getState().setLooking(on)
+    }
+    const press = bridgeLook(true)
+    const release = bridgeLook(false)
+    const noMenu = (e: MouseEvent) => {
+      if (useStore.getState().cameraMode === 'bridge') e.preventDefault()
+    }
+    window.addEventListener('mousedown', press)
+    window.addEventListener('mouseup', release)
+    gl.domElement.addEventListener('contextmenu', noMenu)
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', upKey)
     window.addEventListener('mousemove', move)
@@ -96,6 +120,9 @@ export function Ship() {
       window.removeEventListener('keyup', upKey)
       window.removeEventListener('mousemove', move)
       window.removeEventListener('blur', blur)
+      window.removeEventListener('mousedown', press)
+      window.removeEventListener('mouseup', release)
+      gl.domElement.removeEventListener('contextmenu', noMenu)
     }
   }, [gl])
 
@@ -196,7 +223,11 @@ export function Ship() {
       }
     } else {
       if (st.warpPhase !== 'idle') st.setWarpPhase('idle')
-      const manual = steer(dt, st.mode === 'flight' && !flightControl.locked && !st.scope)
+      // ブリッジの艦長席以外（窓のそばや天井から）では、マウスや指は首を振るだけで、船は操縦しない
+      const inBridge = st.mode === 'flight' && st.cameraMode === 'bridge'
+      const atSeat = useBridge.getState().viewpoint === 'captain'
+      if (inBridge && (!atSeat || useBridge.getState().looking)) lookAround()
+      const manual = steer(dt, st.mode === 'flight' && !flightControl.locked && !st.scope && !(inBridge && !atSeat))
       if (manual && st.autopilot) st.setAutopilot(false)
 
       if (st.autopilot && target && !manual) {
@@ -238,8 +269,19 @@ export function Ship() {
     if (v.lengthSq() < 1e-6) v.set(0, 1, 0)
     sunSpot.current.position.copy(ship.position).addScaledVector(v.normalize(), 2)
 
+    const cam = camera as THREE.PerspectiveCamera
+    const bridgeView = st.mode === 'flight' && st.cameraMode === 'bridge'
+    // ブリッジを出たら、次に入ったときは見どころにそのまま立つ
+    if (!bridgeView) bridgeMove.id = ''
+    if (!bridgeView && cam.near !== NEAR) {
+      cam.near = NEAR
+      cam.updateProjectionMatrix()
+    }
     if (st.mode === 'flight') {
-      if (st.cameraMode === 'hero' && st.warpPhase === 'idle') heroCamera(camera as THREE.PerspectiveCamera, dt)
+      if (bridgeView) {
+        hero.active = false
+        bridgeCamera(cam, dt, bank.current.quaternion)
+      } else if (st.cameraMode === 'hero' && st.warpPhase === 'idle') heroCamera(camera as THREE.PerspectiveCamera, dt)
       else {
         hero.active = false
         followCamera(camera as THREE.PerspectiveCamera, dt, st.warpPhase)
@@ -397,6 +439,68 @@ function heroCamera(camera: THREE.PerspectiveCamera, dt: number) {
   camera.up.lerp(up, 1 - Math.exp(-4 * dt))
   camera.lookAt(v.copy(ship.position).addScaledVector(up, 0.03 * SHIP_SCALE))
   camera.fov += (22 - camera.fov) * (1 - Math.exp(-2 * dt))
+  camera.updateProjectionMatrix()
+}
+
+/** 首を振る（マウスの動きや指でなぞった量を、船ではなく目の向きに使う） */
+function lookAround() {
+  bridgeEye.yaw = THREE.MathUtils.clamp(bridgeEye.yaw - (mouse.dx + touchInput.lookX) * HEAD_SENSITIVITY, -HEAD_YAW_MAX, HEAD_YAW_MAX)
+  bridgeEye.pitch = THREE.MathUtils.clamp(bridgeEye.pitch - (mouse.dy + touchInput.lookY) * HEAD_SENSITIVITY, HEAD_PITCH_MIN, HEAD_PITCH_MAX)
+  mouse.dx = mouse.dy = 0
+  touchInput.lookX = touchInput.lookY = 0
+  bridgeMove.settling = false
+}
+
+/** 見どころを移るときは、目の位置と向きをなめらかに動かす */
+const bridgeMove = { id: '', settling: false }
+const eyeTarget = new THREE.Vector3()
+const eyeModel = new THREE.Vector3()
+const qHead = new THREE.Quaternion()
+const eHead = new THREE.Euler(0, 0, 0, 'YXZ')
+
+/**
+ * ブリッジ視点：艦橋の部屋の中の目の位置から、窓ごしに宇宙を見る。
+ * 宇宙用のカメラは船と一緒に動かし、部屋は BridgeInterior が同じ目の位置・向きで重ねて描く
+ */
+function bridgeCamera(camera: THREE.PerspectiveCamera, dt: number, bankQuat: THREE.Quaternion) {
+  const { viewpoint: id, looking } = useBridge.getState()
+  const vp = viewpoint(id)
+  const aim = lookAngles(vp)
+  if (bridgeMove.id !== id) {
+    // 入った直後はその場に、移ったときはなめらかに
+    if (!bridgeMove.id) {
+      bridgeEye.pos.set(...vp.eye)
+      bridgeEye.yaw = aim.yaw
+      bridgeEye.pitch = aim.pitch
+    }
+    bridgeMove.id = id
+    bridgeMove.settling = true
+  }
+  const k = 1 - Math.exp(-3 * dt)
+  bridgeEye.pos.lerp(eyeTarget.set(...vp.eye), k)
+  // 艦長席で手を離したら、前を向き直す
+  if (bridgeMove.settling || (id === 'captain' && !looking)) {
+    bridgeEye.yaw += (aim.yaw - bridgeEye.yaw) * k
+    bridgeEye.pitch += (aim.pitch - bridgeEye.pitch) * k
+  }
+  qHead.setFromEuler(eHead.set(bridgeEye.pitch, bridgeEye.yaw, 0))
+  bridgeEye.quaternion.copy(qHead)
+
+  // 部屋の目の位置（m）→ 模型の座標 → 宇宙の座標（傾きも含めて船と一緒に）
+  eyeModel.copy(bridgeEye.pos).setY(bridgeEye.pos.y + FLOOR_ABOVE_BASE).divideScalar(METERS_PER_UNIT)
+  eyeModel.x += BRIDGE_BASE[0]
+  eyeModel.y += BRIDGE_BASE[1]
+  eyeModel.z += BRIDGE_BASE[2]
+  eyeModel.applyQuaternion(bankQuat).multiplyScalar(SHIP_SCALE).applyQuaternion(ship.quaternion)
+  camera.position.copy(ship.position).add(eyeModel)
+  camera.quaternion.copy(ship.quaternion).multiply(bankQuat).multiply(qHead)
+  up.set(0, 1, 0).applyQuaternion(camera.quaternion)
+  camera.up.copy(up)
+  // 追いかけカメラへもどったとき、いきなり跳ばないように
+  camOffset.copy(camera.position).sub(ship.position)
+  const fov = 62 + 18 * warpFx.intensity
+  camera.fov += (fov - camera.fov) * (1 - Math.exp(-5 * dt))
+  camera.near = BRIDGE_NEAR
   camera.updateProjectionMatrix()
 }
 

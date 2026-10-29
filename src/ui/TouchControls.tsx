@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { isTouchDevice, touchInput } from '../state/input'
-import { useStore } from '../state/store'
+import { nextCameraMode, useStore } from '../state/store'
 import { useQuiz } from '../state/quiz'
 import { t, useLang } from '../i18n/lang'
 
@@ -136,7 +136,7 @@ export function TouchControls() {
           <HoldButton label="▼" title={t('下降', 'Down')} onHold={(on) => (touchInput.lift = on ? -1 : 0)} />
         </div>
         <div className="touch-row">
-          <button className="touch-button wide" onClick={() => setCameraMode(cameraMode === 'chase' ? 'hero' : 'chase')}>
+          <button className="touch-button wide" onClick={() => setCameraMode(nextCameraMode(cameraMode))}>
             {t('カメラ', 'Camera')}
           </button>
           <button className="touch-button wide beam" onPointerDown={() => (touchInput.fire = true)}>

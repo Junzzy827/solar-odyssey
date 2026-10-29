@@ -5,7 +5,11 @@ import { DEFAULT_RATE } from '../data/scale'
 
 /** 全体マップ・操縦席・鑑賞モード（止まった自機のまわりを回って眺める） */
 export type Mode = 'map' | 'flight' | 'gallery'
-export type CameraMode = 'chase' | 'hero'
+/** 追いかけ・見上げ（ヒーローショット）・ブリッジ（艦橋の中から窓ごしに見る） */
+export type CameraMode = 'chase' | 'hero' | 'bridge'
+const CAMERA_ORDER: CameraMode[] = ['chase', 'hero', 'bridge']
+/** C キーやカメラボタンで次のカメラへ */
+export const nextCameraMode = (mode: CameraMode) => CAMERA_ORDER[(CAMERA_ORDER.indexOf(mode) + 1) % CAMERA_ORDER.length]
 export type WarpPhase = 'idle' | 'charge' | 'warp' | 'exit'
 
 type Telemetry = { distance: number | null; speed: number; eta: number | null; near?: Near | null }

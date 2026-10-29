@@ -52,6 +52,10 @@ const BRIDGE: Profile = [
 
 const SAUCER_SCALE: [number, number, number] = [0.32, 0.32, 0.29]
 const SAUCER_POS: [number, number, number] = [0, 0.07, -0.17]
+/** 模型の 1 単位が実物の何 m か（円盤の半径 0.32 が 195 m） */
+export const METERS_PER_UNIT = 195 / SAUCER_SCALE[0]
+/** ブリッジの段の底の中心（模型の座標）。艦橋の中の部屋はここを基準に置く */
+export const BRIDGE_BASE: [number, number, number] = [0, SAUCER_POS[1] + 0.136 * SAUCER_SCALE[1] - 0.004, SAUCER_POS[2] + 0.01]
 const SECONDARY_Y = -0.085
 const NACELLE_X = 0.2
 const NACELLE_Y = 0.068

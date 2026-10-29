@@ -36,6 +36,8 @@ import { EclipseScene } from './components/EclipseScene'
 import { EclipsePanel } from './ui/EclipsePanel'
 import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
+import { BridgeInterior } from './components/bridge/BridgeInterior'
+import { BridgePanel } from './ui/BridgePanel'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -45,6 +47,7 @@ function MapControls() {
 
 export default function App() {
   const mode = useStore((s) => s.mode)
+  const bridge = useStore((s) => s.mode === 'flight' && s.cameraMode === 'bridge')
   // 日食・月食を見ているあいだは、EclipseScene のカメラ操作を使う
   const eclipseView = useEclipse((e) => e.open && e.eclipseId !== null)
   useGlobalKeys()
@@ -76,12 +79,14 @@ export default function App() {
         <EffectComposer>
           <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />
         </EffectComposer>
+        {bridge && <BridgeInterior />}
       </Canvas>
       <GalleryLabels />
       <Hud />
       <NavPanel />
       <GalleryPanel />
       <TouchControls />
+      <BridgePanel />
       <RacePanel />
       <MissionPanel />
       <LogPanel />
