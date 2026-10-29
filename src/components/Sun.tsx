@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { registerBody } from '../state/registry'
+import { t } from '../i18n/lang'
 import { useLayout } from '../state/useLayout'
 import { Atmosphere } from './Atmosphere'
 
@@ -85,7 +86,7 @@ export function Sun() {
   const uniforms = useMemo(() => ({ uTime: { value: 0 } }), [])
   const radius = useLayout().sun
 
-  useEffect(() => registerBody({ id: 'sun', name: '太陽', radius, object: surface.current }), [radius])
+  useEffect(() => registerBody({ id: 'sun', get name() { return t('太陽', 'Sun') }, radius, object: surface.current }), [radius])
 
   // 太陽は赤道付近で約25日かけて自転する
   useFrame(({ clock }, delta) => {

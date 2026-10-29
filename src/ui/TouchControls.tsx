@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { isTouchDevice, touchInput } from '../state/input'
 import { useStore } from '../state/store'
 import { useQuiz } from '../state/quiz'
+import { t, useLang } from '../i18n/lang'
 
 /** スティックを倒しきったときの、つまみの動く半径（ピクセル） */
 const STICK_RADIUS = 48
@@ -105,6 +106,7 @@ function useLookDrag(enabled: boolean) {
 
 /** スマホ・タブレットの操縦：スティック、なぞって向き、上昇・下降・回転・ビーム・カメラのボタン */
 export function TouchControls() {
+  useLang()
   const mode = useStore((s) => s.mode)
   const scope = useStore((s) => s.scope)
   const cameraMode = useStore((s) => s.cameraMode)
@@ -126,19 +128,19 @@ export function TouchControls() {
       <Stick />
       <div className="touch-buttons">
         <div className="touch-row">
-          <HoldButton label="⟲" title="左に回転" onHold={(on) => (touchInput.roll = on ? 1 : 0)} />
-          <HoldButton label="⟳" title="右に回転" onHold={(on) => (touchInput.roll = on ? -1 : 0)} />
+          <HoldButton label="⟲" title={t('左に回転', 'Roll left')} onHold={(on) => (touchInput.roll = on ? 1 : 0)} />
+          <HoldButton label="⟳" title={t('右に回転', 'Roll right')} onHold={(on) => (touchInput.roll = on ? -1 : 0)} />
         </div>
         <div className="touch-row">
-          <HoldButton label="▲" title="上昇" onHold={(on) => (touchInput.lift = on ? 1 : 0)} />
-          <HoldButton label="▼" title="下降" onHold={(on) => (touchInput.lift = on ? -1 : 0)} />
+          <HoldButton label="▲" title={t('上昇', 'Up')} onHold={(on) => (touchInput.lift = on ? 1 : 0)} />
+          <HoldButton label="▼" title={t('下降', 'Down')} onHold={(on) => (touchInput.lift = on ? -1 : 0)} />
         </div>
         <div className="touch-row">
           <button className="touch-button wide" onClick={() => setCameraMode(cameraMode === 'chase' ? 'hero' : 'chase')}>
-            カメラ
+            {t('カメラ', 'Camera')}
           </button>
           <button className="touch-button wide beam" onPointerDown={() => (touchInput.fire = true)}>
-            ビーム
+            {t('ビーム', 'Beam')}
           </button>
         </div>
       </div>

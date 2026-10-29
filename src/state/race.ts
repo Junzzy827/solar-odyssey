@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { t } from '../i18n/lang'
 
 // レース：火星を出発し、木星のそばを通って土星でスイングバイし、火星へ戻る。
 // コースには光る輪（ゲート）が並び、順番にくぐっていく。
@@ -68,12 +69,30 @@ export const raceActive = () => {
 }
 
 export const RACE_TEXT = {
-  start: 'レース開始！光る輪を順番にくぐって、木星のそばを通り、土星でスイングバイして火星へ戻ろう。',
-  jupiter: '木星を通過！木星は太陽系でいちばん大きな惑星で、地球が1,300個以上入る大きさです。',
-  swingby:
-    'スイングバイ成功！惑星の重力を借りると、燃料を使わずに加速と方向転換ができます。探査機ボイジャーも木星と土星でこの技を使いました。',
-  finish: '本物の探査機ボイジャー2号は、スイングバイで木星・土星・天王星・海王星を次々にめぐり、打ち上げから12年で海王星に着きました。',
-  noWarp: 'レース中はワープと自動航行は使えません。自分の手で操縦しよう！',
+  get start() {
+    return t(
+      'レース開始！光る輪を順番にくぐって、木星のそばを通り、土星でスイングバイして火星へ戻ろう。',
+      'Race start! Fly through the glowing rings in order, pass close to Jupiter, swing by Saturn and head back to Mars.',
+    )
+  },
+  get jupiter() {
+    return t('木星を通過！木星は太陽系でいちばん大きな惑星で、地球が1,300個以上入る大きさです。', 'Past Jupiter! It is the biggest planet in the solar system, big enough to hold more than 1,300 Earths.')
+  },
+  get swingby() {
+    return t(
+      'スイングバイ成功！惑星の重力を借りると、燃料を使わずに加速と方向転換ができます。探査機ボイジャーも木星と土星でこの技を使いました。',
+      'Swing-by complete! Borrowing a planet’s gravity lets you speed up and change direction without using fuel. The Voyager probes used this trick at Jupiter and Saturn.',
+    )
+  },
+  get finish() {
+    return t(
+      '本物の探査機ボイジャー2号は、スイングバイで木星・土星・天王星・海王星を次々にめぐり、打ち上げから12年で海王星に着きました。',
+      'The real Voyager 2 probe used swing-bys to visit Jupiter, Saturn, Uranus and Neptune one after another, reaching Neptune 12 years after launch.',
+    )
+  },
+  get noWarp() {
+    return t('レース中はワープと自動航行は使えません。自分の手で操縦しよう！', 'Warp and autopilot are off during the race. Fly it yourself!')
+  },
 }
 
 export const formatTime = (t: number) => {

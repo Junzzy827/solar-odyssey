@@ -57,10 +57,12 @@ export type Settings = {
   muted: boolean
   /** BGM を流す */
   music: boolean
+  /** 画面の言語。まだ選んでいなければ null（初めて開いたときに選んでもらう） */
+  lang: 'ja' | 'en' | null
 }
 
 const SETTINGS_KEY = 'solar-voyager:settings'
-const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true }
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null }
 
 function loadSettings(): Settings {
   try {

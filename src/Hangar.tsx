@@ -104,7 +104,7 @@ export default function Hangar() {
       </Canvas>
       <div className="hud">
         <h1>HANGAR</h1>
-        <div>SV-01 ソーラーボイジャー（ドラッグで回転）</div>
+        <div>SV-01 ソーラーボイジャー（ドラッグで回転） / SV-01 Solar Voyager (drag to rotate)</div>
       </div>
     </>
   )

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Planet } from './bodies'
 import { EARTH_YEAR_SECONDS } from './scale'
+import { getLang } from '../i18n/lang'
 
 // 惑星の本当の位置（太陽から見た方向）。軌道の形はアプリでは円にしているが、
 // 円のどこにいるかは、日付からケプラーの方程式で求めた本物の方向にそろえる。
@@ -57,7 +58,9 @@ export const simDate = (t: number) => new Date(EPOCH_MS + t * DAYS_PER_SIM_SECON
 /** 日付（ミリ秒）の、2000年1月1日からの日数 */
 export const daysAt = (ms: number) => (ms - J2000_MS) / DAY_MS
 
-export const formatDate = (d: Date) => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+export const formatDate = (d: Date) =>
+  getLang() === 'en' ? `${MONTHS_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
 
 const node = new THREE.Vector3()
 

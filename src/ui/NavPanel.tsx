@@ -4,8 +4,8 @@ import { computeLayout } from '../data/layout'
 import { bodyRadius } from '../data/scale'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
-import { CUBE_ID, CUBE_NAME } from '../data/cube'
-import { HUBBLE_ID, HUBBLE_NAME, WEBB_ID, WEBB_NAME } from '../data/telescopes'
+import { CUBE_ID, cubeName } from '../data/cube'
+import { HUBBLE_ID, scopeName, WEBB_ID } from '../data/telescopes'
 import { useRace } from '../state/race'
 import { QUIZ_LENGTH, startQuiz, useQuiz } from '../state/quiz'
 import { openProbes, useProbes } from '../state/probes'
@@ -13,6 +13,7 @@ import { sim } from '../state/registry'
 import { formatDate, simDate } from '../data/ephemeris'
 import { openMissions, useMission } from '../state/mission'
 import { ui } from '../i18n'
+import { named, setLang, t, useLang } from '../i18n/lang'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -53,6 +54,7 @@ const count = (n: number) => (n < 10 ? n.toFixed(1) : Math.round(n).toString())
 /** 表示の設定：距離の広さ、天体の大きさ、旋回の傾き */
 function Settings({ racing }: { racing: boolean }) {
   const settings = useStore((s) => s.settings)
+  const lang = useLang()
   const update = useStore((s) => s.updateSettings)
   const layout = computeLayout(settings.distance, settings.size)
   const earth = bodyRadius(EARTH.radiusKm)
@@ -62,63 +64,87 @@ function Settings({ racing }: { racing: boolean }) {
   const sunSize = layout.sun / earth
   return (
     <details className="nav-settings">
-      <summary>表示の設定</summary>
+      <summary>{t('表示の設定', 'Display settings')}</summary>
+      <div className="nav-check">
+        {t('言語', 'Language')}
+        <span className="nav-lang-pick">
+          <button className={lang === 'ja' ? 'on' : ''} onClick={() => setLang('ja')} lang="ja">
+            日本語
+          </button>
+          <button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')} lang="en">
+            English
+          </button>
+        </span>
+      </div>
       <label className="nav-slider">
         <span>
-          距離 <span className="muted">{settings.distance < 0.01 ? '見やすい距離' : settings.distance > 0.99 ? '本物に近い' : ''}</span>
+          {t('距離', 'Distance')}{' '}
+          <span className="muted">{settings.distance < 0.01 ? t('見やすい距離', 'easy to see') : settings.distance > 0.99 ? t('本物に近い', 'close to real') : ''}</span>
         </span>
         <input type="range" min={0} max={1} step={0.01} value={settings.distance} onChange={(e) => update({ distance: Number(e.target.value) })} disabled={racing} />
       </label>
       <div className="muted small">
-        月まで：地球の直径の約{count(moonGap)}個分（本物は約30個分）。右にすると衛星は本物の比率に、惑星どうしも本物の約20〜50分の1まで離れます。
+        {t(
+          `月まで：地球の直径の約${count(moonGap)}個分（本物は約30個分）。右にすると衛星は本物の比率に、惑星どうしも本物の約20〜50分の1まで離れます。`,
+          `To the Moon: about ${count(moonGap)} Earth diameters (really about 30). Slide right and the moons move to their real spacing, and the planets spread out to about 1/20 to 1/50 of the real distances.`,
+        )}
       </div>
       <label className="nav-slider">
         <span>
-          大きさ <span className="muted">{settings.size < 0.01 ? '見やすい大きさ' : settings.size > 0.99 ? '本物の比率' : ''}</span>
+          {t('大きさ', 'Size')} <span className="muted">{settings.size < 0.01 ? t('見やすい大きさ', 'easy to see') : settings.size > 0.99 ? t('本物の比率', 'real proportions') : ''}</span>
         </span>
         <input type="range" min={0} max={1} step={0.05} value={settings.size} onChange={(e) => update({ size: Number(e.target.value) })} disabled={racing} />
       </label>
       <div className="muted small">
-        太陽：地球の約{count(sunSize)}倍（本物は約109倍）。地球の大きさはそのままで、右にすると太陽や木星は大きく、月や小さな惑星は小さくなります。小さな衛星は見失わないよう、ある大きさより小さくはしません。
-        {racing && 'レース中は見やすい距離と大きさで走ります。'}
+        {t(
+          `太陽：地球の約${count(sunSize)}倍（本物は約109倍）。地球の大きさはそのままで、右にすると太陽や木星は大きく、月や小さな惑星は小さくなります。小さな衛星は見失わないよう、ある大きさより小さくはしません。`,
+          `The Sun: about ${count(sunSize)} times Earth (really about 109). Earth stays the same size; slide right and the Sun and Jupiter grow while the Moon and small planets shrink. Tiny moons never get too small to find.`,
+        )}
+        {racing && t('レース中は見やすい距離と大きさで走ります。', ' During the race, the easy-to-see distance and size are used.')}
       </div>
       <label className="nav-slider">
         <span>
-          音の大きさ <span className="muted">{settings.muted ? '消音中' : `${Math.round(settings.volume * 100)}%`}</span>
+          {t('音の大きさ', 'Volume')} <span className="muted">{settings.muted ? t('消音中', 'muted') : `${Math.round(settings.volume * 100)}%`}</span>
         </span>
         <input type="range" min={0} max={1} step={0.05} value={settings.volume} onChange={(e) => update({ volume: Number(e.target.value), muted: false })} />
       </label>
       <label className="nav-check">
         <input type="checkbox" checked={settings.muted} onChange={(e) => update({ muted: e.target.checked })} />
-        音を消す
+        {t('音を消す', 'Mute')}
       </label>
       <label className="nav-check">
         <input type="checkbox" checked={settings.music} onChange={(e) => update({ music: e.target.checked })} />
-        BGM を流す
+        {t('BGM を流す', 'Play music')}
       </label>
       <label className="nav-check">
         <input type="checkbox" checked={settings.banking} onChange={(e) => update({ banking: e.target.checked })} />
-        旋回で船体を傾ける
+        {t('旋回で船体を傾ける', 'Bank the ship when turning')}
       </label>
-      <div className="muted small">宇宙には空気がないので、本当は傾けなくても曲がれます（飛行機が傾くのは、翼で空気を押して曲がるため）。</div>
+      <div className="muted small">
+        {t(
+          '宇宙には空気がないので、本当は傾けなくても曲がれます（飛行機が傾くのは、翼で空気を押して曲がるため）。',
+          'There is no air in space, so a ship can really turn without tilting (airplanes tilt because their wings push on the air to turn).',
+        )}
+      </div>
     </details>
   )
 }
 
 /** 表示している日付（惑星はこの日の本当の位置にある）。時間を進めていたら、今日へ戻せる */
 function SimDate() {
-  const [t, setT] = useState(sim.time)
+  useLang()
+  const [time, setTime] = useState(sim.time)
   useEffect(() => {
-    const id = setInterval(() => setT(sim.time), 250)
+    const id = setInterval(() => setTime(sim.time), 250)
     return () => clearInterval(id)
   }, [])
-  const today = Math.abs(t) < 1
+  const today = Math.abs(time) < 1
   return (
     <div className="nav-date muted small">
-      日付 {formatDate(simDate(t))}
+      {t('日付', 'Date')} {formatDate(simDate(time))}
       {!today && (
         <button className="nav-today" onClick={() => (sim.time = 0)}>
-          今日へ
+          {t('今日へ', 'Today')}
         </button>
       )}
     </div>
@@ -143,89 +169,103 @@ export function NavPanel() {
   const probesOpen = useProbes((p) => p.open)
   const missionPhase = useMission((m) => m.phase)
   const onMission = missionPhase === 'active'
+  const lang = useLang()
   if (s.mode === 'gallery') return null
+  const other = (
+    <button className="nav-lang" onClick={() => setLang(lang === 'en' ? 'ja' : 'en')} lang={lang === 'en' ? 'ja' : 'en'} title={t('Switch to English', '日本語にする')}>
+      {lang === 'en' ? '日本語' : 'English'}
+    </button>
+  )
 
   return (
     <aside className={`nav-panel${collapsed ? ' collapsed' : ''}`}>
       {small ? (
-        <h2>
+        <h2 className="nav-head">
           <button className="nav-collapse" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
-            航法コンピュータ <span>{expanded ? '▲ たたむ' : '▼ ひらく'}</span>
+            {t('航法コンピュータ', 'Nav computer')} <span>{expanded ? t('▲ たたむ', '▲ Close') : t('▼ ひらく', '▼ Open')}</span>
           </button>
+          {/* たたんだ小さな形には入りきらないので、ひらいたときだけ */}
+          {expanded && other}
         </h2>
       ) : (
-        <h2>航法コンピュータ</h2>
+        <h2 className="nav-head">
+          {t('航法コンピュータ', 'Navigation computer')}
+          {other}
+        </h2>
       )}
       <div className="nav-list">
-        <TargetButton id="sun" name="太陽" onPick={pick} />
+        <TargetButton id="sun" name={t('太陽', 'Sun')} onPick={pick} />
         {PLANETS.map((p) => (
           <div key={p.id}>
-            {p.dwarf && <div className="nav-heading">準惑星</div>}
+            {p.dwarf && <div className="nav-heading">{t('準惑星', 'Dwarf planet')}</div>}
             <div className="nav-row">
-              <TargetButton id={p.id} name={p.name} onPick={pick} />
+              <TargetButton id={p.id} name={named(p)} onPick={pick} />
               {p.moons.length > 0 && (
-                <button className="nav-toggle" onClick={() => setOpen(open === p.id ? null : p.id)} aria-label={`${p.name}の衛星`}>
+                <button className="nav-toggle" onClick={() => setOpen(open === p.id ? null : p.id)} aria-label={t(`${p.name}の衛星`, `Moons of ${p.nameEn}`)}>
                   {open === p.id ? '−' : `+${p.moons.length}`}
                 </button>
               )}
             </div>
-            {open === p.id && p.moons.map((m) => <TargetButton key={m.id} id={m.id} name={m.name} sub onPick={pick} />)}
+            {open === p.id && p.moons.map((m) => <TargetButton key={m.id} id={m.id} name={named(m)} sub onPick={pick} />)}
           </div>
         ))}
-        <div className="nav-heading">宇宙望遠鏡</div>
-        <TargetButton id={HUBBLE_ID} name={HUBBLE_NAME} onPick={pick} />
-        <TargetButton id={WEBB_ID} name={WEBB_NAME} onPick={pick} />
-        <div className="nav-heading">未確認</div>
-        <TargetButton id={CUBE_ID} name={CUBE_NAME} onPick={pick} />
+        <div className="nav-heading">{t('宇宙望遠鏡', 'Space telescopes')}</div>
+        <TargetButton id={HUBBLE_ID} name={scopeName(HUBBLE_ID)} onPick={pick} />
+        <TargetButton id={WEBB_ID} name={scopeName(WEBB_ID)} onPick={pick} />
+        <div className="nav-heading">{t('未確認', 'Unidentified')}</div>
+        <TargetButton id={CUBE_ID} name={cubeName()} onPick={pick} />
       </div>
 
       <div className="nav-target">
         {info ? (
           <>
             <div className="nav-target-name">
-              目標：{info.name}
-              {info.parent && <span className="muted">（{info.parent}の衛星）</span>}
+              {t('目標：', 'Target: ')}
+              {info.name}
+              {info.parent && <span className="muted">{t(`（${info.parent}の衛星）`, ` (moon of ${info.parent})`)}</span>}
             </div>
-            <div className="muted">距離 {fmtDistance(s.telemetry.distance)}</div>
-            {facts && <div className="muted">太陽から光で約{Math.round(facts.lightMinutes)}分</div>}
+            <div className="muted">
+              {t('距離', 'Distance')} {fmtDistance(s.telemetry.distance)}
+            </div>
+            {facts && <div className="muted">{t(`太陽から光で約${Math.round(facts.lightMinutes)}分`, `About ${Math.round(facts.lightMinutes)} light-minutes from the Sun`)}</div>}
             {!s.logOpen && (
               <button className="nav-log" onClick={() => s.setLogOpen(true)}>
-                航海日誌をひらく <kbd>I</kbd>
+                {t('航海日誌をひらく', 'Open ship’s log')} <kbd>I</kbd>
               </button>
             )}
           </>
         ) : (
-          <div className="muted">目標を選んでください</div>
+          <div className="muted">{t('目標を選んでください', 'Choose a target')}</div>
         )}
       </div>
 
       <label className="nav-warp">
-        ワープ {s.warpFactor}
+        {t('ワープ', 'Warp')} {s.warpFactor}
         <input type="range" min={1} max={9} step={1} value={s.warpFactor} onChange={(e) => s.setWarpFactor(Number(e.target.value))} disabled={busy} />
       </label>
       <button className="engage" onClick={engage} disabled={!s.targetId || busy}>
-        エンゲージ <kbd>Enter</kbd>
+        {t('エンゲージ', 'Engage')} <kbd>Enter</kbd>
       </button>
       <button className={`secondary nav-auto${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
-        自動航行 <kbd>G</kbd>
+        {t('自動航行', 'Autopilot')} <kbd>G</kbd>
       </button>
       <button className={`secondary mission-start${missionPhase !== 'closed' ? ' on' : ''}`} onClick={() => (pick(), openMissions())} disabled={racing}>
         {ui().missionsButton}
       </button>
       <button className="secondary race-start" onClick={startRace} disabled={busy || onMission}>
-        レース：火星 → 木星 → 土星スイングバイ → 火星
+        {t('レース：火星 → 木星 → 土星スイングバイ → 火星', 'Race: Mars → Jupiter → Saturn swing-by → Mars')}
       </button>
       <button className={`secondary quiz-start${quizOpen ? ' on' : ''}`} onClick={() => (pick(), startQuiz())} disabled={racing}>
-        連続クイズ（{QUIZ_LENGTH}問）
+        {t(`連続クイズ（${QUIZ_LENGTH}問）`, `Quiz run (${QUIZ_LENGTH} questions)`)}
       </button>
       <button className={`secondary probe-start${probesOpen ? ' on' : ''}`} onClick={() => (pick(), openProbes())} disabled={busy}>
-        探査機の旅（ボイジャーなど）
+        {t('探査機の旅（ボイジャーなど）', 'Probe journeys (Voyager and more)')}
       </button>
       <div className="nav-time">
-        時間
+        {t('時間', 'Time')}
         {[0, 1, 10].map((k) => (
           <button key={k} className={s.timeScale === k ? 'on' : ''} onClick={() => s.setTimeScale(k)} disabled={racing}>
-            {k === 0 ? '停止' : `${k}倍`}
+            {k === 0 ? t('停止', 'Stop') : t(`${k}倍`, `${k}×`)}
           </button>
         ))}
       </div>

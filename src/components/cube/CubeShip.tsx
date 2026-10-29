@@ -6,7 +6,8 @@ import { CubeModel } from './CubeModel'
 import { registerBody, sim } from '../../state/registry'
 import { ship } from '../../state/flight'
 import { useStore } from '../../state/store'
-import { CUBE_EDGE, CUBE_HEIGHT, CUBE_ID, CUBE_NAME, CUBE_AU, CUBE_NOTICE, CUBE_TEXT } from '../../data/cube'
+import { CUBE_EDGE, CUBE_HEIGHT, CUBE_ID, CUBE_AU, CUBE_NOTICE, CUBE_TEXT, cubeName } from '../../data/cube'
+import { useLang } from '../../i18n/lang'
 import { LABEL_Z, useHideBehindSun } from '../labels'
 import { useLayout } from '../../state/useLayout'
 
@@ -23,9 +24,10 @@ export function CubeShip() {
   const noticed = useRef(false)
   const label = useRef<HTMLSpanElement>(null)
   const orbit = useLayout().belt(CUBE_AU)
+  useLang()
   useHideBehindSun(label, group)
 
-  useEffect(() => registerBody({ id: CUBE_ID, name: CUBE_NAME, radius: RADIUS, object: group.current }), [])
+  useEffect(() => registerBody({ id: CUBE_ID, get name() { return cubeName() }, radius: RADIUS, object: group.current }), [])
 
   useFrame(() => {
     // ゆっくり漂いながら、わずかに向きを変える
@@ -39,7 +41,7 @@ export function CubeShip() {
     const distance = ship.position.distanceTo(pos) - RADIUS
     if (distance < CUBE_NOTICE && !noticed.current) {
       noticed.current = true
-      st.showToast(CUBE_TEXT.found)
+      st.showToast(CUBE_TEXT.found())
     }
     if (distance > CUBE_NOTICE * 3) noticed.current = false
   })
@@ -51,7 +53,7 @@ export function CubeShip() {
       </group>
       <Html position={[0, CUBE_EDGE, 0]} center className="label" zIndexRange={LABEL_Z}>
         <span ref={label} onClick={() => useStore.getState().setTarget(CUBE_ID)}>
-          {CUBE_NAME}
+          {cubeName()}
         </span>
       </Html>
     </group>

@@ -108,7 +108,7 @@ function MissionRock() {
       },
     }
     beamTargets.push(target)
-    const unregister = registerBody({ id: ROCK_ID, name: ui().rockName, radius: ROCK_RADIUS, object: group.current })
+    const unregister = registerBody({ id: ROCK_ID, get name() { return ui().rockName }, radius: ROCK_RADIUS, object: group.current })
     useStore.getState().setTarget(ROCK_ID)
     return () => {
       unregister()

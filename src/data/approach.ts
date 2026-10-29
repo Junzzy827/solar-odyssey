@@ -1,6 +1,7 @@
 import { PLANETS, SUN } from './bodies'
 import { CUBE_ID } from './cube'
 import { isTelescope } from './telescopes'
+import { t } from '../i18n/lang'
 
 // 天体への接近のしかた。岩の天体は低い軌道で止まり、ガス惑星は雲の中へ少し潜れる。
 
@@ -65,9 +66,18 @@ export function atmosphereAt(id: string, depthKm: number) {
 }
 
 export const APPROACH_TEXT = {
-  star: '太陽の熱と光が強すぎて、これ以上は近づけません。表面は約6000℃もあります。',
-  rock: (name: string) => `これより下は${name}の地表です。ここは低い軌道。探査機もこの高さから観察します。`,
-  diveStart: (name: string) => `${name}の雲の中へ。ガス惑星には固い地面がなく、下るほど圧力と温度が上がっていきます。`,
+  star: () =>
+    t('太陽の熱と光が強すぎて、これ以上は近づけません。表面は約6000℃もあります。', 'The Sun’s heat and light are too strong to go any closer. Its surface is about 6,000 °C.'),
+  rock: (name: string) =>
+    t(`これより下は${name}の地表です。ここは低い軌道。探査機もこの高さから観察します。`, `Below here is the surface of ${name}. This is a low orbit, the height probes observe from too.`),
+  diveStart: (name: string) =>
+    t(
+      `${name}の雲の中へ。ガス惑星には固い地面がなく、下るほど圧力と温度が上がっていきます。`,
+      `Into the clouds of ${name}. Gas giants have no solid ground, and the pressure and temperature rise the deeper you go.`,
+    ),
   gasLimit: (name: string) =>
-    `${name}の雲の下、約${LIMIT_BAR}気圧。これ以上は圧力が強すぎて進めません。1995年、探査機ガリレオのプローブは木星のこのくらいの深さで、熱と圧力のために通信が途絶えました。`,
+    t(
+      `${name}の雲の下、約${LIMIT_BAR}気圧。これ以上は圧力が強すぎて進めません。1995年、探査機ガリレオのプローブは木星のこのくらいの深さで、熱と圧力のために通信が途絶えました。`,
+      `Under the clouds of ${name}, about ${LIMIT_BAR} times Earth’s air pressure. The pressure is too strong to go deeper. In 1995 the Galileo probe’s descent capsule lost contact at about this depth in Jupiter because of the heat and pressure.`,
+    ),
 }

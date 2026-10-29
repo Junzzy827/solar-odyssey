@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { FACTS } from '../data/facts'
+import { factsFor } from '../data/facts'
 import { PLANETS } from '../data/bodies'
 import { useStore } from '../state/store'
 import { bodyInfo } from '../state/flight'
@@ -9,6 +9,7 @@ import { raceActive } from '../state/race'
 import { openScope } from './Hud'
 import { useQuiz } from '../state/quiz'
 import { useProbes } from '../state/probes'
+import { t, useLang } from '../i18n/lang'
 
 const TOTAL = 1 + PLANETS.reduce((n, p) => n + 1 + p.moons.length, 0)
 const NEAR = 10
@@ -27,6 +28,7 @@ export function LogPanel() {
   const probesOpen = useProbes((p) => p.open)
   const [picked, setPicked] = useState<number | null>(null)
   const autoOpened = useRef<string | null>(null)
+  useLang()
 
   // 目標に近づいたら一度だけ自動で開く
   useEffect(() => {
@@ -48,7 +50,7 @@ export function LogPanel() {
     return () => window.removeEventListener('keydown', onKey)
   }, [setLogOpen])
 
-  const facts = targetId ? FACTS[targetId] : undefined
+  const facts = targetId ? factsFor(targetId) : undefined
   const info = targetId ? bodyInfo(targetId) : null
   if (!logOpen || quizOpen || probesOpen || !facts || !info || !targetId) return null
 
@@ -57,22 +59,23 @@ export function LogPanel() {
   const correct = picked === facts.quiz.answer
 
   const rows: [string, string | undefined][] = facts.rows ?? [
-    ['直径', facts.diameter],
-    ['温度', facts.temperature],
-    ['重力', facts.gravity],
-    ['1日の長さ', facts.day],
-    ['1年（公転）', facts.year],
-    ['衛星', facts.moons],
+    [t('直径', 'Diameter'), facts.diameter],
+    [t('温度', 'Temperature'), facts.temperature],
+    [t('重力', 'Gravity'), facts.gravity],
+    [t('1日の長さ', 'Length of day'), facts.day],
+    [t('1年（公転）', 'Year (orbit)'), facts.year],
+    [t('衛星', 'Moons'), facts.moons],
   ]
 
   return (
-    <section className="log-panel" aria-label="航海日誌">
+    <section className="log-panel" aria-label={t('航海日誌', 'Ship’s log')}>
       <header>
         <h2>
-          航海日誌：{info.name}
-          {done && <span className="badge">探査済み</span>}
+          {t('航海日誌：', 'Ship’s log: ')}
+          {info.name}
+          {done && <span className="badge">{t('探査済み', 'Explored')}</span>}
         </h2>
-        <button className="close" onClick={() => setLogOpen(false)} aria-label="閉じる">
+        <button className="close" onClick={() => setLogOpen(false)} aria-label={t('閉じる', 'Close')}>
           ×
         </button>
       </header>
@@ -93,7 +96,7 @@ export function LogPanel() {
       </ul>
       {isTelescope(targetId) && (
         <button className="secondary scope-open" onClick={() => openScope(targetId)} disabled={scopeNear !== targetId}>
-          {scopeNear === targetId ? '望遠鏡でのぞく' : 'そばまで行くと、望遠鏡でのぞけます'} <kbd>T</kbd>
+          {scopeNear === targetId ? t('望遠鏡でのぞく', 'Look through the telescope') : t('そばまで行くと、望遠鏡でのぞけます', 'Fly close to look through the telescope')} <kbd>T</kbd>
         </button>
       )}
       <div className="quiz">
@@ -115,17 +118,20 @@ export function LogPanel() {
         </div>
         {answered && (
           <div className="quiz-a">
-            {correct ? '正解！' : '残念！'} {facts.quiz.explanation}
+            {correct ? t('正解！', 'Correct!') : t('残念！', 'Not quite!')} {facts.quiz.explanation}
             {!correct && (
               <button className="retry" onClick={() => setPicked(null)}>
-                もう一度
+                {t('もう一度', 'Try again')}
               </button>
             )}
           </div>
         )}
       </div>
       <footer className="muted">
-        探査済み {visited.filter((id) => id !== CUBE_ID && !isTelescope(id)).length} / {TOTAL}（<kbd>I</kbd> で開閉）
+        {t('探査済み', 'Explored')} {visited.filter((id) => id !== CUBE_ID && !isTelescope(id)).length} / {TOTAL}
+        {t('（', ' (')}
+        <kbd>I</kbd>
+        {t(' で開閉）', ' to open/close)')}
       </footer>
     </section>
   )

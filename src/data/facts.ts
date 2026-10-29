@@ -1,3 +1,6 @@
+import { getLang } from '../i18n/lang'
+import { FACTS_EN } from './facts.en'
+
 // 航海日誌に出す解説とクイズ。数値は NASA の公開データの概数。
 // 衛星の数は発見が続いているので「以上」と書く。
 
@@ -407,3 +410,6 @@ export const FACTS: Record<string, Facts> = {
     quiz: { question: '冥王星とカロンの特別な関係は？', choices: ['お互いにいつも同じ面を向け合っている', 'カロンのほうが冥王星より大きい', 'もうすぐぶつかる'], answer: 0, explanation: 'カロンの公転と冥王星の自転がどちらも約6.4日なので、お互いに同じ面だけを見せ合っています。' },
   },
 }
+
+/** 今の言語の解説とクイズ（英語は facts.en.ts） */
+export const factsFor = (id: string): Facts | undefined => (getLang() === 'en' ? FACTS_EN[id] : undefined) ?? FACTS[id]

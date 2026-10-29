@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { DEFLECT_HITS, MISSIONS } from '../data/missions'
 import { missionText, ui } from '../i18n'
+import { useLang } from '../i18n/lang'
 import { useStore } from '../state/store'
 import { abortMission, answerQuiz, closeMissions, isUnlocked, nextQuiz, showBriefing, startMission, useMission, openMissions } from '../state/mission'
 import { useRace } from '../state/race'
@@ -37,6 +38,7 @@ export function MissionPanel() {
   const scope = useStore((s) => s.scope)
   const modal = (phase === 'list' || phase === 'briefing' || phase === 'debrief') && mode !== 'gallery' && !scope
   useEscape(modal, closeMissions)
+  useLang()
 
   if (phase === 'active') return mode === 'gallery' ? null : <MissionBar />
   if (!modal) return null

@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 import { FACTS, type Quiz } from '../data/facts'
+import { FACTS_EN } from '../data/facts.en'
 import { PLANETS, type Planet } from '../data/bodies'
 import { CUBE_ID } from '../data/cube'
 import { bodyInfo, engage } from './flight'
 import { useStore } from './store'
 import { closeProbes } from './probes'
+import { getLang } from '../i18n/lang'
 
 // 連続クイズ：航海日誌のクイズと、天体のデータから作る「くらべる」問題を混ぜて10問続けて出す。
 // まちがえた天体は、終わったあとにワープして見に行ける
@@ -15,10 +17,17 @@ const MADE_COUNT = 4
 
 const BEST_KEY = 'solar-voyager:quiz-best'
 
+type QuizText = Omit<Quiz, 'answer'>
+
 export type QuizQuestion = Quiz & {
   /** この問題の天体（まちがえたらワープで見に行く先） */
   bodyId: string
+  /** 英語の問題文（選択肢は同じ順番）。途中で言語を変えても続けられるよう、両方持っておく */
+  en: QuizText
 }
+
+/** 今の言語の問題文 */
+export const quizText = (q: QuizQuestion): QuizText => (getLang() === 'en' ? q.en : q)
 
 type QuizState = {
   open: boolean
@@ -75,17 +84,22 @@ const shuffle = <T,>(items: T[]) => {
 /** 選択肢の順番を混ぜる（正解の位置も一緒に動かす） */
 function shuffleChoices(q: QuizQuestion): QuizQuestion {
   const order = shuffle(q.choices.map((_, i) => i))
-  return { ...q, choices: order.map((i) => q.choices[i]), answer: order.indexOf(q.answer) }
+  return { ...q, choices: order.map((i) => q.choices[i]), answer: order.indexOf(q.answer), en: { ...q.en, choices: order.map((i) => q.en.choices[i]) } }
 }
 
-const num = (v: number) => (v >= 100 ? Math.round(v).toLocaleString('ja-JP') : String(Number(v.toPrecision(2))))
+const num = (v: number) => (v >= 100 ? Math.round(v).toLocaleString('en-US') : String(Number(v.toPrecision(2))))
 
 /** 時間を、日か時間のわかりやすい方で */
 const duration = (hours: number) => (hours >= 72 ? `約${num(hours / 24)}日` : `約${num(hours)}時間`)
+const durationEn = (hours: number) => (hours >= 72 ? `about ${num(hours / 24)} days` : `about ${num(hours)} hours`)
 
 const lightTime = (au: number) => {
   const minutes = Math.round(au * 8.317)
   return minutes < 60 ? `約${minutes}分` : `約${Math.floor(minutes / 60)}時間${minutes % 60 ? `${minutes % 60}分` : ''}`
+}
+const lightTimeEn = (au: number) => {
+  const minutes = Math.round(au * 8.317)
+  return minutes < 60 ? `about ${minutes} minutes` : `about ${Math.floor(minutes / 60)} h ${minutes % 60 ? `${minutes % 60} min` : ''}`.trim()
 }
 
 const MAJOR = PLANETS.filter((p) => !p.dwarf)
@@ -102,6 +116,11 @@ const MAKERS: (() => QuizQuestion)[] = [
       choices: three.map((p) => p.name),
       answer: three.indexOf(top),
       explanation: `${top.name}の直径は約${num(top.radiusKm * 2)}km。地球の約${num(top.radiusKm / 6371)}倍です。`,
+      en: {
+        question: 'Which of these planets is the biggest?',
+        choices: three.map((p) => p.nameEn),
+        explanation: `${top.nameEn} is about ${num(top.radiusKm * 2)} km across, about ${num(top.radiusKm / 6371)} times Earth.`,
+      },
     }
   },
   () => {
@@ -113,6 +132,11 @@ const MAKERS: (() => QuizQuestion)[] = [
       choices: three.map((p) => p.name),
       answer: three.indexOf(top),
       explanation: `${top.name}は太陽から地球の約${num(top.distanceAu)}倍の距離にあり、太陽の光が届くのに${lightTime(top.distanceAu)}かかります。`,
+      en: {
+        question: 'Which of these planets is farthest from the Sun?',
+        choices: three.map((p) => p.nameEn),
+        explanation: `${top.nameEn} is about ${num(top.distanceAu)} times as far from the Sun as Earth, and sunlight takes ${lightTimeEn(top.distanceAu)} to get there.`,
+      },
     }
   },
   () => {
@@ -125,6 +149,11 @@ const MAKERS: (() => QuizQuestion)[] = [
       choices: three.map((p) => p.name),
       answer: three.indexOf(top),
       explanation: `${top.name}の1年（太陽を1周する時間）は${years >= 1 ? `約${num(years)}年` : `約${num(top.orbitDays)}日`}。太陽から遠いほど、ゆっくり大回りします。`,
+      en: {
+        question: 'Which of these planets takes the longest to go around the Sun once?',
+        choices: three.map((p) => p.nameEn),
+        explanation: `A year on ${top.nameEn} (one trip around the Sun) is ${years >= 1 ? `about ${num(years)} years` : `about ${num(top.orbitDays)} days`}. The farther from the Sun, the slower and wider the loop.`,
+      },
     }
   },
   () => {
@@ -137,6 +166,11 @@ const MAKERS: (() => QuizQuestion)[] = [
       choices: three.map((p) => p.name),
       answer: three.indexOf(top),
       explanation: `${top.name}は${duration(spin(top))}で1回自転します。木星や土星のような大きなガスの惑星は、とても速く回っています。`,
+      en: {
+        question: 'Which of these planets has the shortest day (one spin)?',
+        choices: three.map((p) => p.nameEn),
+        explanation: `${top.nameEn} spins once in ${durationEn(spin(top))}. Big gas planets like Jupiter and Saturn spin very fast.`,
+      },
     }
   },
   () => {
@@ -150,6 +184,11 @@ const MAKERS: (() => QuizQuestion)[] = [
       choices: choices.map((p) => p.name),
       answer: choices.indexOf(parent),
       explanation: `${moon.name}は${parent.name}の衛星で、${duration(Math.abs(moon.orbitDays) * 24)}で${parent.name}を1周します${moon.orbitDays < 0 ? '（ほかの衛星と逆向き）' : ''}。`,
+      en: {
+        question: `Which world does ${moon.nameEn} orbit?`,
+        choices: choices.map((p) => p.nameEn),
+        explanation: `${moon.nameEn} is a moon of ${parent.nameEn} and goes around it once in ${durationEn(Math.abs(moon.orbitDays) * 24)}${moon.orbitDays < 0 ? ' (the opposite way to the other moons)' : ''}.`,
+      },
     }
   },
 ]
@@ -171,7 +210,7 @@ function makeQuestions(): QuizQuestion[] {
   }
   const fromLog = shuffle(Object.entries(FACTS).filter(([id]) => id !== CUBE_ID && !used.has(id)))
     .slice(0, QUIZ_LENGTH - made.length)
-    .map(([id, f]) => ({ ...f.quiz, bodyId: id }))
+    .map(([id, f]) => ({ ...f.quiz, bodyId: id, en: FACTS_EN[id]?.quiz ?? f.quiz }))
   return shuffle([...fromLog, ...made]).map(shuffleChoices)
 }
 
@@ -221,10 +260,11 @@ export function nextQuestion() {
 
 /** 点数に応じた称号 */
 export function quizTitle(score: number) {
-  if (score >= QUIZ_LENGTH) return '太陽系マスター'
-  if (score >= 8) return 'ベテラン航海士'
-  if (score >= 5) return '一人前の航海士'
-  return '見習い航海士'
+  const en = getLang() === 'en'
+  if (score >= QUIZ_LENGTH) return en ? 'Solar System Master' : '太陽系マスター'
+  if (score >= 8) return en ? 'Veteran Navigator' : 'ベテラン航海士'
+  if (score >= 5) return en ? 'Skilled Navigator' : '一人前の航海士'
+  return en ? 'Navigator in Training' : '見習い航海士'
 }
 
 /** まちがえた天体へワープする（クイズを閉じて目標に設定し、エンゲージ） */

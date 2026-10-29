@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { PLANETS } from '../data/bodies'
-import { CUBE_ID, CUBE_NAME } from '../data/cube'
+import { CUBE_ID, cubeName } from '../data/cube'
+import { named, t } from '../i18n/lang'
 import { isTelescope, scopeName } from '../data/telescopes'
 import { RACE_TEXT, raceActive } from './race'
 import { bodies } from './registry'
@@ -86,13 +87,13 @@ function warpCall(id: string, factor: number) {
 
 /** 天体の名前と、太陽からの実際の距離（衛星は親の惑星の距離） */
 export function bodyInfo(id: string) {
-  if (id === 'sun') return { name: '太陽', au: 0, parent: null as string | null }
-  if (id === CUBE_ID) return { name: CUBE_NAME, au: 0, parent: null }
+  if (id === 'sun') return { name: t('太陽', 'Sun'), au: 0, parent: null as string | null }
+  if (id === CUBE_ID) return { name: cubeName(), au: 0, parent: null }
   if (isTelescope(id)) return { name: scopeName(id), au: 0, parent: null }
   for (const p of PLANETS) {
-    if (p.id === id) return { name: p.name, au: p.distanceAu, parent: null }
+    if (p.id === id) return { name: named(p), au: p.distanceAu, parent: null }
     const moon = p.moons.find((m) => m.id === id)
-    if (moon) return { name: moon.name, au: p.distanceAu, parent: p.name }
+    if (moon) return { name: named(moon), au: p.distanceAu, parent: named(p) }
   }
   // 任務の小惑星など、一時的に加わったもの
   const extra = bodies.get(id)

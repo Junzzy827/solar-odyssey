@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
-import { DEEP_SPACE, SCOPE_LIGHT, SCOPE_LIGHT_SHORT, deepSpaceThumb, deepSpaceUrl, type DeepSpaceImage } from '../data/deepSpace'
+import { DEEP_SPACE, deepSpaceText, deepSpaceThumb, deepSpaceUrl, scopeLight, scopeLightShort, type DeepSpaceImage } from '../data/deepSpace'
 import { HUBBLE_ID, scopeName, type ScopeId } from '../data/telescopes'
+import { t, useLang } from '../i18n/lang'
 
 const MAX_ZOOM = 8
 
@@ -77,7 +78,7 @@ function Viewer({ image }: { image: DeepSpaceImage }) {
       <img
         key={image.id}
         src={deepSpaceUrl(image)}
-        alt={image.name}
+        alt={deepSpaceText(image).name}
         draggable={false}
         onLoad={(e) => {
           aspect.current = e.currentTarget.naturalWidth / e.currentTarget.naturalHeight
@@ -85,15 +86,15 @@ function Viewer({ image }: { image: DeepSpaceImage }) {
         }}
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, opacity: loaded ? 1 : 0 }}
       />
-      {!loaded && <div className="scope-loading">望遠鏡から受信中…</div>}
+      {!loaded && <div className="scope-loading">{t('望遠鏡から受信中…', 'Receiving from the telescope…')}</div>}
       <div className="scope-zoom" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
-        <button onClick={() => zoomBy(1.6)} aria-label="拡大">＋</button>
-        <button onClick={() => zoomBy(1 / 1.6)} aria-label="縮小" disabled={view.scale <= 1}>−</button>
+        <button onClick={() => zoomBy(1.6)} aria-label={t('拡大', 'Zoom in')}>＋</button>
+        <button onClick={() => zoomBy(1 / 1.6)} aria-label={t('縮小', 'Zoom out')} disabled={view.scale <= 1}>−</button>
         <button onClick={() => setView(FIT)} disabled={view.scale <= 1}>
-          全体
+          {t('全体', 'Fit')}
         </button>
       </div>
-      <div className="scope-hint">ホイールで拡大・ドラッグで移動</div>
+      <div className="scope-hint">{t('ホイールで拡大・ドラッグで移動', 'Scroll to zoom · drag to move')}</div>
     </div>
   )
 }
@@ -109,28 +110,36 @@ function ScopeScreen({ scope }: { scope: ScopeId }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [showPair, setShowPair] = useState(false)
   const side = useRef<HTMLElement>(null!)
+  useLang()
 
   const list = DEEP_SPACE.filter((i) => i.scope === scope)
   const base = list.find((i) => i.id === selected) ?? list[0]
   const pair = base.pair ? DEEP_SPACE.find((i) => i.id === base.pair) : undefined
   const current = showPair && pair ? pair : base
+  const text = deepSpaceText(current)
 
   // 写真を切り替えたら、解説を先頭から読めるようにする
   useEffect(() => {
     side.current.scrollTop = 0
   }, [current.id])
-  const other = scope === HUBBLE_ID ? 'ウェッブ宇宙望遠鏡（地球から見て太陽と反対側）のそばでは、赤外線の写真が見られます。' : 'ハッブル宇宙望遠鏡（地球のまわり）のそばでは、目に見える光の写真が見られます。'
+  const other =
+    scope === HUBBLE_ID
+      ? t('ウェッブ宇宙望遠鏡（地球から見て太陽と反対側）のそばでは、赤外線の写真が見られます。', 'Near the Webb Space Telescope (on the far side of Earth from the Sun) you can see infrared pictures.')
+      : t('ハッブル宇宙望遠鏡（地球のまわり）のそばでは、目に見える光の写真が見られます。', 'Near the Hubble Space Telescope (around Earth) you can see pictures in visible light.')
+  const title = t(`${scopeName(scope)}の目`, `Through the eyes of ${scopeName(scope)}`)
 
   return (
-    <div className="scope-view" role="dialog" aria-label={`${scopeName(scope)}の目`}>
+    <div className="scope-view" role="dialog" aria-label={title}>
       <header className="scope-head">
         <div>
-          <h2>{scopeName(scope)}の目</h2>
+          <h2>{title}</h2>
           <div className="muted">
-            {current.scope === scope ? '見ている光' : `${scopeName(current.scope)}の写真`}：{SCOPE_LIGHT[current.scope]}
+            {current.scope === scope ? t('見ている光', 'Seeing') : t(`${scopeName(current.scope)}の写真`, `${scopeName(current.scope)} picture`)}
+            {t('：', ': ')}
+            {scopeLight(current.scope)}
           </div>
         </div>
-        <button className="close" onClick={() => setScope(null)} aria-label="閉じる">
+        <button className="close" onClick={() => setScope(null)} aria-label={t('閉じる', 'Close')}>
           × <kbd>Esc</kbd>
         </button>
       </header>
@@ -140,37 +149,39 @@ function ScopeScreen({ scope }: { scope: ScopeId }) {
           <Viewer image={current} />
           {pair && (
             <div className="scope-compare">
-              <span className="muted">同じ場所を見くらべる</span>
+              <span className="muted">{t('同じ場所を見くらべる', 'Compare the same place')}</span>
               {[base, pair].map((img) => (
                 <button key={img.id} className={img === current ? 'on' : ''} onClick={() => setShowPair(img === pair)}>
-                  {scopeName(img.scope)}（{SCOPE_LIGHT_SHORT[img.scope]}）
+                  {t(`${scopeName(img.scope)}（${scopeLightShort(img.scope)}）`, `${scopeName(img.scope)} (${scopeLightShort(img.scope)})`)}
                 </button>
               ))}
             </div>
           )}
           <div className="scope-credit">
-            画像：{current.credit}（CC BY 4.0）{' '}
+            {t('画像：', 'Image: ')}
+            {current.credit}
+            {t('（CC BY 4.0）', ' (CC BY 4.0)')}{' '}
             <a href={current.source} target="_blank" rel="noreferrer">
-              元の画像
+              {t('元の画像', 'Original image')}
             </a>
           </div>
         </div>
 
         <aside className="scope-side" ref={side}>
-          <h3>{current.name}</h3>
-          <div className="muted">{current.kind}</div>
+          <h3>{text.name}</h3>
+          <div className="muted">{text.kind}</div>
           <dl>
             <div>
-              <dt>距離</dt>
-              <dd>{current.distance}</dd>
+              <dt>{t('距離', 'Distance')}</dt>
+              <dd>{text.distance}</dd>
             </div>
           </dl>
           <div className="scope-lookback">
-            <div className="muted">この光が出発したのは</div>
-            {current.lookback}
+            <div className="muted">{t('この光が出発したのは', 'This light set out')}</div>
+            {text.lookback}
           </div>
           <ul className="notes">
-            {current.notes.map((n) => (
+            {text.notes.map((n) => (
               <li key={n}>{n}</li>
             ))}
           </ul>
@@ -185,7 +196,7 @@ function ScopeScreen({ scope }: { scope: ScopeId }) {
                 }}
               >
                 <img src={deepSpaceThumb(item)} alt="" />
-                <span>{item.name}</span>
+                <span>{deepSpaceText(item).name}</span>
               </button>
             ))}
           </div>

@@ -27,8 +27,8 @@ const screen = new THREE.Vector3()
 
 /** この画面で名札を出す位置（画面のピクセル） */
 const placing: { el: HTMLElement; x: number; y: number }[] = []
-/** 名札の大きさ（文字は変わらないので、一度だけ測る） */
-const labelSize = new WeakMap<HTMLElement, { w: number; h: number }>()
+/** 名札の大きさ（文字が変わったとき＝言語を切り替えたときだけ測り直す） */
+const labelSize = new WeakMap<HTMLElement, { w: number; h: number; text: string }>()
 /** 点から名札までの間（CSS の .gallery-anchor button の left と同じ） */
 const LABEL_GAP = 12
 
@@ -42,9 +42,9 @@ function spreadLabels(width: number, panel: DOMRect | undefined) {
   const placed: Rect[] = panel ? [[panel.left, panel.right, panel.top, panel.bottom]] : []
   const rect = (p: (typeof placing)[number], left: boolean, dy: number): Rect => {
     let s = labelSize.get(p.el)
-    if (!s) {
+    if (!s || s.text !== p.el.textContent) {
       const button = p.el.firstElementChild as HTMLElement | null
-      s = { w: button?.offsetWidth ?? 0, h: button?.offsetHeight ?? 0 }
+      s = { w: button?.offsetWidth ?? 0, h: button?.offsetHeight ?? 0, text: p.el.textContent ?? '' }
       labelSize.set(p.el, s)
     }
     const x0 = left ? p.x - LABEL_GAP - s.w : p.x - 4

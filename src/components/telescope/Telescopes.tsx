@@ -11,7 +11,6 @@ import {
   HUBBLE_ID,
   HUBBLE_INCLINATION,
   HUBBLE_LENGTH,
-  HUBBLE_NAME,
   HUBBLE_ORBIT,
   HUBBLE_PERIOD,
   SCOPE_NEAR,
@@ -20,10 +19,12 @@ import {
   WEBB_HALO,
   WEBB_HALO_PERIOD,
   WEBB_ID,
-  WEBB_NAME,
   WEBB_WIDTH,
+  scopeName,
+  scopeShortName,
   type ScopeId,
 } from '../../data/telescopes'
+import { useLang } from '../../i18n/lang'
 import { LABEL_Z, useHideBehindSun } from '../labels'
 
 const HUBBLE_RADIUS = HUBBLE_LENGTH * 0.55
@@ -60,6 +61,7 @@ function Label({ id, name, height }: { id: ScopeId; name: string; height: number
  * そばまで行くと、望遠鏡が撮った深宇宙の写真をのぞける。
  */
 export function Telescopes() {
+  useLang()
   const hubble = useRef<THREE.Group>(null!)
   const hubbleBody = useRef<THREE.Group>(null!)
   const webb = useRef<THREE.Group>(null!)
@@ -67,8 +69,8 @@ export function Telescopes() {
   const noticed = useRef<ScopeId | null>(null)
 
   useEffect(() => {
-    const a = registerBody({ id: HUBBLE_ID, name: HUBBLE_NAME, radius: HUBBLE_RADIUS, object: hubble.current })
-    const b = registerBody({ id: WEBB_ID, name: WEBB_NAME, radius: WEBB_RADIUS, object: webb.current })
+    const a = registerBody({ id: HUBBLE_ID, get name() { return scopeName(HUBBLE_ID) }, radius: HUBBLE_RADIUS, object: hubble.current })
+    const b = registerBody({ id: WEBB_ID, get name() { return scopeName(WEBB_ID) }, radius: WEBB_RADIUS, object: webb.current })
     return () => {
       a()
       b()
@@ -94,7 +96,7 @@ export function Telescopes() {
     if (near !== st.scopeNear) st.setScopeNear(near)
     if (near && noticed.current !== near && !st.scope) {
       noticed.current = near
-      st.showToast(TELESCOPE_TEXT.found(near === HUBBLE_ID ? HUBBLE_NAME : WEBB_NAME))
+      st.showToast(TELESCOPE_TEXT.found(scopeName(near)))
     }
 
     const home = bodies.get('earth')
@@ -130,7 +132,7 @@ export function Telescopes() {
             <HubbleTelescope />
           </group>
         </group>
-        <Label id={HUBBLE_ID} name="ハッブル" height={HUBBLE_LENGTH * 0.9} />
+        <Label id={HUBBLE_ID} name={scopeShortName(HUBBLE_ID)} height={HUBBLE_LENGTH * 0.9} />
       </group>
       <group ref={webb}>
         <group ref={webbBody}>
@@ -138,7 +140,7 @@ export function Telescopes() {
             <WebbModel />
           </group>
         </group>
-        <Label id={WEBB_ID} name="ウェッブ" height={WEBB_WIDTH * 0.9} />
+        <Label id={WEBB_ID} name={scopeShortName(WEBB_ID)} height={WEBB_WIDTH * 0.9} />
       </group>
     </>
   )

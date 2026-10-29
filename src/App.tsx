@@ -31,6 +31,7 @@ import { ProbeScene } from './components/ProbeScene'
 import { ProbePanel } from './ui/ProbePanel'
 import { MissionRunner } from './components/mission/MissionRunner'
 import { MissionPanel } from './ui/MissionPanel'
+import { LanguagePicker } from './ui/LanguagePicker'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -80,6 +81,7 @@ export default function App() {
       <QuizPanel />
       <ProbePanel />
       <TelescopeView />
+      <LanguagePicker />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}
         <a href="https://science.nasa.gov/resource/hubble-space-telescope-3d-model/" target="_blank" rel="noreferrer">NASA VTAD</a>

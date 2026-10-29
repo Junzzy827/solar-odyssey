@@ -358,7 +358,7 @@ function avoidBodies() {
       ship.position.sub(v).setLength(min).add(v)
       ship.velocity.multiplyScalar(0.5)
       if (!pushing) continue
-      if (kind === 'star') notice('sun', APPROACH_TEXT.star)
+      if (kind === 'star') notice('sun', APPROACH_TEXT.star())
       else if (kind === 'rock') notice(body.id, APPROACH_TEXT.rock(body.name))
       else if (kind === 'gas') notice(body.id, APPROACH_TEXT.gasLimit(body.name))
     }
