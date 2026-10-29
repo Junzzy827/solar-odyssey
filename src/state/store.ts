@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Near } from './proximity'
 import type { ScopeId } from '../data/telescopes'
+import { DEFAULT_RATE } from '../data/scale'
 
 /** 全体マップ・操縦席・鑑賞モード（止まった自機のまわりを回って眺める） */
 export type Mode = 'map' | 'flight' | 'gallery'
@@ -15,6 +16,7 @@ type State = {
   warpFactor: number
   warpPhase: WarpPhase
   autopilot: boolean
+  /** 時間の速さ：1秒に何時間進むか（data/scale.ts の TIME_RATES） */
   timeScale: number
   telemetry: Telemetry
   /** クイズに正解した天体 */
@@ -88,7 +90,7 @@ export const useStore = create<State>((set) => ({
   warpFactor: 6,
   warpPhase: 'idle',
   autopilot: false,
-  timeScale: 1,
+  timeScale: DEFAULT_RATE,
   telemetry: { distance: null, speed: 0, eta: null },
   visited: loadVisited(),
   logOpen: false,

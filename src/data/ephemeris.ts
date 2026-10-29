@@ -53,8 +53,12 @@ export const DAYS_PER_SIM_SECOND = 365.25 / EARTH_YEAR_SECONDS
 export const simDays = (t: number) => EPOCH_DAYS + t * DAYS_PER_SIM_SECOND
 /** 日付（ミリ秒）の、シミュレーションの時間 */
 export const simTimeAt = (ms: number) => (ms - EPOCH_MS) / DAY_MS / DAYS_PER_SIM_SECOND
+/** 現実の1時間が、シミュレーションの何秒か（時間の速さを「1秒に何時間」で決めるのに使う） */
+export const SIM_SECONDS_PER_HOUR = 1 / (24 * DAYS_PER_SIM_SECOND)
+/** シミュレーションの時間の日時（ミリ秒） */
+export const simMs = (t: number) => EPOCH_MS + t * DAYS_PER_SIM_SECOND * DAY_MS
 /** シミュレーションの時間の日付 */
-export const simDate = (t: number) => new Date(EPOCH_MS + t * DAYS_PER_SIM_SECOND * DAY_MS)
+export const simDate = (t: number) => new Date(simMs(t))
 /** 日付（ミリ秒）の、2000年1月1日からの日数 */
 export const daysAt = (ms: number) => (ms - J2000_MS) / DAY_MS
 

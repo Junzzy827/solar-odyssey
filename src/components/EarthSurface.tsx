@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { textureUrl } from '../data/textures'
 import { ECLIPSE_GLSL, eclipseUniforms } from './eclipseShadow'
+import { useStore } from '../state/store'
 
 const vertexShader = /* glsl */ `
   #include <common>
@@ -122,7 +123,8 @@ export function EarthSurface({ radius }: { radius: number }) {
     surface.current.getWorldPosition(worldPos)
     uniforms.uSunDir.value.copy(worldPos).negate().normalize()
     if (cloudLayer.current) {
-      cloudLayer.current.rotation.y += delta * 0.02
+      // 雲は風で少しずつ流れる（時間の速さに合わせる。1秒で1時間のとき、1秒に0.02ラジアン）
+      cloudLayer.current.rotation.y += delta * Math.min(0.02 * useStore.getState().timeScale, 0.05)
       // 球の u は回転と逆向きに進むので、雲の回った分だけ戻して読む
       uniforms.uCloudShift.value = -cloudLayer.current.rotation.y / (Math.PI * 2)
     }

@@ -8,6 +8,7 @@ import { useStore } from '../../state/store'
 import { RACE_TEXT, useRace } from '../../state/race'
 import { playBeep } from '../../audio/sfx'
 import { GATE_RADIUS, MAX_GATES, buildCourse, type Course } from './course'
+import { DEFAULT_RATE } from '../../data/scale'
 
 const RIVAL_SPEED = 7
 const BOOST = 1.7
@@ -23,7 +24,7 @@ export function Race() {
   const course = useRef<Course | null>(null)
   const gateMeshes = useRef<THREE.Mesh[]>([])
   const rival = useRef<THREE.Group>(null!)
-  const run = useRef({ lastCount: 4, t: 0, prevSide: -1, boost: 0, rivalS: 0, rivalTime: null as number | null, rivalBoost: false, prevTimeScale: 1 })
+  const run = useRef({ lastCount: 4, t: 0, prevSide: -1, boost: 0, rivalS: 0, rivalTime: null as number | null, rivalBoost: false, prevTimeScale: DEFAULT_RATE })
 
   const gateGeometry = useMemo(() => new THREE.TorusGeometry(GATE_RADIUS, 0.035, 10, 64), [])
   const gateMaterials = useMemo(
@@ -68,7 +69,7 @@ export function Race() {
     flightControl.releaseHold = true
     flightControl.locked = true
     flightControl.speedScale = 1
-    r.prevTimeScale = st.timeScale || 1
+    r.prevTimeScale = st.timeScale || DEFAULT_RATE
     st.setTimeScale(0) // レース中は惑星を止めて、コースがずれないようにする
     st.setAutopilot(false)
     st.setTarget(null)

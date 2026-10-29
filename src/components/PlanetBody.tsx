@@ -3,8 +3,9 @@ import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Moon, Planet } from '../data/bodies'
-import { moonSpeed, spinSpeed } from '../data/scale'
-import { planetPosition } from '../data/ephemeris'
+import { turnRate } from '../data/scale'
+import { planetPosition, simMs } from '../data/ephemeris'
+import { greenwichSiderealTime, moonEcliptic, precession } from '../data/moon'
 import { textureUrl } from '../data/textures'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { registerBody, sim } from '../state/registry'
@@ -67,9 +68,8 @@ export function PlanetBody({ planet }: { planet: Planet }) {
   const moonOrbits = useRef<THREE.Group[]>([])
   const label = useRef<HTMLSpanElement>(null!)
   useLang()
-  // 衛星の位置（角度）。距離を変えると回る速さも変わるので、時間をかけて足していく
+  // 衛星の位置（角度）。時間の速さに合わせて、毎フレーム足していく（地球の月だけは、その日時の本当の位置）
   const moonAngles = useRef<number[] | null>(null)
-  const lastTime = useRef(sim.time)
 
   const layout = useLayout()
   const distance = layout.orbit.get(planet.id)!
@@ -86,9 +86,10 @@ export function PlanetBody({ planet }: { planet: Planet }) {
 
   useFrame((_, delta) => {
     const t = sim.time
+    const hours = useStore.getState().timeScale
     planetPosition(planet, distance, t, orbit.current.position)
-    spin.current.rotation.y += spinSpeed(planet.rotationHours) * delta * useStore.getState().timeScale
-    if (!moonAngles.current) moonAngles.current = planet.moons.map((moon, i) => i * 1.7 + t * moonSpeed(moon.orbitDays))
+    spin.current.rotation.y += turnRate(planet.rotationHours, hours) * delta
+    if (!moonAngles.current) moonAngles.current = planet.moons.map((_, i) => i * 1.7)
     // 日食・月食を見ているあいだは、月と地球の自転を、その日時の本当の向きにする
     if (isEarth && eclipseMoonOffset(orbit.current.position, radius, layout.radius.get('moon')!, layout.moon.get('moon')!.radius, moonOffset)) {
       spin.current.rotation.y = eclipseNow.spin
@@ -98,18 +99,23 @@ export function PlanetBody({ planet }: { planet: Planet }) {
       pivot.rotation.y = a
       pivot.position.set(moonOffset.x - Math.cos(a) * r, moonOffset.y, moonOffset.z + Math.sin(a) * r)
       moonOrbits.current[0].visible = false
-      lastTime.current = NaN
       return
     }
     if (isEarth && !moonOrbits.current[0].visible) {
       moonPivots.current[0].position.set(0, 0, 0)
       moonOrbits.current[0].visible = true
     }
-    // 食を見終わって時間を戻したときは、月をそこから続けて回す（飛ばない）
-    const step = Number.isNaN(lastTime.current) ? 0 : t - lastTime.current
-    lastTime.current = t
+    // 地球は、その日時の本当の向きに自転する（昼と夜の場所が本物）。1秒に1日より速いときは、ふつうに回す
+    if (isEarth && hours <= 24) {
+      const ms = simMs(t)
+      spin.current.rotation.y = greenwichSiderealTime(ms) - precession(ms)
+    }
     planet.moons.forEach((moon, i) => {
-      moonAngles.current![i] += step * moonSpeed(moon.orbitDays) * (layout.moon.get(moon.id)?.speed ?? 1)
+      if (moon.id === 'moon') {
+        // 月は、その日時に本当にある向き（満ち欠けも本物になる）
+        const ms = simMs(t)
+        moonAngles.current![i] = moonEcliptic(ms).lon - precession(ms)
+      } else moonAngles.current![i] += turnRate(moon.orbitDays * 24, hours) * delta
       moonPivots.current[i].rotation.y = moonAngles.current![i]
     })
     // 冥王星はカロンと同じ速さで自転し、+X の面をいつもカロンに向ける

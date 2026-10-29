@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PLANETS } from '../data/bodies'
 import { computeLayout } from '../data/layout'
-import { bodyRadius } from '../data/scale'
+import { bodyRadius, TIME_RATES } from '../data/scale'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { CUBE_ID, cubeName } from '../data/cube'
@@ -10,7 +10,7 @@ import { useRace } from '../state/race'
 import { QUIZ_LENGTH, startQuiz, useQuiz } from '../state/quiz'
 import { openProbes, useProbes } from '../state/probes'
 import { sim } from '../state/registry'
-import { formatDate, simDate } from '../data/ephemeris'
+import { formatDate, simDate, SIM_SECONDS_PER_HOUR } from '../data/ephemeris'
 import { closeMissions, openMissions, useMission } from '../state/mission'
 import { closeEclipses, openEclipses, useEclipse } from '../state/eclipse'
 import { openStamps, useStamps } from '../state/stamps'
@@ -133,7 +133,11 @@ function Settings({ racing }: { racing: boolean }) {
   )
 }
 
-/** 表示している日付（惑星はこの日の本当の位置にある）。時間を進めていたら、今日へ戻せる */
+/** 1秒に進む時間の名前（1秒で1秒＝本物と同じ速さ） */
+const rateName = (hours: number) =>
+  hours === 0 ? t('停止', 'Stop') : hours < 1 / 60 ? t('1秒', '1 s') : hours < 1 ? t('1分', '1 min') : hours === 1 ? t('1時間', '1 hr') : t('1日', '1 day')
+
+/** 表示している日時（惑星はこの日の本当の位置にある）。時間を進めていたら、今に戻せる */
 function SimDate() {
   useLang()
   const [time, setTime] = useState(sim.time)
@@ -141,13 +145,14 @@ function SimDate() {
     const id = setInterval(() => setTime(sim.time), 250)
     return () => clearInterval(id)
   }, [])
-  const today = Math.abs(time) < 1
+  // 今から2時間以内なら「今」のまま
+  const today = Math.abs(time) < 2 * SIM_SECONDS_PER_HOUR
   return (
     <div className="nav-date muted small">
-      {t('日付', 'Date')} {formatDate(simDate(time))}
+      {t('日時', 'Date')} {formatDate(simDate(time))} {simDate(time).toTimeString().slice(0, 5)}
       {!today && (
         <button className="nav-today" onClick={() => (sim.time = 0)}>
-          {t('今日へ', 'Today')}
+          {t('今へ', 'Now')}
         </button>
       )}
     </div>
@@ -273,11 +278,12 @@ export function NavPanel() {
       <button className={`secondary eclipse-start${eclipsesOpen ? ' on' : ''}`} onClick={() => (pick(), closeMissions(), openEclipses())} disabled={busy || onMission}>
         {t('宇宙から見る日食・月食', 'Eclipses from space')}
       </button>
+      {/* 1秒にどれだけ時間が進むか */}
       <div className="nav-time">
-        {t('時間', 'Time')}
-        {[0, 1, 10].map((k) => (
+        <span className="nav-time-label">{t('時間の速さ（1秒に進む時間）', 'Time speed (time passed per second)')}</span>
+        {TIME_RATES.map((k) => (
           <button key={k} className={s.timeScale === k ? 'on' : ''} onClick={() => s.setTimeScale(k)} disabled={racing}>
-            {k === 0 ? t('停止', 'Stop') : t(`${k}倍`, `${k}×`)}
+            {rateName(k)}
           </button>
         ))}
       </div>

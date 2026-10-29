@@ -21,8 +21,9 @@ export const WEBB_WIDTH = 0.2
 
 /** ハッブルは地球の中心からこの半径を回る（地球の半径は1.2、月の軌道は約3.1） */
 export const HUBBLE_ORBIT = 1.85
-/** 1周の秒数。本物は約95分で、月よりずっと速いが、観察しやすいようにゆっくりにする */
+/** 1周にかかる、望遠鏡の時計の目盛り。本物は約95分で、時計は1時間に HUBBLE_TICKS_PER_HOUR 進む */
 export const HUBBLE_PERIOD = 30
+export const HUBBLE_TICKS_PER_HOUR = HUBBLE_PERIOD / (95 / 60)
 /** 軌道の傾き（黄道面に対して） */
 export const HUBBLE_INCLINATION = 0.55
 

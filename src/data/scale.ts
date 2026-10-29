@@ -3,7 +3,7 @@
 
 export const SUN_RADIUS = 8
 
-/** 地球の公転1周にかかる表示上の秒数 */
+/** シミュレーションの時計の目盛り：地球の公転1周が120。実際に進む速さは、時間の速さ（TIME_RATES）で決まる */
 export const EARTH_YEAR_SECONDS = 120
 
 export const orbitRadius = (au: number) => SUN_RADIUS + 40 * Math.log(1 + au * 2.5)
@@ -15,11 +15,17 @@ export const moonOrbitRadius = (planetRadius: number, index: number) => planetRa
 /** 公転周期（日）から角速度（rad/秒）を求める。負の周期は逆回転 */
 export const angularSpeed = (periodDays: number) => (2 * Math.PI * 365.25) / (EARTH_YEAR_SECONDS * periodDays)
 
-/** 自転は1時間を1秒にする（地球は24秒、木星は約10秒で1回転） */
-export const spinSpeed = (rotationHours: number) => (2 * Math.PI) / rotationHours
+/** 時間の速さ（ストアの timeScale）は「1秒に何時間進むか」。停止・本物（1秒で1秒）・1秒で1分・1時間・1日 */
+export const TIME_RATES = [0, 1 / 3600, 1 / 60, 1, 24]
+/** 初めは1秒で1分（地球は24分で1回転。昼と夜の境目がゆっくり動いて見える） */
+export const DEFAULT_RATE = 1 / 60
+
+/** 見た目の回転のいちばん速い速さ（1秒に1.5回転）。これより速いと、かえって止まって見える */
+const MAX_TURN = 3 * Math.PI
 
 /**
- * 衛星は周期差が大きいので平方根で圧縮（月の1周＝60秒。地球の1日より長くかかるように）。
- * フォボスなど速すぎるものも、1周4秒より速くはしない
+ * 自転や衛星の公転の角速度（rad/秒）。周期は本物（時間。負は逆回り）で、hoursPerSecond の速さで時間が進むとき。
+ * 1秒で1時間なら、地球は24秒で1回転、月は約11分で地球を1周する
  */
-export const moonSpeed = (orbitDays: number) => Math.sign(orbitDays) * (2 * Math.PI) / Math.max(4, 60 * Math.sqrt(Math.abs(orbitDays) / 27.3))
+export const turnRate = (periodHours: number, hoursPerSecond: number) =>
+  Math.sign(periodHours) * Math.min((2 * Math.PI * hoursPerSecond) / Math.abs(periodHours), MAX_TURN)

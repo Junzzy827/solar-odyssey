@@ -4,7 +4,7 @@ import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { HubbleTelescope } from './HubbleNasa'
 import { WebbModel } from './WebbModel'
-import { bodies, registerBody, sim } from '../../state/registry'
+import { bodies, registerBody } from '../../state/registry'
 import { ship } from '../../state/flight'
 import { useStore } from '../../state/store'
 import {
@@ -13,6 +13,7 @@ import {
   HUBBLE_LENGTH,
   HUBBLE_ORBIT,
   HUBBLE_PERIOD,
+  HUBBLE_TICKS_PER_HOUR,
   SCOPE_NEAR,
   TELESCOPE_TEXT,
   WEBB_DISTANCE,
@@ -77,7 +78,10 @@ export function Telescopes() {
     }
   }, [])
 
-  useFrame(() => {
+  // 望遠鏡を動かす時計。ハッブルは本物の速さ（約95分で1周）で回り、時間を速くしても30秒で1周より速くはしない
+  const clock = useRef(0)
+  useFrame((_, delta) => {
+    clock.current += delta * Math.min(useStore.getState().timeScale * HUBBLE_TICKS_PER_HOUR, 1)
     // そばに来たら「のぞく」を出す。自機は前のフレームの望遠鏡の位置に合わせて動いているので、
     // 望遠鏡を動かす前にくらべる
     const st = useStore.getState()
@@ -102,7 +106,7 @@ export function Telescopes() {
     const home = bodies.get('earth')
     if (!home) return
     home.object.getWorldPosition(earth)
-    const t = sim.time
+    const t = clock.current
 
     // ハッブル：傾いた円軌道で地球を回り、筒をゆっくり別の空へ向ける
     const a = (t / HUBBLE_PERIOD) * Math.PI * 2
