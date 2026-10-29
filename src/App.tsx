@@ -14,11 +14,13 @@ import { WarpStreaks } from './components/WarpStreaks'
 import { TargetMarker } from './components/TargetMarker'
 import { Phaser } from './components/Phaser'
 import { CubeShip } from './components/cube/CubeShip'
+import { Telescopes } from './components/telescope/Telescopes'
 import { Race } from './components/race/Race'
 import { RacePanel } from './ui/RacePanel'
 import { Hud, useGlobalKeys } from './ui/Hud'
 import { NavPanel } from './ui/NavPanel'
 import { LogPanel } from './ui/LogPanel'
+import { TelescopeView } from './ui/TelescopeView'
 
 export default function App() {
   const mode = useStore((s) => s.mode)
@@ -36,6 +38,7 @@ export default function App() {
         ))}
         <AsteroidBelt />
         <CubeShip />
+        <Telescopes />
         <Race />
         <Ship />
         <CloudWake />
@@ -51,6 +54,7 @@ export default function App() {
       <NavPanel />
       <RacePanel />
       <LogPanel />
+      <TelescopeView />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0)
       </div>

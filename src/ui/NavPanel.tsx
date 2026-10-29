@@ -3,6 +3,7 @@ import { PLANETS } from '../data/bodies'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { CUBE_ID, CUBE_NAME } from '../data/cube'
+import { HUBBLE_ID, HUBBLE_NAME, WEBB_ID, WEBB_NAME } from '../data/telescopes'
 import { useRace } from '../state/race'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
@@ -45,6 +46,9 @@ export function NavPanel() {
             {open === p.id && p.moons.map((m) => <TargetButton key={m.id} id={m.id} name={m.name} sub />)}
           </div>
         ))}
+        <div className="nav-heading">宇宙望遠鏡</div>
+        <TargetButton id={HUBBLE_ID} name={HUBBLE_NAME} />
+        <TargetButton id={WEBB_ID} name={WEBB_NAME} />
         <div className="nav-heading">未確認</div>
         <TargetButton id={CUBE_ID} name={CUBE_NAME} />
       </div>

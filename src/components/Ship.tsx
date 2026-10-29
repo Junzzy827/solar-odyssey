@@ -170,7 +170,7 @@ export function Ship() {
       }
     } else {
       if (st.warpPhase !== 'idle') st.setWarpPhase('idle')
-      const manual = steer(dt, st.mode === 'flight' && !flightControl.locked)
+      const manual = steer(dt, st.mode === 'flight' && !flightControl.locked && !st.scope)
       if (manual && st.autopilot) st.setAutopilot(false)
 
       if (st.autopilot && target && !manual) {

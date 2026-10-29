@@ -6,6 +6,8 @@ import * as THREE from 'three'
 import { ShipModel } from './components/ship/ShipModel'
 import { CubeModel } from './components/cube/CubeModel'
 import { asteroidGeometry, asteroidMaterial } from './components/asteroidShape'
+import { HubbleModel } from './components/telescope/HubbleModel'
+import { WebbModel } from './components/telescope/WebbModel'
 
 /** 小惑星の見本：大きな岩の形を3つ並べる */
 function AsteroidSamples() {
@@ -79,7 +81,17 @@ export default function Hangar() {
         <Stars radius={50} depth={20} count={3000} factor={2} fade />
         <SunLight />
         <directionalLight position={[-2, -1, 2]} intensity={0.12} color="#8fa8ff" />
-        {MODEL === 'cube' ? <CubeModel /> : MODEL === 'asteroid' ? <AsteroidSamples /> : <ShipModel />}
+        {MODEL === 'cube' ? (
+          <CubeModel />
+        ) : MODEL === 'asteroid' ? (
+          <AsteroidSamples />
+        ) : MODEL === 'hubble' ? (
+          <HubbleModel />
+        ) : MODEL === 'webb' ? (
+          <WebbModel />
+        ) : (
+          <ShipModel />
+        )}
         <OrbitControls autoRotate={!FIXED} autoRotateSpeed={0.35} minDistance={0.2} maxDistance={6} target={TARGET} />
         <EffectComposer>
           <N8AO aoRadius={0.08} distanceFalloff={0.5} intensity={2.5} quality="high" />

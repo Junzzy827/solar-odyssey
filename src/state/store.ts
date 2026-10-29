@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Near } from './proximity'
+import type { ScopeId } from '../data/telescopes'
 
 export type Mode = 'map' | 'flight'
 export type CameraMode = 'chase' | 'hero'
@@ -20,6 +21,10 @@ type State = {
   logOpen: boolean
   cameraMode: CameraMode
   toast: { id: number; text: string } | null
+  /** そばにいる宇宙望遠鏡（のぞける） */
+  scopeNear: ScopeId | null
+  /** のぞいている望遠鏡（写真の画面を開いている） */
+  scope: ScopeId | null
   setMode: (mode: Mode) => void
   setTarget: (id: string | null) => void
   setWarpFactor: (factor: number) => void
@@ -31,6 +36,8 @@ type State = {
   setLogOpen: (open: boolean) => void
   setCameraMode: (mode: CameraMode) => void
   showToast: (text: string) => void
+  setScopeNear: (id: ScopeId | null) => void
+  setScope: (id: ScopeId | null) => void
 }
 
 const VISITED_KEY = 'solar-voyager:visited'
@@ -55,6 +62,8 @@ export const useStore = create<State>((set) => ({
   logOpen: false,
   cameraMode: 'chase',
   toast: null,
+  scopeNear: null,
+  scope: null,
   setMode: (mode) => set({ mode }),
   setTarget: (targetId) => set({ targetId, autopilot: false, logOpen: false }),
   setWarpFactor: (warpFactor) => set({ warpFactor }),
@@ -76,4 +85,9 @@ export const useStore = create<State>((set) => ({
   setLogOpen: (logOpen) => set({ logOpen }),
   setCameraMode: (cameraMode) => set({ cameraMode }),
   showToast: (text) => set({ toast: { id: Date.now(), text } }),
+  setScopeNear: (scopeNear) => set({ scopeNear }),
+  setScope: (scope) => set(scope ? { scope, logOpen: false, autopilot: false } : { scope }),
 }))
+
+// 動作確認用：URL に #debug を付けると、ブラウザのコンソールから状態を見られる
+if (location.hash.includes('debug')) (window as unknown as { __store: typeof useStore }).__store = useStore

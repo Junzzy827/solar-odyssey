@@ -4,7 +4,9 @@ import { PLANETS } from '../data/bodies'
 import { useStore } from '../state/store'
 import { bodyInfo } from '../state/flight'
 import { CUBE_ID } from '../data/cube'
+import { isTelescope } from '../data/telescopes'
 import { raceActive } from '../state/race'
+import { openScope } from './Hud'
 
 const TOTAL = 1 + PLANETS.reduce((n, p) => n + 1 + p.moons.length, 0)
 const NEAR = 10
@@ -17,6 +19,7 @@ export function LogPanel() {
   const distance = useStore((s) => s.telemetry.distance)
   const warpPhase = useStore((s) => s.warpPhase)
   const visited = useStore((s) => s.visited)
+  const scopeNear = useStore((s) => s.scopeNear)
   const markVisited = useStore((s) => s.markVisited)
   const [picked, setPicked] = useState<number | null>(null)
   const autoOpened = useRef<string | null>(null)
@@ -35,7 +38,7 @@ export function LogPanel() {
   // I キーで開閉
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'KeyI' && useStore.getState().targetId) setLogOpen(!useStore.getState().logOpen)
+      if (e.code === 'KeyI' && useStore.getState().targetId && !useStore.getState().scope) setLogOpen(!useStore.getState().logOpen)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -84,6 +87,11 @@ export function LogPanel() {
           <li key={n}>{n}</li>
         ))}
       </ul>
+      {isTelescope(targetId) && (
+        <button className="secondary scope-open" onClick={() => openScope(targetId)} disabled={scopeNear !== targetId}>
+          {scopeNear === targetId ? '望遠鏡でのぞく' : 'そばまで行くと、望遠鏡でのぞけます'} <kbd>T</kbd>
+        </button>
+      )}
       <div className="quiz">
         <div className="quiz-q">Q. {facts.quiz.question}</div>
         <div className="quiz-choices">
@@ -113,7 +121,7 @@ export function LogPanel() {
         )}
       </div>
       <footer className="muted">
-        探査済み {visited.filter((id) => id !== CUBE_ID).length} / {TOTAL}（<kbd>I</kbd> で開閉）
+        探査済み {visited.filter((id) => id !== CUBE_ID && !isTelescope(id)).length} / {TOTAL}（<kbd>I</kbd> で開閉）
       </footer>
     </section>
   )

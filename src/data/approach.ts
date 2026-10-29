@@ -1,5 +1,6 @@
 import { PLANETS, SUN } from './bodies'
 import { CUBE_ID } from './cube'
+import { isTelescope } from './telescopes'
 
 // 天体への接近のしかた。岩の天体は低い軌道で止まり、ガス惑星は雲の中へ少し潜れる。
 
@@ -26,7 +27,7 @@ const GAS: Record<string, { t0: number; lapse: number }> = {
 
 export type ApproachKind = 'star' | 'gas' | 'rock' | 'object'
 
-export const approachKind = (id: string): ApproachKind => (id === 'sun' ? 'star' : id === CUBE_ID ? 'object' : GAS[id] ? 'gas' : 'rock')
+export const approachKind = (id: string): ApproachKind => (id === 'sun' ? 'star' : id === CUBE_ID || isTelescope(id) ? 'object' : GAS[id] ? 'gas' : 'rock')
 
 /** 天体の本当の半径（km） */
 export function radiusKm(id: string) {

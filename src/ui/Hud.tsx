@@ -3,6 +3,7 @@ import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { RACE_TEXT, raceActive } from '../state/race'
 import type { Near } from '../state/proximity'
+import { isTelescope, scopeName, TELESCOPE_TEXT } from '../data/telescopes'
 
 /** 全体のキー操作：M 全体マップ／Enter エンゲージ／G 自動航行／C カメラ／1〜9 ワープ速度 */
 export function useGlobalKeys() {
@@ -10,6 +11,16 @@ export function useGlobalKeys() {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.repeat) return
       const s = useStore.getState()
+      // 望遠鏡の写真を見ているあいだは、T と Esc（閉じる）だけ
+      if (s.scope) {
+        if (e.code === 'KeyT' || e.code === 'Escape') s.setScope(null)
+        return
+      }
+      if (e.code === 'KeyT') {
+        if (s.scopeNear && !raceActive()) openScope(s.scopeNear)
+        else if (s.targetId && isTelescope(s.targetId)) s.showToast(TELESCOPE_TEXT.tooFar(scopeName(s.targetId)))
+        return
+      }
       if (e.code === 'KeyM') s.setMode(s.mode === 'map' ? 'flight' : 'map')
       else if (e.code === 'Enter') engage()
       else if (e.code === 'KeyC') s.setCameraMode(s.cameraMode === 'chase' ? 'hero' : 'chase')
@@ -20,6 +31,12 @@ export function useGlobalKeys() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+}
+
+/** 望遠鏡の目で深宇宙をのぞく（マウスの固定を外して写真の画面を開く） */
+export function openScope(id: NonNullable<ReturnType<typeof useStore.getState>['scope']>) {
+  if (document.pointerLockElement) document.exitPointerLock()
+  useStore.getState().setScope(id)
 }
 
 function usePointerLocked() {
@@ -88,6 +105,8 @@ export function Hud() {
   const warpPhase = useStore((s) => s.warpPhase)
   const warpFactor = useStore((s) => s.warpFactor)
   const telemetry = useStore((s) => s.telemetry)
+  const scopeNear = useStore((s) => s.scopeNear)
+  const scope = useStore((s) => s.scope)
   const info = targetId ? bodyInfo(targetId) : null
   const facts = info && info.au > 0 ? travelFacts(info.au) : null
 
@@ -112,6 +131,12 @@ export function Hud() {
       <button className="mode-button" onClick={() => setMode(mode === 'map' ? 'flight' : 'map')}>
         {mode === 'map' ? '操縦席へ' : '全体マップ'} <kbd>M</kbd>
       </button>
+
+      {mode === 'flight' && scopeNear && !scope && warpPhase === 'idle' && (
+        <button className="scope-prompt" onClick={() => openScope(scopeNear)}>
+          {scopeName(scopeNear)}でのぞく <kbd>T</kbd>
+        </button>
+      )}
 
       {mode === 'flight' && locked && <div className="crosshair" />}
       <Toast />
