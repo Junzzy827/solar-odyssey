@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { textureUrl } from '../data/textures'
+import { closeTextureUrl, textureUrl } from '../data/textures'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
+import { useCloseTexture } from '../hooks/useCloseTexture'
 import { createSurfaceMaterial, surfaceOptions } from './planetMaterial'
 
 const center = new THREE.Vector3()
@@ -22,9 +23,12 @@ export function PlanetSurface({
   haze?: string
   ring?: { inner: number; outer: number }
 }) {
-  const map = useOptionalTexture(textureUrl(id))
-  const ringMap = useOptionalTexture(ring ? textureUrl('saturnRing') : undefined)
   const mesh = useRef<THREE.Mesh>(null!)
+  const far = useOptionalTexture(textureUrl(id))
+  // 近くでは 4K 版に差し替える
+  const close = useCloseTexture(closeTextureUrl(id), mesh, radius)
+  const map = close ?? far
+  const ringMap = useOptionalTexture(ring ? textureUrl('saturnRing') : undefined)
   const material = useMemo(
     () => createSurfaceMaterial({ ...surfaceOptions(id, radius, color, { haze, ring }), eclipse: id === 'moon' ? 'moon' : id === 'earth' ? 'earth' : undefined }),
     // 輪は内側・外側の値だけを見る

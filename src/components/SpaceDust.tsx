@@ -61,12 +61,12 @@ export function SpaceDust() {
     last.pos.copy(anchor)
     last.box = box
     trail.copy(ship.velocity).multiplyScalar(-TRAIL_SECONDS)
-    trail.clampLength(0, box * 0.3)
+    trail.clampLength(0, box * 0.08)
 
     // 大気の中の低いところでは空気の色、それ以外は白っぽい塵
     const air = proximity.id ? airColor.get(proximity.id) : undefined
     const inAir = air ? 1 - THREE.MathUtils.smoothstep(rel, 0.08, 0.3) : 0
-    tint.copy(DUST).lerp(air ?? DUST, inAir).multiplyScalar(0.55 * amount)
+    tint.copy(DUST).lerp(air ?? DUST, inAir).multiplyScalar(0.4 * amount)
 
     const pos = geometry.getAttribute('position') as THREE.BufferAttribute
     const col = geometry.getAttribute('color') as THREE.BufferAttribute
@@ -82,7 +82,7 @@ export function SpaceDust() {
       local[i * 3 + 2] = z
       // 箱の縁に近い粒は薄くして、出入りが目立たないようにする。カメラのすぐ前の粒も、画面を横切る長い線にならないよう消す
       const r = Math.hypot(x, y, z)
-      const fade = Math.max(0, 1 - r * 2) * THREE.MathUtils.smoothstep(r, 0.05, 0.15)
+      const fade = Math.max(0, 1 - r * 2) * THREE.MathUtils.smoothstep(r, 0.1, 0.25)
       pos.setXYZ(i * 2, x * box, y * box, z * box)
       pos.setXYZ(i * 2 + 1, x * box + trail.x, y * box + trail.y, z * box + trail.z)
       col.setXYZ(i * 2, tint.r * fade, tint.g * fade, tint.b * fade)

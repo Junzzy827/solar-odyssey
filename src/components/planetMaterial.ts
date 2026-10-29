@@ -122,6 +122,11 @@ const fragmentShader = /* glsl */ `
     return v;
   }
 
+  // 画面上でこの細かさの模様が1ピクセルより細かくなったら消す（ちらつき防止）。px は1ピクセルあたりの球の座標の変化
+  float fine(float px, float freq) {
+    return 1.0 - smoothstep(0.05, 0.18, px * freq);
+  }
+
   // クレーター：セルごとに丸いくぼみと盛り上がった縁を置く（高さを返す）
   float craters(vec3 p) {
     vec3 i = floor(p);
@@ -239,6 +244,28 @@ const fragmentShader = /* glsl */ `
       albedo = mix(albedo, vec3(0.95), companion * 0.75);
     }
 
+    // ---- 近づいたときの細部：テクスチャの1画素より細かい模様 ----
+    float px = max(length(dFdx(unit)), length(dFdy(unit))) * 1.4;
+    if (uDetail > 0.001) {
+      if (solid) {
+        // 岩肌の明るさのむら（大きな模様に合わせて、明るいところほどむらも強い）
+        float n = (noise3(unit * 320.0) - 0.5) * 0.5 * fine(px, 320.0)
+          + (noise3(unit * 1100.0 + 3.1) - 0.5) * 0.35 * fine(px, 1100.0)
+          + (noise3(unit * 3600.0 + 7.7) - 0.5) * 0.25 * fine(px, 3600.0);
+        albedo *= 1.0 + n * 0.5 * uDetail;
+      } else {
+        // 雲の細かな筋と渦：東西に引き伸ばした模様を、ゆがませながらゆっくり流す
+        float t = uTime * 0.015;
+        vec3 q = unit * vec3(1.0, 5.0, 1.0);
+        float warp = noise3(q * 60.0 + vec3(t, 0.0, -t));
+        float streak = (noise3(q * 180.0 + warp * 2.5 + vec3(t * 2.0, 0.0, 0.0)) - 0.5) * fine(px, 900.0);
+        float eddy = (fbm3(unit * 420.0 + warp * 1.5 + vec3(0.0, t, 0.0)) - 0.5) * fine(px, 420.0)
+          + (noise3(unit * 1500.0 + warp) - 0.5) * 0.5 * fine(px, 1500.0);
+        float amount = uStyle == 2 ? 1.0 : 0.45;
+        albedo *= 1.0 + (streak * 0.22 + eddy * 0.3) * amount * uDetail;
+      }
+    }
+
     // ---- 凹凸（岩の天体） ----
     vec3 Nb = N;
     if (solid) {
@@ -253,14 +280,24 @@ const fragmentShader = /* glsl */ `
       }
       if (uDetail > 0.001) {
         // 近づいたときだけ、細かいクレーターと岩肌を足す（画面上で細かすぎる模様は消す）
-        float px = length(fwidth(unit));
-        float w28 = 1.0 - smoothstep(0.12, 0.3, px * 28.0);
-        float w85 = 1.0 - smoothstep(0.12, 0.3, px * 85.0);
-        h += (fbm3(unit * 90.0) - 0.5) * 0.25 * uDetail * w85;
-        if (uStyle == 0 || uHasMap < 0.5) h += (craters(unit * 28.0) * 0.6 * w28 + (w85 > 0.0 ? craters(unit * 85.0) * 0.25 * w85 : 0.0)) * uDetail;
-        else h += craters(unit * 40.0) * 0.25 * uDetail * w28;
+        // クレーターの縁は細いので、セルより2.5倍細かい模様として消し始める（縁がざらざらにちらつかないように）
+        float w28 = fine(px, 28.0 * 2.5);
+        float w85 = fine(px, 85.0 * 2.5);
+        float w260 = fine(px, 260.0 * 2.5);
+        h += (fbm3(unit * 90.0) - 0.5) * 0.25 * uDetail * fine(px, 90.0 * 3.0);
+        // さらに細かい岩肌（低い軌道から見下ろすとき）
+        h += ((noise3(unit * 330.0) - 0.5) * 0.07 * fine(px, 330.0 * 2.0) + (noise3(unit * 1100.0) - 0.5) * 0.022 * fine(px, 1100.0 * 2.0)) * uDetail;
+        if (uStyle == 0 || uHasMap < 0.5) {
+          h += (craters(unit * 28.0) * 0.6 * w28 + (w85 > 0.0 ? craters(unit * 85.0) * 0.25 * w85 : 0.0)) * uDetail;
+          // 小さなクレーターがびっしり（月や水星の表面は、どの大きさでもクレーターだらけ）
+          if (w260 > 0.0) h += craters(unit * 260.0) * 0.085 * w260 * uDetail;
+        } else {
+          h += craters(unit * 40.0) * 0.25 * uDetail * w28;
+          if (fine(px, 400.0) > 0.0) h += craters(unit * 160.0) * 0.06 * fine(px, 400.0) * uDetail;
+        }
       }
-      Nb = bump(N, vPosW, h, uRadius * 0.012);
+      // 縁（視線が地表をかすめるところ）では凹凸を弱める。画素の並びのざらつきが出やすい
+      Nb = bump(N, vPosW, h, uRadius * 0.012 * smoothstep(0.04, 0.3, dot(N, V)));
     }
 
     // ---- 光 ----
