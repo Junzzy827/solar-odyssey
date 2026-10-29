@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { ShipModel } from './ShipModel'
+import { ShipModel } from './ship/ShipModel'
 import { bodies } from '../state/registry'
 import { useStore } from '../state/store'
 import { CHARGE_SECONDS, EXIT_SECONDS, ship, standoff, warpFx } from '../state/flight'
@@ -40,7 +40,6 @@ function facing(from: THREE.Vector3, to: THREE.Vector3, upRef: THREE.Vector3) {
 
 export function Ship() {
   const group = useRef<THREE.Group>(null!)
-  const glow = useRef<THREE.MeshBasicMaterial>(null!)
   const { gl, camera } = useThree()
   const mode = useStore((s) => s.mode)
 
@@ -180,10 +179,6 @@ export function Ship() {
 
     group.current.position.copy(ship.position)
     group.current.quaternion.copy(ship.quaternion)
-    if (glow.current) {
-      glow.current.opacity = 0.45 + 0.55 * warpFx.glow
-      glow.current.color.setRGB(0.24 + 0.5 * warpFx.glow, 0.48 + 0.4 * warpFx.glow, 1)
-    }
 
     if (st.mode === 'flight') followCamera(camera as THREE.PerspectiveCamera, dt, st.warpPhase)
 
@@ -198,7 +193,7 @@ export function Ship() {
 
   return (
     <group ref={group} scale={SHIP_SCALE}>
-      <ShipModel ref={glow} />
+      <ShipModel />
     </group>
   )
 }

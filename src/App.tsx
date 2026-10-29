@@ -34,7 +34,7 @@ export default function App() {
         <TargetMarker />
         {mode === 'map' && <OrbitControls enablePan maxDistance={1200} />}
         <EffectComposer>
-          <Bloom intensity={1.2} luminanceThreshold={0.85} luminanceSmoothing={0.2} mipmapBlur />
+          <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />
         </EffectComposer>
       </Canvas>
       <Hud />
