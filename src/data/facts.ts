@@ -34,6 +34,7 @@ export const FACTS: Record<string, Facts> = {
       '宇宙飛行士がスペースシャトルで5回も修理や改良に行きました（1993〜2009年）。',
       '30年以上観測を続け、宇宙の年齢が約138億年だと分かる手がかりも集めました。',
       '見やすいように、本物の約20倍の大きさで描いています（本物はこの船の約50分の1）。ゲームでは観察しやすいよう、ゆっくり地球を回ります。',
+      '3Dモデルは NASA が公開しているもの（NASA Visualization Technology Applications and Development）です。',
     ],
     quiz: {
       question: 'ハッブル望遠鏡を宇宙に打ち上げた、いちばんの理由は？',

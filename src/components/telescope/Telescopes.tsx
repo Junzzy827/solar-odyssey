@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
-import { HubbleModel } from './HubbleModel'
+import { HubbleTelescope } from './HubbleNasa'
 import { WebbModel } from './WebbModel'
 import { bodies, registerBody, sim } from '../../state/registry'
 import { ship } from '../../state/flight'
@@ -119,7 +119,7 @@ export function Telescopes() {
       <group ref={hubble}>
         <group ref={hubbleBody}>
           <group scale={HUBBLE_LENGTH}>
-            <HubbleModel />
+            <HubbleTelescope />
           </group>
         </group>
         <Label id={HUBBLE_ID} name="ハッブル" height={HUBBLE_LENGTH * 0.9} />

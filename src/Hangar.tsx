@@ -7,6 +7,7 @@ import { ShipModel } from './components/ship/ShipModel'
 import { CubeModel } from './components/cube/CubeModel'
 import { asteroidGeometry, asteroidMaterial } from './components/asteroidShape'
 import { HubbleModel } from './components/telescope/HubbleModel'
+import { HubbleTelescope } from './components/telescope/HubbleNasa'
 import { WebbModel } from './components/telescope/WebbModel'
 
 /** 小惑星の見本：大きな岩の形を3つ並べる */
@@ -86,6 +87,8 @@ export default function Hangar() {
         ) : MODEL === 'asteroid' ? (
           <AsteroidSamples />
         ) : MODEL === 'hubble' ? (
+          <HubbleTelescope />
+        ) : MODEL === 'hubble-handmade' ? (
           <HubbleModel />
         ) : MODEL === 'webb' ? (
           <WebbModel />
