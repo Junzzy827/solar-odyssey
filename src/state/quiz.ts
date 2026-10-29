@@ -4,6 +4,7 @@ import { PLANETS, type Planet } from '../data/bodies'
 import { CUBE_ID } from '../data/cube'
 import { bodyInfo, engage } from './flight'
 import { useStore } from './store'
+import { closeProbes } from './probes'
 
 // 連続クイズ：航海日誌のクイズと、天体のデータから作る「くらべる」問題を混ぜて10問続けて出す。
 // まちがえた天体は、終わったあとにワープして見に行ける
@@ -175,6 +176,7 @@ function makeQuestions(): QuizQuestion[] {
 }
 
 export function startQuiz() {
+  closeProbes()
   if (document.pointerLockElement) document.exitPointerLock()
   useStore.getState().setLogOpen(false)
   useQuiz.setState({ open: true, questions: makeQuestions(), index: 0, picked: null, score: 0, streak: 0, bestStreak: 0, results: [], missed: [], finished: false, newBest: false })

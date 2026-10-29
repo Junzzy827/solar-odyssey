@@ -29,6 +29,8 @@ export type Planet = {
   dwarf?: boolean
   /** 軌道の傾き（度）。惑星はほぼ同じ平面を回るので、大きく傾いた冥王星だけ */
   inclinationDeg?: number
+  /** 傾いた軌道が太陽系の面を南から北へ横切る向き（昇交点の黄経、度） */
+  nodeDeg?: number
   /** 衛星が赤道の上でなく、公転の面に近いところを回る（地球の月） */
   moonsInOrbitPlane?: boolean
   /** 自転が一つ目の衛星の公転とそろっていて、いつも同じ面を向け合う（冥王星とカロン） */
@@ -92,7 +94,7 @@ export const PLANETS: Planet[] = [
     ],
   },
   {
-    id: 'pluto', name: '冥王星', radiusKm: 1_188, distanceAu: 39.48, orbitDays: 90_560, rotationHours: -153.3, tiltDeg: 122.5, color: '#c7a585', dwarf: true, inclinationDeg: 17.2, lockedToMoon: true,
+    id: 'pluto', name: '冥王星', radiusKm: 1_188, distanceAu: 39.48, orbitDays: 90_560, rotationHours: -153.3, tiltDeg: 122.5, color: '#c7a585', dwarf: true, inclinationDeg: 17.1, nodeDeg: 110.3, lockedToMoon: true,
     moons: [{ id: 'charon', name: 'カロン', radiusKm: 606, orbitDays: 6.39, distanceKm: 19_591, color: '#a9a39b' }],
   },
 ]

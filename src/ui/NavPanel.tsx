@@ -8,6 +8,9 @@ import { CUBE_ID, CUBE_NAME } from '../data/cube'
 import { HUBBLE_ID, HUBBLE_NAME, WEBB_ID, WEBB_NAME } from '../data/telescopes'
 import { useRace } from '../state/race'
 import { QUIZ_LENGTH, startQuiz, useQuiz } from '../state/quiz'
+import { openProbes, useProbes } from '../state/probes'
+import { sim } from '../state/registry'
+import { formatDate, simDate } from '../data/ephemeris'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -100,6 +103,26 @@ function Settings({ racing }: { racing: boolean }) {
   )
 }
 
+/** 表示している日付（惑星はこの日の本当の位置にある）。時間を進めていたら、今日へ戻せる */
+function SimDate() {
+  const [t, setT] = useState(sim.time)
+  useEffect(() => {
+    const id = setInterval(() => setT(sim.time), 250)
+    return () => clearInterval(id)
+  }, [])
+  const today = Math.abs(t) < 1
+  return (
+    <div className="nav-date muted small">
+      日付 {formatDate(simDate(t))}
+      {!today && (
+        <button className="nav-today" onClick={() => (sim.time = 0)}>
+          今日へ
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function NavPanel() {
   const [open, setOpen] = useState<string | null>('saturn')
   // スマホでは、ふだんは目標とエンゲージだけの小さな形にたたんでおく
@@ -115,6 +138,7 @@ export function NavPanel() {
   const racing = racePhase === 'countdown' || racePhase === 'running'
   const busy = s.warpPhase !== 'idle' || racing
   const quizOpen = useQuiz((q) => q.open)
+  const probesOpen = useProbes((p) => p.open)
   if (s.mode === 'gallery') return null
 
   return (
@@ -187,6 +211,9 @@ export function NavPanel() {
       <button className={`secondary quiz-start${quizOpen ? ' on' : ''}`} onClick={() => (pick(), startQuiz())} disabled={racing}>
         連続クイズ（{QUIZ_LENGTH}問）
       </button>
+      <button className={`secondary probe-start${probesOpen ? ' on' : ''}`} onClick={() => (pick(), openProbes())} disabled={busy}>
+        探査機の旅（ボイジャーなど）
+      </button>
       <div className="nav-time">
         時間
         {[0, 1, 10].map((k) => (
@@ -195,6 +222,7 @@ export function NavPanel() {
           </button>
         ))}
       </div>
+      <SimDate />
       <Settings racing={racing} />
     </aside>
   )

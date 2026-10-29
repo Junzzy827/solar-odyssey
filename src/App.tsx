@@ -27,6 +27,8 @@ import { GalleryPanel } from './ui/GalleryPanel'
 import { GalleryLabels } from './ui/GalleryLabels'
 import { TouchControls } from './ui/TouchControls'
 import { QuizPanel } from './ui/QuizPanel'
+import { ProbeScene } from './components/ProbeScene'
+import { ProbePanel } from './ui/ProbePanel'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -45,8 +47,8 @@ export default function App() {
         <ambientLight intensity={0.08} />
         <Sky />
         <Sun />
-        {PLANETS.map((planet, i) => (
-          <PlanetBody key={planet.id} planet={planet} startAngle={i * 2.39} />
+        {PLANETS.map((planet) => (
+          <PlanetBody key={planet.id} planet={planet} />
         ))}
         <AsteroidBelt />
         <CubeShip />
@@ -57,6 +59,7 @@ export default function App() {
         <CloudWake />
         <WarpStreaks />
         <TargetMarker />
+        <ProbeScene />
         <Phaser />
         {mode === 'map' && <MapControls />}
         <EffectComposer>
@@ -71,6 +74,7 @@ export default function App() {
       <RacePanel />
       <LogPanel />
       <QuizPanel />
+      <ProbePanel />
       <TelescopeView />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}

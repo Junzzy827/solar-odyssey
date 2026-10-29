@@ -8,6 +8,7 @@ import { isTelescope } from '../data/telescopes'
 import { raceActive } from '../state/race'
 import { openScope } from './Hud'
 import { useQuiz } from '../state/quiz'
+import { useProbes } from '../state/probes'
 
 const TOTAL = 1 + PLANETS.reduce((n, p) => n + 1 + p.moons.length, 0)
 const NEAR = 10
@@ -23,6 +24,7 @@ export function LogPanel() {
   const scopeNear = useStore((s) => s.scopeNear)
   const markVisited = useStore((s) => s.markVisited)
   const quizOpen = useQuiz((q) => q.open)
+  const probesOpen = useProbes((p) => p.open)
   const [picked, setPicked] = useState<number | null>(null)
   const autoOpened = useRef<string | null>(null)
 
@@ -48,7 +50,7 @@ export function LogPanel() {
 
   const facts = targetId ? FACTS[targetId] : undefined
   const info = targetId ? bodyInfo(targetId) : null
-  if (!logOpen || quizOpen || !facts || !info || !targetId) return null
+  if (!logOpen || quizOpen || probesOpen || !facts || !info || !targetId) return null
 
   const done = visited.includes(targetId)
   const answered = picked !== null

@@ -6,6 +6,9 @@ import { RACE_TEXT, raceActive } from './race'
 import { bodies } from './registry'
 import { useStore } from './store'
 import { playWarp, speak } from '../audio/sfx'
+import { planetLongitude, simDays } from '../data/ephemeris'
+
+const UP = new THREE.Vector3(0, 1, 0)
 
 /** 自機の状態。毎フレーム書き換えるので React の state にはしない */
 /** 自機の表示の大きさ（ShipModel の座標の1が、この長さになる） */
@@ -15,6 +18,14 @@ export const ship = {
   position: new THREE.Vector3(30, 4, 70),
   quaternion: new THREE.Quaternion(),
   velocity: new THREE.Vector3(),
+}
+
+// 惑星は今日の本当の位置に並ぶので、出発点も地球と一緒に回して、最初の眺め（地球のそばから太陽を見る）を保つ。
+// 4.78 は、惑星を決まった角度に並べていたころの地球の向き
+{
+  const turn = planetLongitude('earth', simDays(0)) - 4.78
+  ship.position.applyAxisAngle(UP, turn)
+  ship.quaternion.setFromAxisAngle(UP, turn)
 }
 
 /** 操縦の制限（レースのカウントダウン中は止める、スイングバイ後は最高速度を上げる） */

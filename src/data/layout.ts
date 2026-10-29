@@ -31,6 +31,8 @@ export type Layout = {
   moon: Map<string, { radius: number; speed: number }>
   /** 小惑星帯の岩の、太陽からの距離 */
   belt: (au: number) => number
+  /** 太陽から何天文単位かを、この並べ方での距離に直す（惑星の軌道はちょうどその惑星の距離になる。探査機の道すじ用） */
+  au: (au: number) => number
 }
 
 /** 小さな衛星の、表示上のいちばん小さい半径 */
@@ -88,7 +90,16 @@ export function computeLayout(distance: number, size = 0): Layout {
     orbit.set(p.id, R)
     prevEdge = R + system
   }
-  const layout: Layout = { sun, radius, orbit, moon, belt: (au) => planetDistance(au) + marsPush }
+  // 惑星の軌道を外へずらした量を、惑星と惑星のあいだでは直線でつなぐ
+  const marks = PLANETS.map((p) => ({ au: p.distanceAu, push: orbit.get(p.id)! - planetDistance(p.distanceAu) }))
+  const auDistance = (au: number) => {
+    const next = marks.findIndex((m) => m.au >= au)
+    if (next === -1) return planetDistance(au) + marks[marks.length - 1].push
+    const prev = next > 0 ? marks[next - 1] : { au: 0, push: 0 }
+    const k = (au - prev.au) / (marks[next].au - prev.au)
+    return planetDistance(au) + prev.push + (marks[next].push - prev.push) * k
+  }
+  const layout: Layout = { sun, radius, orbit, moon, belt: (au) => planetDistance(au) + marsPush, au: auDistance }
   cache.set(key, layout)
   return layout
 }

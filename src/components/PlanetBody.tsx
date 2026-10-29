@@ -3,7 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Moon, Planet } from '../data/bodies'
-import { angularSpeed, moonSpeed, spinSpeed } from '../data/scale'
+import { moonSpeed, spinSpeed } from '../data/scale'
+import { planetPosition } from '../data/ephemeris'
 import { textureUrl } from '../data/textures'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { registerBody, sim } from '../state/registry'
@@ -19,7 +20,6 @@ import { approachKind } from '../data/approach'
 import { LABEL_Z, useHideBehindSun } from './labels'
 
 const DEG = Math.PI / 180
-const X_AXIS = new THREE.Vector3(1, 0, 0)
 
 const moonWorld = new THREE.Vector3()
 const moonTilt = new THREE.Quaternion()
@@ -54,7 +54,7 @@ function MoonBody({ moon, radius, orbitRadius }: { moon: Moon; radius: number; o
   )
 }
 
-export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle: number }) {
+export function PlanetBody({ planet }: { planet: Planet }) {
   const orbit = useRef<THREE.Group>(null!)
   const spin = useRef<THREE.Group>(null!)
   const surface = useRef<THREE.Group>(null!)
@@ -79,9 +79,7 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
 
   useFrame((_, delta) => {
     const t = sim.time
-    const a = startAngle + t * angularSpeed(planet.orbitDays)
-    orbit.current.position.set(Math.cos(a) * distance, 0, -Math.sin(a) * distance)
-    if (planet.inclinationDeg) orbit.current.position.applyAxisAngle(X_AXIS, planet.inclinationDeg * DEG)
+    planetPosition(planet, distance, t, orbit.current.position)
     spin.current.rotation.y += spinSpeed(planet.rotationHours) * delta * useStore.getState().timeScale
     if (!moonAngles.current) moonAngles.current = planet.moons.map((moon, i) => i * 1.7 + t * moonSpeed(moon.orbitDays))
     const step = t - lastTime.current
@@ -96,8 +94,10 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
 
   return (
     <>
-      <group rotation={[(planet.inclinationDeg ?? 0) * DEG, 0, 0]}>
-        <OrbitLine radius={distance} />
+      <group rotation={[0, (planet.nodeDeg ?? 0) * DEG, 0]}>
+        <group rotation={[(planet.inclinationDeg ?? 0) * DEG, 0, 0]}>
+          <OrbitLine radius={distance} />
+        </group>
       </group>
       <group ref={orbit}>
         <group rotation={[0, 0, planet.tiltDeg * DEG]}>

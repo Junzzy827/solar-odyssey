@@ -344,6 +344,8 @@ button:disabled {
   .nav-panel.collapsed .nav-warp,
   .nav-panel.collapsed .race-start,
   .nav-panel.collapsed .quiz-start,
+  .nav-panel.collapsed .probe-start,
+  .nav-panel.collapsed .nav-date,
   .nav-panel.collapsed .nav-time,
   .nav-panel.collapsed .nav-settings {
     display: none;
@@ -380,6 +382,14 @@ button:disabled {
 
   .gallery-button {
     bottom: 26px;
+  }
+
+  .probe-panel {
+    left: 12px;
+    right: 12px;
+    bottom: 76px;
+    width: auto;
+    max-height: 44vh;
   }
 
   /* 写真・模型の出典は小さく、いちばん下に */
@@ -730,6 +740,143 @@ button:disabled {
   flex-direction: column;
   gap: 8px;
   margin-top: 10px;
+}
+
+.nav-date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: -4px;
+}
+
+.nav-today {
+  padding: 1px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: none;
+  font-size: 11px;
+}
+
+.probe-panel {
+  position: fixed;
+  left: 16px;
+  bottom: 80px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 200px);
+  padding: 12px 16px;
+  border-left: 6px solid #6fd0ff;
+  border-radius: 0 12px 12px 0;
+  background: rgba(20, 16, 30, 0.9);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.probe-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.probe-panel h2 {
+  margin: 0;
+  font-size: 15px;
+  color: #f2a65a;
+}
+
+.probe-panel .close {
+  border: none;
+  background: none;
+  font-size: 18px;
+}
+
+.probe-panel p {
+  margin: 0;
+}
+
+.probe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.probe-list .nav-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+}
+
+.probe-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 50%;
+}
+
+.probe-date {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #ffd27a;
+}
+
+.probe-date .muted {
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.probe-events {
+  flex: 1;
+  min-height: 60px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.probe-events li {
+  padding: 4px 0 4px 10px;
+  border-left: 2px solid rgba(255, 255, 255, 0.12);
+  opacity: 0.45;
+}
+
+.probe-events li.past {
+  opacity: 0.75;
+}
+
+.probe-events li.now {
+  border-left-color: #ffd27a;
+  opacity: 1;
+}
+
+.probe-when {
+  display: block;
+  font-size: 11px;
+  color: #cfd8ff;
+}
+
+.probe-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.probe-controls button {
+  flex: 1;
+}
+
+.probe-label span {
+  font-weight: 600;
+  text-shadow: 0 0 4px #000;
 }
 
 .race-result {
@@ -1367,6 +1514,8 @@ canvas {
   .nav-panel.collapsed .nav-warp,
   .nav-panel.collapsed .race-start,
   .nav-panel.collapsed .quiz-start,
+  .nav-panel.collapsed .probe-start,
+  .nav-panel.collapsed .nav-date,
   .nav-panel.collapsed .nav-time,
   .nav-panel.collapsed .nav-settings,
   .nav-panel.collapsed .nav-log {
@@ -1448,6 +1597,17 @@ canvas {
     height: 46px;
     padding: 0 10px;
     font-size: 13px;
+  }
+
+  .probe-panel {
+    top: 8px;
+    left: 8px;
+    right: auto;
+    bottom: 60px;
+    width: min(300px, 42vw);
+    max-height: none;
+    padding: 8px 12px;
+    gap: 4px;
   }
 
   .quiz-run {
