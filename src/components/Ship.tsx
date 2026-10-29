@@ -313,7 +313,7 @@ export function Ship() {
 
   return (
     <>
-      <group ref={group} scale={SHIP_SCALE}>
+      <group ref={group} name="ownship" scale={SHIP_SCALE}>
         <group ref={bank}>
           <ShipModel unitScale={shipScale} />
         </group>

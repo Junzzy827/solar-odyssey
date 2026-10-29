@@ -450,10 +450,16 @@ export function windowBandTexture() {
   c.width = 512
   c.height = 8
   const ctx = c.getContext('2d')!
+  // 正面（帯の真ん中）は艦橋の大きな窓。中の部屋（BridgeInterior）の窓と同じ幅
+  const w0 = 512 * (0.5 - 0.95 / (2 * Math.PI))
+  const w1 = 512 * (0.5 + 0.95 / (2 * Math.PI))
   for (let x = 2; x < 512; x += 8) {
+    if (x + 5 > w0 && x < w1) continue
     ctx.fillStyle = x % 64 < 8 ? 'rgba(0,0,0,0)' : '#ffe2a8'
     ctx.fillRect(x, 2, 5, 4)
   }
+  ctx.fillStyle = '#ffe9bd'
+  ctx.fillRect(w0, 1, w1 - w0, 6)
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
   return t

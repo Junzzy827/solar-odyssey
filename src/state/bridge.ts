@@ -7,11 +7,16 @@ export const useBridge = create<{
   viewpoint: ViewpointId
   /** 艦長席で、マウス（右ボタン）や指で首を振っている */
   looking: boolean
+  /** 正面の窓ガラスを大画面にして、目標の天体を拡大して映す */
+  viewscreen: boolean
+  setViewscreen: (on: boolean) => void
   setViewpoint: (id: ViewpointId) => void
   setLooking: (on: boolean) => void
 }>((set) => ({
   viewpoint: 'captain',
   looking: false,
+  viewscreen: false,
+  setViewscreen: (viewscreen) => set({ viewscreen }),
   setViewpoint: (viewpoint) => set({ viewpoint, looking: false }),
   setLooking: (looking) => set({ looking }),
 }))
@@ -23,3 +28,6 @@ export const bridgeEye = {
   pitch: 0,
   quaternion: new THREE.Quaternion(),
 }
+
+/** 拡大画面の倍率（窓から見たときの何倍か。画面の表示に使う） */
+export const viewscreenInfo = { zoom: 1 }

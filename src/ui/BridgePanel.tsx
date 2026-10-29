@@ -14,6 +14,9 @@ export function BridgePanel() {
   const looking = useBridge((b) => b.looking)
   const setViewpoint = useBridge((b) => b.setViewpoint)
   const setLooking = useBridge((b) => b.setLooking)
+  const viewscreen = useBridge((b) => b.viewscreen)
+  const setViewscreen = useBridge((b) => b.setViewscreen)
+  const targetId = useStore((s) => s.targetId)
   if (mode !== 'flight' || cameraMode !== 'bridge' || scope) return null
   const touch = isTouchDevice()
   const atSeat = current === 'captain'
@@ -34,11 +37,17 @@ export function BridgePanel() {
             : t('右ボタンを押しながらマウスで見回す', 'Hold the right button and move the mouse to look around')
           : t('船は止まります。なぞって見回せます（艦長席にもどると操縦できます）', 'The ship coasts to a stop. Drag to look around (go back to the captain’s chair to fly)')}
       </div>
-      {touch && atSeat && (
-        <button className={`bridge-look ${looking ? 'active' : ''}`} onClick={() => setLooking(!looking)}>
-          {looking ? t('操縦にもどる', 'Back to flying') : t('見回す', 'Look around')}
+      <div className="bridge-actions">
+        <button className={`bridge-look ${viewscreen ? 'active' : ''}`} onClick={() => setViewscreen(!viewscreen)}>
+          {viewscreen ? t('窓にもどす', 'Back to the window') : targetId ? t('目標を拡大画面に', 'Zoom on target') : t('前を拡大画面に', 'Zoom ahead')}
+          {!touch && <kbd>Z</kbd>}
         </button>
-      )}
+        {touch && atSeat && (
+          <button className={`bridge-look ${looking ? 'active' : ''}`} onClick={() => setLooking(!looking)}>
+            {looking ? t('操縦にもどる', 'Back to flying') : t('見回す', 'Look around')}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

@@ -2311,6 +2311,16 @@ canvas {
   color: #ffe2b5;
 }
 
+.bridge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bridge-look kbd {
+  margin-left: 6px;
+}
+
 .bridge-hint {
   padding: 2px 10px;
   border-radius: 4px;

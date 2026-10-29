@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { nextCameraMode, useStore } from '../state/store'
+import { useBridge } from '../state/bridge'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { RACE_TEXT, raceActive } from '../state/race'
 import type { Near } from '../state/proximity'
@@ -37,6 +38,7 @@ export function useGlobalKeys() {
       if (e.code === 'KeyM') s.setMode(s.mode === 'map' ? 'flight' : 'map')
       else if (e.code === 'Enter') engage()
       else if (e.code === 'KeyC') s.setCameraMode(nextCameraMode(s.cameraMode))
+      else if (e.code === 'KeyZ' && s.cameraMode === 'bridge') useBridge.getState().setViewscreen(!useBridge.getState().viewscreen)
       else if (e.code === 'KeyG' && raceActive()) s.showToast(RACE_TEXT.noWarp)
       else if (e.code === 'KeyG' && s.targetId && s.warpPhase === 'idle') s.setAutopilot(!s.autopilot)
       else if (/^Digit[1-9]$/.test(e.code) && s.warpPhase === 'idle') s.setWarpFactor(Number(e.code.slice(5)))
