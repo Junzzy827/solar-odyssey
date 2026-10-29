@@ -4,6 +4,7 @@ import { useStore } from './state/store'
 import { flightControl, ship, warpFx } from './state/flight'
 import { bodies, sim } from './state/registry'
 import { useRace } from './state/race'
+import { useMission } from './state/mission'
 import { setGoal, toggleAuto, toggleCompare, useGallery, openGallery, closeGallery, selectPart } from './state/gallery'
 import { probeClock, useProbes } from './state/probes'
 
@@ -15,6 +16,7 @@ const sv = {
   THREE,
   store: useStore,
   race: useRace,
+  mission: useMission,
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
   probes: { state: useProbes, clock: probeClock },
   ship,

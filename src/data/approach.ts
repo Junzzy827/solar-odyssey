@@ -27,7 +27,8 @@ const GAS: Record<string, { t0: number; lapse: number }> = {
 
 export type ApproachKind = 'star' | 'gas' | 'rock' | 'object'
 
-export const approachKind = (id: string): ApproachKind => (id === 'sun' ? 'star' : id === CUBE_ID || isTelescope(id) ? 'object' : GAS[id] ? 'gas' : 'rock')
+export const approachKind = (id: string): ApproachKind =>
+  id === 'sun' ? 'star' : id === CUBE_ID || isTelescope(id) || id.startsWith('mission-') ? 'object' : GAS[id] ? 'gas' : 'rock'
 
 /** 天体の本当の半径（km） */
 export function radiusKm(id: string) {

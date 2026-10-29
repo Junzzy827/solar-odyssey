@@ -30,5 +30,8 @@ export const asteroids = {
   destroyed: [] as { mesh: THREE.InstancedMesh; index: number; matrix: THREE.Matrix4; at: number }[],
 }
 
+/** 小惑星帯のほかにビームが当たるもの（任務の小惑星など）。当たると onHit を呼ぶ */
+export const beamTargets: { object: THREE.Object3D; onHit: () => void }[] = []
+
 /** 天体以外を目標マーカーで指すとき（レースの次のゲートなど） */
 export const markerOverride = { object: null as THREE.Object3D | null }

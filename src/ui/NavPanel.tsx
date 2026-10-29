@@ -11,6 +11,8 @@ import { QUIZ_LENGTH, startQuiz, useQuiz } from '../state/quiz'
 import { openProbes, useProbes } from '../state/probes'
 import { sim } from '../state/registry'
 import { formatDate, simDate } from '../data/ephemeris'
+import { openMissions, useMission } from '../state/mission'
+import { ui } from '../i18n'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -139,6 +141,8 @@ export function NavPanel() {
   const busy = s.warpPhase !== 'idle' || racing
   const quizOpen = useQuiz((q) => q.open)
   const probesOpen = useProbes((p) => p.open)
+  const missionPhase = useMission((m) => m.phase)
+  const onMission = missionPhase === 'active'
   if (s.mode === 'gallery') return null
 
   return (
@@ -205,7 +209,10 @@ export function NavPanel() {
       <button className={`secondary nav-auto${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
         自動航行 <kbd>G</kbd>
       </button>
-      <button className="secondary race-start" onClick={startRace} disabled={busy}>
+      <button className={`secondary mission-start${missionPhase !== 'closed' ? ' on' : ''}`} onClick={() => (pick(), openMissions())} disabled={racing}>
+        {ui().missionsButton}
+      </button>
+      <button className="secondary race-start" onClick={startRace} disabled={busy || onMission}>
         レース：火星 → 木星 → 土星スイングバイ → 火星
       </button>
       <button className={`secondary quiz-start${quizOpen ? ' on' : ''}`} onClick={() => (pick(), startQuiz())} disabled={racing}>

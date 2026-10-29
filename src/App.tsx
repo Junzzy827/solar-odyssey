@@ -29,6 +29,8 @@ import { TouchControls } from './ui/TouchControls'
 import { QuizPanel } from './ui/QuizPanel'
 import { ProbeScene } from './components/ProbeScene'
 import { ProbePanel } from './ui/ProbePanel'
+import { MissionRunner } from './components/mission/MissionRunner'
+import { MissionPanel } from './ui/MissionPanel'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -54,6 +56,7 @@ export default function App() {
         <CubeShip />
         <Telescopes />
         <Race />
+        <MissionRunner />
         <Ship />
         {mode === 'gallery' && <GalleryCamera />}
         <CloudWake />
@@ -72,6 +75,7 @@ export default function App() {
       <GalleryPanel />
       <TouchControls />
       <RacePanel />
+      <MissionPanel />
       <LogPanel />
       <QuizPanel />
       <ProbePanel />

@@ -94,6 +94,9 @@ export function bodyInfo(id: string) {
     const moon = p.moons.find((m) => m.id === id)
     if (moon) return { name: moon.name, au: p.distanceAu, parent: p.name }
   }
+  // 任務の小惑星など、一時的に加わったもの
+  const extra = bodies.get(id)
+  if (extra) return { name: extra.name, au: 0, parent: null }
   return null
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { asteroids, type RockType } from '../state/registry'
+import { asteroids, beamTargets, type RockType } from '../state/registry'
 import { ship } from '../state/flight'
 import { useStore } from '../state/store'
 import { playBeam, playBlast } from '../audio/sfx'
@@ -11,6 +11,8 @@ const RANGE = 40
 const BEAM_SECONDS = 0.35
 const DEBRIS = 80
 const DEBRIS_SECONDS = 1.6
+/** 任務の目標には、照準から約10°以内なら当たる */
+const AIM_ASSIST = Math.cos(THREE.MathUtils.degToRad(10))
 
 const ROCK_FACTS: Record<RockType, string> = {
   0: '炭素質（C型）の小惑星を破壊。小惑星の約4分の3がこのタイプで、太陽系ができたころの材料がほぼそのまま残っています。',
@@ -100,10 +102,21 @@ export function Phaser() {
   function shoot(now: number) {
     raycaster.setFromCamera(center, camera)
     raycaster.far = RANGE
-    const hit = raycaster.intersectObjects(asteroids.meshes, false)[0]
     const b = beamState.current
     b.t = 0
     playBeam()
+    // 任務の小惑星など：壊さずに、当たったことだけ知らせる。照準が少しずれていても当たる（スマホでも当てやすく）
+    for (const t of beamTargets) {
+      t.object.getWorldPosition(to)
+      const d = to.distanceTo(raycaster.ray.origin)
+      if (d > RANGE || mid.copy(to).sub(raycaster.ray.origin).normalize().dot(raycaster.ray.direction) < AIM_ASSIST) continue
+      b.target.copy(to)
+      burst(to)
+      playBlast()
+      t.onHit()
+      return
+    }
+    const hit = raycaster.intersectObjects(asteroids.meshes, false)[0]
     if (!hit || hit.instanceId === undefined) {
       b.target.copy(raycaster.ray.origin).addScaledVector(raycaster.ray.direction, RANGE)
       return
