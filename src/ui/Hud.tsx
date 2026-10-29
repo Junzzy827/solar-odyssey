@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 
@@ -18,7 +18,35 @@ export function useGlobalKeys() {
   }, [])
 }
 
+function usePointerLocked() {
+  const [locked, setLocked] = useState(false)
+  useEffect(() => {
+    const onChange = () => setLocked(document.pointerLockElement !== null)
+    document.addEventListener('pointerlockchange', onChange)
+    return () => document.removeEventListener('pointerlockchange', onChange)
+  }, [])
+  return locked
+}
+
+function Toast() {
+  const toast = useStore((s) => s.toast)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    if (!toast) return
+    setVisible(true)
+    const timer = setTimeout(() => setVisible(false), 7000)
+    return () => clearTimeout(timer)
+  }, [toast])
+  if (!toast || !visible) return null
+  return (
+    <div className="toast" key={toast.id}>
+      {toast.text}
+    </div>
+  )
+}
+
 export function Hud() {
+  const locked = usePointerLocked()
   const mode = useStore((s) => s.mode)
   const setMode = useStore((s) => s.setMode)
   const targetId = useStore((s) => s.targetId)
@@ -39,6 +67,7 @@ export function Hud() {
             クリックで操縦開始（Escで解除）
             <br />
             W/S 前後・A/D 左右・Space/Shift 上下・Q/E 回転・マウスで向き
+            <br />F またはクリックでビーム・I で航海日誌
           </div>
         )}
         <div className="muted">速度 {telemetry.speed.toFixed(1)}</div>
@@ -47,6 +76,9 @@ export function Hud() {
       <button className="mode-button" onClick={() => setMode(mode === 'map' ? 'flight' : 'map')}>
         {mode === 'map' ? '操縦席へ' : '全体マップ'} <kbd>M</kbd>
       </button>
+
+      {mode === 'flight' && locked && <div className="crosshair" />}
+      <Toast />
 
       <div id="target-marker">
         <div className="reticle" />

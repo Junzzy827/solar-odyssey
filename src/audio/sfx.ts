@@ -64,3 +64,40 @@ export function speak(text: string) {
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(u)
 }
+
+/** ビーム：高めの音がすっと下がる */
+export function playBeam() {
+  const c = audio()
+  const now = c.currentTime
+  const osc = c.createOscillator()
+  osc.type = 'sawtooth'
+  osc.frequency.setValueAtTime(1400, now)
+  osc.frequency.exponentialRampToValueAtTime(500, now + 0.35)
+  const filter = c.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.frequency.value = 1200
+  filter.Q.value = 2
+  const gain = c.createGain()
+  gain.gain.setValueAtTime(0.12, now)
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4)
+  osc.connect(filter).connect(gain).connect(c.destination)
+  osc.start(now)
+  osc.stop(now + 0.4)
+}
+
+/** 爆発：低いノイズが広がって消える */
+export function playBlast() {
+  const c = audio()
+  const now = c.currentTime
+  const src = c.createBufferSource()
+  src.buffer = noiseBuffer(c, 1.2)
+  const filter = c.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.setValueAtTime(1800, now)
+  filter.frequency.exponentialRampToValueAtTime(120, now + 1.1)
+  const gain = c.createGain()
+  gain.gain.setValueAtTime(0.35, now)
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2)
+  src.connect(filter).connect(gain).connect(c.destination)
+  src.start(now)
+}

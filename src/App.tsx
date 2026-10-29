@@ -11,8 +11,10 @@ import { Ship } from './components/Ship'
 import { AsteroidBelt } from './components/AsteroidBelt'
 import { WarpStreaks } from './components/WarpStreaks'
 import { TargetMarker } from './components/TargetMarker'
+import { Phaser } from './components/Phaser'
 import { Hud, useGlobalKeys } from './ui/Hud'
 import { NavPanel } from './ui/NavPanel'
+import { LogPanel } from './ui/LogPanel'
 
 export default function App() {
   const mode = useStore((s) => s.mode)
@@ -32,6 +34,7 @@ export default function App() {
         <Ship />
         <WarpStreaks />
         <TargetMarker />
+        <Phaser />
         {mode === 'map' && <OrbitControls enablePan maxDistance={1200} />}
         <EffectComposer>
           <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />
@@ -39,6 +42,7 @@ export default function App() {
       </Canvas>
       <Hud />
       <NavPanel />
+      <LogPanel />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0)
       </div>

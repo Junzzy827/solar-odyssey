@@ -3,12 +3,14 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { angularSpeed, orbitRadius } from '../data/scale'
-import { sim } from '../state/registry'
+import { asteroids, sim, type RockType } from '../state/registry'
 
 const COUNT = 3000
 const INNER_AU = 2.2
 const OUTER_AU = 3.3
 const SHAPES = 4
+const RESPAWN_SECONDS = 30
+const ROCK_COLORS = ['#5a534c', '#9a8f80', '#b8b4ac']
 
 // 再現性のある乱数（毎回同じ配置にする）
 function random(seed: number) {
@@ -55,6 +57,7 @@ export function AsteroidBelt() {
     const color = new THREE.Color()
     const per = Math.ceil(COUNT / SHAPES)
     meshes.current.forEach((mesh) => {
+      const types: RockType[] = []
       for (let i = 0; i < per; i++) {
         const au = INNER_AU + (OUTER_AU - INNER_AU) * (rand() + rand()) * 0.5
         const r = orbitRadius(au)
@@ -64,19 +67,37 @@ export function AsteroidBelt() {
         s.set(size, size, size)
         q.setFromEuler(e.set(rand() * 6.28, rand() * 6.28, rand() * 6.28))
         mesh.setMatrixAt(i, m.compose(p, q, s))
-        // 炭素質（暗い）・石質（灰）・金属（明るい）を混ぜる
+        // 炭素質（暗い）・石質（灰）・金属（明るい）を、実際の割合に近く混ぜる
         const k = rand()
-        mesh.setColorAt(i, color.set(k < 0.75 ? '#5a534c' : k < 0.92 ? '#9a8f80' : '#b8b4ac'))
+        const type: RockType = k < 0.75 ? 0 : k < 0.92 ? 1 : 2
+        types.push(type)
+        mesh.setColorAt(i, color.set(ROCK_COLORS[type]))
       }
+      asteroids.meshes.push(mesh)
+      asteroids.types.set(mesh, types)
       mesh.instanceMatrix.needsUpdate = true
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     })
+    return () => {
+      asteroids.meshes.length = 0
+      asteroids.types.clear()
+      asteroids.destroyed.length = 0
+    }
   }, [])
 
   // 帯全体を平均的な公転速度で回す
   const speed = angularSpeed(365.25 * 2.7 ** 1.5)
-  useFrame(() => {
+  useFrame(({ clock }) => {
     belt.current.rotation.y = sim.time * speed
+    // 壊した岩は時間がたつと元に戻る
+    const now = clock.getElapsedTime()
+    const back = asteroids.destroyed.filter((d) => now - d.at > RESPAWN_SECONDS)
+    if (back.length === 0) return
+    for (const d of back) {
+      d.mesh.setMatrixAt(d.index, d.matrix)
+      d.mesh.instanceMatrix.needsUpdate = true
+    }
+    asteroids.destroyed = asteroids.destroyed.filter((d) => now - d.at <= RESPAWN_SECONDS)
   })
 
   return (
