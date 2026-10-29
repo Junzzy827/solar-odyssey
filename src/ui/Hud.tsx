@@ -117,6 +117,11 @@ function NearReadout({ near }: { near: Near }) {
           `Diameter: ${big ? `about ${roughly(near.timesEarth)} × Earth, ` : ''}about ${roughly(near.timesShip)} × this ship`,
         )}
       </div>
+      {near.zoom >= 1.5 && (
+        <div className="muted near-zoom">
+          {t(`接近ズーム：船を1/${Math.round(near.zoom)}に縮めて、${near.name}の大きさを本物に近づけています`, `Close-up zoom: the ship is shown at 1/${Math.round(near.zoom)} so ${near.name} looks closer to its real size`)}
+        </div>
+      )}
     </div>
   )
 }

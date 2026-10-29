@@ -8,6 +8,7 @@ import { PlanetBody } from './components/PlanetBody'
 import { Sky } from './components/Sky'
 import { SimClock } from './components/SimClock'
 import { Ship } from './components/Ship'
+import { SpaceDust } from './components/SpaceDust'
 import { CloudWake } from './components/CloudWake'
 import { AsteroidBelt } from './components/AsteroidBelt'
 import { WarpStreaks } from './components/WarpStreaks'
@@ -70,6 +71,7 @@ export default function App() {
         <Ship />
         {mode === 'gallery' && <GalleryCamera />}
         <CloudWake />
+        <SpaceDust />
         <WarpStreaks />
         <TargetMarker />
         <ProbeScene />

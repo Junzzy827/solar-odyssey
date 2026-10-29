@@ -135,12 +135,12 @@ export function EarthSurface({ radius }: { radius: number }) {
   return (
     <>
       <mesh ref={surface}>
-        <sphereGeometry args={[radius, 64, 64]} />
+        <sphereGeometry args={[radius, 192, 128]} />
         <shaderMaterial vertexShader={vertexShader} fragmentShader={fragmentShader} uniforms={uniforms} />
       </mesh>
       {clouds && (
         <mesh ref={cloudLayer} scale={1.012}>
-          <sphereGeometry args={[radius, 64, 64]} />
+          <sphereGeometry args={[radius, 192, 128]} />
           <meshStandardMaterial alphaMap={clouds} transparent depthWrite={false} color="#ffffff" onBeforeCompile={shadowClouds} />
         </mesh>
       )}

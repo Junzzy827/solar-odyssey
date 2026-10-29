@@ -78,8 +78,8 @@ function hullMaterial(tex: ReturnType<typeof hullTextures>, envMap: THREE.Textur
   })
 }
 
-/** unitScale は自機に掛かっている拡大率（投光の届く距離を合わせるため） */
-export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
+/** unitScale は自機に掛かっている拡大率（投光の届く距離を合わせるため）。変わるときは毎フレーム読む関数で渡す */
+export function ShipModel({ unitScale = 1 }: { unitScale?: number | (() => number) }) {
   const { gl } = useThree()
   const root = useRef<THREE.Group>(null!)
 
@@ -378,7 +378,7 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
  * 船体を照らす投光器。撮影用模型や劇中の船と同じく、外板の一部を下や横から照らして
  * 光のたまりを作る。暗い宇宙でも形と大きさが分かる。
  */
-function Floodlights({ unitScale, saucerTop }: { unitScale: number; saucerTop: number }) {
+function Floodlights({ unitScale, saucerTop }: { unitScale: number | (() => number); saucerTop: number }) {
   const lights: { from: [number, number, number]; to: [number, number, number]; angle: number; intensity: number }[] = [
     // 円盤上面（船名のあたり）を後ろから
     { from: [0, saucerTop + 0.08, 0.1], to: [0, saucerTop - 0.01, -0.33], angle: 0.45, intensity: 0.7 },
@@ -393,20 +393,30 @@ function Floodlights({ unitScale, saucerTop }: { unitScale: number; saucerTop: n
     o.position.set(...l.to)
     return o
   }), [saucerTop])
+  const spots = useRef<THREE.SpotLight[]>([])
+  const scaleNow = () => (typeof unitScale === 'function' ? unitScale() : unitScale)
+  useFrame(() => {
+    const k = scaleNow()
+    spots.current.forEach((s, i) => {
+      s.distance = 0.7 * k
+      s.intensity = lights[i].intensity * k
+    })
+  })
   return (
     <>
       {lights.map((l, i) => (
         <group key={i}>
           <primitive object={targets[i]} />
           <spotLight
+            ref={(s) => { if (s) spots.current[i] = s }}
             position={l.from}
             target={targets[i]}
             angle={l.angle}
             penumbra={0.8}
-            distance={0.7 * unitScale}
+            distance={0.7 * scaleNow()}
             decay={1}
             // decay=1 なので明るさは距離に反比例する。縮小して置いても同じ見え方になるよう倍率を掛ける
-            intensity={l.intensity * unitScale}
+            intensity={l.intensity * scaleNow()}
             color="#fff1dc"
           />
         </group>

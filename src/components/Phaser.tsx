@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { asteroids, beamTargets, type RockType } from '../state/registry'
 import { ship } from '../state/flight'
+import { shipZoom } from '../state/zoom'
 import { useStore } from '../state/store'
 import { playBeam, playBlast } from '../audio/sfx'
 import { touchInput } from '../state/input'
@@ -92,7 +93,7 @@ export function Phaser() {
     const k = Math.max(0, 1 - b.t / BEAM_SECONDS)
     beam.current.visible = k > 0
     if (k > 0) {
-      from.copy(EMITTER).applyQuaternion(ship.quaternion).add(ship.position)
+      from.copy(EMITTER).divideScalar(shipZoom.factor).applyQuaternion(ship.quaternion).add(ship.position)
       const length = from.distanceTo(b.target)
       mid.copy(from).add(b.target).multiplyScalar(0.5)
       beam.current.position.copy(mid)

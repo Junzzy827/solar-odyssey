@@ -6,6 +6,7 @@ import { DIVE_DEPTH } from '../data/approach'
 import { ship } from '../state/flight'
 import { bodies } from '../state/registry'
 import { proximity } from '../state/proximity'
+import { shipZoom } from '../state/zoom'
 
 // ガス惑星の雲の中・雲の上をかすめるときの、ふわっとした雲のかたまり。
 // 船の進む先で左右に押し分けられ、後ろで渦を巻きながらゆっくり閉じる。
@@ -21,6 +22,7 @@ const vertexShader = /* glsl */ `
   #include <logdepthbuf_pars_vertex>
   attribute vec4 aPuff; // xyz: 中心, w: 大きさ
   attribute vec3 aLook; // x: 不透明度, y: 明るさ, z: 模様の種
+  uniform float uNear;
   varying vec2 vUv;
   varying vec3 vLook;
   varying float vNear;
@@ -29,7 +31,7 @@ const vertexShader = /* glsl */ `
     vLook = aLook;
     vec4 mv = modelViewMatrix * vec4(aPuff.xyz, 1.0);
     // カメラに近すぎる雲は薄くする（画面いっぱいの板にならないように）
-    vNear = smoothstep(0.06, 0.45, -mv.z);
+    vNear = smoothstep(0.06 * uNear, 0.45 * uNear, -mv.z);
     mv.xy += position.xy * aPuff.w;
     gl_Position = projectionMatrix * mv;
     #include <logdepthbuf_vertex>
@@ -115,6 +117,7 @@ export function CloudWake() {
         uLit: { value: new THREE.Color() },
         uShade: { value: new THREE.Color() },
         uSunView: { value: new THREE.Vector3(0, 0, 1) },
+        uNear: { value: 1 },
       },
       transparent: true,
       depthWrite: false,
@@ -144,8 +147,12 @@ export function CloudWake() {
       puffs.current = []
     }
 
+    // 接近ズームで船が小さくなったら、雲のかたまりも小さく・近くにする（縮め方の半分だけ。雲は船より大きく見える）
+    const c = 1 / Math.sqrt(shipZoom.factor)
+    const range = RANGE * c
+    material.uniforms.uNear.value = c
     const speed = ship.velocity.length()
-    if (speed > 0.02) dir.copy(ship.velocity).divideScalar(speed)
+    if (speed > 0.02 * c) dir.copy(ship.velocity).divideScalar(speed)
     else dir.set(0, 0, -1).applyQuaternion(ship.quaternion)
 
     // 新しい雲は、進む先に多めに置く
@@ -156,8 +163,8 @@ export function CloudWake() {
         if (tmp.lengthSq() > 1) continue
         if (ahead) {
           // 進む先の、少し横に広がった円盤の中
-          tmp.addScaledVector(dir, -tmp.dot(dir)).multiplyScalar(RANGE * 0.55).addScaledVector(dir, RANGE * (0.75 + Math.random() * 0.35))
-        } else tmp.multiplyScalar(RANGE)
+          tmp.addScaledVector(dir, -tmp.dot(dir)).multiplyScalar(range * 0.55).addScaledVector(dir, range * (0.75 + Math.random() * 0.35))
+        } else tmp.multiplyScalar(range)
         world.copy(ship.position).add(tmp)
         // 雲の上面より上には置かない
         if (world.distanceTo(center) < top) break
@@ -181,15 +188,15 @@ export function CloudWake() {
 
     const puffAttr = geometry.getAttribute('aPuff') as THREE.InstancedBufferAttribute
     const lookAttr = geometry.getAttribute('aLook') as THREE.InstancedBufferAttribute
-    const strength = 0.12 + Math.min(1, speed / 1.5) * 0.3
+    const strength = (0.12 + Math.min(1, speed / (1.5 * c)) * 0.3) * c
     let n = 0
     for (const puff of puffs.current) {
       world.copy(center).add(puff.base)
       rel.copy(world).sub(ship.position)
       const dist = rel.length()
       // 遠ざかった雲は進む先へ置き直す
-      if (dist > RANGE * 1.25) {
-        spawn(puff, speed > 0.02)
+      if (dist > range * 1.25) {
+        spawn(puff, speed > 0.02 * c)
         world.copy(center).add(puff.base)
         rel.copy(world).sub(ship.position)
       }
@@ -203,8 +210,8 @@ export function CloudWake() {
       const side = lateral.length()
       if (side > 1e-4) lateral.divideScalar(side)
       else lateral.set(0, 1, 0)
-      const along = axial > 0 ? Math.exp(-((axial / 0.5) ** 2)) : Math.exp(axial / 1.4)
-      const want = strength * Math.exp(-((side / 0.45) ** 2)) * along
+      const along = axial > 0 ? Math.exp(-((axial / (0.5 * c)) ** 2)) : Math.exp(axial / (1.4 * c))
+      const want = strength * Math.exp(-((side / (0.45 * c)) ** 2)) * along
       const target = tmp.copy(lateral).multiplyScalar(want)
       // 後ろでは渦を巻く（進む向きのまわりに少し回す）
       if (axial < 0) target.add(swirl.crossVectors(dir, lateral).multiplyScalar(want * 0.6))
@@ -215,8 +222,8 @@ export function CloudWake() {
       world.add(puff.push)
       const depth = THREE.MathUtils.clamp((R - world.distanceTo(center)) / (R * DIVE_DEPTH), 0, 1)
       const fadeIn = Math.min(1, puff.age / 0.8)
-      const fadeOut = 1 - THREE.MathUtils.smoothstep(dist, RANGE * 0.8, RANGE * 1.2)
-      puffAttr.setXYZW(n, world.x, world.y, world.z, puff.size)
+      const fadeOut = 1 - THREE.MathUtils.smoothstep(dist, range * 0.8, range * 1.2)
+      puffAttr.setXYZW(n, world.x, world.y, world.z, puff.size * c)
       lookAttr.setXYZ(n, 0.55 * fadeIn * fadeOut, 1 - depth * 0.6, puff.seed)
       n++
     }

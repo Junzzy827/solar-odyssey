@@ -3,7 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { SHOTS, SHOT_SECONDS, type View } from '../../data/shipParts'
 import { galleryAnchors, galleryGoal, stopAuto, useGallery } from '../../state/gallery'
-import { SHIP_SCALE, ship } from '../../state/flight'
+import { ship } from '../../state/flight'
+import { shipScale } from '../../state/zoom'
 
 // 鑑賞モードのカメラ。視点は船の座標（ShipModel の座標）で持ち、船が向きを変えても一緒に回る
 
@@ -86,7 +87,7 @@ export function GalleryCamera() {
   // 入ったときは、今のカメラの位置から始める（操縦席の後ろからなめらかに回り込む）
   useEffect(() => {
     inverse.copy(ship.quaternion).invert()
-    rel.copy(camera.position).sub(ship.position).applyQuaternion(inverse).divideScalar(SHIP_SCALE)
+    rel.copy(camera.position).sub(ship.position).applyQuaternion(inverse).divideScalar(shipScale())
     const d = Math.max(MIN_DIST, rel.length())
     current.dist = d
     current.yaw = Math.atan2(rel.x, rel.z)
@@ -186,8 +187,8 @@ export function GalleryCamera() {
     target.fromArray(current.target)
     rel.copy(target).addScaledVector(dir, current.dist)
     // 船の座標から世界の座標へ
-    target.multiplyScalar(SHIP_SCALE).applyQuaternion(ship.quaternion).add(ship.position)
-    camera.position.copy(rel.multiplyScalar(SHIP_SCALE).applyQuaternion(ship.quaternion).add(ship.position))
+    target.multiplyScalar(shipScale()).applyQuaternion(ship.quaternion).add(ship.position)
+    camera.position.copy(rel.multiplyScalar(shipScale()).applyQuaternion(ship.quaternion).add(ship.position))
     camera.up.copy(up.set(0, 1, 0).applyQuaternion(ship.quaternion))
     camera.lookAt(target)
     const cam = camera as THREE.PerspectiveCamera
@@ -204,7 +205,7 @@ export function GalleryCamera() {
     for (const a of galleryAnchors.values()) {
       // その部分の裏側から見ているときは消す
       const hidden = a.side !== null && toEye.subVectors(eye, side.fromArray(a.pos)).normalize().dot(side.fromArray(a.side).normalize()) < -0.2
-      screen.fromArray(a.pos).multiplyScalar(SHIP_SCALE).applyQuaternion(ship.quaternion).add(ship.position).project(camera)
+      screen.fromArray(a.pos).multiplyScalar(shipScale()).applyQuaternion(ship.quaternion).add(ship.position).project(camera)
       if (hidden || screen.z > 1) {
         a.el.style.visibility = 'hidden'
         continue

@@ -12,6 +12,7 @@ import { useLayout } from '../state/useLayout'
 import { isTouchDevice, touchInput } from '../state/input'
 import { bridgeEye, useBridge } from '../state/bridge'
 import { FLOOR_ABOVE_BASE, lookAngles, viewpoint } from '../data/bridge'
+import { shipScale, shipZoom, updateZoom } from '../state/zoom'
 
 const THRUST = 10
 const MAX_SPEED = 8
@@ -256,8 +257,12 @@ export function Ship() {
       }
     }
 
+    // 天体に近づくほど船とカメラを縮める（鑑賞モードでは今の大きさのまま）
+    updateZoom(ship.position, dt, st.mode === 'gallery')
+    const zoomIn = st.mode === 'map' ? 1 : 1 / shipZoom.factor
     group.current.position.copy(ship.position)
     group.current.quaternion.copy(ship.quaternion)
+    group.current.scale.setScalar(shipScale())
     // 船体の傾き：機首の左右の回りの速さ（ヨー）に合わせて、ゆっくり傾けて戻す
     qTurn.copy(prevQuat).invert().multiply(ship.quaternion)
     eTurn.setFromQuaternion(qTurn, 'YXZ')
@@ -267,24 +272,33 @@ export function Ship() {
     bank.current.rotation.z += (bankTo - bank.current.rotation.z) * (1 - Math.exp(-BANK_EASE * dt))
     v.copy(ship.position).negate()
     if (v.lengthSq() < 1e-6) v.set(0, 1, 0)
-    sunSpot.current.position.copy(ship.position).addScaledVector(v.normalize(), 2)
+    sunSpot.current.position.copy(ship.position).addScaledVector(v.normalize(), 2 * zoomIn)
+    // 影を落とす光も、船と一緒に縮める
+    const spot = sunSpot.current
+    if (spot.distance !== 4 * zoomIn) {
+      spot.distance = 4 * zoomIn
+      spot.shadow.camera.near = zoomIn
+      spot.shadow.camera.far = 3 * zoomIn
+      spot.shadow.normalBias = 0.002 * zoomIn
+      spot.shadow.camera.updateProjectionMatrix()
+    }
 
     const cam = camera as THREE.PerspectiveCamera
     const bridgeView = st.mode === 'flight' && st.cameraMode === 'bridge'
     // ブリッジを出たら、次に入ったときは見どころにそのまま立つ
     if (!bridgeView) bridgeMove.id = ''
-    if (!bridgeView && cam.near !== NEAR) {
-      cam.near = NEAR
+    if (!bridgeView && cam.near !== NEAR * zoomIn) {
+      cam.near = NEAR * zoomIn
       cam.updateProjectionMatrix()
     }
     if (st.mode === 'flight') {
       if (bridgeView) {
         hero.active = false
-        bridgeCamera(cam, dt, bank.current.quaternion)
+        bridgeCamera(cam, dt, bank.current.quaternion, zoomIn)
       } else if (st.cameraMode === 'hero' && st.warpPhase === 'idle') heroCamera(camera as THREE.PerspectiveCamera, dt)
       else {
         hero.active = false
-        followCamera(camera as THREE.PerspectiveCamera, dt, st.warpPhase)
+        followCamera(camera as THREE.PerspectiveCamera, dt, st.warpPhase, zoomIn)
       }
     }
 
@@ -301,7 +315,7 @@ export function Ship() {
     <>
       <group ref={group} scale={SHIP_SCALE}>
         <group ref={bank}>
-          <ShipModel unitScale={SHIP_SCALE} />
+          <ShipModel unitScale={shipScale} />
         </group>
         {mode === 'gallery' && <GalleryScene />}
       </group>
@@ -419,8 +433,9 @@ function heroCamera(camera: THREE.PerspectiveCamera, dt: number) {
     hero.active = true
     v.copy(camOffset).applyQuaternion(qInv.copy(ship.quaternion).invert())
     hero.angle = Math.atan2(v.x, -v.z)
-    hero.radius = Math.hypot(v.x, v.z)
-    hero.height = v.y
+    // 半径と高さは船の大きさを1とした値で持つ（接近ズームで船が縮んでも、同じ構図のまま）
+    hero.radius = Math.hypot(v.x, v.z) / shipScale()
+    hero.height = v.y / shipScale()
     // 斜め前（左右は今いる側）から見上げる位置へ回り込み、その後はゆっくり周回する
     hero.base = Math.sign(v.x || 1) * 0.55
   }
@@ -430,14 +445,15 @@ function heroCamera(camera: THREE.PerspectiveCamera, dt: number) {
   if (diff > Math.PI) diff -= Math.PI * 2
   if (diff < -Math.PI) diff += Math.PI * 2
   hero.angle += diff * k
-  hero.radius += (1.9 * SHIP_SCALE - hero.radius) * k
-  hero.height += (-0.32 * SHIP_SCALE - hero.height) * k
-  v.set(Math.sin(hero.angle) * hero.radius, hero.height, -Math.cos(hero.angle) * hero.radius).applyQuaternion(ship.quaternion)
+  const scale = shipScale()
+  hero.radius += (1.9 - hero.radius) * k
+  hero.height += (-0.32 - hero.height) * k
+  v.set(Math.sin(hero.angle) * hero.radius, hero.height, -Math.cos(hero.angle) * hero.radius).multiplyScalar(scale).applyQuaternion(ship.quaternion)
   camOffset.copy(v)
   camera.position.copy(ship.position).add(camOffset)
   up.set(0, 1, 0).applyQuaternion(ship.quaternion)
   camera.up.lerp(up, 1 - Math.exp(-4 * dt))
-  camera.lookAt(v.copy(ship.position).addScaledVector(up, 0.03 * SHIP_SCALE))
+  camera.lookAt(v.copy(ship.position).addScaledVector(up, 0.03 * scale))
   camera.fov += (22 - camera.fov) * (1 - Math.exp(-2 * dt))
   camera.updateProjectionMatrix()
 }
@@ -462,7 +478,7 @@ const eHead = new THREE.Euler(0, 0, 0, 'YXZ')
  * ブリッジ視点：艦橋の部屋の中の目の位置から、窓ごしに宇宙を見る。
  * 宇宙用のカメラは船と一緒に動かし、部屋は BridgeInterior が同じ目の位置・向きで重ねて描く
  */
-function bridgeCamera(camera: THREE.PerspectiveCamera, dt: number, bankQuat: THREE.Quaternion) {
+function bridgeCamera(camera: THREE.PerspectiveCamera, dt: number, bankQuat: THREE.Quaternion, zoomIn: number) {
   const { viewpoint: id, looking } = useBridge.getState()
   const vp = viewpoint(id)
   const aim = lookAngles(vp)
@@ -491,7 +507,7 @@ function bridgeCamera(camera: THREE.PerspectiveCamera, dt: number, bankQuat: THR
   eyeModel.x += BRIDGE_BASE[0]
   eyeModel.y += BRIDGE_BASE[1]
   eyeModel.z += BRIDGE_BASE[2]
-  eyeModel.applyQuaternion(bankQuat).multiplyScalar(SHIP_SCALE).applyQuaternion(ship.quaternion)
+  eyeModel.applyQuaternion(bankQuat).multiplyScalar(shipScale()).applyQuaternion(ship.quaternion)
   camera.position.copy(ship.position).add(eyeModel)
   camera.quaternion.copy(ship.quaternion).multiply(bankQuat).multiply(qHead)
   up.set(0, 1, 0).applyQuaternion(camera.quaternion)
@@ -500,20 +516,20 @@ function bridgeCamera(camera: THREE.PerspectiveCamera, dt: number, bankQuat: THR
   camOffset.copy(camera.position).sub(ship.position)
   const fov = 62 + 18 * warpFx.intensity
   camera.fov += (fov - camera.fov) * (1 - Math.exp(-5 * dt))
-  camera.near = BRIDGE_NEAR
+  camera.near = BRIDGE_NEAR * zoomIn
   camera.updateProjectionMatrix()
 }
 
 /** 自機の後ろ上から追いかけるカメラ。ワープ中は視野角を広げる */
-function followCamera(camera: THREE.PerspectiveCamera, dt: number, phase: string) {
-  // 自機からの相対位置で追従させる（天体と一緒に動いても遅れない）
-  v.set(0, 0.095, 0.6).applyQuaternion(ship.quaternion)
+function followCamera(camera: THREE.PerspectiveCamera, dt: number, phase: string, zoomIn: number) {
+  // 自機からの相対位置で追従させる（天体と一緒に動いても遅れない）。接近ズーム中は船と一緒に近寄る
+  v.set(0, 0.095, 0.6).multiplyScalar(zoomIn).applyQuaternion(ship.quaternion)
   camOffset.lerp(v, 1 - Math.exp(-8 * dt))
   camera.position.copy(ship.position).add(camOffset)
   fwd.set(0, 0, -1).applyQuaternion(ship.quaternion)
   up.set(0, 1, 0).applyQuaternion(ship.quaternion)
   camera.up.lerp(up, 1 - Math.exp(-6 * dt))
-  camera.lookAt(v.copy(ship.position).addScaledVector(fwd, 2))
+  camera.lookAt(v.copy(ship.position).addScaledVector(fwd, 2 * zoomIn))
   const fov = phase === 'warp' ? 58 + 35 * warpFx.intensity : phase === 'charge' ? 50 : 52
   camera.fov += (fov - camera.fov) * (1 - Math.exp(-5 * dt))
   camera.updateProjectionMatrix()

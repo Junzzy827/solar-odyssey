@@ -6,6 +6,7 @@ import { bodies, sim } from './state/registry'
 import { useRace } from './state/race'
 import { useMission } from './state/mission'
 import { useBridge } from './state/bridge'
+import { shipZoom } from './state/zoom'
 import { setGoal, toggleAuto, toggleCompare, useGallery, openGallery, closeGallery, selectPart } from './state/gallery'
 import { probeClock, useProbes } from './state/probes'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
@@ -24,6 +25,7 @@ const sv = {
   probes: { state: useProbes, clock: probeClock },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   ship,
+  shipZoom,
   flightControl,
   warpFx,
   bodies,

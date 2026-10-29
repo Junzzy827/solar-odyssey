@@ -12,7 +12,7 @@ import { registerBody, sim } from '../state/registry'
 import { useStore } from '../state/store'
 import { useLayout } from '../state/useLayout'
 import { OrbitLine } from './OrbitLine'
-import { Atmosphere } from './Atmosphere'
+import { PlanetAtmosphere } from './Atmosphere'
 import { EarthSurface } from './EarthSurface'
 import { SaturnRing } from './SaturnRing'
 import { CloudInterior } from './CloudInterior'
@@ -142,7 +142,7 @@ export function PlanetBody({ planet }: { planet: Planet }) {
             </group>
             {isGas && <CloudInterior id={planet.id} radius={radius} haze={planet.atmosphere ?? planet.color} deep={deep} map={map} surface={surface} />}
           </group>
-          {planet.atmosphere && <Atmosphere radius={radius} color={planet.atmosphere} power={isEarth ? 1 : 1.6} />}
+          {planet.atmosphere && <PlanetAtmosphere radius={radius} color={planet.atmosphere} strength={isEarth ? 1.1 : 0.65} />}
           {planet.ring && <SaturnRing inner={radius * planet.ring.inner} outer={radius * planet.ring.outer} color={planet.ring.color} planetRadius={radius} />}
         </group>
         <Html position={[0, radius + 1, 0]} center className="label" zIndexRange={LABEL_Z}>

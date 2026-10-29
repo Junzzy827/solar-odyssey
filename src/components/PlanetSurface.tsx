@@ -59,7 +59,7 @@ export function PlanetSurface({
 
   return (
     <mesh ref={mesh} material={material}>
-      <sphereGeometry args={[radius, 128, 96]} />
+      <sphereGeometry args={radius > 1 ? [radius, 192, 128] : [radius, 128, 96]} />
     </mesh>
   )
 }
