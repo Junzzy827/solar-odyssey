@@ -172,18 +172,36 @@ export function deflectorTexture() {
   return t
 }
 
-/** ワープグリル（縦の格子が並ぶ発光面） */
-export function grilleTexture() {
+/**
+ * ワープコイル：黒地に描いて加算合成で重ねる。
+ * 横（周方向）は中央が明るく縁に向かって消え、縦（長さ方向）は両端で消える。
+ * コイルの区切りは細く控えめにして、内側から光がにじむように見せる。
+ */
+export function coilTexture() {
+  const w = 128
+  const h = 512
   const c = document.createElement('canvas')
-  c.width = 256
-  c.height = 32
+  c.width = w
+  c.height = h
   const ctx = c.getContext('2d')!
-  ctx.fillStyle = '#0a1a40'
-  ctx.fillRect(0, 0, 256, 32)
-  for (let x = 2; x < 256; x += 8) {
-    ctx.fillStyle = '#6fa8ff'
-    ctx.fillRect(x, 4, 5, 24)
+  const img = ctx.createImageData(w, h)
+  for (let y = 0; y < h; y++) {
+    const along = y / (h - 1)
+    const ends = Math.min(1, along / 0.06, (1 - along) / 0.06)
+    const rib = 0.82 + 0.18 * Math.cos((along * 34 * Math.PI * 2) % (Math.PI * 2)) ** 8
+    for (let x = 0; x < w; x++) {
+      const across = Math.abs(x / (w - 1) - 0.5) * 2
+      const band = Math.max(0, 1 - across ** 5)
+      const core = Math.max(0, 1 - across * 1.6) ** 1.5
+      const k = ends * band * rib
+      const i = (y * w + x) * 4
+      img.data[i] = Math.min(255, 40 * k + 140 * core * ends)
+      img.data[i + 1] = Math.min(255, 110 * k + 120 * core * ends)
+      img.data[i + 2] = Math.min(255, 255 * k)
+      img.data[i + 3] = 255
+    }
   }
+  ctx.putImageData(img, 0, 0)
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
   return t

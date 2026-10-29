@@ -3,8 +3,9 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { RoundedBox } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { warpFx } from '../../state/flight'
-import { bussardTexture, deflectorTexture, grilleTexture, hullTextures, nameTexture } from './hullTextures'
+import { bussardTexture, deflectorTexture, coilTexture, hullTextures, nameTexture } from './hullTextures'
 
 // 自機「SV-01 ソーラーボイジャー」。円盤部・首・副船体・2本のナセルという構成は借りるが、
 // 寸法と細部はオリジナル。長さ約1、前方は -Z。
@@ -12,7 +13,7 @@ import { bussardTexture, deflectorTexture, grilleTexture, hullTextures, nameText
 // 質感と発光は撮影用模型の資料を参考にしている：
 // - 外板はパール塗装。青みと金色のパネルが入り混じり、光の当たり方で色が揺らぐ（iridescence）
 // - バサードコレクター（ナセル先端）は赤く、内部がゆっくり渦を巻くように明滅
-// - ワープコイルは途切れのない青い発光
+// - ワープコイルは途切れのない青い発光。ナセルの曲面に沿わせ、縁がにじむように消える
 // - ディフレクターは銅色の皿に青い光
 // - インパルスエンジンは赤、航行灯は左舷が赤・右舷が緑、白いストロボが約2秒おきに点滅
 
@@ -134,7 +135,10 @@ export function ShipModel() {
       deflector: deflectorTexture(),
       bussardL: bussardTexture(),
       bussardR: bussardTexture(),
-      grille: grilleTexture(),
+      coil: coilTexture(),
+      coilGeometry: coilBands(),
+      coilHousing: coilBands(0.039, 1.06),
+      housingMat: new THREE.MeshStandardMaterial({ color: '#1b2233', metalness: 0.6, roughness: 0.4 }),
       name: nameTexture('SV-01  SOLAR VOYAGER'),
     }
   }, [envMap])
@@ -158,7 +162,7 @@ export function ShipModel() {
       if (m.map) m.map.offset.x = (t * 0.15 * (i % 2 ? 1 : -1)) % 1
     })
     // ワープコイル：普段は穏やか、ワープ準備で明るく
-    grilles.current.forEach((m) => m.color.setRGB(0.5 + w * 1.2, 0.8 + w * 1.4, 1.4 + w * 2))
+    grilles.current.forEach((m) => m.color.setScalar(1.5 + w * 2 + 0.06 * Math.sin(t * 2.3)))
     deflector.current.color.setRGB(0.55 + w * 0.6, 0.85 + w * 0.8, 1.6 + w * 1.4)
     impulse.current.color.setRGB(w > 0 ? 0.6 : 1.8, 0.15, 0.08)
     // ストロボは約2秒おきに短く光る。航行灯はゆっくり明滅
@@ -247,16 +251,10 @@ export function ShipModel() {
               <sphereGeometry args={[0.033, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
               <meshBasicMaterial ref={glowMat(bussards)} map={side < 0 ? parts.bussardL : parts.bussardR} toneMapped={false} />
             </mesh>
-            {/* ワープコイル（内側・外側・上面） */}
-            {[-1, 1].map((face) => (
-              <mesh key={face} position={[nx + face * 0.0383, NACELLE_Y, NACELLE_Z + 0.25]} rotation={[0, face * (Math.PI / 2), 0]}>
-                <planeGeometry args={[0.27, 0.014]} />
-                <meshBasicMaterial ref={glowMat(grilles)} map={parts.grille} toneMapped={false} side={THREE.DoubleSide} />
-              </mesh>
-            ))}
-            <mesh position={[nx, NACELLE_Y + 0.0238, NACELLE_Z + 0.25]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
-              <planeGeometry args={[0.27, 0.014]} />
-              <meshBasicMaterial ref={glowMat(grilles)} map={parts.grille} toneMapped={false} />
+            {/* ワープコイル：ナセルの曲面に沿った帯（内側・外側・上面） */}
+            <mesh geometry={parts.coilHousing} material={parts.housingMat} position={[nx, NACELLE_Y, NACELLE_Z + 0.25]} />
+            <mesh geometry={parts.coilGeometry} position={[nx, NACELLE_Y, NACELLE_Z + 0.25]}>
+              <meshBasicMaterial ref={glowMat(grilles)} map={parts.coil} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
             </mesh>
             {/* ナセル後端のストロボ */}
             <mesh position={[nx, NACELLE_Y + 0.02, NACELLE_Z + 0.42]}>
@@ -278,6 +276,27 @@ export function ShipModel() {
       )}
     </group>
   )
+}
+
+/**
+ * ワープコイルの帯。ナセル表面のわずかに外側に、側面2本と上面1本の曲面を作る。
+ * 回転後の位置は x = r·sinθ、y = −r·cosθ（θ = π/2 が +x 側、π が上）
+ */
+function coilBands(radius = 0.0392, shrink = 1) {
+  const bands: [number, number][] = [
+    [Math.PI / 2, 1.0],
+    [(Math.PI * 3) / 2, 1.0],
+    [Math.PI, 0.7],
+  ]
+  const parts = bands.map(([center, width]) => {
+    const g = new THREE.CylinderGeometry(radius, radius, 0.27 * shrink, 24, 1, true, center - (width * shrink) / 2, width * shrink)
+    g.rotateX(Math.PI / 2)
+    g.scale(1, 0.62, 1)
+    return g
+  })
+  const merged = mergeGeometries(parts)!
+  parts.forEach((g) => g.dispose())
+  return merged
 }
 
 /** 円盤と副船体をつなぐ、後ろに傾いた首 */
