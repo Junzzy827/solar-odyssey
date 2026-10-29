@@ -5,17 +5,21 @@ import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { textureUrl } from '../data/textures'
 
 const vertexShader = /* glsl */ `
+  #include <common>
+  #include <logdepthbuf_pars_vertex>
   varying vec2 vUv;
   varying vec3 vWorldNormal;
   void main() {
     vUv = uv;
     vWorldNormal = normalize(mat3(modelMatrix) * normal);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    #include <logdepthbuf_vertex>
   }
 `
 
 // 昼側は昼の地図、夜側は都市の灯り。境目（明暗境界）はなめらかに混ぜる
 const fragmentShader = /* glsl */ `
+  #include <logdepthbuf_pars_fragment>
   uniform sampler2D uDay;
   uniform sampler2D uNight;
   uniform vec3 uSunDir;
@@ -27,6 +31,7 @@ const fragmentShader = /* glsl */ `
     vec3 day = texture2D(uDay, vUv).rgb * max(light, 0.0);
     vec3 night = texture2D(uNight, vUv).rgb * 1.4;
     gl_FragColor = vec4(mix(night, day, dayMix), 1.0);
+    #include <logdepthbuf_fragment>
     #include <colorspace_fragment>
   }
 `

@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 
 const vertexShader = /* glsl */ `
+  #include <common>
+  #include <logdepthbuf_pars_vertex>
   varying vec3 vNormal;
   varying vec3 vView;
   void main() {
@@ -8,10 +10,12 @@ const vertexShader = /* glsl */ `
     vNormal = normalize(normalMatrix * normal);
     vView = normalize(-mv.xyz);
     gl_Position = projectionMatrix * mv;
+    #include <logdepthbuf_vertex>
   }
 `
 
 const fragmentShader = /* glsl */ `
+  #include <logdepthbuf_pars_fragment>
   uniform vec3 uColor;
   uniform float uPower;
   varying vec3 vNormal;
@@ -20,6 +24,7 @@ const fragmentShader = /* glsl */ `
     // 背面の球なので、外側の輪郭で0、本体の縁に近づくほど濃くなる
     float glow = pow(abs(dot(vNormal, vView)), uPower);
     gl_FragColor = vec4(uColor * glow, glow);
+    #include <logdepthbuf_fragment>
   }
 `
 

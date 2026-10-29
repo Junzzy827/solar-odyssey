@@ -10,6 +10,19 @@ npm run dev      # http://localhost:5173
 npm run build    # dist/ に出力
 ```
 
+## 操作
+
+| 操作 | キー |
+| --- | --- |
+| 全体マップ／操縦席の切り替え | M |
+| 操縦開始（マウス固定）／解除 | 画面クリック／Esc |
+| 前後・左右・上下 | W/S・A/D・Space/Shift |
+| 向き・ロール | マウス・Q/E |
+| 目標設定 | 右の航法コンピュータ、またはマップ上の名前をクリック |
+| ワープ速度 | 1〜9 |
+| エンゲージ（ワープ） | Enter |
+| 自動航行 | G |
+
 ## 構成
 
 - Vite + TypeScript + React Three Fiber（Three.js）

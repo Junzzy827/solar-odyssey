@@ -1,15 +1,18 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { SUN_RADIUS } from '../data/scale'
 import { textureUrl } from '../data/textures'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
+import { registerBody } from '../state/registry'
 import { Atmosphere } from './Atmosphere'
 
 // M3でノイズシェーダによる表面のうねりに置き換える
 export function Sun() {
   const map = useOptionalTexture(textureUrl('sun'))
   const surface = useRef<THREE.Mesh>(null!)
+
+  useEffect(() => registerBody({ id: 'sun', name: '太陽', radius: SUN_RADIUS, object: surface.current }), [])
 
   // 太陽は赤道付近で約25日かけて自転する
   useFrame((_, delta) => {

@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -6,6 +6,8 @@ import type { Moon, Planet } from '../data/bodies'
 import { angularSpeed, bodyRadius, moonOrbitRadius, moonSpeed, orbitRadius, spinSpeed } from '../data/scale'
 import { textureUrl } from '../data/textures'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
+import { registerBody, sim } from '../state/registry'
+import { useStore } from '../state/store'
 import { OrbitLine } from './OrbitLine'
 import { Atmosphere } from './Atmosphere'
 import { EarthSurface } from './EarthSurface'
@@ -23,8 +25,16 @@ function TexturedSphere({ textureKey, radius, color }: { textureKey: string; rad
   )
 }
 
-function MoonBody({ moon }: { moon: Moon }) {
-  return <TexturedSphere textureKey={moon.id} radius={Math.max(0.12, bodyRadius(moon.radiusKm))} color={moon.color} />
+const moonRadius = (moon: Moon) => Math.max(0.12, bodyRadius(moon.radiusKm))
+
+function MoonBody({ moon, position }: { moon: Moon; position: [number, number, number] }) {
+  const ref = useRef<THREE.Group>(null!)
+  useEffect(() => registerBody({ id: moon.id, name: moon.name, radius: moonRadius(moon), object: ref.current }), [moon])
+  return (
+    <group ref={ref} position={position}>
+      <TexturedSphere textureKey={moon.id} radius={moonRadius(moon)} color={moon.color} />
+    </group>
+  )
 }
 
 export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle: number }) {
@@ -36,11 +46,13 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
   const radius = bodyRadius(planet.radiusKm)
   const isEarth = planet.id === 'earth'
 
-  useFrame(({ clock }, delta) => {
-    const t = clock.getElapsedTime()
+  useEffect(() => registerBody({ id: planet.id, name: planet.name, radius, object: orbit.current }), [planet, radius])
+
+  useFrame((_, delta) => {
+    const t = sim.time
     const a = startAngle + t * angularSpeed(planet.orbitDays)
     orbit.current.position.set(Math.cos(a) * distance, 0, -Math.sin(a) * distance)
-    spin.current.rotation.y += spinSpeed(planet.rotationHours) * delta
+    spin.current.rotation.y += spinSpeed(planet.rotationHours) * delta * useStore.getState().timeScale
     planet.moons.forEach((moon, i) => {
       moonPivots.current[i].rotation.y = i * 1.7 + t * moonSpeed(moon.orbitDays)
     })
@@ -58,7 +70,7 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
           {planet.ring && <SaturnRing inner={radius * planet.ring.inner} outer={radius * planet.ring.outer} color={planet.ring.color} />}
         </group>
         <Html position={[0, radius + 1, 0]} center className="label">
-          {planet.name}
+          <span onClick={() => useStore.getState().setTarget(planet.id)}>{planet.name}</span>
         </Html>
         {planet.moons.map((moon, i) => {
           const r = moonOrbitRadius(radius * (planet.ring ? planet.ring.outer : 1), i)
@@ -66,9 +78,7 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
             <group key={moon.id}>
               <OrbitLine radius={r} opacity={0.12} />
               <group ref={(g) => { if (g) moonPivots.current[i] = g }}>
-                <group position={[r, 0, 0]}>
-                  <MoonBody moon={moon} />
-                </group>
+                <MoonBody moon={moon} position={[r, 0, 0]} />
               </group>
             </group>
           )

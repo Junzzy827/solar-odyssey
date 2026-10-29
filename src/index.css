@@ -29,8 +29,11 @@ html, body, #root {
   white-space: nowrap;
   color: #cfd8ff;
   text-shadow: 0 0 4px #000;
-  pointer-events: none;
   user-select: none;
+}
+
+.label span {
+  cursor: pointer;
 }
 
 .credit {
@@ -43,4 +46,236 @@ html, body, #root {
 
 .credit a {
   color: inherit;
+}
+
+.muted {
+  color: #9aa0b4;
+  font-size: 12px;
+}
+
+kbd {
+  margin-left: 4px;
+  padding: 0 4px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.mode-button {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  padding: 10px 24px;
+  border: none;
+  border-radius: 20px;
+  background: #f2a65a;
+  color: #1b1325;
+  font-weight: 600;
+}
+
+.nav-panel {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  bottom: 40px;
+  width: 230px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-right: 6px solid #9b8cd9;
+  border-radius: 12px 0 0 12px;
+  background: rgba(20, 16, 30, 0.75);
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.nav-panel h2 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: #f2a65a;
+}
+
+.nav-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.nav-row {
+  display: flex;
+}
+
+.nav-item {
+  flex: 1;
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  text-align: left;
+}
+
+.nav-item.sub {
+  padding-left: 24px;
+  color: #b9c1dc;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-item.active {
+  background: rgba(155, 140, 217, 0.35);
+}
+
+.nav-toggle {
+  width: 32px;
+  border: none;
+  background: none;
+  color: #9aa0b4;
+  font-size: 11px;
+}
+
+.nav-target {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.nav-target-name {
+  font-weight: 600;
+}
+
+.nav-warp {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.engage {
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #d9614c;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.secondary,
+.nav-time button {
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: none;
+}
+
+.secondary.on,
+.nav-time button.on {
+  background: rgba(155, 140, 217, 0.35);
+}
+
+.nav-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-time button {
+  flex: 1;
+  padding: 4px;
+}
+
+#target-marker {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+#target-marker .reticle {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border: 1.5px solid #f2a65a;
+  border-radius: 50%;
+}
+
+#target-marker .arrow {
+  display: none;
+  position: absolute;
+  margin: -10px 0 0 -8px;
+  color: #f2a65a;
+  font-size: 18px;
+}
+
+#target-marker[data-offscreen='true'] .reticle {
+  display: none;
+}
+
+#target-marker[data-offscreen='true'] .arrow {
+  display: block;
+}
+
+#target-marker .marker-label {
+  position: absolute;
+  top: 18px;
+  transform: translateX(-50%);
+  color: #f2a65a;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.warp-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 80px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 32px));
+  text-align: center;
+  pointer-events: none;
+}
+
+.warp-title {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #bcd4ff;
+  text-shadow: 0 0 12px #3d7bff;
+}
+
+.warp-dest {
+  margin-bottom: 8px;
+}
+
+.warp-fact {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .nav-panel {
+    top: auto;
+    left: 16px;
+    right: 16px;
+    bottom: 76px;
+    width: auto;
+    max-height: 40vh;
+  }
 }
