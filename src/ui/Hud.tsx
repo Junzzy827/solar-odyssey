@@ -5,6 +5,7 @@ import { RACE_TEXT, raceActive } from '../state/race'
 import type { Near } from '../state/proximity'
 import { isTelescope, scopeName, TELESCOPE_TEXT } from '../data/telescopes'
 import { canOpenGallery, closeGallery, openGallery } from '../state/gallery'
+import { isTouchDevice } from '../state/input'
 
 /** 全体のキー操作：M 全体マップ／V 鑑賞モード／Enter エンゲージ／G 自動航行／C カメラ／1〜9 ワープ速度 */
 export function useGlobalKeys() {
@@ -120,12 +121,21 @@ export function Hud() {
   const scope = useStore((s) => s.scope)
   const info = targetId ? bodyInfo(targetId) : null
   const facts = info && info.au > 0 ? travelFacts(info.au) : null
+  const touch = isTouchDevice()
 
   return (
     <>
       <div className="hud">
-        <h1>SOLAR VOYAGER</h1>
-        {mode === 'map' ? (
+        <h1>SOLAR ODYSSEY</h1>
+        {touch ? (
+          <div className="hud-hint">
+            {mode === 'map'
+              ? '指でなぞって回転・2本指で拡大縮小・名前をタップで目標'
+              : mode === 'gallery'
+                ? '指でなぞって回転・2本指で拡大縮小'
+                : '左のスティックで移動・画面をなぞって向きを変える'}
+          </div>
+        ) : mode === 'map' ? (
           <div>ドラッグで回転・ホイールで拡大縮小・名前をクリックで目標設定</div>
         ) : mode === 'gallery' ? (
           <div>鑑賞モード：ドラッグで回転・ホイールで拡大縮小・V でもどる</div>

@@ -304,14 +304,88 @@ button:disabled {
   line-height: 1.6;
 }
 
+/* スマホ：航法コンピュータは右上に小さくたたみ、ひらくと画面の上半分に広がる */
 @media (max-width: 720px) {
+  .hud {
+    top: 12px;
+    left: 12px;
+    max-width: calc(100% - 232px);
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .hud h1 {
+    font-size: 13px;
+  }
+
   .nav-panel {
+    top: 12px;
+    right: 12px;
+    bottom: auto;
+    width: 190px;
+    max-height: calc(100% - 290px);
+    overflow-y: auto;
+  }
+
+  .nav-panel:not(.collapsed):not(.gallery-panel) {
+    left: 12px;
+    width: auto;
+    z-index: 5;
+  }
+
+  .nav-panel .nav-list {
+    flex: none;
+    overflow: visible;
+  }
+
+  .nav-panel.collapsed .nav-list,
+  .nav-panel.collapsed .nav-warp,
+  .nav-panel.collapsed .race-start,
+  .nav-panel.collapsed .nav-time,
+  .nav-panel.collapsed .nav-settings {
+    display: none;
+  }
+
+  /* 鑑賞モードの説明は下にまとめる */
+  .nav-panel.gallery-panel {
     top: auto;
-    left: 16px;
-    right: 16px;
+    left: 12px;
     bottom: 76px;
     width: auto;
-    max-height: 40vh;
+    max-height: 38vh;
+  }
+
+  .log-panel {
+    top: 160px;
+    left: 12px;
+    right: 12px;
+    bottom: 220px;
+    width: auto;
+    max-height: none;
+  }
+
+  .race-bar {
+    top: auto;
+    bottom: 262px;
+  }
+
+  .mode-button {
+    left: 12px;
+    bottom: 26px;
+    transform: none;
+  }
+
+  .gallery-button {
+    bottom: 26px;
+  }
+
+  /* 写真・模型の出典は小さく、いちばん下に */
+  .credit {
+    left: 8px;
+    right: 8px;
+    bottom: 2px;
+    font-size: 9px;
+    text-align: right;
   }
 }
 
@@ -943,4 +1017,141 @@ button:disabled {
   font-size: 12px;
   white-space: nowrap;
   text-shadow: 0 0 4px #000;
+}
+
+.nav-collapse {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+.nav-collapse span {
+  color: #9aa0b4;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.nav-log {
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid rgba(155, 140, 217, 0.5);
+  border-radius: 8px;
+  background: none;
+  font-size: 12px;
+}
+
+/* タッチ操作（スマホ・タブレット） */
+html {
+  touch-action: manipulation;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+canvas {
+  touch-action: none;
+}
+
+.hud-hint {
+  font-size: 12px;
+}
+
+.touch-stick {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  background: rgba(20, 16, 30, 0.35);
+  touch-action: none;
+}
+
+.touch-knob {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(242, 166, 90, 0.8);
+  box-shadow: 0 0 12px rgba(242, 166, 90, 0.5);
+  pointer-events: none;
+}
+
+.touch-buttons {
+  position: fixed;
+  right: 288px;
+  bottom: 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.touch-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.touch-button {
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: rgba(20, 16, 30, 0.6);
+  font-size: 20px;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.touch-button.wide {
+  width: auto;
+  padding: 0 14px;
+  border-radius: 26px;
+  font-size: 14px;
+}
+
+.touch-button.beam {
+  border-color: rgba(242, 166, 90, 0.8);
+  color: #f6c48f;
+}
+
+.touch-button:active {
+  background: rgba(155, 140, 217, 0.5);
+}
+
+/* 指で操作する端末では、航海日誌をスティックの上に出す */
+@media (hover: none) and (pointer: coarse) {
+  .log-panel {
+    bottom: 176px;
+    max-height: calc(100vh - 360px);
+  }
+}
+
+@media (max-width: 720px) {
+  .touch-stick {
+    left: 16px;
+    bottom: 80px;
+    width: 120px;
+    height: 120px;
+  }
+
+  .touch-buttons {
+    right: 12px;
+    bottom: 80px;
+  }
+
+  .log-panel {
+    bottom: 262px;
+    max-height: none;
+  }
 }

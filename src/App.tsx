@@ -25,6 +25,7 @@ import { useLayout } from './state/useLayout'
 import { GalleryCamera } from './components/ship/GalleryCamera'
 import { GalleryPanel } from './ui/GalleryPanel'
 import { GalleryLabels } from './ui/GalleryLabels'
+import { TouchControls } from './ui/TouchControls'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -65,6 +66,7 @@ export default function App() {
       <Hud />
       <NavPanel />
       <GalleryPanel />
+      <TouchControls />
       <RacePanel />
       <LogPanel />
       <TelescopeView />

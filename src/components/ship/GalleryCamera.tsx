@@ -61,10 +61,21 @@ export function GalleryCamera() {
   useEffect(() => {
     const el = gl.domElement
     let drag: { x: number; y: number } | null = null
+    // 画面に触れている指（2本なら、指の間の広さで寄る／引く）
+    const fingers = new Map<number, { x: number; y: number }>()
+    let pinch = 0
+    const spread = () => {
+      const [a, b] = [...fingers.values()]
+      return Math.hypot(a.x - b.x, a.y - b.y)
+    }
     const down = (e: PointerEvent) => {
       if (e.button !== 0) return
-      drag = { x: e.clientX, y: e.clientY }
       el.setPointerCapture(e.pointerId)
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (fingers.size === 2) {
+        drag = null
+        pinch = spread()
+      } else drag = { x: e.clientX, y: e.clientY }
     }
     // おまかせで動いていたら止めて、今の視点から続けて動かす
     const takeOver = () => {
@@ -73,6 +84,16 @@ export function GalleryCamera() {
       stopAuto()
     }
     const move = (e: PointerEvent) => {
+      if (fingers.has(e.pointerId)) fingers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (fingers.size === 2) {
+        const now = spread()
+        if (pinch > 0 && now > 0) {
+          takeOver()
+          galleryGoal.dist = THREE.MathUtils.clamp((galleryGoal.dist * pinch) / now, MIN_DIST, MAX_DIST)
+        }
+        pinch = now
+        return
+      }
       if (!drag) return
       const dx = e.clientX - drag.x
       const dy = e.clientY - drag.y
@@ -82,8 +103,10 @@ export function GalleryCamera() {
       galleryGoal.yaw -= dx * 0.006
       galleryGoal.pitch = THREE.MathUtils.clamp(galleryGoal.pitch + dy * 0.005, -1.45, 1.45)
     }
-    const end = () => {
+    const end = (e: PointerEvent) => {
+      fingers.delete(e.pointerId)
       drag = null
+      pinch = 0
     }
     const wheel = (e: WheelEvent) => {
       e.preventDefault()

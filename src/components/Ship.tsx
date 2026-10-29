@@ -9,6 +9,7 @@ import { CHARGE_SECONDS, EXIT_SECONDS, SHIP_SCALE, flightControl, ship, standoff
 import { APPROACH_TEXT, approachKind, limitDistance } from '../data/approach'
 import { approachSpeedFactor, nearInfo, proximity, updateProximity } from '../state/proximity'
 import { useLayout } from '../state/useLayout'
+import { isTouchDevice, touchInput } from '../state/input'
 
 const THRUST = 10
 const MAX_SPEED = 8
@@ -119,6 +120,8 @@ export function Ship() {
       camera.up.set(0, 1, 0)
       return
     }
+    // 指で操作する端末ではマウスを固定しない（画面をなぞって向きを変える）
+    if (isTouchDevice()) return
     const lock = () => void gl.domElement.requestPointerLock()
     gl.domElement.addEventListener('click', lock)
     return () => gl.domElement.removeEventListener('click', lock)
@@ -283,35 +286,39 @@ export function Ship() {
 function steer(dt: number, enabled: boolean) {
   if (!enabled) {
     mouse.dx = mouse.dy = 0
+    touchInput.lookX = touchInput.lookY = 0
     turn.pitch = turn.yaw = turn.roll = 0
     ship.velocity.multiplyScalar(Math.exp(-0.8 * dt))
     return false
   }
   const clampTurn = (a: number) => THREE.MathUtils.clamp(a, -TURN_BACKLOG, TURN_BACKLOG)
-  turn.pitch = clampTurn(turn.pitch - mouse.dy * MOUSE_SENSITIVITY)
-  turn.yaw = clampTurn(turn.yaw - mouse.dx * MOUSE_SENSITIVITY)
+  turn.pitch = clampTurn(turn.pitch - (mouse.dy + touchInput.lookY) * MOUSE_SENSITIVITY)
+  turn.yaw = clampTurn(turn.yaw - (mouse.dx + touchInput.lookX) * MOUSE_SENSITIVITY)
   mouse.dx = mouse.dy = 0
+  touchInput.lookX = touchInput.lookY = 0
   const k = 1 - Math.exp(-TURN_EASE * dt)
   const step = (a: number) => THREE.MathUtils.clamp(a * k, -TURN_MAX * dt, TURN_MAX * dt)
   const pitch = step(turn.pitch)
   const yaw = step(turn.yaw)
   turn.pitch -= pitch
   turn.yaw -= yaw
-  const roll = (keys.has('KeyQ') ? 1 : 0) - (keys.has('KeyE') ? 1 : 0)
+  const roll = THREE.MathUtils.clamp((keys.has('KeyQ') ? 1 : 0) - (keys.has('KeyE') ? 1 : 0) + touchInput.roll, -1, 1)
   turn.roll += (roll * ROLL_SPEED - turn.roll) * (1 - Math.exp(-ROLL_EASE * dt))
   euler.set(pitch, yaw, turn.roll * dt)
   ship.quaternion.multiply(qDelta.setFromEuler(euler)).normalize()
   const turned = Math.abs(pitch) + Math.abs(yaw) > 1e-5 || roll !== 0
 
+  // キーボードとタッチのスティック（スティックは倒した分だけ、キーは全開）
   v.set(
-    (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0),
-    (keys.has('Space') ? 1 : 0) - (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 1 : 0),
-    (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0),
+    (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0) + touchInput.x,
+    (keys.has('Space') ? 1 : 0) - (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 1 : 0) + touchInput.lift,
+    (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0) + touchInput.y,
   )
-  const thrusting = v.lengthSq() > 0
+  const thrusting = v.lengthSq() > 0.01
   const before = ship.velocity.length()
   if (thrusting) {
-    v.normalize().applyQuaternion(ship.quaternion)
+    if (v.lengthSq() > 1) v.normalize()
+    v.applyQuaternion(ship.quaternion)
     ship.velocity.addScaledVector(v, THRUST * dt)
   } else {
     ship.velocity.multiplyScalar(Math.exp(-0.8 * dt))

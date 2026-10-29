@@ -53,8 +53,8 @@ export function engage() {
   warpFx.seconds = warpSeconds(distance, s.warpFactor)
   s.setAutopilot(false)
   s.setWarpPhase('charge')
-  // 艦長の号令は、少し低く力強く
-  speak(warpCall(s.targetId, s.warpFactor), { rate: 0.92, pitch: 0.7 })
+  // 艦長の号令は、低く力強く（声の高さは 0〜2。下げすぎると機械のような声になる）
+  speak(warpCall(s.targetId, s.warpFactor), { rate: 0.9, pitch: 0.5 })
   playWarp(CHARGE_SECONDS, warpFx.seconds)
 }
 

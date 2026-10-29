@@ -51,10 +51,14 @@ export type Settings = {
   distance: number
   /** 大きさ：0 は差を縮めた見やすい大きさ、1 は地球を基準にした本物の比率（data/layout.ts） */
   size: number
+  /** 音の大きさ（0〜1）。開いた人がびっくりしないよう、初めは小さめ */
+  volume: number
+  /** 音を消す */
+  muted: boolean
 }
 
 const SETTINGS_KEY = 'solar-voyager:settings'
-const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0 }
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false }
 
 function loadSettings(): Settings {
   try {

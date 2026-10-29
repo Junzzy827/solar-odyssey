@@ -5,6 +5,7 @@ import { asteroids, type RockType } from '../state/registry'
 import { ship } from '../state/flight'
 import { useStore } from '../state/store'
 import { playBeam, playBlast } from '../audio/sfx'
+import { touchInput } from '../state/input'
 
 const RANGE = 40
 const BEAM_SECONDS = 0.35
@@ -64,8 +65,9 @@ export function Phaser() {
 
   useFrame(({ clock }, delta) => {
     const st = useStore.getState()
-    if (fire.current) {
+    if (fire.current || touchInput.fire) {
       fire.current = false
+      touchInput.fire = false
       if (st.mode === 'flight' && st.warpPhase === 'idle') shoot(clock.getElapsedTime())
     }
 

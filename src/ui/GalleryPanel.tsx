@@ -1,6 +1,7 @@
 import { COMPARE, SHIP_LENGTH_M, SHIP_PARTS } from '../data/shipParts'
 import { closeGallery, selectPart, toggleAuto, toggleCompare, useGallery } from '../state/gallery'
 import { useStore } from '../state/store'
+import { isTouchDevice } from '../state/input'
 
 /** 鑑賞モードの画面：見方の切り替え、各部の一覧と説明、大きさくらべ */
 export function GalleryPanel() {
@@ -48,7 +49,10 @@ export function GalleryPanel() {
         ) : auto ? (
           <p className="muted">いくつかの角度から、ゆっくり順に見せます。ドラッグすると自分で動かせます。</p>
         ) : (
-          <p className="muted">ドラッグで回転、ホイールで寄ったり引いたり。名札や下の一覧をクリックすると、その部分の説明が出ます。</p>
+          <p className="muted">
+            {isTouchDevice() ? '指でなぞって回転、2本指で寄ったり引いたり。名札や下の一覧をタップすると' : 'ドラッグで回転、ホイールで寄ったり引いたり。名札や下の一覧をクリックすると'}
+            、その部分の説明が出ます。
+          </p>
         )}
       </div>
 

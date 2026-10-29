@@ -1,11 +1,30 @@
 // 効果音はすべて Web Audio で合成する（作品の音源は使わない）
 
+import { useStore } from '../state/store'
+
 let ctx: AudioContext | null = null
+let master: GainNode | null = null
 
 function audio() {
   ctx ??= new AudioContext()
   if (ctx.state === 'suspended') void ctx.resume()
   return ctx
+}
+
+/** 設定の音の大きさ（0〜1。消音なら 0） */
+const volume = () => {
+  const { volume, muted } = useStore.getState().settings
+  return muted ? 0 : volume
+}
+
+/** すべての効果音の出口。設定の音の大きさをここで掛ける */
+function out(c: AudioContext) {
+  if (!master) {
+    master = c.createGain()
+    master.connect(c.destination)
+  }
+  master.gain.value = volume()
+  return master
 }
 
 function noiseBuffer(c: AudioContext, seconds: number) {
@@ -34,7 +53,7 @@ export function playWarp(chargeSeconds: number, seconds: number) {
   humGain.gain.setValueAtTime(0, now)
   humGain.gain.linearRampToValueAtTime(0.12, jump)
   humGain.gain.linearRampToValueAtTime(0, end)
-  hum.connect(humFilter).connect(humGain).connect(c.destination)
+  hum.connect(humFilter).connect(humGain).connect(out(c))
   hum.start(now)
   hum.stop(end)
 
@@ -51,7 +70,7 @@ export function playWarp(chargeSeconds: number, seconds: number) {
   rushGain.gain.linearRampToValueAtTime(0.25, jump + 0.3)
   rushGain.gain.linearRampToValueAtTime(0.08, jump + seconds)
   rushGain.gain.linearRampToValueAtTime(0, end)
-  rush.connect(rushFilter).connect(rushGain).connect(c.destination)
+  rush.connect(rushFilter).connect(rushGain).connect(out(c))
   rush.start(now)
 }
 
@@ -87,7 +106,9 @@ export function speak(text: string, opts: { rate?: number; pitch?: number } = {}
   if (voice) u.voice = voice
   u.lang = voice?.lang ?? 'en-GB'
   u.rate = opts.rate ?? 0.88
-  u.pitch = opts.pitch ?? 0.78
+  u.pitch = opts.pitch ?? 0.6
+  u.volume = volume()
+  if (u.volume === 0) return
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(u)
 }
@@ -107,7 +128,7 @@ export function playBeam() {
   const gain = c.createGain()
   gain.gain.setValueAtTime(0.12, now)
   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4)
-  osc.connect(filter).connect(gain).connect(c.destination)
+  osc.connect(filter).connect(gain).connect(out(c))
   osc.start(now)
   osc.stop(now + 0.4)
 }
@@ -125,7 +146,7 @@ export function playBlast() {
   const gain = c.createGain()
   gain.gain.setValueAtTime(0.35, now)
   gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2)
-  src.connect(filter).connect(gain).connect(c.destination)
+  src.connect(filter).connect(gain).connect(out(c))
   src.start(now)
 }
 
@@ -141,7 +162,7 @@ export function playBeep(freq: number, seconds = 0.18) {
   gain.gain.setValueAtTime(0.0001, now)
   gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01)
   gain.gain.exponentialRampToValueAtTime(0.0001, now + seconds)
-  osc.connect(gain).connect(c.destination)
+  osc.connect(gain).connect(out(c))
   osc.start(now)
   osc.stop(now + seconds + 0.02)
 }
