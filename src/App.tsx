@@ -35,6 +35,7 @@ import { LanguagePicker } from './ui/LanguagePicker'
 import { EclipseScene } from './components/EclipseScene'
 import { EclipsePanel } from './ui/EclipsePanel'
 import { useEclipse } from './state/eclipse'
+import { StampBook } from './ui/StampBook'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -87,6 +88,7 @@ export default function App() {
       <QuizPanel />
       <ProbePanel />
       <EclipsePanel />
+      <StampBook />
       <TelescopeView />
       <LanguagePicker />
       <div className="credit">

@@ -13,6 +13,8 @@ import { sim } from '../state/registry'
 import { formatDate, simDate } from '../data/ephemeris'
 import { closeMissions, openMissions, useMission } from '../state/mission'
 import { closeEclipses, openEclipses, useEclipse } from '../state/eclipse'
+import { openStamps, useStamps } from '../state/stamps'
+import { NATURAL } from '../data/stamps'
 import { ui } from '../i18n'
 import { named, setLang, t, useLang } from '../i18n/lang'
 
@@ -169,6 +171,8 @@ export function NavPanel() {
   const quizOpen = useQuiz((q) => q.open)
   const probesOpen = useProbes((p) => p.open)
   const eclipsesOpen = useEclipse((e) => e.open)
+  const stampsOpen = useStamps((b) => b.open)
+  const stampCount = useStamps((b) => NATURAL.filter((id) => id in b.stamps).length)
   const missionPhase = useMission((m) => m.phase)
   const onMission = missionPhase === 'active'
   const lang = useLang()
@@ -259,6 +263,9 @@ export function NavPanel() {
       </button>
       <button className={`secondary quiz-start${quizOpen ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), startQuiz())} disabled={racing}>
         {t(`連続クイズ（${QUIZ_LENGTH}問）`, `Quiz run (${QUIZ_LENGTH} questions)`)}
+      </button>
+      <button className={`secondary stamp-start${stampsOpen ? ' on' : ''}`} onClick={() => (pick(), openStamps())}>
+        {t('訪問スタンプ帳', 'Stamp book')} <span className="muted">{stampCount}/{NATURAL.length}</span>
       </button>
       <button className={`secondary probe-start${probesOpen ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), openProbes())} disabled={busy}>
         {t('探査機の旅（ボイジャーなど）', 'Probe journeys (Voyager and more)')}

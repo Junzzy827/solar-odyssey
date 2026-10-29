@@ -24,7 +24,7 @@ function factorFor(kind: ApproachKind, radius: number, altitude: number) {
 }
 
 /** 天体の「そば」：半径の3倍まで（小さな衛星でも、ワープで着いた位置が入るよう少し足す） */
-const nearRange = (radius: number) => radius * 3 + 1
+export const nearRange = (radius: number) => radius * 3 + 1
 
 /** 表示する天体を選ぶ順位：雲の中の惑星、そばにいる天体のうちいちばん近いもの、半径に対していちばん近い天体 */
 function rank(altitude: number, radius: number) {
