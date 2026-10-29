@@ -25,6 +25,44 @@ const toEye = new THREE.Vector3()
 const side = new THREE.Vector3()
 const screen = new THREE.Vector3()
 
+/** この画面で名札を出す位置（画面のピクセル） */
+const placing: { el: HTMLElement; x: number; y: number }[] = []
+/** 名札の大きさ（文字は変わらないので、一度だけ測る） */
+const labelSize = new WeakMap<HTMLElement, { w: number; h: number }>()
+/** 点から名札までの間（CSS の .gallery-anchor button の left と同じ） */
+const LABEL_GAP = 12
+
+type Rect = [number, number, number, number]
+/** 名札を置いてみる場所：点の右・左、それでも重なれば上下に一段ずつずらす */
+const SPOTS: [boolean, number][] = [[false, 0], [true, 0], [false, -1], [false, 1], [true, -1], [true, 1], [false, -2], [false, 2]]
+
+/** 名札が重なったり画面やパネルからはみ出したりしないように、右の名札から順に置き場所を決める */
+function spreadLabels(width: number, panel: DOMRect | undefined) {
+  placing.sort((a, b) => b.x - a.x)
+  const placed: Rect[] = panel ? [[panel.left, panel.right, panel.top, panel.bottom]] : []
+  const rect = (p: (typeof placing)[number], left: boolean, dy: number): Rect => {
+    let s = labelSize.get(p.el)
+    if (!s) {
+      const button = p.el.firstElementChild as HTMLElement | null
+      s = { w: button?.offsetWidth ?? 0, h: button?.offsetHeight ?? 0 }
+      labelSize.set(p.el, s)
+    }
+    const x0 = left ? p.x - LABEL_GAP - s.w : p.x - 4
+    const x1 = left ? p.x + 4 : p.x + LABEL_GAP + s.w
+    const y = p.y + dy * (s.h + 2)
+    return [x0, x1, y - s.h / 2, y + s.h / 2]
+  }
+  const fits = (r: Rect) => r[0] >= 0 && r[1] <= width && !placed.some((q) => r[0] < q[1] && q[0] < r[1] && r[2] < q[3] && q[2] < r[3])
+  for (const p of placing) {
+    const [left, step] = SPOTS.find(([l, d]) => fits(rect(p, l, d))) ?? SPOTS[0]
+    if (left !== p.el.classList.contains('left')) p.el.classList.toggle('left', left)
+    const h = labelSize.get(p.el)?.h ?? 0
+    p.el.style.setProperty('--dy', `${step * (h + 2)}px`)
+    placed.push(rect(p, left, step))
+  }
+  placing.length = 0
+}
+
 /** 角度の差を -π〜π にする（遠回りせずに回る） */
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
 const smooth = (t: number) => t * t * (3 - 2 * t)
@@ -171,9 +209,13 @@ export function GalleryCamera() {
         a.el.style.visibility = 'hidden'
         continue
       }
+      const x = ((screen.x + 1) / 2) * size.width
+      const y = ((1 - screen.y) / 2) * size.height
       a.el.style.visibility = 'visible'
-      a.el.style.transform = `translate(${((screen.x + 1) / 2) * size.width}px, ${((1 - screen.y) / 2) * size.height}px)`
+      a.el.style.transform = `translate(${x}px, ${y}px)`
+      if (!a.el.classList.contains('compare')) placing.push({ el: a.el, x, y })
     }
+    spreadLabels(size.width, panel)
   })
 
   return null

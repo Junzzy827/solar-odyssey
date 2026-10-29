@@ -978,7 +978,8 @@ button:disabled {
 .gallery-anchor button {
   position: absolute;
   left: 12px;
-  top: 0;
+  /* 重なりをよけて上下にずらす量（点は元の位置に残す） */
+  top: var(--dy, 0px);
   padding: 2px 8px;
   transform: translateY(-50%);
   border: 1px solid rgba(155, 140, 217, 0.7);
@@ -992,7 +993,7 @@ button:disabled {
 .gallery-anchor button::before {
   content: '';
   position: absolute;
-  top: 50%;
+  top: calc(50% - var(--dy, 0px));
   left: -12px;
   width: 6px;
   height: 6px;
@@ -1000,6 +1001,16 @@ button:disabled {
   border-radius: 50%;
   background: #f2a65a;
   box-shadow: 0 0 6px #f2a65a;
+}
+
+.gallery-anchor.left button {
+  left: auto;
+  right: 12px;
+}
+
+.gallery-anchor.left button::before {
+  left: auto;
+  right: -12px;
 }
 
 .gallery-anchor button.on {
