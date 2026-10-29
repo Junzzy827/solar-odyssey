@@ -73,8 +73,11 @@ export function hullTextures(opts: { width: number; height: number; seed: number
       const shade = 178 + ((rand() * 12) | 0)
       const k = rand()
       const [cr, cg, cb] = k < 0.55 ? [shade - 3, shade, shade + 5] : k < 0.8 ? [shade + 4, shade + 2, shade - 3] : [shade, shade, shade]
+      // 半透明で重ねて、パネルの境目をやわらかくまだらにする
+      cc.globalAlpha = 0.55
       cc.fillStyle = `rgb(${cr},${cg},${cb})`
       cc.fillRect(x, y, pw, ph)
+      cc.globalAlpha = 1
       // 凹凸：パネルごとにわずかに高さを変える
       const b = 124 + ((rand() * 10) | 0)
       bc.fillStyle = `rgb(${b},${b},${b})`
@@ -142,6 +145,7 @@ export function hullTextures(opts: { width: number; height: number; seed: number
     const t = new THREE.CanvasTexture(canvas)
     t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
     t.wrapS = THREE.RepeatWrapping
+    t.wrapT = THREE.RepeatWrapping
     t.anisotropy = 8
     return t
   }

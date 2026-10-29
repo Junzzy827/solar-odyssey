@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { RoundedBox } from '@react-three/drei'
+import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -9,6 +9,7 @@ import { bussardTexture, deflectorTexture, coilTexture, hullTextures, nameTextur
 
 // 自機「SV-01 ソーラーボイジャー」。円盤部・首・副船体・2本のナセルという構成は借りるが、
 // 寸法と細部はオリジナル。長さ約1、前方は -Z。
+// 首・副船体・パイロン・ナセルは Blender で一体成形したモデル（tools/blender/build_hull.py）を読み込む。
 //
 // 質感と発光は撮影用模型の資料を参考にしている：
 // - 外板はパール塗装。青みと金色のパネルが入り混じり、光の当たり方で色が揺らぐ（iridescence）
@@ -35,16 +36,6 @@ const SAUCER: Profile = [
   [0.5, 0.062], [0.25, 0.085], [0.11, 0.105], [0.075, 0.12], [0.05, 0.134], [0, 0.136],
 ]
 
-// 副船体（前端 → 後端）
-const SECONDARY: Profile = [
-  [0, 0], [0.042, 0.001], [0.054, 0.014], [0.062, 0.05], [0.064, 0.15], [0.06, 0.3], [0.052, 0.4], [0.042, 0.46], [0.028, 0.5], [0, 0.512],
-]
-
-// ナセル（前端 → 後端）
-const NACELLE: Profile = [
-  [0, 0], [0.024, 0.004], [0.033, 0.018], [0.037, 0.045], [0.038, 0.12], [0.038, 0.36], [0.035, 0.4], [0.028, 0.425], [0.013, 0.435], [0, 0.437],
-]
-
 const SAUCER_SCALE: [number, number, number] = [0.32, 0.32, 0.29]
 const SAUCER_POS: [number, number, number] = [0, 0.07, -0.17]
 const SECONDARY_Y = -0.085
@@ -52,23 +43,9 @@ const NACELLE_X = 0.2
 const NACELLE_Y = 0.068
 const NACELLE_Z = 0.14
 
-/** 長い軸を Z 方向に向けた回転体（縦方向を flatten 倍に潰す） */
-function alongZ(profile: Profile, flatten: number, segments = 64) {
-  const { geometry } = lathe(profile, segments)
-  geometry.scale(1, 1, flatten)
-  geometry.rotateX(Math.PI / 2)
-  return geometry
-}
-
-/** 2点を結ぶ板（パイロン）の位置と向き */
-function strut(a: THREE.Vector3, b: THREE.Vector3) {
-  const dir = b.clone().sub(a)
-  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize())
-  return { position: a.clone().add(b).multiplyScalar(0.5), quaternion: q, length: dir.length() }
-}
-
-function hullMaterial(tex: ReturnType<typeof hullTextures>, envMap: THREE.Texture) {
+function hullMaterial(tex: ReturnType<typeof hullTextures>, envMap: THREE.Texture, vertexColors = false) {
   return new THREE.MeshPhysicalMaterial({
+    vertexColors,
     map: tex.map,
     bumpMap: tex.bumpMap,
     bumpScale: 1.2,
@@ -123,8 +100,8 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
       ],
     })
     const secondaryTex = hullTextures({
-      width: 1024,
-      height: 512,
+      width: 2048,
+      height: 1024,
       seed: 23,
       panelScale: 0.8,
       windows: [
@@ -138,11 +115,10 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
 
     return {
       saucer: saucer.geometry,
-      secondary: alongZ(SECONDARY, 0.7),
-      nacelle: alongZ(NACELLE, 0.62, 48),
       saucerMat: hullMaterial(saucerTex, envMap),
-      secondaryMat: hullMaterial(secondaryTex, envMap),
-      nacelleMat: hullMaterial(nacelleTex, envMap),
+      // 一体成形モデルは頂点カラーに焼き込んだ環境遮蔽（AO）を持つ
+      secondaryMat: hullMaterial(secondaryTex, envMap, true),
+      nacelleMat: hullMaterial(nacelleTex, envMap, true),
       trimMat: new THREE.MeshPhysicalMaterial({ color: '#9aa0aa', metalness: 0.55, roughness: 0.35, envMap, envMapIntensity: 0.5 }),
       copperMat: new THREE.MeshPhysicalMaterial({ color: '#b87333', metalness: 0.9, roughness: 0.3, envMap, envMapIntensity: 0.8 }),
       deflector: deflectorTexture(),
@@ -199,9 +175,6 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
   const rimX = SAUCER_SCALE[0]
   const rimZ = SAUCER_SCALE[2]
 
-  const pylon = (side: number) =>
-    strut(new THREE.Vector3(side * 0.045, SECONDARY_Y + 0.01, 0.34), new THREE.Vector3(side * (NACELLE_X - 0.02), NACELLE_Y - 0.01, 0.37))
-
   const glowMat = (ref: React.MutableRefObject<THREE.MeshBasicMaterial[]>) => (m: THREE.MeshBasicMaterial | null) => {
     if (m && !ref.current.includes(m)) ref.current.push(m)
   }
@@ -235,11 +208,12 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
         <meshBasicMaterial ref={impulse} toneMapped={false} />
       </mesh>
 
-      {/* 首 */}
-      <Neck material={parts.secondaryMat} top={saucerBottom + 0.01} bottom={SECONDARY_Y + 0.03} />
+      {/* 首・副船体・パイロン・ナセル（一体成形） */}
+      <Suspense fallback={null}>
+        <EngineeringHull hullMat={parts.secondaryMat} nacelleMat={parts.nacelleMat} />
+      </Suspense>
 
-      {/* 副船体とディフレクター */}
-      <mesh geometry={parts.secondary} material={parts.secondaryMat} position={[0, SECONDARY_Y, 0.0]} />
+      {/* ディフレクター */}
       <mesh position={[0, SECONDARY_Y, -0.001]} scale={[1, 0.7, 1]} material={parts.copperMat}>
         <torusGeometry args={[0.041, 0.006, 12, 48]} />
       </mesh>
@@ -254,12 +228,9 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
       </mesh>
 
       {[-1, 1].map((side) => {
-        const p = pylon(side)
         const nx = side * NACELLE_X
         return (
           <group key={side}>
-            <RoundedBox args={[0.012, p.length, 0.085]} radius={0.005} position={p.position} quaternion={p.quaternion} material={parts.secondaryMat} />
-            <mesh geometry={parts.nacelle} material={parts.nacelleMat} position={[nx, NACELLE_Y, NACELLE_Z]} />
             {/* バサードコレクター */}
             <mesh position={[nx, NACELLE_Y, NACELLE_Z + 0.022]} rotation={[-Math.PI / 2, 0, 0]} scale={[1, 1.35, 0.62]}>
               <sphereGeometry args={[0.033, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
@@ -354,20 +325,27 @@ function coilBands(radius = 0.0392, shrink = 1) {
   return merged
 }
 
-/** 円盤と副船体をつなぐ、後ろに傾いた首 */
-function Neck({ material, top, bottom }: { material: THREE.Material; top: number; bottom: number }) {
-  const geometry = useMemo(() => {
-    const shape = new THREE.Shape()
-    shape.moveTo(-0.07, top)
-    shape.lineTo(0.06, top)
-    shape.quadraticCurveTo(0.14, (top + bottom) / 2, 0.2, bottom)
-    shape.lineTo(0.03, bottom)
-    shape.quadraticCurveTo(-0.02, (top + bottom) / 2, -0.07, top)
-    const depth = 0.04
-    const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: 0.008, bevelThickness: 0.008, bevelSegments: 4, curveSegments: 16 })
-    g.translate(0, 0, -depth / 2)
-    g.rotateY(-Math.PI / 2)
-    return g
-  }, [top, bottom])
-  return <mesh geometry={geometry} material={material} />
+const HULL_URL = `${import.meta.env.BASE_URL}models/ship-hull.glb`
+useGLTF.preload(HULL_URL)
+
+/** Blender で生成した機関部。マテリアル名（Hull / Nacelle）で船体の質感を割り当てる */
+function EngineeringHull({ hullMat, nacelleMat }: { hullMat: THREE.Material; nacelleMat: THREE.Material }) {
+  const { scene } = useGLTF(HULL_URL)
+  const meshes = useMemo(() => {
+    const list: { geometry: THREE.BufferGeometry; material: THREE.Material }[] = []
+    scene.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      const name = (mesh.material as THREE.Material).name
+      list.push({ geometry: mesh.geometry, material: name === 'Nacelle' ? nacelleMat : hullMat })
+    })
+    return list
+  }, [scene, hullMat, nacelleMat])
+  return (
+    <>
+      {meshes.map((m, i) => (
+        <mesh key={i} geometry={m.geometry} material={m.material} castShadow receiveShadow />
+      ))}
+    </>
+  )
 }

@@ -33,6 +33,15 @@ function SunLight() {
   )
 }
 
+// #hangar?cam=x,y,z&target=x,y,z&fov=n で視点を固定できる（確認用）
+const params = new URLSearchParams(location.hash.split('?')[1] ?? '')
+const vec = (key: string, fallback: [number, number, number]) =>
+  (params.get(key)?.split(',').map(Number) as [number, number, number] | undefined) ?? fallback
+const CAM = vec('cam', [1.05, -0.2, -1.45])
+const TARGET = vec('target', [0, 0, 0.05])
+const FOV = Number(params.get('fov') ?? 26)
+const FIXED = params.has('cam')
+
 /**
  * 自機だけを眺める格納庫ビュー（URL の末尾に #hangar）。
  * 望遠気味の画角で低い位置から見上げると、模型ではなく巨大な船に見える。
@@ -40,13 +49,13 @@ function SunLight() {
 export default function Hangar() {
   return (
     <>
-      <Canvas shadows camera={{ position: [1.05, -0.2, -1.45], fov: 26, near: 0.05, far: 100 }}>
+      <Canvas shadows camera={{ position: CAM, fov: FOV, near: 0.01, far: 100 }}>
         <color attach="background" args={['#000']} />
         <Stars radius={50} depth={20} count={3000} factor={2} fade />
         <SunLight />
         <directionalLight position={[-2, -1, 2]} intensity={0.12} color="#8fa8ff" />
         <ShipModel />
-        <OrbitControls autoRotate autoRotateSpeed={0.35} minDistance={0.6} maxDistance={6} target={[0, 0, 0.05]} />
+        <OrbitControls autoRotate={!FIXED} autoRotateSpeed={0.35} minDistance={0.2} maxDistance={6} target={TARGET} />
         <EffectComposer>
           <N8AO aoRadius={0.08} distanceFalloff={0.5} intensity={2.5} quality="high" />
           <Bloom intensity={1.1} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />

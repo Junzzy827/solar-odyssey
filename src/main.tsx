@@ -6,6 +6,6 @@ import './index.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {location.hash === '#hangar' ? <Hangar /> : <App />}
+    {location.hash.startsWith('#hangar') ? <Hangar /> : <App />}
   </StrictMode>,
 )

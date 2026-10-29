@@ -28,6 +28,9 @@ npm run build    # dist/ に出力
 - Vite + TypeScript + React Three Fiber（Three.js）
 - `src/data/bodies.ts` 天体データ（NASA Planetary Fact Sheet の概数）
 - `src/data/scale.ts` 表示スケール。距離は対数で圧縮し、惑星は同じ平面上の同心円で公転する
+- `public/models/ship-hull.glb` 自機の機関部（首・副船体・パイロン・ナセル）。`tools/blender/build_hull.py` で生成する
+  （Blender の Python モジュールを使う。`pip install bpy scikit-image` した Python 3.13 で実行）。
+  `#hangar` を付けて開くと自機だけを眺められる（`#hangar?cam=x,y,z&target=x,y,z&fov=n` で視点を固定）
 
 ## 公開
 
