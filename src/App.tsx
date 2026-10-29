@@ -26,6 +26,7 @@ import { GalleryCamera } from './components/ship/GalleryCamera'
 import { GalleryPanel } from './ui/GalleryPanel'
 import { GalleryLabels } from './ui/GalleryLabels'
 import { TouchControls } from './ui/TouchControls'
+import { QuizPanel } from './ui/QuizPanel'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -69,6 +70,7 @@ export default function App() {
       <TouchControls />
       <RacePanel />
       <LogPanel />
+      <QuizPanel />
       <TelescopeView />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}

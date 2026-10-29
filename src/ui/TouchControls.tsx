@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { isTouchDevice, touchInput } from '../state/input'
 import { useStore } from '../state/store'
+import { useQuiz } from '../state/quiz'
 
 /** スティックを倒しきったときの、つまみの動く半径（ピクセル） */
 const STICK_RADIUS = 48
@@ -108,8 +109,9 @@ export function TouchControls() {
   const scope = useStore((s) => s.scope)
   const cameraMode = useStore((s) => s.cameraMode)
   const setCameraMode = useStore((s) => s.setCameraMode)
+  const quizOpen = useQuiz((q) => q.open)
   const touch = isTouchDevice()
-  const show = touch && mode === 'flight' && !scope
+  const show = touch && mode === 'flight' && !scope && !quizOpen
   useLookDrag(show)
 
   // 操縦席を離れたら、押しっぱなしの入力を残さない

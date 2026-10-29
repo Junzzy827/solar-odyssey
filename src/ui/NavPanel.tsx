@@ -7,12 +7,14 @@ import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { CUBE_ID, CUBE_NAME } from '../data/cube'
 import { HUBBLE_ID, HUBBLE_NAME, WEBB_ID, WEBB_NAME } from '../data/telescopes'
 import { useRace } from '../state/race'
+import { QUIZ_LENGTH, startQuiz, useQuiz } from '../state/quiz'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
 /** 小さい画面（スマホ）か */
 function useSmallScreen() {
-  const query = '(max-width: 720px)'
+  // 縦長のスマホと、横向きにしたスマホ（高さが低い）
+  const query = '(max-width: 720px), (max-height: 500px)'
   const [small, setSmall] = useState(() => window.matchMedia(query).matches)
   useEffect(() => {
     const m = window.matchMedia(query)
@@ -112,6 +114,7 @@ export function NavPanel() {
   const startRace = useRace((r) => r.start)
   const racing = racePhase === 'countdown' || racePhase === 'running'
   const busy = s.warpPhase !== 'idle' || racing
+  const quizOpen = useQuiz((q) => q.open)
   if (s.mode === 'gallery') return null
 
   return (
@@ -175,11 +178,14 @@ export function NavPanel() {
       <button className="engage" onClick={engage} disabled={!s.targetId || busy}>
         エンゲージ <kbd>Enter</kbd>
       </button>
-      <button className={`secondary${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
+      <button className={`secondary nav-auto${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
         自動航行 <kbd>G</kbd>
       </button>
       <button className="secondary race-start" onClick={startRace} disabled={busy}>
         レース：火星 → 木星 → 土星スイングバイ → 火星
+      </button>
+      <button className={`secondary quiz-start${quizOpen ? ' on' : ''}`} onClick={() => (pick(), startQuiz())} disabled={racing}>
+        連続クイズ（{QUIZ_LENGTH}問）
       </button>
       <div className="nav-time">
         時間
