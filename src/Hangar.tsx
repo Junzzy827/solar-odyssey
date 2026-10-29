@@ -12,7 +12,7 @@ function AsteroidSamples() {
   const samples = useMemo(() => {
     let s = 11
     const rand = () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646
-    const material = asteroidMaterial()
+    const material = asteroidMaterial(new THREE.Vector3(2.5, 1.6, -1.5).multiplyScalar(1000))
     return [0, 1, 2].map((i) => {
       const mesh = new THREE.InstancedMesh(asteroidGeometry(rand, 4), material, 1)
       mesh.setMatrixAt(0, new THREE.Matrix4().compose(new THREE.Vector3((i - 1) * 0.55, 0, 0), new THREE.Quaternion(), new THREE.Vector3(0.22, 0.22, 0.22)))

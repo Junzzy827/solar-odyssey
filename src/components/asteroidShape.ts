@@ -72,9 +72,11 @@ export function asteroidGeometry(rand: () => number, detail: number) {
  * 岩の質感：細かいクレーターと砂の凹凸を、岩の座標の上で作る（拡大しても崩れない）。
  * 光は MeshStandardMaterial のまま使い、法線だけをずらす。
  */
-export function asteroidMaterial() {
+/** sun: 太陽の位置（ワールド座標）。太陽系の中では原点 */
+export function asteroidMaterial(sun = new THREE.Vector3()) {
   const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.95, metalness: 0 })
   material.onBeforeCompile = (shader) => {
+    shader.uniforms.uSunWorld = { value: sun }
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -94,6 +96,7 @@ export function asteroidMaterial() {
       .replace(
         '#include <common>',
         `#include <common>
+        uniform vec3 uSunWorld;
         varying vec3 vObj;
         varying float vRockScale;
         varying float vRockSeed;
@@ -137,8 +140,8 @@ export function asteroidMaterial() {
           float det = dot(dpdx, r1);
           vec3 grad = sign(det) * (dhdx * r1 + dhdy * r2);
           vec3 bumped = normalize(abs(det) * normal - vRockScale * 0.35 * grad);
-          // 太陽（原点）と反対を向いた面では凹凸を消す（影の側に明るい点が出ないように）
-          vec3 sunView = (viewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+          // 太陽と反対を向いた面では凹凸を消す（影の側に明るい点が出ないように）
+          vec3 sunView = (viewMatrix * vec4(uSunWorld, 1.0)).xyz;
           float facing = dot(normal, normalize(sunView - p));
           normal = normalize(mix(normal, bumped, smoothstep(-0.05, 0.2, facing)));
         }`,
