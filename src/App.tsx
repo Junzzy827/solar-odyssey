@@ -22,7 +22,7 @@ export default function App() {
 
   return (
     <>
-      <Canvas camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 5000 }} gl={{ logarithmicDepthBuffer: true }}>
+      <Canvas shadows camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 5000 }} gl={{ logarithmicDepthBuffer: true }}>
         <SimClock />
         <ambientLight intensity={0.08} />
         <Sky />

@@ -83,8 +83,21 @@ function hullMaterial(tex: ReturnType<typeof hullTextures>, envMap: THREE.Textur
   })
 }
 
-export function ShipModel() {
+/** unitScale は自機に掛かっている拡大率（投光の届く距離を合わせるため） */
+export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
   const { gl } = useThree()
+  const root = useRef<THREE.Group>(null!)
+
+  // すべての船体パーツに影を落とし、受けさせる
+  useEffect(() => {
+    root.current.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      const basic = (mesh.material as THREE.Material).type === 'MeshBasicMaterial'
+      mesh.castShadow = !basic
+      mesh.receiveShadow = !basic
+    })
+  }, [])
 
   const envMap = useMemo(() => {
     const pmrem = new THREE.PMREMGenerator(gl)
@@ -97,8 +110,8 @@ export function ShipModel() {
     const saucer = lathe(SAUCER, 128, 160)
     const r = saucer.vRim
     const saucerTex = hullTextures({
-      width: 2048,
-      height: 512,
+      width: 4096,
+      height: 1024,
       seed: 11,
       windows: [
         { v: r - 0.035, density: 0.75 },
@@ -169,7 +182,7 @@ export function ShipModel() {
     const flash = t % 2 < 0.08 ? 4 : 0
     strobes.current.forEach((m) => m.color.setRGB(flash, flash, flash))
     const nav = 0.7 + 0.5 * (Math.sin(t * Math.PI) > 0 ? 1 : 0)
-    navLights.current.forEach((m, i) => (i % 2 === 0 ? m.color.setRGB(2 * nav, 0.05, 0.05) : m.color.setRGB(0.05, 2 * nav, 0.2)))
+    navLights.current.forEach((m, i) => (i % 2 === 0 ? m.color.setRGB(1.3 * nav, 0.04, 0.04) : m.color.setRGB(0.04, 1.3 * nav, 0.15)))
   })
 
   useEffect(
@@ -194,7 +207,8 @@ export function ShipModel() {
   }
 
   return (
-    <group>
+    <group ref={root}>
+      <Floodlights unitScale={unitScale} saucerTop={saucerTop} />
       {/* 円盤部 */}
       <mesh geometry={parts.saucer} material={parts.saucerMat} position={SAUCER_POS} scale={SAUCER_SCALE} />
       {/* ブリッジと上部センサー */}
@@ -269,12 +283,53 @@ export function ShipModel() {
       {[1, -1].map((dy) =>
         [-1, 1].map((side) => (
           <mesh key={`${dy}${side}`} position={[side * rimX * 0.995, SAUCER_POS[1] + dy * 0.004, SAUCER_POS[2]]}>
-            <sphereGeometry args={[0.0045, 8, 8]} />
+            <sphereGeometry args={[0.003, 8, 8]} />
             <meshBasicMaterial ref={glowMat(navLights)} toneMapped={false} />
           </mesh>
         )),
       )}
     </group>
+  )
+}
+
+/**
+ * 船体を照らす投光器。撮影用模型や劇中の船と同じく、外板の一部を下や横から照らして
+ * 光のたまりを作る。暗い宇宙でも形と大きさが分かる。
+ */
+function Floodlights({ unitScale, saucerTop }: { unitScale: number; saucerTop: number }) {
+  const lights: { from: [number, number, number]; to: [number, number, number]; angle: number; intensity: number }[] = [
+    // 円盤上面（船名のあたり）を後ろから
+    { from: [0, saucerTop + 0.08, 0.1], to: [0, saucerTop - 0.01, -0.33], angle: 0.45, intensity: 0.7 },
+    // 円盤の下面を首の付け根から
+    { from: [0, -0.05, 0.1], to: [0, 0.03, -0.3], angle: 0.6, intensity: 0.6 },
+    // 副船体の側面をパイロンから
+    { from: [0.16, 0.05, 0.46], to: [0.02, -0.09, 0.18], angle: 0.5, intensity: 0.5 },
+    { from: [-0.16, 0.05, 0.46], to: [-0.02, -0.09, 0.18], angle: 0.5, intensity: 0.5 },
+  ]
+  const targets = useMemo(() => lights.map((l) => {
+    const o = new THREE.Object3D()
+    o.position.set(...l.to)
+    return o
+  }), [saucerTop])
+  return (
+    <>
+      {lights.map((l, i) => (
+        <group key={i}>
+          <primitive object={targets[i]} />
+          <spotLight
+            position={l.from}
+            target={targets[i]}
+            angle={l.angle}
+            penumbra={0.8}
+            distance={0.7 * unitScale}
+            decay={1}
+            // decay=1 なので明るさは距離に反比例する。縮小して置いても同じ見え方になるよう倍率を掛ける
+            intensity={l.intensity * unitScale}
+            color="#fff1dc"
+          />
+        </group>
+      ))}
+    </>
   )
 }
 

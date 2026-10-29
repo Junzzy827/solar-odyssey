@@ -47,7 +47,13 @@ export function Ship() {
   const hold = useRef<{ id: string; offset: THREE.Vector3 } | null>(null)
   const warp = useRef({ t: 0, start: new THREE.Vector3(), offset: new THREE.Vector3() })
   const telemetryClock = useRef(0)
+  // 太陽の方向から自機だけを照らして影を落とす光（惑星には届かない狭い円錐）
+  const sunSpot = useRef<THREE.SpotLight>(null!)
   const prevTarget = useRef<{ id: string; pos: THREE.Vector3 } | null>(null)
+
+  useEffect(() => {
+    sunSpot.current.target = group.current
+  }, [])
 
   useEffect(() => {
     const isTyping = (e: KeyboardEvent) => e.target instanceof HTMLInputElement
@@ -179,8 +185,17 @@ export function Ship() {
 
     group.current.position.copy(ship.position)
     group.current.quaternion.copy(ship.quaternion)
+    v.copy(ship.position).negate()
+    if (v.lengthSq() < 1e-6) v.set(0, 1, 0)
+    sunSpot.current.position.copy(ship.position).addScaledVector(v.normalize(), 2)
 
-    if (st.mode === 'flight') followCamera(camera as THREE.PerspectiveCamera, dt, st.warpPhase)
+    if (st.mode === 'flight') {
+      if (st.cameraMode === 'hero' && st.warpPhase === 'idle') heroCamera(camera as THREE.PerspectiveCamera, dt)
+      else {
+        hero.active = false
+        followCamera(camera as THREE.PerspectiveCamera, dt, st.warpPhase)
+      }
+    }
 
     telemetryClock.current += dt
     if (telemetryClock.current > 0.1) {
@@ -192,9 +207,26 @@ export function Ship() {
   })
 
   return (
-    <group ref={group} scale={SHIP_SCALE}>
-      <ShipModel />
-    </group>
+    <>
+      <group ref={group} scale={SHIP_SCALE}>
+        <ShipModel unitScale={SHIP_SCALE} />
+      </group>
+      <spotLight
+        ref={sunSpot}
+        angle={0.12}
+        penumbra={0.3}
+        distance={4}
+        decay={0}
+        intensity={3}
+        color="#fff4e6"
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.002}
+        shadow-camera-near={1}
+        shadow-camera-far={3}
+      />
+    </>
   )
 }
 
@@ -238,6 +270,41 @@ function avoidBodies() {
       ship.velocity.multiplyScalar(0.5)
     }
   }
+}
+
+/**
+ * ヒーローショット：望遠で、船の斜め前の低い位置からゆっくり回り込みながら見上げる。
+ * 画角を狭くして距離をとると、遠近感が圧縮されて巨大な船に見える。
+ */
+const hero = { active: false, angle: 0, radius: 0, height: 0, base: 0 }
+const qInv = new THREE.Quaternion()
+function heroCamera(camera: THREE.PerspectiveCamera, dt: number) {
+  // 切り替えた瞬間のカメラ位置から弧を描いて回り込む（船体を突き抜けないように）
+  if (!hero.active) {
+    hero.active = true
+    v.copy(camOffset).applyQuaternion(qInv.copy(ship.quaternion).invert())
+    hero.angle = Math.atan2(v.x, -v.z)
+    hero.radius = Math.hypot(v.x, v.z)
+    hero.height = v.y
+    // 斜め前（左右は今いる側）から見上げる位置へ回り込み、その後はゆっくり周回する
+    hero.base = Math.sign(v.x || 1) * 0.55
+  }
+  const k = 1 - Math.exp(-1.2 * dt)
+  hero.base += dt * 0.05 * Math.sign(hero.base)
+  let diff = (hero.base - hero.angle) % (Math.PI * 2)
+  if (diff > Math.PI) diff -= Math.PI * 2
+  if (diff < -Math.PI) diff += Math.PI * 2
+  hero.angle += diff * k
+  hero.radius += (1.9 * SHIP_SCALE - hero.radius) * k
+  hero.height += (-0.32 * SHIP_SCALE - hero.height) * k
+  v.set(Math.sin(hero.angle) * hero.radius, hero.height, -Math.cos(hero.angle) * hero.radius).applyQuaternion(ship.quaternion)
+  camOffset.copy(v)
+  camera.position.copy(ship.position).add(camOffset)
+  up.set(0, 1, 0).applyQuaternion(ship.quaternion)
+  camera.up.lerp(up, 1 - Math.exp(-4 * dt))
+  camera.lookAt(v.copy(ship.position).addScaledVector(up, 0.03 * SHIP_SCALE))
+  camera.fov += (22 - camera.fov) * (1 - Math.exp(-2 * dt))
+  camera.updateProjectionMatrix()
 }
 
 /** 自機の後ろ上から追いかけるカメラ。ワープ中は視野角を広げる */

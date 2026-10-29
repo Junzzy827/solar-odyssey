@@ -69,13 +69,14 @@ export function hullTextures(opts: { width: number; height: number; seed: number
       const y = (rand() * height) | 0
       // 撮影用模型の「パール塗装のアズテック模様」に倣い、
       // 青みのパネルを主に、ところどころ金色がかったパネルを混ぜる
-      const shade = 170 + ((rand() * 30) | 0)
+      // 色の差はごくわずかにとどめる（近くで見て初めて分かる程度）
+      const shade = 178 + ((rand() * 12) | 0)
       const k = rand()
-      const [cr, cg, cb] = k < 0.6 ? [shade - 6, shade, shade + 8] : k < 0.85 ? [shade + 6, shade + 2, shade - 8] : [shade, shade, shade]
+      const [cr, cg, cb] = k < 0.55 ? [shade - 3, shade, shade + 5] : k < 0.8 ? [shade + 4, shade + 2, shade - 3] : [shade, shade, shade]
       cc.fillStyle = `rgb(${cr},${cg},${cb})`
       cc.fillRect(x, y, pw, ph)
       // 凹凸：パネルごとにわずかに高さを変える
-      const b = 120 + ((rand() * 20) | 0)
+      const b = 124 + ((rand() * 10) | 0)
       bc.fillStyle = `rgb(${b},${b},${b})`
       bc.fillRect(x, y, pw, ph)
     }
@@ -87,7 +88,7 @@ export function hullTextures(opts: { width: number; height: number; seed: number
   for (let x = 0; x < width; x += step * (0.6 + rand() * 0.8)) cols.push(x | 0)
   const rows: number[] = []
   for (let y = 0; y < height; y += step * 0.7 * (0.6 + rand() * 0.8)) rows.push(y | 0)
-  cc.strokeStyle = 'rgba(70,74,82,0.18)'
+  cc.strokeStyle = 'rgba(70,74,82,0.12)'
   bc.strokeStyle = '#555555'
   cc.lineWidth = 1
   bc.lineWidth = 1.2

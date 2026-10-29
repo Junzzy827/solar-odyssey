@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 
-/** 全体のキー操作：M 全体マップ／Enter エンゲージ／G 自動航行／1〜9 ワープ速度 */
+/** 全体のキー操作：M 全体マップ／Enter エンゲージ／G 自動航行／C カメラ／1〜9 ワープ速度 */
 export function useGlobalKeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -10,6 +10,7 @@ export function useGlobalKeys() {
       const s = useStore.getState()
       if (e.code === 'KeyM') s.setMode(s.mode === 'map' ? 'flight' : 'map')
       else if (e.code === 'Enter') engage()
+      else if (e.code === 'KeyC') s.setCameraMode(s.cameraMode === 'chase' ? 'hero' : 'chase')
       else if (e.code === 'KeyG' && s.targetId && s.warpPhase === 'idle') s.setAutopilot(!s.autopilot)
       else if (/^Digit[1-9]$/.test(e.code) && s.warpPhase === 'idle') s.setWarpFactor(Number(e.code.slice(5)))
     }
@@ -67,7 +68,7 @@ export function Hud() {
             クリックで操縦開始（Escで解除）
             <br />
             W/S 前後・A/D 左右・Space/Shift 上下・Q/E 回転・マウスで向き
-            <br />F またはクリックでビーム・I で航海日誌
+            <br />F またはクリックでビーム・I で航海日誌・C でカメラ切り替え
           </div>
         )}
         <div className="muted">速度 {telemetry.speed.toFixed(1)}</div>
