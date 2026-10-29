@@ -271,35 +271,61 @@ export function deflectorTexture() {
 }
 
 /**
- * ワープコイル：黒地に描いて加算合成で重ねる。
- * 横（周方向）は中央が明るく縁に向かって消え、縦（長さ方向）は両端で消える。
- * コイルの区切りは細く控えめにして、内側から光がにじむように見せる。
+ * ワープコイル：溝の奥に並んだ発光するコイルの列。
+ * u（長さ方向）に細かい区切りが並び、各区切りは中央が明るい。
+ * v（高さ方向）は中心に白に近い芯、縁へ向かって濃い青、端は暗く沈む。両端は暗く消える。
  */
 export function coilTexture() {
-  const w = 128
-  const h = 512
+  const w = 1024
+  const h = 64
   const c = document.createElement('canvas')
   c.width = w
   c.height = h
   const ctx = c.getContext('2d')!
   const img = ctx.createImageData(w, h)
+  const segments = 46
   for (let y = 0; y < h; y++) {
-    const along = y / (h - 1)
-    const ends = Math.min(1, along / 0.06, (1 - along) / 0.06)
-    const rib = 0.82 + 0.18 * Math.cos((along * 34 * Math.PI * 2) % (Math.PI * 2)) ** 8
+    const across = Math.abs(y / (h - 1) - 0.5) * 2
+    const core = Math.max(0, 1 - across / 0.35) ** 2
+    const body = Math.max(0, 1 - across ** 3)
     for (let x = 0; x < w; x++) {
-      const across = Math.abs(x / (w - 1) - 0.5) * 2
-      const band = Math.max(0, 1 - across ** 5)
-      const core = Math.max(0, 1 - across * 1.6) ** 1.5
-      const k = ends * band * rib
+      const along = x / (w - 1)
+      const ends = Math.min(1, along / 0.05, (1 - along) / 0.05) ** 1.5
+      const seg = (along * segments) % 1
+      const rib = 0.55 + 0.45 * Math.sin(seg * Math.PI) ** 0.6
+      const gap = seg < 0.06 || seg > 0.94 ? 0.35 : 1
+      const k = ends * rib * gap
       const i = (y * w + x) * 4
-      img.data[i] = Math.min(255, 40 * k + 140 * core * ends)
-      img.data[i + 1] = Math.min(255, 110 * k + 120 * core * ends)
-      img.data[i + 2] = Math.min(255, 255 * k)
+      img.data[i] = Math.min(255, (25 * body + 200 * core) * k)
+      img.data[i + 1] = Math.min(255, (95 * body + 160 * core) * k)
+      img.data[i + 2] = Math.min(255, (255 * body + 40 * core) * k)
       img.data[i + 3] = 255
     }
   }
   ctx.putImageData(img, 0, 0)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 8
+  return t
+}
+
+/** コイルの光が溝からあふれて周りの外板を青く染める、ぼかした光 */
+export function coilSpillTexture() {
+  const w = 512
+  const h = 64
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const ctx = c.getContext('2d')!
+  ctx.fillStyle = '#000'
+  ctx.fillRect(0, 0, w, h)
+  ctx.filter = 'blur(9px)'
+  ctx.fillStyle = '#2f74ff'
+  ctx.fillRect(w * 0.06, h * 0.3, w * 0.88, h * 0.4)
+  ctx.filter = 'blur(4px)'
+  ctx.fillStyle = 'rgba(140,200,255,0.6)'
+  ctx.fillRect(w * 0.08, h * 0.4, w * 0.84, h * 0.2)
+  ctx.filter = 'none'
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
   return t
@@ -382,4 +408,48 @@ export function windowBandTexture() {
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
   return t
+}
+
+/** シャトルベイの扉：横に分かれた板、すき間から漏れる暖色の光、枠の誘導灯 */
+export function shuttleBayTexture() {
+  const w = 256
+  const h = 128
+  const color = document.createElement('canvas')
+  const glow = document.createElement('canvas')
+  for (const c of [color, glow]) {
+    c.width = w
+    c.height = h
+  }
+  const cc = color.getContext('2d')!
+  const gc = glow.getContext('2d')!
+  cc.fillStyle = '#4a5059'
+  cc.fillRect(0, 0, w, h)
+  gc.fillStyle = '#000'
+  gc.fillRect(0, 0, w, h)
+  // 扉の板
+  for (let y = 10; y < h - 10; y += 13) {
+    cc.fillStyle = '#5a616b'
+    cc.fillRect(10, y, w - 20, 10)
+    cc.fillStyle = '#2b2f36'
+    cc.fillRect(10, y + 10, w - 20, 3)
+    gc.fillStyle = 'rgba(255,190,120,0.35)'
+    gc.fillRect(12, y + 10, w - 24, 2)
+  }
+  // 上下のすき間から漏れる光
+  gc.fillStyle = '#ffcf8a'
+  gc.fillRect(10, 6, w - 20, 3)
+  gc.fillRect(10, h - 9, w - 20, 3)
+  // 枠の誘導灯
+  for (let x = 16; x < w - 10; x += 20) {
+    gc.fillStyle = '#ffe2a0'
+    gc.fillRect(x, 1, 5, 3)
+    gc.fillRect(x, h - 4, 5, 3)
+  }
+  const make = (c: HTMLCanvasElement) => {
+    const t = new THREE.CanvasTexture(c)
+    t.colorSpace = THREE.SRGBColorSpace
+    t.anisotropy = 8
+    return t
+  }
+  return { map: make(color), emissiveMap: make(glow) }
 }

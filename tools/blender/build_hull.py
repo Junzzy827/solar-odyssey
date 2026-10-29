@@ -53,7 +53,7 @@ SECONDARY_H = 0.8  # 副船体の断面の高さ／幅
 NACELLE_X = 0.2
 NACELLE_Y = 0.068
 NACELLE_Z = 0.14
-NACELLE_H = 0.62
+NACELLE_H = 0.75
 
 
 def catmull_rom(points, samples=400):
@@ -114,17 +114,53 @@ def secondary_sdf(x, y, z):
     rho = (xs**p + (np.abs(yy) / SECONDARY_H) ** p) ** (1 / p)
     d = revolved(rho, z, SEC_FN) * SECONDARY_H
     # 後端は平らに切り落とし（シャトルベイの扉を付ける面）、角を丸める
-    return smax(d, z - REAR_FACE_Z, 0.006)
+    d = smax(d, z - REAR_FACE_Z, 0.006)
+    # シャトルベイ：後端の面をえぐって、奥に扉を収める
+    bay = round_box(x, y - BAY_Y, z - REAR_FACE_Z, BAY_HX, BAY_HY, BAY_DEPTH, 0.002)
+    return smax(d, -bay, 0.0012)
 
 
 REAR_FACE_Z = 0.495
+# ShipModel.tsx の BAY と同じ値
+BAY_Y = SECONDARY_Y + 0.005
+BAY_HX = 0.017
+BAY_HY = 0.0085
+BAY_DEPTH = 0.007
+
+
+def round_box(px, py, pz, hx, hy, hz, r):
+    qx = np.abs(px) - hx + r
+    qy = np.abs(py) - hy + r
+    qz = np.abs(pz) - hz + r
+    outside = np.sqrt(np.maximum(qx, 0) ** 2 + np.maximum(qy, 0) ** 2 + np.maximum(qz, 0) ** 2)
+    return outside + np.minimum(np.maximum(qx, np.maximum(qy, qz)), 0) - r
+
+
+# ワープコイルの溝（ナセルの内側と外側の側面）。ShipModel.tsx の COIL_SLOT と同じ値
+SLOT_H = 0.012      # 溝の高さの半分
+SLOT_X = 0.0325     # 溝の底（ナセル中心からの横の距離）
+SLOT_FRONT = 0.135  # 前端（ナセル先端からの距離）。上ほど前に出る斜めの切り口
+SLOT_FRONT_SLANT = 0.9
+SLOT_REAR = 0.39    # 後端。上ほど後ろへ流れる
+SLOT_REAR_SLANT = 0.5
+
+
+def coil_slot(xx, yy, zz):
+    """溝の部分の距離（溝の中が負）"""
+    front = (SLOT_FRONT - SLOT_FRONT_SLANT * yy - zz) / math.hypot(1, SLOT_FRONT_SLANT)
+    rear = (zz - SLOT_REAR - SLOT_REAR_SLANT * yy) / math.hypot(1, SLOT_REAR_SLANT)
+    return np.maximum(np.maximum(np.abs(yy) - SLOT_H, SLOT_X - np.abs(xx)), np.maximum(front, rear))
 
 
 def nacelle_sdf(x, y, z, side):
     xx = x - side * NACELLE_X
     yy = y - NACELLE_Y
-    rho = np.sqrt(xx * xx + (yy / NACELLE_H) ** 2)
-    return revolved(rho, z - NACELLE_Z, NAC_FN) * NACELLE_H
+    zz = z - NACELLE_Z
+    # 断面は角の丸い四角に近い形（超楕円）で、側面を平らに
+    p = 3.0
+    rho = (np.abs(xx) ** p + np.abs(yy / NACELLE_H) ** p) ** (1 / p)
+    d = revolved(rho, zz, NAC_FN) * NACELLE_H
+    return smax(d, -coil_slot(xx, yy, zz), 0.0012)
 
 
 def round_rect(px, pz, hx, hz, r):

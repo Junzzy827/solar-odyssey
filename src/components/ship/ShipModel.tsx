@@ -3,9 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { warpFx } from '../../state/flight'
-import { bussardTexture, deflectorTexture, coilTexture, hullTextures, nameTexture, windowBandTexture } from './hullTextures'
+import { bussardTexture, coilSpillTexture, coilTexture, deflectorTexture, hullTextures, nameTexture, shuttleBayTexture, windowBandTexture } from './hullTextures'
 
 // 自機「SV-01 ソーラーボイジャー」。円盤部・首・副船体・2本のナセルという構成は借りるが、
 // 寸法と細部はオリジナル。長さ約1、前方は -Z。
@@ -165,10 +164,11 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
       deflector: deflectorTexture(),
       bussardL: bussardTexture(),
       bussardR: bussardTexture(),
+      bay: shuttleBayTexture(),
       coil: coilTexture(),
-      coilGeometry: coilBands(),
-      coilHousing: coilBands(0.039, 1.06),
-      housingMat: new THREE.MeshStandardMaterial({ color: '#1b2233', metalness: 0.6, roughness: 0.4 }),
+      coilSpillTex: coilSpillTexture(),
+      coilPlate: coilPlate(-0.0006),
+      coilSpill: coilPlate(0.008),
       name: nameTexture('SV-01  SOLAR VOYAGER'),
     }
   }, [envMap])
@@ -176,6 +176,7 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
   // 発光部（ワープ時に強める・明滅させる）
   const bussards = useRef<THREE.MeshBasicMaterial[]>([])
   const grilles = useRef<THREE.MeshBasicMaterial[]>([])
+  const spills = useRef<THREE.MeshBasicMaterial[]>([])
   const deflector = useRef<THREE.MeshBasicMaterial>(null!)
   const impulse = useRef<THREE.MeshBasicMaterial>(null!)
   const strobes = useRef<THREE.MeshBasicMaterial[]>([])
@@ -192,7 +193,9 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
       if (m.map) m.map.offset.x = (t * 0.15 * (i % 2 ? 1 : -1)) % 1
     })
     // ワープコイル：普段は穏やか、ワープ準備で明るく
-    grilles.current.forEach((m) => m.color.setScalar(1.5 + w * 2 + 0.06 * Math.sin(t * 2.3)))
+    const coil = 1.25 + w * 1.8 + 0.05 * Math.sin(t * 2.3)
+    grilles.current.forEach((m) => m.color.setScalar(coil))
+    spills.current.forEach((m) => m.color.setScalar(0.55 + w * 1.2))
     // ディフレクター：ゆっくり呼吸するように明滅、ワープ準備で強く
     const d = (1.15 + w * 1.4) * (0.94 + 0.06 * Math.sin(t * 1.7))
     deflector.current.color.setRGB(d, d, d * 1.1)
@@ -270,14 +273,16 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
         <circleGeometry args={[0.038, 48]} />
         <meshBasicMaterial ref={deflector} map={parts.deflector} toneMapped={false} />
       </mesh>
-      {/* シャトルベイ：副船体の平らな後端に、枠と明るい扉 */}
-      <mesh position={[0, SECONDARY_Y + 0.005, 0.4953]}>
-        <planeGeometry args={[0.036, 0.018]} />
-        <meshStandardMaterial color="#3a3f48" metalness={0.5} roughness={0.5} />
-      </mesh>
-      <mesh position={[0, SECONDARY_Y + 0.005, 0.4956]}>
-        <planeGeometry args={[0.03, 0.013]} />
-        <meshBasicMaterial color={new THREE.Color(0.75, 0.68, 0.52)} toneMapped={false} />
+      {/* シャトルベイ：副船体の後端をえぐった奥にある扉（build_hull.py の BAY_* と同じ位置） */}
+      <mesh position={[0, SECONDARY_Y + 0.005, 0.495 - 0.007 + 0.0003]}>
+        <planeGeometry args={[0.033, 0.016]} />
+        <meshStandardMaterial
+          map={parts.bay.map}
+          emissiveMap={parts.bay.emissiveMap}
+          emissive={new THREE.Color(1.6, 1.4, 1.1)}
+          metalness={0.4}
+          roughness={0.55}
+        />
       </mesh>
 
       {[-1, 1].map((side) => {
@@ -285,18 +290,32 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
         return (
           <group key={side}>
             {/* バサードコレクター */}
-            <mesh position={[nx, NACELLE_Y, NACELLE_Z + 0.022]} rotation={[-Math.PI / 2, 0, 0]} scale={[1, 1.35, 0.62]}>
+            <mesh position={[nx, NACELLE_Y, NACELLE_Z + 0.022]} rotation={[-Math.PI / 2, 0, 0]} scale={[1, 1.35, 0.75]}>
               <sphereGeometry args={[0.033, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
               <meshBasicMaterial ref={glowMat(bussards)} map={side < 0 ? parts.bussardL : parts.bussardR} toneMapped={false} />
             </mesh>
-            <mesh position={[nx, NACELLE_Y, NACELLE_Z + 0.022]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.03, 1.37, 0.64]} material={parts.bussardGlass}>
+            <mesh position={[nx, NACELLE_Y, NACELLE_Z + 0.022]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.03, 1.37, 0.77]} material={parts.bussardGlass}>
               <sphereGeometry args={[0.033, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2]} />
             </mesh>
-            {/* ワープコイル：ナセルの曲面に沿った帯（内側・外側・上面） */}
-            <mesh geometry={parts.coilHousing} material={parts.housingMat} position={[nx, NACELLE_Y, NACELLE_Z + 0.25]} />
-            <mesh geometry={parts.coilGeometry} position={[nx, NACELLE_Y, NACELLE_Z + 0.25]}>
-              <meshBasicMaterial ref={glowMat(grilles)} map={parts.coil} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
-            </mesh>
+            {/* ワープコイル：ナセル側面の溝の奥で光る板と、溝からあふれて外板を染める光 */}
+            {[-1, 1].map((face) => (
+              <group key={face}>
+                <mesh geometry={parts.coilPlate} position={[nx + face * (COIL_SLOT.x + 0.0003), NACELLE_Y, NACELLE_Z]}>
+                  <meshBasicMaterial ref={glowMat(grilles)} map={parts.coil} side={THREE.DoubleSide} toneMapped={false} />
+                </mesh>
+                <mesh geometry={parts.coilSpill} position={[nx + face * 0.0392, NACELLE_Y, NACELLE_Z]}>
+                  <meshBasicMaterial
+                    ref={glowMat(spills)}
+                    map={parts.coilSpillTex}
+                    transparent
+                    blending={THREE.AdditiveBlending}
+                    depthWrite={false}
+                    side={THREE.DoubleSide}
+                    toneMapped={false}
+                  />
+                </mesh>
+              </group>
+            ))}
             {/* ナセル後端のストロボ */}
             <mesh position={[nx, NACELLE_Y + 0.02, NACELLE_Z + 0.42]}>
               <sphereGeometry args={[0.004, 8, 8]} />
@@ -360,25 +379,37 @@ function Floodlights({ unitScale, saucerTop }: { unitScale: number; saucerTop: n
   )
 }
 
+// ワープコイルの溝（tools/blender/build_hull.py の SLOT_* と同じ値。ナセル先端からの距離）
+const COIL_SLOT = { h: 0.012, x: 0.0325, front: 0.135, frontSlant: 0.9, rear: 0.39, rearSlant: 0.5 }
+
 /**
- * ワープコイルの帯。ナセル表面のわずかに外側に、側面2本と上面1本の曲面を作る。
- * 回転後の位置は x = r·sinθ、y = −r·cosθ（θ = π/2 が +x 側、π が上）
+ * ワープコイルの発光板。溝の輪郭（前端は上ほど前、後端は上ほど後ろに流れる台形）を
+ * expand だけ広げた平板を、ナセル側面の向き（X 方向）に立てて作る。
+ * UV は u が長さ方向、v が高さ方向（0〜1）。
  */
-function coilBands(radius = 0.0392, shrink = 1) {
-  const bands: [number, number][] = [
-    [Math.PI / 2, 1.0],
-    [(Math.PI * 3) / 2, 1.0],
-    [Math.PI, 0.7],
+function coilPlate(expand: number) {
+  const { h, front, frontSlant, rear, rearSlant } = COIL_SLOT
+  const H = h + expand
+  const pts: [number, number][] = [
+    [front - frontSlant * H - expand, H],
+    [front + frontSlant * H - expand, -H],
+    [rear - rearSlant * H + expand, -H],
+    [rear + rearSlant * H + expand, H],
   ]
-  const parts = bands.map(([center, width]) => {
-    const g = new THREE.CylinderGeometry(radius, radius, 0.27 * shrink, 24, 1, true, center - (width * shrink) / 2, width * shrink)
-    g.rotateX(Math.PI / 2)
-    g.scale(1, 0.62, 1)
-    return g
-  })
-  const merged = mergeGeometries(parts)!
-  parts.forEach((g) => g.dispose())
-  return merged
+  const shape = new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(z, y)))
+  const g = new THREE.ShapeGeometry(shape)
+  const pos = g.attributes.position
+  const uv = g.attributes.uv
+  const zMin = Math.min(...pts.map((p) => p[0]))
+  const zMax = Math.max(...pts.map((p) => p[0]))
+  for (let i = 0; i < pos.count; i++) {
+    const z = pos.getX(i)
+    const y = pos.getY(i)
+    pos.setXYZ(i, 0, y, z)
+    uv.setXY(i, (z - zMin) / (zMax - zMin), (y + H) / (2 * H))
+  }
+  g.computeVertexNormals()
+  return g
 }
 
 const HULL_URL = `${import.meta.env.BASE_URL}models/ship-hull.glb`
