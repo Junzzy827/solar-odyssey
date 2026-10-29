@@ -5,14 +5,14 @@ import { useStore } from '../state/store'
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
 
-function audio() {
+export function audio() {
   ctx ??= new AudioContext()
   if (ctx.state === 'suspended') void ctx.resume()
   return ctx
 }
 
 /** 設定の音の大きさ（0〜1。消音なら 0） */
-const volume = () => {
+export const volume = () => {
   const { volume, muted } = useStore.getState().settings
   return muted ? 0 : volume
 }

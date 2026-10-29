@@ -86,6 +86,10 @@ function Settings({ racing }: { racing: boolean }) {
         音を消す
       </label>
       <label className="nav-check">
+        <input type="checkbox" checked={settings.music} onChange={(e) => update({ music: e.target.checked })} />
+        BGM を流す
+      </label>
+      <label className="nav-check">
         <input type="checkbox" checked={settings.banking} onChange={(e) => update({ banking: e.target.checked })} />
         旋回で船体を傾ける
       </label>

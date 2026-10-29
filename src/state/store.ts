@@ -55,10 +55,12 @@ export type Settings = {
   volume: number
   /** 音を消す */
   muted: boolean
+  /** BGM を流す */
+  music: boolean
 }
 
 const SETTINGS_KEY = 'solar-voyager:settings'
-const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false }
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true }
 
 function loadSettings(): Settings {
   try {

@@ -1,0 +1,45 @@
+import * as THREE from 'three'
+import { _roots } from '@react-three/fiber'
+import { useStore } from './state/store'
+import { flightControl, ship, warpFx } from './state/flight'
+import { bodies, sim } from './state/registry'
+import { useRace } from './state/race'
+import { setGoal, toggleAuto, toggleCompare, useGallery, openGallery, closeGallery, selectPart } from './state/gallery'
+
+// 録画・動作確認用（#debug のときだけ読み込む）：アプリの中身をブラウザのコンソールや録画スクリプトから動かせるようにする。
+// __sv.camera に関数を入れると、毎フレームの最後にカメラを上書きできる（紹介動画のカメラワーク用）
+
+type CameraFn = (camera: THREE.PerspectiveCamera, dt: number) => void
+const sv = {
+  THREE,
+  store: useStore,
+  race: useRace,
+  gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
+  ship,
+  flightControl,
+  warpFx,
+  bodies,
+  sim,
+  camera: null as CameraFn | null,
+  setCamera: null as unknown as (fn: CameraFn | null) => void,
+  root: () => {
+    const canvas = document.querySelector('canvas')
+    return canvas ? _roots.get(canvas)?.store.getState() : undefined
+  },
+}
+;(window as unknown as { __sv: typeof sv }).__sv = sv
+
+// カメラの上書き：入れるたびに登録し直して、ほかの useFrame（追いかけカメラ・マップの操作など）より後に動かす
+let unsubscribe: (() => void) | null = null
+export function setCamera(fn: CameraFn | null) {
+  sv.camera = fn
+  unsubscribe?.()
+  unsubscribe = null
+  const canvas = document.querySelector('canvas')
+  const root = canvas && _roots.get(canvas)
+  if (!fn || !root) return
+  const state = root.store.getState()
+  const ref = { current: (_: unknown, dt: number) => sv.camera?.(state.camera as THREE.PerspectiveCamera, dt) }
+  unsubscribe = state.internal.subscribe(ref as never, 0, root.store)
+}
+Object.assign(sv, { setCamera })
