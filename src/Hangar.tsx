@@ -1,10 +1,33 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { Bloom, EffectComposer, N8AO, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ShipModel } from './components/ship/ShipModel'
 import { CubeModel } from './components/cube/CubeModel'
+import { asteroidGeometry, asteroidMaterial } from './components/asteroidShape'
+
+/** 小惑星の見本：大きな岩の形を3つ並べる */
+function AsteroidSamples() {
+  const samples = useMemo(() => {
+    let s = 11
+    const rand = () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646
+    const material = asteroidMaterial()
+    return [0, 1, 2].map((i) => {
+      const mesh = new THREE.InstancedMesh(asteroidGeometry(rand, 4), material, 1)
+      mesh.setMatrixAt(0, new THREE.Matrix4().compose(new THREE.Vector3((i - 1) * 0.55, 0, 0), new THREE.Quaternion(), new THREE.Vector3(0.22, 0.22, 0.22)))
+      mesh.setColorAt(0, new THREE.Color(['#5a534c', '#9a8f80', '#b8b4ac'][i]))
+      return mesh
+    })
+  }, [])
+  return (
+    <>
+      {samples.map((m, i) => (
+        <primitive key={i} object={m} />
+      ))}
+    </>
+  )
+}
 
 /** 太陽光：影を落とす平行光。影の範囲は船の大きさに絞って解像度を稼ぐ */
 function SunLight() {
@@ -56,7 +79,7 @@ export default function Hangar() {
         <Stars radius={50} depth={20} count={3000} factor={2} fade />
         <SunLight />
         <directionalLight position={[-2, -1, 2]} intensity={0.12} color="#8fa8ff" />
-        {MODEL === 'cube' ? <CubeModel /> : <ShipModel />}
+        {MODEL === 'cube' ? <CubeModel /> : MODEL === 'asteroid' ? <AsteroidSamples /> : <ShipModel />}
         <OrbitControls autoRotate={!FIXED} autoRotateSpeed={0.35} minDistance={0.2} maxDistance={6} target={TARGET} />
         <EffectComposer>
           <N8AO aoRadius={0.08} distanceFalloff={0.5} intensity={2.5} quality="high" />

@@ -8,6 +8,7 @@ import { PlanetBody } from './components/PlanetBody'
 import { Sky } from './components/Sky'
 import { SimClock } from './components/SimClock'
 import { Ship } from './components/Ship'
+import { CloudWake } from './components/CloudWake'
 import { AsteroidBelt } from './components/AsteroidBelt'
 import { WarpStreaks } from './components/WarpStreaks'
 import { TargetMarker } from './components/TargetMarker'
@@ -37,6 +38,7 @@ export default function App() {
         <CubeShip />
         <Race />
         <Ship />
+        <CloudWake />
         <WarpStreaks />
         <TargetMarker />
         <Phaser />

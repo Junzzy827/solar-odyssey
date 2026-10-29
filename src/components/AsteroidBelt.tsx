@@ -1,14 +1,19 @@
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { asteroidGeometry, asteroidMaterial } from './asteroidShape'
 import { angularSpeed, orbitRadius } from '../data/scale'
 import { asteroids, sim, type RockType } from '../state/registry'
 
 const COUNT = 3000
 const INNER_AU = 2.2
 const OUTER_AU = 3.3
-const SHAPES = 4
+// 小さな岩は粗い形、大きな岩は細かい形（数が多いので三角形を節約する）
+const SMALL_SHAPES = 6
+const LARGE_SHAPES = 4
+const SHAPES = SMALL_SHAPES + LARGE_SHAPES
+/** これより大きい岩は細かい形を使う */
+const LARGE_SIZE = 0.22
 const RESPAWN_SECONDS = 30
 const ROCK_COLORS = ['#5a534c', '#9a8f80', '#b8b4ac']
 
@@ -21,19 +26,6 @@ function random(seed: number) {
   }
 }
 
-/** ごつごつした岩の形：正二十面体の頂点をでこぼこに動かす */
-function rockGeometry(rand: () => number) {
-  const g = mergeVertices(new THREE.IcosahedronGeometry(1, 1))
-  const pos = g.attributes.position
-  const v = new THREE.Vector3()
-  for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i).multiplyScalar(0.7 + rand() * 0.5)
-    pos.setXYZ(i, v.x, v.y * (0.6 + rand() * 0.3), v.z)
-  }
-  g.computeVertexNormals()
-  return g
-}
-
 /** 火星と木星の間の小惑星帯。実際はもっとまばらだが、見て分かる密度にしている */
 export function AsteroidBelt() {
   const belt = useRef<THREE.Group>(null!)
@@ -42,37 +34,43 @@ export function AsteroidBelt() {
   const { geometries, material } = useMemo(() => {
     const rand = random(7)
     return {
-      geometries: Array.from({ length: SHAPES }, () => rockGeometry(rand)),
-      material: new THREE.MeshStandardMaterial({ color: '#8a7f72', roughness: 1, flatShading: true }),
+      geometries: Array.from({ length: SHAPES }, (_, i) => asteroidGeometry(rand, i < SMALL_SHAPES ? 2 : 3)),
+      material: asteroidMaterial(),
     }
   }, [])
 
-  useLayoutEffect(() => {
+  // 岩の配置と種類（毎回同じ）。大きさで、使う形（細かさ）を分ける
+  const rocks = useMemo(() => {
     const rand = random(42)
-    const m = new THREE.Matrix4()
-    const q = new THREE.Quaternion()
     const e = new THREE.Euler()
-    const p = new THREE.Vector3()
-    const s = new THREE.Vector3()
+    const groups: { matrix: THREE.Matrix4; type: RockType }[][] = Array.from({ length: SHAPES }, () => [])
+    let small = 0
+    let large = 0
+    for (let i = 0; i < COUNT; i++) {
+      const au = INNER_AU + (OUTER_AU - INNER_AU) * (rand() + rand()) * 0.5
+      const r = orbitRadius(au)
+      const a = rand() * Math.PI * 2
+      const p = new THREE.Vector3(Math.cos(a) * r, (rand() - 0.5) * 3, Math.sin(a) * r)
+      const size = 0.04 + rand() ** 3 * 0.4
+      const q = new THREE.Quaternion().setFromEuler(e.set(rand() * 6.28, rand() * 6.28, rand() * 6.28))
+      // 炭素質（暗い）・石質（灰）・金属（明るい）を、実際の割合に近く混ぜる
+      const k = rand()
+      const type: RockType = k < 0.75 ? 0 : k < 0.92 ? 1 : 2
+      const shape = size > LARGE_SIZE ? SMALL_SHAPES + (large++ % LARGE_SHAPES) : small++ % SMALL_SHAPES
+      groups[shape].push({ matrix: new THREE.Matrix4().compose(p, q, new THREE.Vector3(size, size, size)), type })
+    }
+    return groups
+  }, [])
+
+  useLayoutEffect(() => {
     const color = new THREE.Color()
-    const per = Math.ceil(COUNT / SHAPES)
-    meshes.current.forEach((mesh) => {
+    meshes.current.forEach((mesh, shape) => {
       const types: RockType[] = []
-      for (let i = 0; i < per; i++) {
-        const au = INNER_AU + (OUTER_AU - INNER_AU) * (rand() + rand()) * 0.5
-        const r = orbitRadius(au)
-        const a = rand() * Math.PI * 2
-        p.set(Math.cos(a) * r, (rand() - 0.5) * 3, Math.sin(a) * r)
-        const size = 0.04 + rand() ** 3 * 0.4
-        s.set(size, size, size)
-        q.setFromEuler(e.set(rand() * 6.28, rand() * 6.28, rand() * 6.28))
-        mesh.setMatrixAt(i, m.compose(p, q, s))
-        // 炭素質（暗い）・石質（灰）・金属（明るい）を、実際の割合に近く混ぜる
-        const k = rand()
-        const type: RockType = k < 0.75 ? 0 : k < 0.92 ? 1 : 2
-        types.push(type)
-        mesh.setColorAt(i, color.set(ROCK_COLORS[type]))
-      }
+      rocks[shape].forEach((rock, i) => {
+        mesh.setMatrixAt(i, rock.matrix)
+        mesh.setColorAt(i, color.set(ROCK_COLORS[rock.type]))
+        types.push(rock.type)
+      })
       asteroids.meshes.push(mesh)
       asteroids.types.set(mesh, types)
       mesh.instanceMatrix.needsUpdate = true
@@ -83,7 +81,7 @@ export function AsteroidBelt() {
       asteroids.types.clear()
       asteroids.destroyed.length = 0
     }
-  }, [])
+  }, [rocks])
 
   // 帯全体を平均的な公転速度で回す
   const speed = angularSpeed(365.25 * 2.7 ** 1.5)
@@ -108,7 +106,7 @@ export function AsteroidBelt() {
           ref={(mesh) => {
             if (mesh) meshes.current[i] = mesh
           }}
-          args={[g, material, Math.ceil(COUNT / SHAPES)]}
+          args={[g, material, rocks[i].length]}
         />
       ))}
     </group>

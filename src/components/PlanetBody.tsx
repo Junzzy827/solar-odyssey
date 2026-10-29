@@ -13,20 +13,10 @@ import { Atmosphere } from './Atmosphere'
 import { EarthSurface } from './EarthSurface'
 import { SaturnRing } from './SaturnRing'
 import { CloudInterior } from './CloudInterior'
+import { PlanetSurface } from './PlanetSurface'
 import { approachKind } from '../data/approach'
 
 const DEG = Math.PI / 180
-
-function TexturedSphere({ textureKey, radius, color }: { textureKey: string; radius: number; color: string }) {
-  const map = useOptionalTexture(textureUrl(textureKey))
-  return (
-    <mesh>
-      <sphereGeometry args={[radius, 64, 64]} />
-      {/* テクスチャが届いたらシェーダーを作り直すため、key で別の材質にする */}
-      {map ? <meshStandardMaterial key="tex" map={map} roughness={0.95} metalness={0} /> : <meshStandardMaterial key="flat" color={color} roughness={0.9} />}
-    </mesh>
-  )
-}
 
 const moonRadius = (moon: Moon) => Math.max(0.12, bodyRadius(moon.radiusKm))
 
@@ -35,7 +25,7 @@ function MoonBody({ moon, position }: { moon: Moon; position: [number, number, n
   useEffect(() => registerBody({ id: moon.id, name: moon.name, radius: moonRadius(moon), object: ref.current }), [moon])
   return (
     <group ref={ref} position={position}>
-      <TexturedSphere textureKey={moon.id} radius={moonRadius(moon)} color={moon.color} />
+      <PlanetSurface id={moon.id} radius={moonRadius(moon)} color={moon.color} />
     </group>
   )
 }
@@ -50,6 +40,7 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
   const radius = bodyRadius(planet.radiusKm)
   const isEarth = planet.id === 'earth'
   const isGas = approachKind(planet.id) === 'gas'
+  const ringRadii = useMemo(() => (planet.ring ? { inner: radius * planet.ring.inner, outer: radius * planet.ring.outer } : undefined), [planet.ring, radius])
   const map = useOptionalTexture(isGas ? textureUrl(planet.id) : undefined)
   const deep = useMemo(() => '#' + new THREE.Color(planet.color).multiplyScalar(0.18).getHexString(), [planet.color])
 
@@ -72,12 +63,16 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
         <group rotation={[0, 0, planet.tiltDeg * DEG]}>
           <group ref={spin}>
             <group ref={surface}>
-              {isEarth ? <EarthOrFallback radius={radius} color={planet.color} /> : <TexturedSphere textureKey={planet.id} radius={radius} color={planet.color} />}
+              {isEarth ? (
+                <EarthOrFallback radius={radius} color={planet.color} />
+              ) : (
+                <PlanetSurface id={planet.id} radius={radius} color={planet.color} haze={planet.atmosphere} ring={ringRadii} />
+              )}
             </group>
             {isGas && <CloudInterior id={planet.id} radius={radius} haze={planet.atmosphere ?? planet.color} deep={deep} map={map} surface={surface} />}
           </group>
           {planet.atmosphere && <Atmosphere radius={radius} color={planet.atmosphere} power={isEarth ? 1 : 1.6} />}
-          {planet.ring && <SaturnRing inner={radius * planet.ring.inner} outer={radius * planet.ring.outer} color={planet.ring.color} />}
+          {planet.ring && <SaturnRing inner={radius * planet.ring.inner} outer={radius * planet.ring.outer} color={planet.ring.color} planetRadius={radius} />}
         </group>
         <Html position={[0, radius + 1, 0]} center className="label">
           <span onClick={() => useStore.getState().setTarget(planet.id)}>{planet.name}</span>
@@ -103,5 +98,5 @@ function EarthOrFallback({ radius, color }: { radius: number; color: string }) {
   const day = useOptionalTexture(textureUrl('earth'))
   const night = useOptionalTexture(textureUrl('earthNight'))
   if (day && night) return <EarthSurface radius={radius} />
-  return <TexturedSphere textureKey="earth" radius={radius} color={color} />
+  return <PlanetSurface id="earth" radius={radius} color={color} />
 }

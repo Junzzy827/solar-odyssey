@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { approachKind, atmosphereAt, DIVE_DEPTH, limitDepthKm, radiusKm, SHIP_LENGTH_KM, type ApproachKind } from '../data/approach'
 import { bodies } from './registry'
+import { raceActive } from './race'
 
 /** いちばん近い天体（高さは雲の上・地表からの距離。ガス惑星の中では負） */
 export const proximity = {
@@ -18,7 +19,8 @@ let speedFactor = 1
 function factorFor(kind: ApproachKind, radius: number, altitude: number) {
   if (kind === 'object') return 1
   if (altitude < 0) return 0.035
-  return THREE.MathUtils.clamp(altitude / (radius * 1.2), 0.15, 1)
+  // 高さに比例して遅くなる（大きな天体ほど遠くから）。地表近くでは最高速の4%まで落とす
+  return THREE.MathUtils.clamp(altitude / (radius * 2.5 + 1.5), 0.04, 1)
 }
 
 export function updateProximity(position: THREE.Vector3) {
@@ -48,7 +50,7 @@ export function updateProximity(position: THREE.Vector3) {
  * 近づくほど速さを落とす。巨大な天体のそばでは景色がゆっくり流れ、大きさが伝わる。
  * いちばん厳しい天体の上限を使う。
  */
-export const approachSpeedFactor = () => speedFactor
+export const approachSpeedFactor = () => (raceActive() ? 1 : speedFactor)
 
 export type Near = {
   name: string
