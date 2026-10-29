@@ -4,18 +4,25 @@ import * as THREE from 'three'
 import { ShipModel } from './ship/ShipModel'
 import { bodies } from '../state/registry'
 import { useStore } from '../state/store'
-import { CHARGE_SECONDS, EXIT_SECONDS, ship, standoff, warpFx } from '../state/flight'
+import { CHARGE_SECONDS, EXIT_SECONDS, flightControl, ship, standoff, warpFx } from '../state/flight'
 
 const SHIP_SCALE = 0.3
 const THRUST = 10
 const MAX_SPEED = 8
 const AUTO_SPEED = 12
-const MOUSE_SENSITIVITY = 0.0022
-const ROLL_SPEED = 1.4
+const MOUSE_SENSITIVITY = 0.0016
+// 巨大な船なので、旋回はマウスに少し遅れてゆっくり追いつく
+const TURN_MAX = 0.55 // rad/s
+const TURN_EASE = 2.2
+const TURN_BACKLOG = 0.5 // rad。溜められる旋回量の上限（手を止めたらすぐ落ち着く）
+const ROLL_SPEED = 0.6
+const ROLL_EASE = 2
 const OVERVIEW = new THREE.Vector3(0, 120, 220)
 
 const keys = new Set<string>()
 const mouse = { dx: 0, dy: 0 }
+// まだ回り切っていない量（ピッチ・ヨー）と、今のロールの速さ
+const turn = { pitch: 0, yaw: 0, roll: 0 }
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
 
@@ -106,6 +113,11 @@ export function Ship() {
 
     up.set(0, 1, 0).applyQuaternion(ship.quaternion)
 
+    if (flightControl.releaseHold) {
+      flightControl.releaseHold = false
+      hold.current = null
+    }
+
     // 待機中の天体に合わせて移動する
     const held = hold.current ? bodies.get(hold.current.id) : undefined
     if (hold.current && held) {
@@ -156,7 +168,7 @@ export function Ship() {
       }
     } else {
       if (st.warpPhase !== 'idle') st.setWarpPhase('idle')
-      const manual = steer(dt, st.mode === 'flight')
+      const manual = steer(dt, st.mode === 'flight' && !flightControl.locked)
       if (manual && st.autopilot) st.setAutopilot(false)
 
       if (st.autopilot && target && !manual) {
@@ -234,14 +246,25 @@ export function Ship() {
 function steer(dt: number, enabled: boolean) {
   if (!enabled) {
     mouse.dx = mouse.dy = 0
+    turn.pitch = turn.yaw = turn.roll = 0
     ship.velocity.multiplyScalar(Math.exp(-0.8 * dt))
     return false
   }
-  const roll = (keys.has('KeyQ') ? 1 : 0) - (keys.has('KeyE') ? 1 : 0)
-  euler.set(-mouse.dy * MOUSE_SENSITIVITY, -mouse.dx * MOUSE_SENSITIVITY, roll * ROLL_SPEED * dt)
-  ship.quaternion.multiply(qDelta.setFromEuler(euler)).normalize()
-  const turned = mouse.dx !== 0 || mouse.dy !== 0 || roll !== 0
+  const clampTurn = (a: number) => THREE.MathUtils.clamp(a, -TURN_BACKLOG, TURN_BACKLOG)
+  turn.pitch = clampTurn(turn.pitch - mouse.dy * MOUSE_SENSITIVITY)
+  turn.yaw = clampTurn(turn.yaw - mouse.dx * MOUSE_SENSITIVITY)
   mouse.dx = mouse.dy = 0
+  const k = 1 - Math.exp(-TURN_EASE * dt)
+  const step = (a: number) => THREE.MathUtils.clamp(a * k, -TURN_MAX * dt, TURN_MAX * dt)
+  const pitch = step(turn.pitch)
+  const yaw = step(turn.yaw)
+  turn.pitch -= pitch
+  turn.yaw -= yaw
+  const roll = (keys.has('KeyQ') ? 1 : 0) - (keys.has('KeyE') ? 1 : 0)
+  turn.roll += (roll * ROLL_SPEED - turn.roll) * (1 - Math.exp(-ROLL_EASE * dt))
+  euler.set(pitch, yaw, turn.roll * dt)
+  ship.quaternion.multiply(qDelta.setFromEuler(euler)).normalize()
+  const turned = Math.abs(pitch) + Math.abs(yaw) > 1e-5 || roll !== 0
 
   v.set(
     (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0),
@@ -252,7 +275,7 @@ function steer(dt: number, enabled: boolean) {
   if (thrusting) {
     v.normalize().applyQuaternion(ship.quaternion)
     ship.velocity.addScaledVector(v, THRUST * dt)
-    if (ship.velocity.length() > MAX_SPEED) ship.velocity.setLength(MAX_SPEED)
+    if (ship.velocity.length() > MAX_SPEED * flightControl.speedScale) ship.velocity.setLength(MAX_SPEED * flightControl.speedScale)
   } else {
     ship.velocity.multiplyScalar(Math.exp(-0.8 * dt))
   }

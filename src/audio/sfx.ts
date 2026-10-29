@@ -103,3 +103,19 @@ export function playBlast() {
   src.start(now)
 }
 
+
+/** 短い電子音（カウントダウンや輪の通過） */
+export function playBeep(freq: number, seconds = 0.18) {
+  const c = audio()
+  const now = c.currentTime
+  const osc = c.createOscillator()
+  osc.type = 'sine'
+  osc.frequency.value = freq
+  const gain = c.createGain()
+  gain.gain.setValueAtTime(0.0001, now)
+  gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01)
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + seconds)
+  osc.connect(gain).connect(c.destination)
+  osc.start(now)
+  osc.stop(now + seconds + 0.02)
+}

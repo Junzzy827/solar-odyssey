@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { bodies } from '../state/registry'
+import { bodies, markerOverride } from '../state/registry'
 import { useStore } from '../state/store'
 
 const p = new THREE.Vector3()
@@ -12,7 +12,7 @@ export function TargetMarker() {
     const el = document.getElementById('target-marker')
     if (!el) return
     const st = useStore.getState()
-    const target = st.targetId ? bodies.get(st.targetId) : undefined
+    const target = markerOverride.object ? { object: markerOverride.object } : st.targetId ? bodies.get(st.targetId) : undefined
     if (!target || st.mode !== 'flight' || st.warpPhase === 'warp') {
       el.style.display = 'none'
       return

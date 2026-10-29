@@ -29,3 +29,6 @@ export const asteroids = {
   types: new Map<THREE.InstancedMesh, RockType[]>(),
   destroyed: [] as { mesh: THREE.InstancedMesh; index: number; matrix: THREE.Matrix4; at: number }[],
 }
+
+/** 天体以外を目標マーカーで指すとき（レースの次のゲートなど） */
+export const markerOverride = { object: null as THREE.Object3D | null }

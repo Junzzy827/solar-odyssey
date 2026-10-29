@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { PLANETS } from '../data/bodies'
 import { CUBE_ID, CUBE_NAME } from '../data/cube'
+import { RACE_TEXT, raceActive } from './race'
 import { bodies } from './registry'
 import { useStore } from './store'
 import { playWarp, speak } from '../audio/sfx'
@@ -11,6 +12,9 @@ export const ship = {
   quaternion: new THREE.Quaternion(),
   velocity: new THREE.Vector3(),
 }
+
+/** 操縦の制限（レースのカウントダウン中は止める、スイングバイ後は最高速度を上げる） */
+export const flightControl = { locked: false, speedScale: 1, releaseHold: false }
 
 /** ワープ演出の共有値（光の筋・ナセルの発光が参照する） */
 export const warpFx = { intensity: 0, glow: 0, seconds: 3 }
@@ -36,6 +40,10 @@ export function distanceToBody(id: string) {
 export function engage() {
   const s = useStore.getState()
   if (!s.targetId || s.warpPhase !== 'idle') return
+  if (raceActive()) {
+    s.showToast(RACE_TEXT.noWarp)
+    return
+  }
   const distance = distanceToBody(s.targetId)
   if (distance === null) return
   warpFx.seconds = warpSeconds(distance, s.warpFactor)

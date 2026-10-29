@@ -4,6 +4,7 @@ import { PLANETS } from '../data/bodies'
 import { useStore } from '../state/store'
 import { bodyInfo } from '../state/flight'
 import { CUBE_ID } from '../data/cube'
+import { raceActive } from '../state/race'
 
 const TOTAL = 1 + PLANETS.reduce((n, p) => n + 1 + p.moons.length, 0)
 const NEAR = 10
@@ -22,7 +23,7 @@ export function LogPanel() {
 
   // 目標に近づいたら一度だけ自動で開く
   useEffect(() => {
-    if (!targetId || warpPhase !== 'idle' || distance === null) return
+    if (!targetId || warpPhase !== 'idle' || distance === null || raceActive()) return
     if (distance < NEAR && autoOpened.current !== targetId) {
       autoOpened.current = targetId
       setLogOpen(true)

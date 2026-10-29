@@ -4,6 +4,10 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { cubeGeometry, cubeMaterial } from './cubeGeometry'
 
+// 形は毎回同じなので、展示用とレースのライバル用で使い回す
+let shared: ReturnType<typeof cubeGeometry> | null = null
+const geometry = () => (shared ??= cubeGeometry())
+
 /** 機械文明の立方体船（一辺 1）。緑の灯はゆっくり脈打つ */
 export function CubeModel() {
   const { gl } = useThree()
@@ -14,7 +18,7 @@ export function CubeModel() {
     return env
   }, [gl])
   const parts = useMemo(() => {
-    const { hull, lights } = cubeGeometry()
+    const { hull, lights } = geometry()
     return {
       hull,
       lights,
@@ -24,8 +28,6 @@ export function CubeModel() {
   }, [envMap])
   useEffect(
     () => () => {
-      parts.hull.dispose()
-      parts.lights.dispose()
       parts.hullMat.dispose()
       parts.lightMat.dispose()
     },

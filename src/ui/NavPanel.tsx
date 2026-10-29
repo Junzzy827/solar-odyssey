@@ -3,6 +3,7 @@ import { PLANETS } from '../data/bodies'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { CUBE_ID, CUBE_NAME } from '../data/cube'
+import { useRace } from '../state/race'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -21,7 +22,10 @@ export function NavPanel() {
   const s = useStore()
   const info = s.targetId ? bodyInfo(s.targetId) : null
   const facts = info && info.au > 0 ? travelFacts(info.au) : null
-  const busy = s.warpPhase !== 'idle'
+  const racePhase = useRace((r) => r.phase)
+  const startRace = useRace((r) => r.start)
+  const racing = racePhase === 'countdown' || racePhase === 'running'
+  const busy = s.warpPhase !== 'idle' || racing
 
   return (
     <aside className="nav-panel">
@@ -70,10 +74,13 @@ export function NavPanel() {
       <button className={`secondary${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
         自動航行 <kbd>G</kbd>
       </button>
+      <button className="secondary race-start" onClick={startRace} disabled={busy}>
+        レース：火星 → 木星 → 土星スイングバイ → 火星
+      </button>
       <div className="nav-time">
         時間
         {[0, 1, 10].map((k) => (
-          <button key={k} className={s.timeScale === k ? 'on' : ''} onClick={() => s.setTimeScale(k)}>
+          <button key={k} className={s.timeScale === k ? 'on' : ''} onClick={() => s.setTimeScale(k)} disabled={racing}>
             {k === 0 ? '停止' : `${k}倍`}
           </button>
         ))}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
+import { RACE_TEXT, raceActive } from '../state/race'
 
 /** 全体のキー操作：M 全体マップ／Enter エンゲージ／G 自動航行／C カメラ／1〜9 ワープ速度 */
 export function useGlobalKeys() {
@@ -11,6 +12,7 @@ export function useGlobalKeys() {
       if (e.code === 'KeyM') s.setMode(s.mode === 'map' ? 'flight' : 'map')
       else if (e.code === 'Enter') engage()
       else if (e.code === 'KeyC') s.setCameraMode(s.cameraMode === 'chase' ? 'hero' : 'chase')
+      else if (e.code === 'KeyG' && raceActive()) s.showToast(RACE_TEXT.noWarp)
       else if (e.code === 'KeyG' && s.targetId && s.warpPhase === 'idle') s.setAutopilot(!s.autopilot)
       else if (/^Digit[1-9]$/.test(e.code) && s.warpPhase === 'idle') s.setWarpFactor(Number(e.code.slice(5)))
     }
