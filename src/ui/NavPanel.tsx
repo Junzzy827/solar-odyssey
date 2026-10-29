@@ -11,7 +11,8 @@ import { QUIZ_LENGTH, startQuiz, useQuiz } from '../state/quiz'
 import { openProbes, useProbes } from '../state/probes'
 import { sim } from '../state/registry'
 import { formatDate, simDate } from '../data/ephemeris'
-import { openMissions, useMission } from '../state/mission'
+import { closeMissions, openMissions, useMission } from '../state/mission'
+import { closeEclipses, openEclipses, useEclipse } from '../state/eclipse'
 import { ui } from '../i18n'
 import { named, setLang, t, useLang } from '../i18n/lang'
 
@@ -167,6 +168,7 @@ export function NavPanel() {
   const busy = s.warpPhase !== 'idle' || racing
   const quizOpen = useQuiz((q) => q.open)
   const probesOpen = useProbes((p) => p.open)
+  const eclipsesOpen = useEclipse((e) => e.open)
   const missionPhase = useMission((m) => m.phase)
   const onMission = missionPhase === 'active'
   const lang = useLang()
@@ -249,17 +251,20 @@ export function NavPanel() {
       <button className={`secondary nav-auto${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
         {t('自動航行', 'Autopilot')} <kbd>G</kbd>
       </button>
-      <button className={`secondary mission-start${missionPhase !== 'closed' ? ' on' : ''}`} onClick={() => (pick(), openMissions())} disabled={racing}>
+      <button className={`secondary mission-start${missionPhase !== 'closed' ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), openMissions())} disabled={racing}>
         {ui().missionsButton}
       </button>
       <button className="secondary race-start" onClick={startRace} disabled={busy || onMission}>
         {t('レース：火星 → 木星 → 土星スイングバイ → 火星', 'Race: Mars → Jupiter → Saturn swing-by → Mars')}
       </button>
-      <button className={`secondary quiz-start${quizOpen ? ' on' : ''}`} onClick={() => (pick(), startQuiz())} disabled={racing}>
+      <button className={`secondary quiz-start${quizOpen ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), startQuiz())} disabled={racing}>
         {t(`連続クイズ（${QUIZ_LENGTH}問）`, `Quiz run (${QUIZ_LENGTH} questions)`)}
       </button>
-      <button className={`secondary probe-start${probesOpen ? ' on' : ''}`} onClick={() => (pick(), openProbes())} disabled={busy}>
+      <button className={`secondary probe-start${probesOpen ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), openProbes())} disabled={busy}>
         {t('探査機の旅（ボイジャーなど）', 'Probe journeys (Voyager and more)')}
+      </button>
+      <button className={`secondary eclipse-start${eclipsesOpen ? ' on' : ''}`} onClick={() => (pick(), closeMissions(), openEclipses())} disabled={busy || onMission}>
+        {t('宇宙から見る日食・月食', 'Eclipses from space')}
       </button>
       <div className="nav-time">
         {t('時間', 'Time')}

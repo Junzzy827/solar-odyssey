@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ECLIPSE_GLSL, eclipseUniforms } from './eclipseShadow'
 
 // 惑星と衛星の表面。光の当たり方を天体の種類ごとに変え、ガス惑星は雲を流し、
 // 近づいたときはクレーターや凹凸を細かく足す。テクスチャが無い天体は模様を作る。
@@ -32,6 +33,8 @@ export type SurfaceOptions = {
   seed?: number
   /** テクスチャが無い天体の目立つ地域（冥王星のハート、イアペトゥスの黒い半球など）。最大 MAX_REGIONS 個 */
   regions?: Region[]
+  /** 日食の影が落ちる地球（テクスチャがそろう前の仮の地球）か、月食で地球の影に入る月か */
+  eclipse?: 'earth' | 'moon'
 }
 
 /**
@@ -78,6 +81,8 @@ const fragmentShader = /* glsl */ `
   uniform float uFlow;
   uniform vec4 uSpot;
   uniform vec3 uSpotShape;
+  uniform float uEclipseTarget;
+  ${ECLIPSE_GLSL}
   uniform float uRingOn;
   uniform float uRingIn;
   uniform float uRingOut;
@@ -291,7 +296,26 @@ const fragmentShader = /* glsl */ `
       }
     }
 
+    // ---- 日食・月食の影 ----
+    float eclipseRed = 0.0;
+    float redLevel = 0.0;
+    if (uEclipseTarget > 0.5 && uEclipseTarget < 1.5) light *= solarShadow(vPosW);
+    if (uEclipseTarget > 1.5 && uShadowOn > 1.5) {
+      vec3 q = vPosW - uShadowC;
+      float t = dot(q, uShadowD);
+      float d = length(q - t * uShadowD);
+      if (t > 0.0) {
+        // 半影ではだんだん暗く、本影の中は、地球の大気を通って曲がった赤い光だけが届く
+        float pen = 1.0 - smoothstep(uShadowR.x, uShadowR.y, d);
+        light *= 1.0 - 0.6 * pen * pen;
+        eclipseRed = 1.0 - smoothstep(uShadowR.x * 0.97, uShadowR.x * 1.03, d);
+        redLevel = 0.3 + 0.45 * clamp(d / uShadowR.x, 0.0, 1.0);
+      }
+    }
+
     vec3 color = albedo * light * 1.05;
+    // 赤い光も太陽の側から来るので、照らされている半球だけが赤くなる
+    color = mix(color, albedo * vec3(0.62, 0.2, 0.08) * redLevel * (0.55 + 0.45 * mu) * smoothstep(-0.05, 0.15, ndlGeo), eclipseRed);
 
     // ---- 大気のもや：昼側の縁ににじむ光と、明暗境界の夕焼け色 ----
     if (uHazeAmount > 0.0) {
@@ -358,6 +382,8 @@ export function createSurfaceMaterial(opts: SurfaceOptions) {
       uRegion: { value: regionDirs },
       uRegionColor: { value: regionColors },
       uRegionCount: { value: regions.length },
+      uEclipseTarget: { value: opts.eclipse === 'moon' ? 2 : opts.eclipse === 'earth' ? 1 : 0 },
+      ...eclipseUniforms,
     },
   })
 }

@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { textureUrl } from '../data/textures'
+import { ECLIPSE_GLSL, eclipseUniforms } from './eclipseShadow'
 
 const vertexShader = /* glsl */ `
   #include <common>
@@ -29,6 +30,7 @@ const fragmentShader = /* glsl */ `
   uniform float uHasClouds;
   uniform float uCloudShift;
   uniform vec3 uSunDir;
+  ${ECLIPSE_GLSL}
   varying vec2 vUv;
   varying vec3 vWorldNormal;
   varying vec3 vPosW;
@@ -47,6 +49,9 @@ const fragmentShader = /* glsl */ `
       float c = texture2D(uClouds, vUv + vec2(uCloudShift, 0.0)).r;
       shadow = 1.0 - 0.45 * c;
     }
+    // 日食のときの、月の影
+    float eclipse = solarShadow(vPosW);
+    shadow *= eclipse;
     vec3 day = dayTex * max(light, 0.0) * shadow;
 
     // 海の照り返し（青が強いところを海とみなす）
@@ -61,8 +66,8 @@ const fragmentShader = /* glsl */ `
     // 大気の散乱：昼側の縁が青く光り、明暗境界は夕焼け色に
     float rim = pow(1.0 - mu, 2.4);
     float lit = smoothstep(-0.25, 0.45, light);
-    color += vec3(0.32, 0.58, 1.0) * rim * lit * 0.55;
-    color += vec3(1.0, 0.5, 0.25) * exp(-pow(light * 9.0, 2.0)) * rim * 0.12;
+    color += vec3(0.32, 0.58, 1.0) * rim * lit * 0.55 * eclipse;
+    color += vec3(1.0, 0.5, 0.25) * exp(-pow(light * 9.0, 2.0)) * rim * 0.12 * eclipse;
 
     gl_FragColor = vec4(color, 1.0);
     #include <logdepthbuf_fragment>
@@ -70,6 +75,17 @@ const fragmentShader = /* glsl */ `
     #include <colorspace_fragment>
   }
 `
+
+/** 雲にも日食の影を落とす（three.js の標準の材質に、影の計算を差し込む） */
+function shadowClouds(shader: THREE.WebGLProgramParametersWithUniforms) {
+  Object.assign(shader.uniforms, eclipseUniforms)
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nvarying vec3 vEclipsePos;')
+    .replace('#include <project_vertex>', '#include <project_vertex>\nvEclipsePos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', `#include <common>\nvarying vec3 vEclipsePos;\n${ECLIPSE_GLSL}`)
+    .replace('#include <opaque_fragment>', 'outgoingLight *= solarShadow(vEclipsePos);\n#include <opaque_fragment>')
+}
 
 /** 地球の表面。テクスチャが揃わない間は null を返し、呼び出し側が通常の球を描く */
 export function EarthSurface({ radius }: { radius: number }) {
@@ -87,6 +103,7 @@ export function EarthSurface({ radius }: { radius: number }) {
       uHasClouds: { value: 0 },
       uCloudShift: { value: 0 },
       uSunDir: { value: new THREE.Vector3(1, 0, 0) },
+      ...eclipseUniforms,
     }),
     [],
   )
@@ -122,7 +139,7 @@ export function EarthSurface({ radius }: { radius: number }) {
       {clouds && (
         <mesh ref={cloudLayer} scale={1.012}>
           <sphereGeometry args={[radius, 64, 64]} />
-          <meshStandardMaterial alphaMap={clouds} transparent depthWrite={false} color="#ffffff" />
+          <meshStandardMaterial alphaMap={clouds} transparent depthWrite={false} color="#ffffff" onBeforeCompile={shadowClouds} />
         </mesh>
       )}
     </>

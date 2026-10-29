@@ -7,6 +7,7 @@ import { useRace } from './state/race'
 import { useMission } from './state/mission'
 import { setGoal, toggleAuto, toggleCompare, useGallery, openGallery, closeGallery, selectPart } from './state/gallery'
 import { probeClock, useProbes } from './state/probes'
+import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
 // 録画・動作確認用（#debug のときだけ読み込む）：アプリの中身をブラウザのコンソールや録画スクリプトから動かせるようにする。
 // __sv.camera に関数を入れると、毎フレームの最後にカメラを上書きできる（紹介動画のカメラワーク用）
@@ -19,6 +20,7 @@ const sv = {
   mission: useMission,
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
   probes: { state: useProbes, clock: probeClock },
+  eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   ship,
   flightControl,
   warpFx,

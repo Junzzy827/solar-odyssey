@@ -19,11 +19,13 @@ import { PlanetSurface } from './PlanetSurface'
 import { approachKind } from '../data/approach'
 import { LABEL_Z, useHideBehindSun } from './labels'
 import { named, useLang } from '../i18n/lang'
+import { eclipseMoonOffset, eclipseNow } from '../state/eclipse'
 
 const DEG = Math.PI / 180
 
 const moonWorld = new THREE.Vector3()
 const moonTilt = new THREE.Quaternion()
+const moonOffset = new THREE.Vector3()
 
 /** 衛星。名札は、その衛星の近くまで来たときだけ出す（いつも出すと惑星のまわりが名札だらけになる） */
 function MoonBody({ moon, radius, orbitRadius }: { moon: Moon; radius: number; orbitRadius: number }) {
@@ -42,7 +44,8 @@ function MoonBody({ moon, radius, orbitRadius }: { moon: Moon; radius: number; o
   })
   return (
     <group ref={ref} position={[orbitRadius, 0, 0]}>
-      <group scale={moon.shape ?? 1}>
+      {/* 月は、地図の真ん中（経度0度）の「表側」を、いつも地球に向ける */}
+      <group scale={moon.shape ?? 1} rotation={[0, moon.id === 'moon' ? Math.PI : 0, 0]}>
         <PlanetSurface id={moon.id} radius={radius} color={moon.color} />
       </group>
       <group ref={labelAt}>
@@ -61,6 +64,7 @@ export function PlanetBody({ planet }: { planet: Planet }) {
   const spin = useRef<THREE.Group>(null!)
   const surface = useRef<THREE.Group>(null!)
   const moonPivots = useRef<THREE.Group[]>([])
+  const moonOrbits = useRef<THREE.Group[]>([])
   const label = useRef<HTMLSpanElement>(null!)
   useLang()
   // 衛星の位置（角度）。距離を変えると回る速さも変わるので、時間をかけて足していく
@@ -85,7 +89,24 @@ export function PlanetBody({ planet }: { planet: Planet }) {
     planetPosition(planet, distance, t, orbit.current.position)
     spin.current.rotation.y += spinSpeed(planet.rotationHours) * delta * useStore.getState().timeScale
     if (!moonAngles.current) moonAngles.current = planet.moons.map((moon, i) => i * 1.7 + t * moonSpeed(moon.orbitDays))
-    const step = t - lastTime.current
+    // 日食・月食を見ているあいだは、月と地球の自転を、その日時の本当の向きにする
+    if (isEarth && eclipseMoonOffset(orbit.current.position, radius, layout.radius.get('moon')!, layout.moon.get('moon')!.radius, moonOffset)) {
+      spin.current.rotation.y = eclipseNow.spin
+      const pivot = moonPivots.current[0]
+      const a = Math.atan2(-moonOffset.z, moonOffset.x)
+      const r = layout.moon.get('moon')!.radius
+      pivot.rotation.y = a
+      pivot.position.set(moonOffset.x - Math.cos(a) * r, moonOffset.y, moonOffset.z + Math.sin(a) * r)
+      moonOrbits.current[0].visible = false
+      lastTime.current = NaN
+      return
+    }
+    if (isEarth && !moonOrbits.current[0].visible) {
+      moonPivots.current[0].position.set(0, 0, 0)
+      moonOrbits.current[0].visible = true
+    }
+    // 食を見終わって時間を戻したときは、月をそこから続けて回す（飛ばない）
+    const step = Number.isNaN(lastTime.current) ? 0 : t - lastTime.current
     lastTime.current = t
     planet.moons.forEach((moon, i) => {
       moonAngles.current![i] += step * moonSpeed(moon.orbitDays) * (layout.moon.get(moon.id)?.speed ?? 1)
@@ -103,7 +124,8 @@ export function PlanetBody({ planet }: { planet: Planet }) {
         </group>
       </group>
       <group ref={orbit}>
-        <group rotation={[0, 0, planet.tiltDeg * DEG]}>
+        {/* 地軸の傾き。地球の北極は、本物どおり黄経90度の向き（夏至の日に太陽の側）へ傾ける */}
+        <group rotation={isEarth ? [-planet.tiltDeg * DEG, 0, 0] : [0, 0, planet.tiltDeg * DEG]}>
           <group ref={spin}>
             <group ref={surface}>
               {isEarth ? (
@@ -128,7 +150,9 @@ export function PlanetBody({ planet }: { planet: Planet }) {
             const r = layout.moon.get(moon.id)!.radius
             return (
               <group key={moon.id}>
-                <OrbitLine radius={r} opacity={0.12} />
+                <group ref={(g) => { if (g) moonOrbits.current[i] = g }}>
+                  <OrbitLine radius={r} opacity={0.12} />
+                </group>
                 <group ref={(g) => { if (g) moonPivots.current[i] = g }}>
                   <MoonBody moon={moon} radius={layout.radius.get(moon.id)!} orbitRadius={r} />
                 </group>

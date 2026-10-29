@@ -32,6 +32,9 @@ import { ProbePanel } from './ui/ProbePanel'
 import { MissionRunner } from './components/mission/MissionRunner'
 import { MissionPanel } from './ui/MissionPanel'
 import { LanguagePicker } from './ui/LanguagePicker'
+import { EclipseScene } from './components/EclipseScene'
+import { EclipsePanel } from './ui/EclipsePanel'
+import { useEclipse } from './state/eclipse'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -41,6 +44,8 @@ function MapControls() {
 
 export default function App() {
   const mode = useStore((s) => s.mode)
+  // 日食・月食を見ているあいだは、EclipseScene のカメラ操作を使う
+  const eclipseView = useEclipse((e) => e.open && e.eclipseId !== null)
   useGlobalKeys()
 
   return (
@@ -64,8 +69,9 @@ export default function App() {
         <WarpStreaks />
         <TargetMarker />
         <ProbeScene />
+        <EclipseScene />
         <Phaser />
-        {mode === 'map' && <MapControls />}
+        {mode === 'map' && !eclipseView && <MapControls />}
         <EffectComposer>
           <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />
         </EffectComposer>
@@ -80,6 +86,7 @@ export default function App() {
       <LogPanel />
       <QuizPanel />
       <ProbePanel />
+      <EclipsePanel />
       <TelescopeView />
       <LanguagePicker />
       <div className="credit">

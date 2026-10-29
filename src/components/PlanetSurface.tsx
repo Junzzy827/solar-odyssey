@@ -26,7 +26,7 @@ export function PlanetSurface({
   const ringMap = useOptionalTexture(ring ? textureUrl('saturnRing') : undefined)
   const mesh = useRef<THREE.Mesh>(null!)
   const material = useMemo(
-    () => createSurfaceMaterial(surfaceOptions(id, radius, color, { haze, ring })),
+    () => createSurfaceMaterial({ ...surfaceOptions(id, radius, color, { haze, ring }), eclipse: id === 'moon' ? 'moon' : id === 'earth' ? 'earth' : undefined }),
     // 輪は内側・外側の値だけを見る
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [id, radius, color, haze, ring?.inner, ring?.outer],
