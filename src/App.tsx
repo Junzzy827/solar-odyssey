@@ -22,6 +22,9 @@ import { NavPanel } from './ui/NavPanel'
 import { LogPanel } from './ui/LogPanel'
 import { TelescopeView } from './ui/TelescopeView'
 import { useLayout } from './state/useLayout'
+import { GalleryCamera } from './components/ship/GalleryCamera'
+import { GalleryPanel } from './ui/GalleryPanel'
+import { GalleryLabels } from './ui/GalleryLabels'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -48,6 +51,7 @@ export default function App() {
         <Telescopes />
         <Race />
         <Ship />
+        {mode === 'gallery' && <GalleryCamera />}
         <CloudWake />
         <WarpStreaks />
         <TargetMarker />
@@ -57,8 +61,10 @@ export default function App() {
           <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />
         </EffectComposer>
       </Canvas>
+      <GalleryLabels />
       <Hud />
       <NavPanel />
+      <GalleryPanel />
       <RacePanel />
       <LogPanel />
       <TelescopeView />

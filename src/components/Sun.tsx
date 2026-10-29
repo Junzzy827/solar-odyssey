@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { SUN_RADIUS } from '../data/scale'
 import { registerBody } from '../state/registry'
+import { useLayout } from '../state/useLayout'
 import { Atmosphere } from './Atmosphere'
 
 const vertexShader = /* glsl */ `
@@ -83,8 +83,9 @@ const fragmentShader = /* glsl */ `
 export function Sun() {
   const surface = useRef<THREE.Mesh>(null!)
   const uniforms = useMemo(() => ({ uTime: { value: 0 } }), [])
+  const radius = useLayout().sun
 
-  useEffect(() => registerBody({ id: 'sun', name: '太陽', radius: SUN_RADIUS, object: surface.current }), [])
+  useEffect(() => registerBody({ id: 'sun', name: '太陽', radius, object: surface.current }), [radius])
 
   // 太陽は赤道付近で約25日かけて自転する
   useFrame(({ clock }, delta) => {
@@ -95,10 +96,10 @@ export function Sun() {
   return (
     <group>
       <mesh ref={surface}>
-        <sphereGeometry args={[SUN_RADIUS, 96, 96]} />
+        <sphereGeometry args={[radius, 96, 96]} />
         <shaderMaterial vertexShader={vertexShader} fragmentShader={fragmentShader} uniforms={uniforms} toneMapped={false} />
       </mesh>
-      <Atmosphere radius={SUN_RADIUS} color="#ffb347" power={1.5} scale={1.4} />
+      <Atmosphere radius={radius} color="#ffb347" power={1.5} scale={1.4} />
       <pointLight intensity={3} distance={0} decay={0} />
     </group>
   )

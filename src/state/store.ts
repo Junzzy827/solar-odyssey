@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import type { Near } from './proximity'
 import type { ScopeId } from '../data/telescopes'
 
-export type Mode = 'map' | 'flight'
+/** 全体マップ・操縦席・鑑賞モード（止まった自機のまわりを回って眺める） */
+export type Mode = 'map' | 'flight' | 'gallery'
 export type CameraMode = 'chase' | 'hero'
 export type WarpPhase = 'idle' | 'charge' | 'warp' | 'exit'
 
@@ -48,10 +49,12 @@ export type Settings = {
   banking: boolean
   /** 距離の広さ：0 は見やすい距離、1 は衛星が本物の比率・惑星どうしが本物の約20〜50分の1（data/layout.ts） */
   distance: number
+  /** 大きさ：0 は差を縮めた見やすい大きさ、1 は地球を基準にした本物の比率（data/layout.ts） */
+  size: number
 }
 
 const SETTINGS_KEY = 'solar-voyager:settings'
-const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0 }
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0 }
 
 function loadSettings(): Settings {
   try {

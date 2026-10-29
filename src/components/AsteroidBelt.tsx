@@ -4,11 +4,10 @@ import * as THREE from 'three'
 import { asteroidGeometry, asteroidMaterial } from './asteroidShape'
 import { angularSpeed } from '../data/scale'
 import { useLayout } from '../state/useLayout'
+import { BELT_AU } from '../data/layout'
 import { asteroids, sim, type RockType } from '../state/registry'
 
 const COUNT = 3000
-const INNER_AU = 2.2
-const OUTER_AU = 3.3
 // 小さな岩は粗い形、大きな岩は細かい形（数が多いので三角形を節約する）
 const SMALL_SHAPES = 6
 const LARGE_SHAPES = 4
@@ -50,7 +49,7 @@ export function AsteroidBelt() {
     let small = 0
     let large = 0
     for (let i = 0; i < COUNT; i++) {
-      const au = INNER_AU + (OUTER_AU - INNER_AU) * (rand() + rand()) * 0.5
+      const au = BELT_AU.inner + (BELT_AU.outer - BELT_AU.inner) * (rand() + rand()) * 0.5
       const r = beltRadius(au)
       const a = rand() * Math.PI * 2
       const p = new THREE.Vector3(Math.cos(a) * r, (rand() - 0.5) * 3, Math.sin(a) * r)

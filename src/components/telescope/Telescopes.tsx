@@ -24,7 +24,7 @@ import {
   WEBB_WIDTH,
   type ScopeId,
 } from '../../data/telescopes'
-import { LABEL_Z } from '../labels'
+import { LABEL_Z, useHideBehindSun } from '../labels'
 
 const HUBBLE_RADIUS = HUBBLE_LENGTH * 0.55
 const WEBB_RADIUS = WEBB_WIDTH * 0.55
@@ -41,10 +41,17 @@ const Y = new THREE.Vector3(0, 1, 0)
 const DOWN = new THREE.Vector3(0, -1, 0)
 
 function Label({ id, name, height }: { id: ScopeId; name: string; height: number }) {
+  const anchor = useRef<THREE.Group>(null)
+  const label = useRef<HTMLSpanElement>(null)
+  useHideBehindSun(label, anchor)
   return (
-    <Html position={[0, height, 0]} center className="label" zIndexRange={LABEL_Z}>
-      <span onClick={() => useStore.getState().setTarget(id)}>{name}</span>
-    </Html>
+    <group ref={anchor} position={[0, height, 0]}>
+      <Html center className="label" zIndexRange={LABEL_Z}>
+        <span ref={label} onClick={() => useStore.getState().setTarget(id)}>
+          {name}
+        </span>
+      </Html>
+    </group>
   )
 }
 

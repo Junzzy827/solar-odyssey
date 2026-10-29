@@ -22,12 +22,18 @@ function TargetButton({ id, name, sub }: { id: string; name: string; sub?: boole
 
 const EARTH = PLANETS.find((p) => p.id === 'earth')!
 
-/** 表示の設定：距離の広さと、旋回の傾き */
+const count = (n: number) => (n < 10 ? n.toFixed(1) : Math.round(n).toString())
+
+/** 表示の設定：距離の広さ、天体の大きさ、旋回の傾き */
 function Settings({ racing }: { racing: boolean }) {
   const settings = useStore((s) => s.settings)
   const update = useStore((s) => s.updateSettings)
+  const layout = computeLayout(settings.distance, settings.size)
+  const earth = bodyRadius(EARTH.radiusKm)
   // 月までの距離を、地球の直径いくつ分かで見せる（本物は約30個分）
-  const moonGap = computeLayout(settings.distance).moon.get('moon')!.radius / (2 * bodyRadius(EARTH.radiusKm))
+  const moonGap = layout.moon.get('moon')!.radius / (2 * earth)
+  // 太陽の直径は地球のいくつ分か（本物は約109個分）
+  const sunSize = layout.sun / earth
   return (
     <details className="nav-settings">
       <summary>表示の設定</summary>
@@ -38,8 +44,17 @@ function Settings({ racing }: { racing: boolean }) {
         <input type="range" min={0} max={1} step={0.01} value={settings.distance} onChange={(e) => update({ distance: Number(e.target.value) })} disabled={racing} />
       </label>
       <div className="muted small">
-        月まで：地球の直径の約{moonGap < 10 ? moonGap.toFixed(1) : Math.round(moonGap)}個分（本物は約30個分）。右にすると衛星は本物の比率に、惑星どうしも本物の約20〜50分の1まで離れます。
-        {racing && 'レース中は見やすい距離で走ります。'}
+        月まで：地球の直径の約{count(moonGap)}個分（本物は約30個分）。右にすると衛星は本物の比率に、惑星どうしも本物の約20〜50分の1まで離れます。
+      </div>
+      <label className="nav-slider">
+        <span>
+          大きさ <span className="muted">{settings.size < 0.01 ? '見やすい大きさ' : settings.size > 0.99 ? '本物の比率' : ''}</span>
+        </span>
+        <input type="range" min={0} max={1} step={0.05} value={settings.size} onChange={(e) => update({ size: Number(e.target.value) })} disabled={racing} />
+      </label>
+      <div className="muted small">
+        太陽：地球の約{count(sunSize)}倍（本物は約109倍）。地球の大きさはそのままで、右にすると太陽や木星は大きく、月や小さな惑星は小さくなります。小さな衛星は見失わないよう、ある大きさより小さくはしません。
+        {racing && 'レース中は見やすい距離と大きさで走ります。'}
       </div>
       <label className="nav-check">
         <input type="checkbox" checked={settings.banking} onChange={(e) => update({ banking: e.target.checked })} />
@@ -59,6 +74,7 @@ export function NavPanel() {
   const startRace = useRace((r) => r.start)
   const racing = racePhase === 'countdown' || racePhase === 'running'
   const busy = s.warpPhase !== 'idle' || racing
+  if (s.mode === 'gallery') return null
 
   return (
     <aside className="nav-panel">

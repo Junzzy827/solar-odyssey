@@ -15,7 +15,7 @@ import { bussardTexture, coilSpillTexture, coilTexture, deflectorTexture, hullTe
 // - バサードコレクター（ナセル先端）は赤く、内部がゆっくり渦を巻くように明滅
 // - ワープコイルは途切れのない青い発光。ナセルの曲面に沿わせ、縁がにじむように消える
 // - ディフレクターは銅色の皿に青い光
-// - インパルスエンジンは赤、航行灯は左舷が赤・右舷が緑、白いストロボが約2秒おきに点滅
+// - インパルスエンジンは赤、航行灯は左舷が赤・右舷が緑、白いストロボが約3秒おきに点滅
 
 type Profile = [number, number][]
 
@@ -220,7 +220,7 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
     const d = (1.15 + w * 1.4) * (0.94 + 0.06 * Math.sin(t * 1.7))
     deflector.current.color.setRGB(d, d, d * 1.1)
     impulse.current.color.setRGB(w > 0 ? 0.6 : 1.8, 0.15, 0.08)
-    // 衝突防止灯（ストロボ）：飛行機の翼端灯のように、1.5秒おきに「チカッチカッ」と2回光る。航行灯はゆっくり明滅
+    // 衝突防止灯（ストロボ）：飛行機の翼端灯のように、3秒おきに「チカッチカッ」と2回光る。航行灯はゆっくり明滅
     const phase = t % STROBE_PERIOD
     const on = phase < STROBE_FLASH || (phase > STROBE_GAP && phase < STROBE_GAP + STROBE_FLASH)
     const flash = on ? 5 : 0.3
@@ -277,7 +277,7 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
         </mesh>
       </group>
       {/* 艦橋のてっぺんのストロボ（ブリッジの縦の縮みを受けないよう外に置く） */}
-      {strobe([0, saucerTop - 0.004 + 0.0148, SAUCER_POS[2] + 0.01], 0.0022)}
+      {strobe([0, saucerTop - 0.004 + 0.0148, SAUCER_POS[2] + 0.01], 0.00075)}
       {/* 下部センサードーム */}
       <mesh position={[0, saucerBottom + 0.002, SAUCER_POS[2]]} scale={[1, 0.6, 1]}>
         <sphereGeometry args={[0.02, 24, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
@@ -311,7 +311,7 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
         <meshBasicMaterial ref={deflector} map={parts.deflector} toneMapped={false} />
       </mesh>
       {/* 副船体の後ろ、背中のストロボ */}
-      {strobe([0, SECONDARY_Y + 0.0375, 0.448], 0.0028)}
+      {strobe([0, SECONDARY_Y + 0.0375, 0.448], 0.00095)}
       {/* シャトルベイ：副船体の後端をえぐった奥にある扉（build_hull.py の BAY_* と同じ位置） */}
       <mesh position={[0, SECONDARY_Y + 0.005, 0.495 - 0.007 + 0.0003]}>
         <planeGeometry args={[0.033, 0.016]} />
@@ -352,7 +352,7 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number }) {
               />
             </mesh>
             {/* ナセル後端のストロボ */}
-            {strobe([nx, NACELLE_Y + 0.02, NACELLE_Z + 0.42], 0.0035)}
+            {strobe([nx, NACELLE_Y + 0.02, NACELLE_Z + 0.42], 0.0012)}
           </group>
         )
       })}
@@ -412,10 +412,11 @@ function Floodlights({ unitScale, saucerTop }: { unitScale: number; saucerTop: n
 }
 
 // ワープコイルの溝（tools/blender/build_hull.py の SLOT_* と同じ値。ナセル先端からの距離）
-// ストロボの光り方（秒）：周期、1回の光る長さ、2回目までの間
-const STROBE_PERIOD = 1.5
-const STROBE_FLASH = 0.06
-const STROBE_GAP = 0.2
+// ストロボの光り方（秒）：周期、1回の光る長さ、2回目までの間。
+// 灯りは小さい方が船が大きく見えるので、光のにじみも控えめにする
+const STROBE_PERIOD = 3
+const STROBE_FLASH = 0.07
+const STROBE_GAP = 0.25
 
 /** ストロボの光のにじみ（中心が明るく外へ消える丸） */
 let halo: THREE.CanvasTexture | null = null

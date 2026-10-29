@@ -824,3 +824,123 @@ button:disabled {
     overflow: visible;
   }
 }
+
+/* 鑑賞モード */
+.gallery-button {
+  position: fixed;
+  left: calc(50% + 96px);
+  bottom: 24px;
+  padding: 10px 18px;
+  border: 1px solid rgba(242, 166, 90, 0.7);
+  border-radius: 20px;
+  background: rgba(20, 16, 30, 0.75);
+  color: #f6c48f;
+}
+
+@media (max-width: 720px) {
+  .gallery-button {
+    left: auto;
+    right: 12px;
+    padding: 10px 12px;
+  }
+}
+
+.gallery-panel h2 {
+  margin: 0;
+  font-size: 15px;
+  color: #f2a65a;
+}
+
+.gallery-modes {
+  display: flex;
+  gap: 6px;
+}
+
+.gallery-modes button {
+  flex: 1;
+  padding: 6px 2px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* 船が透けて見えないよう、鑑賞モードの画面は濃いめ */
+.nav-panel.gallery-panel {
+  background: rgba(20, 16, 30, 0.92);
+}
+
+.gallery-info p {
+  margin: 4px 0 0;
+  line-height: 1.6;
+}
+
+.gallery-compare {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+
+.gallery-parts {
+  flex: 1;
+  min-height: 80px;
+}
+
+.gallery-labels {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.gallery-anchor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  /* 最初の位置が決まるまでは隠す */
+  visibility: hidden;
+}
+
+.gallery-anchor button {
+  position: absolute;
+  left: 12px;
+  top: 0;
+  padding: 2px 8px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(155, 140, 217, 0.7);
+  border-radius: 10px;
+  background: rgba(20, 16, 30, 0.72);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.gallery-anchor button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -12px;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: #f2a65a;
+  box-shadow: 0 0 6px #f2a65a;
+}
+
+.gallery-anchor button.on {
+  background: #9b8cd9;
+  color: #1b1325;
+}
+
+.gallery-anchor.compare span {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(20, 16, 30, 0.6);
+  color: #cfd8ff;
+  font-size: 12px;
+  white-space: nowrap;
+  text-shadow: 0 0 4px #000;
+}

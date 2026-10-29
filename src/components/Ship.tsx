@@ -2,14 +2,14 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { ShipModel } from './ship/ShipModel'
+import { GalleryScene } from './ship/GalleryScene'
 import { bodies } from '../state/registry'
 import { useStore } from '../state/store'
-import { CHARGE_SECONDS, EXIT_SECONDS, flightControl, ship, standoff, warpFx } from '../state/flight'
+import { CHARGE_SECONDS, EXIT_SECONDS, SHIP_SCALE, flightControl, ship, standoff, warpFx } from '../state/flight'
 import { APPROACH_TEXT, approachKind, limitDistance } from '../data/approach'
 import { approachSpeedFactor, nearInfo, proximity, updateProximity } from '../state/proximity'
-import { computeLayout } from '../data/layout'
+import { useLayout } from '../state/useLayout'
 
-const SHIP_SCALE = 0.3
 const THRUST = 10
 const MAX_SPEED = 8
 const AUTO_SPEED = 12
@@ -98,13 +98,24 @@ export function Ship() {
     }
   }, [gl])
 
+  // 全体マップのカメラを、いちばん外の軌道に合わせてどれだけ引くか
+  const layout = useLayout()
+  const fit = Math.max(1, Math.max(...layout.orbit.values()) / OVERVIEW_FITS)
+  const overviewFit = useRef(fit)
+  // 全体マップを見ながらスライダーを動かしたら、見ている向きのまま同じ割合で引く・寄る
+  useEffect(() => {
+    if (useStore.getState().mode === 'map') camera.position.multiplyScalar(fit / overviewFit.current)
+    overviewFit.current = fit
+  }, [fit, camera])
+
   // 操縦中はキャンバスのクリックでマウスを固定する
   useEffect(() => {
     if (mode !== 'flight') {
       if (document.pointerLockElement) document.exitPointerLock()
-      // 距離のスライダーで太陽系を広げていたら、全体が入るところまで引く
-      const layout = computeLayout(useStore.getState().settings.distance)
-      camera.position.copy(OVERVIEW).multiplyScalar(Math.max(1, Math.max(...layout.orbit.values()) / OVERVIEW_FITS))
+      // 鑑賞モードのカメラは GalleryCamera が動かす
+      if (mode === 'gallery') return
+      // 距離や大きさのスライダーで太陽系を広げていたら、全体が入るところまで引く
+      camera.position.copy(OVERVIEW).multiplyScalar(overviewFit.current)
       camera.up.set(0, 1, 0)
       return
     }
@@ -247,6 +258,7 @@ export function Ship() {
         <group ref={bank}>
           <ShipModel unitScale={SHIP_SCALE} />
         </group>
+        {mode === 'gallery' && <GalleryScene />}
       </group>
       <spotLight
         ref={sunSpot}

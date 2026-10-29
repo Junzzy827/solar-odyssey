@@ -7,7 +7,7 @@ import { registerBody, sim } from '../../state/registry'
 import { ship } from '../../state/flight'
 import { useStore } from '../../state/store'
 import { CUBE_EDGE, CUBE_HEIGHT, CUBE_ID, CUBE_NAME, CUBE_AU, CUBE_NOTICE, CUBE_TEXT } from '../../data/cube'
-import { LABEL_Z } from '../labels'
+import { LABEL_Z, useHideBehindSun } from '../labels'
 import { useLayout } from '../../state/useLayout'
 
 const RADIUS = CUBE_EDGE * 0.8
@@ -21,7 +21,9 @@ export function CubeShip() {
   const group = useRef<THREE.Group>(null!)
   const body = useRef<THREE.Group>(null!)
   const noticed = useRef(false)
+  const label = useRef<HTMLSpanElement>(null)
   const orbit = useLayout().belt(CUBE_AU)
+  useHideBehindSun(label, group)
 
   useEffect(() => registerBody({ id: CUBE_ID, name: CUBE_NAME, radius: RADIUS, object: group.current }), [])
 
@@ -48,7 +50,9 @@ export function CubeShip() {
         <CubeModel />
       </group>
       <Html position={[0, CUBE_EDGE, 0]} center className="label" zIndexRange={LABEL_Z}>
-        <span onClick={() => useStore.getState().setTarget(CUBE_ID)}>{CUBE_NAME}</span>
+        <span ref={label} onClick={() => useStore.getState().setTarget(CUBE_ID)}>
+          {CUBE_NAME}
+        </span>
       </Html>
     </group>
   )

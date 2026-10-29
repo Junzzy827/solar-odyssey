@@ -15,8 +15,11 @@ export const moonOrbitRadius = (planetRadius: number, index: number) => planetRa
 /** 公転周期（日）から角速度（rad/秒）を求める。負の周期は逆回転 */
 export const angularSpeed = (periodDays: number) => (2 * Math.PI * 365.25) / (EARTH_YEAR_SECONDS * periodDays)
 
-/** 自転は実時間比だと速すぎるので、1日を8秒に固定する */
-export const spinSpeed = (rotationHours: number) => (2 * Math.PI) / ((rotationHours / 24) * 8)
+/** 自転は1時間を1秒にする（地球は24秒、木星は約10秒で1回転） */
+export const spinSpeed = (rotationHours: number) => (2 * Math.PI) / rotationHours
 
-/** 衛星は周期差が大きいので平方根で圧縮（月の1周＝20秒）。フォボスなど速すぎるものも、1周4秒より速くはしない */
-export const moonSpeed = (orbitDays: number) => Math.sign(orbitDays) * (2 * Math.PI) / Math.max(4, 20 * Math.sqrt(Math.abs(orbitDays) / 27.3))
+/**
+ * 衛星は周期差が大きいので平方根で圧縮（月の1周＝60秒。地球の1日より長くかかるように）。
+ * フォボスなど速すぎるものも、1周4秒より速くはしない
+ */
+export const moonSpeed = (orbitDays: number) => Math.sign(orbitDays) * (2 * Math.PI) / Math.max(4, 60 * Math.sqrt(Math.abs(orbitDays) / 27.3))

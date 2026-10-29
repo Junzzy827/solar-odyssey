@@ -4,8 +4,9 @@ import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { RACE_TEXT, raceActive } from '../state/race'
 import type { Near } from '../state/proximity'
 import { isTelescope, scopeName, TELESCOPE_TEXT } from '../data/telescopes'
+import { canOpenGallery, closeGallery, openGallery } from '../state/gallery'
 
-/** 全体のキー操作：M 全体マップ／Enter エンゲージ／G 自動航行／C カメラ／1〜9 ワープ速度 */
+/** 全体のキー操作：M 全体マップ／V 鑑賞モード／Enter エンゲージ／G 自動航行／C カメラ／1〜9 ワープ速度 */
 export function useGlobalKeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -14,6 +15,16 @@ export function useGlobalKeys() {
       // 望遠鏡の写真を見ているあいだは、T と Esc（閉じる）だけ
       if (s.scope) {
         if (e.code === 'KeyT' || e.code === 'Escape') s.setScope(null)
+        return
+      }
+      // 鑑賞モードでは、V と Esc（もどる）と M（全体マップ）だけ
+      if (s.mode === 'gallery') {
+        if (e.code === 'KeyV' || e.code === 'Escape') closeGallery()
+        else if (e.code === 'KeyM') s.setMode('map')
+        return
+      }
+      if (e.code === 'KeyV') {
+        openGallery()
         return
       }
       if (e.code === 'KeyT') {
@@ -116,6 +127,8 @@ export function Hud() {
         <h1>SOLAR VOYAGER</h1>
         {mode === 'map' ? (
           <div>ドラッグで回転・ホイールで拡大縮小・名前をクリックで目標設定</div>
+        ) : mode === 'gallery' ? (
+          <div>鑑賞モード：ドラッグで回転・ホイールで拡大縮小・V でもどる</div>
         ) : (
           <div>
             クリックで操縦開始（Escで解除）
@@ -124,13 +137,26 @@ export function Hud() {
             <br />F またはクリックでビーム・I で航海日誌・C でカメラ切り替え
           </div>
         )}
-        <div className="muted">速度 {telemetry.speed.toFixed(1)}</div>
+        {mode !== 'gallery' && <div className="muted">速度 {telemetry.speed.toFixed(1)}</div>}
         {mode === 'flight' && telemetry.near && <NearReadout near={telemetry.near} />}
       </div>
 
-      <button className="mode-button" onClick={() => setMode(mode === 'map' ? 'flight' : 'map')}>
-        {mode === 'map' ? '操縦席へ' : '全体マップ'} <kbd>M</kbd>
-      </button>
+      {mode === 'gallery' ? (
+        <button className="mode-button" onClick={closeGallery}>
+          操縦席へ <kbd>V</kbd>
+        </button>
+      ) : (
+        <>
+          <button className="mode-button" onClick={() => setMode(mode === 'map' ? 'flight' : 'map')}>
+            {mode === 'map' ? '操縦席へ' : '全体マップ'} <kbd>M</kbd>
+          </button>
+          {mode === 'flight' && (
+            <button className="gallery-button" onClick={openGallery} disabled={warpPhase !== 'idle' || !canOpenGallery()}>
+              船を眺める <kbd>V</kbd>
+            </button>
+          )}
+        </>
+      )}
 
       {mode === 'flight' && scopeNear && !scope && warpPhase === 'idle' && (
         <button className="scope-prompt" onClick={() => openScope(scopeNear)}>

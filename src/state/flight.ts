@@ -8,6 +8,9 @@ import { useStore } from './store'
 import { playWarp, speak } from '../audio/sfx'
 
 /** 自機の状態。毎フレーム書き換えるので React の state にはしない */
+/** 自機の表示の大きさ（ShipModel の座標の1が、この長さになる） */
+export const SHIP_SCALE = 0.3
+
 export const ship = {
   position: new THREE.Vector3(30, 4, 70),
   quaternion: new THREE.Quaternion(),
@@ -50,7 +53,8 @@ export function engage() {
   warpFx.seconds = warpSeconds(distance, s.warpFactor)
   s.setAutopilot(false)
   s.setWarpPhase('charge')
-  speak(warpCall(s.targetId, s.warpFactor))
+  // 艦長の号令は、少し低く力強く
+  speak(warpCall(s.targetId, s.warpFactor), { rate: 0.92, pitch: 0.7 })
   playWarp(CHARGE_SECONDS, warpFx.seconds)
 }
 
@@ -58,10 +62,14 @@ export function engage() {
 const SPOKEN: Record<string, string> = { sun: 'the Sun', moon: 'the Moon', hubble: 'the Hubble Space Telescope', webb: 'the Webb Space Telescope', [CUBE_ID]: 'the unknown vessel' }
 const spokenName = (id: string) => SPOKEN[id] ?? id[0].toUpperCase() + id.slice(1)
 
-/** ワープの掛け声（艦長の号令。英語） */
+/** ワープの掛け声（艦長の号令。英語。セリフはこのアプリのオリジナル） */
 function warpCall(id: string, factor: number) {
   const name = spokenName(id)
-  const lines = [`Warp ${factor}. Set course for ${name}... and proceed.`, `Heading for ${name}, warp ${factor}. Proceed.`, `${name}. Warp ${factor}... onward.`]
+  const lines = [
+    `Warp ${factor}. Set course for ${name}... Full speed ahead!`,
+    `Course: ${name}. Warp ${factor}... Full speed ahead!`,
+    `${name}, warp ${factor}. All hands... full speed ahead!`,
+  ]
   return lines[Math.floor(Math.random() * lines.length)]
 }
 

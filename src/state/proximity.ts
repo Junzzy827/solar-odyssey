@@ -23,6 +23,17 @@ function factorFor(kind: ApproachKind, radius: number, altitude: number) {
   return THREE.MathUtils.clamp(altitude / (radius * 2.5 + 1.5), 0.04, 1)
 }
 
+/** 天体の「そば」：半径の3倍まで（小さな衛星でも、ワープで着いた位置が入るよう少し足す） */
+const nearRange = (radius: number) => radius * 3 + 1
+
+/** 表示する天体を選ぶ順位：雲の中の惑星、そばにいる天体のうちいちばん近いもの、半径に対していちばん近い天体 */
+function rank(altitude: number, radius: number) {
+  if (altitude < 0) return -Infinity
+  // 太陽を大きくすると、木星のそばでも「半径に対して」は太陽の方が近くなるので、そばにいる天体を先にする
+  if (altitude < nearRange(radius)) return altitude - 1e6
+  return altitude / radius
+}
+
 export function updateProximity(position: THREE.Vector3) {
   let best = Infinity
   speedFactor = 1
@@ -33,8 +44,7 @@ export function updateProximity(position: THREE.Vector3) {
     const altitude = position.distanceTo(p) - body.radius
     const kind = approachKind(body.id)
     speedFactor = Math.min(speedFactor, factorFor(kind, body.radius, altitude))
-    // 表示する天体：雲の中ならその惑星、そうでなければ半径に対していちばん近い天体
-    const score = altitude < 0 ? -Infinity : altitude / body.radius
+    const score = rank(altitude, body.radius)
     if (score < best) {
       best = score
       proximity.id = body.id
@@ -64,9 +74,9 @@ export type Near = {
   timesEarth: number
 }
 
-/** 表示用：天体のそば（半径の3倍以内）にいるときだけ返す */
+/** 表示用：天体のそばにいるときだけ返す */
 export function nearInfo(prox: typeof proximity): Near | null {
-  if (!prox.id || prox.kind === 'object' || prox.altitude > prox.radius * 3) return null
+  if (!prox.id || prox.kind === 'object' || prox.altitude > nearRange(prox.radius)) return null
   const km = radiusKm(prox.id)
   if (km === null) return null
   const kmPerUnit = km / prox.radius
