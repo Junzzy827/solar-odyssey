@@ -25,13 +25,29 @@ export type WindowRow = {
   vertical?: boolean
 }
 
+/** 窓以外の細部。v はテクスチャ縦方向の位置（0〜1） */
+export type Detail = {
+  v: number
+  /** phaser: 暗い帯の武装／hatch: 救命ポッドのハッチの列／groove: デッキの段差の溝 */
+  kind: 'phaser' | 'hatch' | 'groove'
+  from?: number
+  to?: number
+}
+
 export type HullTextures = {
   map: THREE.CanvasTexture
   bumpMap: THREE.CanvasTexture
   emissiveMap: THREE.CanvasTexture
 }
 
-export function hullTextures(opts: { width: number; height: number; seed: number; windows: WindowRow[]; panelScale?: number }): HullTextures {
+export function hullTextures(opts: {
+  width: number
+  height: number
+  seed: number
+  windows: WindowRow[]
+  details?: Detail[]
+  panelScale?: number
+}): HullTextures {
   const { width, height, windows } = opts
   const rand = seeded(opts.seed)
   const panel = opts.panelScale ?? 1
@@ -110,6 +126,51 @@ export function hullTextures(opts: { width: number; height: number; seed: number
     for (const x of cols) if (rand() < 0.55) seam(x, y0, x, y1)
   }
 
+  // 細部：小さな要素が規則正しく並ぶほど、船は大きく見える
+  for (const d of opts.details ?? []) {
+    const y = d.v * height
+    const from = (d.from ?? 0) * width
+    const to = (d.to ?? 1) * width
+    if (d.kind === 'groove') {
+      cc.fillStyle = 'rgba(60,64,72,0.35)'
+      cc.fillRect(from, y - 1, to - from, 2)
+      bc.fillStyle = '#3a3a3a'
+      bc.fillRect(from, y - 1, to - from, 2)
+      bc.fillStyle = '#a0a0a0'
+      bc.fillRect(from, y + 1, to - from, 1)
+    } else if (d.kind === 'phaser') {
+      // 暗い帯の中に細い光沢の線、一定間隔で区切りの節
+      cc.fillStyle = '#6b7079'
+      cc.fillRect(from, y - 3, to - from, 6)
+      cc.fillStyle = '#8f949c'
+      cc.fillRect(from, y - 0.5, to - from, 1)
+      bc.fillStyle = '#b4b4b4'
+      bc.fillRect(from, y - 3, to - from, 6)
+      for (let x = from; x < to; x += 22) {
+        cc.fillStyle = '#4a4e56'
+        cc.fillRect(x, y - 3, 1.5, 6)
+        bc.fillStyle = '#707070'
+        bc.fillRect(x, y - 3, 1.5, 6)
+      }
+    } else {
+      // 2つ並びの四角いハッチ。ところどころ間を空ける
+      for (let x = from; x < to; x += 34) {
+        if (rand() < 0.15) continue
+        for (const dx of [0, 9]) {
+          cc.fillStyle = '#c8ccd3'
+          cc.fillRect(x + dx, y - 3, 6, 6)
+          cc.strokeStyle = 'rgba(70,74,82,0.6)'
+          cc.lineWidth = 1
+          cc.strokeRect(x + dx + 0.5, y - 2.5, 5, 5)
+          bc.fillStyle = '#9a9a9a'
+          bc.fillRect(x + dx, y - 3, 6, 6)
+          bc.fillStyle = '#505050'
+          bc.fillRect(x + dx, y + 3, 6, 1)
+        }
+      }
+    }
+  }
+
   // 窓：横一列に並べ、ところどころ消灯させる
   for (const row of windows) {
     if (row.vertical) {
@@ -153,27 +214,59 @@ export function hullTextures(opts: { width: number; height: number; seed: number
   return { map: make(color, true), bumpMap: make(bump, false), emissiveMap: make(glow, true) }
 }
 
-/** ディフレクター（同心円状に光る皿） */
+/**
+ * ディフレクター：中心が白っぽい青に強く光り、外へ向かって深い青から黒へ沈む。
+ * 細い同心円の格子と放射状の骨で、皿の奥行きを出す。
+ */
 export function deflectorTexture() {
-  const size = 256
+  const size = 512
   const c = document.createElement('canvas')
   c.width = c.height = size
   const ctx = c.getContext('2d')!
-  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  const mid = size / 2
+  const g = ctx.createRadialGradient(mid, mid, 0, mid, mid, mid)
   g.addColorStop(0, '#ffffff')
-  g.addColorStop(0.25, '#ffd9a0')
-  g.addColorStop(0.6, '#ff9b3d')
-  g.addColorStop(1, '#5a2a10')
+  g.addColorStop(0.08, '#d8f2ff')
+  g.addColorStop(0.2, '#6cc6ff')
+  g.addColorStop(0.42, '#1f6fd6')
+  g.addColorStop(0.7, '#0b2a66')
+  g.addColorStop(0.9, '#050b1c')
+  g.addColorStop(1, '#000000')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, size, size)
-  ctx.strokeStyle = 'rgba(60,20,0,0.5)'
-  for (let r = 12; r < size / 2; r += 14) {
+  // 同心円の格子（暗い溝と、その内側の細い光）
+  for (let r = 18; r < mid; r += 11) {
+    const k = r / mid
+    ctx.strokeStyle = `rgba(0,4,16,${0.35 + 0.4 * k})`
+    ctx.lineWidth = 3
     ctx.beginPath()
-    ctx.arc(size / 2, size / 2, r, 0, Math.PI * 2)
+    ctx.arc(mid, mid, r, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.strokeStyle = `rgba(150,215,255,${0.35 * (1 - k)})`
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.arc(mid, mid, r - 2.5, 0, Math.PI * 2)
     ctx.stroke()
   }
+  // 放射状の骨
+  ctx.strokeStyle = 'rgba(0,6,20,0.55)'
+  ctx.lineWidth = 2.5
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2
+    ctx.beginPath()
+    ctx.moveTo(mid + Math.cos(a) * 30, mid + Math.sin(a) * 30)
+    ctx.lineTo(mid + Math.cos(a) * mid, mid + Math.sin(a) * mid)
+    ctx.stroke()
+  }
+  // 中心のにじみ
+  const core = ctx.createRadialGradient(mid, mid, 0, mid, mid, 70)
+  core.addColorStop(0, 'rgba(255,255,255,0.9)')
+  core.addColorStop(1, 'rgba(120,200,255,0)')
+  ctx.fillStyle = core
+  ctx.fillRect(0, 0, size, size)
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 8
   return t
 }
 
@@ -230,28 +323,63 @@ export function nameTexture(text: string) {
   return t
 }
 
-/** バサードコレクター：中心が明るく、縁に向かって暗い赤。渦を描く筋を入れる */
+/**
+ * バサードコレクター：内部で羽根が回っているように見える赤い発光。
+ * 横（周方向）に渦巻く羽根、縦は先端（v=0）が白熱した橙、根元に向かって深い赤から暗赤へ。
+ * offset.x をずらすと羽根が回る。
+ */
 export function bussardTexture() {
-  const size = 256
+  const w = 512
+  const h = 256
   const c = document.createElement('canvas')
-  c.width = c.height = size
+  c.width = w
+  c.height = h
   const ctx = c.getContext('2d')!
-  const g = ctx.createLinearGradient(0, 0, 0, size)
-  g.addColorStop(0, '#ffb08a')
-  g.addColorStop(0.35, '#ff3a1a')
-  g.addColorStop(1, '#4a0500')
+  const g = ctx.createLinearGradient(0, 0, 0, h)
+  g.addColorStop(0, '#fff3dc')
+  g.addColorStop(0.12, '#ffb070')
+  g.addColorStop(0.35, '#ff4a1c')
+  g.addColorStop(0.7, '#b81204')
+  g.addColorStop(1, '#2a0200')
   ctx.fillStyle = g
-  ctx.fillRect(0, 0, size, size)
-  ctx.strokeStyle = 'rgba(80,0,0,0.45)'
-  ctx.lineWidth = 3
-  for (let x = -size; x < size * 2; x += 16) {
-    ctx.beginPath()
-    ctx.moveTo(x, 0)
-    ctx.lineTo(x + size * 0.6, size)
-    ctx.stroke()
+  ctx.fillRect(0, 0, w, h)
+  // 渦を描く羽根：ぼかした暗い帯と明るい帯を交互に（横方向はつながるように3回描く）
+  ctx.filter = 'blur(5px)'
+  for (let i = 0; i < 12; i++) {
+    for (const shift of [-w, 0, w]) {
+      const x = (i / 12) * w + shift
+      ctx.strokeStyle = 'rgba(40,0,0,0.5)'
+      ctx.lineWidth = 14
+      ctx.beginPath()
+      ctx.moveTo(x, h * 0.08)
+      ctx.bezierCurveTo(x + w * 0.05, h * 0.4, x + w * 0.14, h * 0.7, x + w * 0.2, h)
+      ctx.stroke()
+      ctx.strokeStyle = 'rgba(255,170,110,0.35)'
+      ctx.lineWidth = 5
+      ctx.beginPath()
+      ctx.moveTo(x + w * 0.035, h * 0.08)
+      ctx.bezierCurveTo(x + w * 0.085, h * 0.4, x + w * 0.175, h * 0.7, x + w * 0.235, h)
+      ctx.stroke()
+    }
   }
+  ctx.filter = 'none'
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
   t.wrapS = THREE.RepeatWrapping
+  return t
+}
+
+/** ブリッジの窓の帯（透明の地に横長の窓が並ぶ） */
+export function windowBandTexture() {
+  const c = document.createElement('canvas')
+  c.width = 512
+  c.height = 8
+  const ctx = c.getContext('2d')!
+  for (let x = 2; x < 512; x += 8) {
+    ctx.fillStyle = x % 64 < 8 ? 'rgba(0,0,0,0)' : '#ffe2a8'
+    ctx.fillRect(x, 2, 5, 4)
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
   return t
 }

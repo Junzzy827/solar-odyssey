@@ -97,6 +97,10 @@ def smin(d1, d2, k):
     return np.minimum(d1, d2) - h * h * k * 0.25
 
 
+def smax(d1, d2, k):
+    return -smin(-d1, -d2, k)
+
+
 SEC_FN = radius_fn(SECONDARY)
 NAC_FN = radius_fn(NACELLE)
 
@@ -108,7 +112,12 @@ def secondary_sdf(x, y, z):
     xs = np.abs(x) * keel
     p = 2.4
     rho = (xs**p + (np.abs(yy) / SECONDARY_H) ** p) ** (1 / p)
-    return revolved(rho, z, SEC_FN) * SECONDARY_H
+    d = revolved(rho, z, SEC_FN) * SECONDARY_H
+    # 後端は平らに切り落とし（シャトルベイの扉を付ける面）、角を丸める
+    return smax(d, z - REAR_FACE_Z, 0.006)
+
+
+REAR_FACE_Z = 0.495
 
 
 def nacelle_sdf(x, y, z, side):

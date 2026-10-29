@@ -30,7 +30,7 @@ const look = new THREE.Matrix4()
 const qLook = new THREE.Quaternion()
 const qDelta = new THREE.Quaternion()
 const euler = new THREE.Euler()
-const camOffset = new THREE.Vector3(0, 0.22, 1.05)
+const camOffset = new THREE.Vector3(0, 0.095, 0.6)
 
 /** 目標の方向を向く姿勢（前方は -Z） */
 function facing(from: THREE.Vector3, to: THREE.Vector3, upRef: THREE.Vector3) {
@@ -310,14 +310,14 @@ function heroCamera(camera: THREE.PerspectiveCamera, dt: number) {
 /** 自機の後ろ上から追いかけるカメラ。ワープ中は視野角を広げる */
 function followCamera(camera: THREE.PerspectiveCamera, dt: number, phase: string) {
   // 自機からの相対位置で追従させる（天体と一緒に動いても遅れない）
-  v.set(0, 0.22, 1.05).applyQuaternion(ship.quaternion)
+  v.set(0, 0.095, 0.6).applyQuaternion(ship.quaternion)
   camOffset.lerp(v, 1 - Math.exp(-8 * dt))
   camera.position.copy(ship.position).add(camOffset)
   fwd.set(0, 0, -1).applyQuaternion(ship.quaternion)
   up.set(0, 1, 0).applyQuaternion(ship.quaternion)
   camera.up.lerp(up, 1 - Math.exp(-6 * dt))
   camera.lookAt(v.copy(ship.position).addScaledVector(fwd, 2))
-  const fov = phase === 'warp' ? 60 + 35 * warpFx.intensity : phase === 'charge' ? 55 : 60
+  const fov = phase === 'warp' ? 58 + 35 * warpFx.intensity : phase === 'charge' ? 50 : 52
   camera.fov += (fov - camera.fov) * (1 - Math.exp(-5 * dt))
   camera.updateProjectionMatrix()
 }
