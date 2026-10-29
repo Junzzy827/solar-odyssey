@@ -32,3 +32,15 @@ html, body, #root {
   pointer-events: none;
   user-select: none;
 }
+
+.credit {
+  position: fixed;
+  right: 12px;
+  bottom: 8px;
+  font-size: 11px;
+  color: #8a8fa3;
+}
+
+.credit a {
+  color: inherit;
+}

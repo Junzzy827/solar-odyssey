@@ -2,19 +2,39 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
-import type { Planet } from '../data/bodies'
+import type { Moon, Planet } from '../data/bodies'
 import { angularSpeed, bodyRadius, moonOrbitRadius, moonSpeed, orbitRadius, spinSpeed } from '../data/scale'
+import { textureUrl } from '../data/textures'
+import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { OrbitLine } from './OrbitLine'
+import { Atmosphere } from './Atmosphere'
+import { EarthSurface } from './EarthSurface'
+import { SaturnRing } from './SaturnRing'
 
 const DEG = Math.PI / 180
 
+function TexturedSphere({ textureKey, radius, color }: { textureKey: string; radius: number; color: string }) {
+  const map = useOptionalTexture(textureUrl(textureKey))
+  return (
+    <mesh>
+      <sphereGeometry args={[radius, 64, 64]} />
+      {map ? <meshStandardMaterial map={map} roughness={0.95} metalness={0} /> : <meshStandardMaterial color={color} roughness={0.9} />}
+    </mesh>
+  )
+}
+
+function MoonBody({ moon }: { moon: Moon }) {
+  return <TexturedSphere textureKey={moon.id} radius={Math.max(0.12, bodyRadius(moon.radiusKm))} color={moon.color} />
+}
+
 export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle: number }) {
   const orbit = useRef<THREE.Group>(null!)
-  const spin = useRef<THREE.Mesh>(null!)
+  const spin = useRef<THREE.Group>(null!)
   const moonPivots = useRef<THREE.Group[]>([])
 
   const distance = orbitRadius(planet.distanceAu)
   const radius = bodyRadius(planet.radiusKm)
+  const isEarth = planet.id === 'earth'
 
   useFrame(({ clock }, delta) => {
     const t = clock.getElapsedTime()
@@ -31,16 +51,11 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
       <OrbitLine radius={distance} />
       <group ref={orbit}>
         <group rotation={[0, 0, planet.tiltDeg * DEG]}>
-          <mesh ref={spin}>
-            <sphereGeometry args={[radius, 48, 48]} />
-            <meshStandardMaterial color={planet.color} roughness={0.9} />
-          </mesh>
-          {planet.ring && (
-            <mesh rotation={[-Math.PI / 2, 0, 0]}>
-              <ringGeometry args={[radius * planet.ring.inner, radius * planet.ring.outer, 128]} />
-              <meshStandardMaterial color={planet.ring.color} side={THREE.DoubleSide} transparent opacity={0.7} />
-            </mesh>
-          )}
+          <group ref={spin}>
+            {isEarth ? <EarthOrFallback radius={radius} color={planet.color} /> : <TexturedSphere textureKey={planet.id} radius={radius} color={planet.color} />}
+          </group>
+          {planet.atmosphere && <Atmosphere radius={radius} color={planet.atmosphere} power={isEarth ? 1 : 1.6} />}
+          {planet.ring && <SaturnRing inner={radius * planet.ring.inner} outer={radius * planet.ring.outer} color={planet.ring.color} />}
         </group>
         <Html position={[0, radius + 1, 0]} center className="label">
           {planet.name}
@@ -51,10 +66,9 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
             <group key={moon.id}>
               <OrbitLine radius={r} opacity={0.12} />
               <group ref={(g) => { if (g) moonPivots.current[i] = g }}>
-                <mesh position={[r, 0, 0]}>
-                  <sphereGeometry args={[Math.max(0.12, bodyRadius(moon.radiusKm)), 24, 24]} />
-                  <meshStandardMaterial color={moon.color} roughness={1} />
-                </mesh>
+                <group position={[r, 0, 0]}>
+                  <MoonBody moon={moon} />
+                </group>
               </group>
             </group>
           )
@@ -62,4 +76,12 @@ export function PlanetBody({ planet, startAngle }: { planet: Planet; startAngle:
       </group>
     </>
   )
+}
+
+/** 昼夜テクスチャが揃うまでは昼の地図だけ（無ければ単色）で描く */
+function EarthOrFallback({ radius, color }: { radius: number; color: string }) {
+  const day = useOptionalTexture(textureUrl('earth'))
+  const night = useOptionalTexture(textureUrl('earthNight'))
+  if (day && night) return <EarthSurface radius={radius} />
+  return <TexturedSphere textureKey="earth" radius={radius} color={color} />
 }
