@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { PLANETS } from '../data/bodies'
+import { CUBE_ID, CUBE_NAME } from '../data/cube'
 import { bodies } from './registry'
 import { useStore } from './store'
 import { playWarp, speak } from '../audio/sfx'
@@ -47,6 +48,7 @@ export function engage() {
 /** 天体の名前と、太陽からの実際の距離（衛星は親の惑星の距離） */
 export function bodyInfo(id: string) {
   if (id === 'sun') return { name: '太陽', au: 0, parent: null as string | null }
+  if (id === CUBE_ID) return { name: CUBE_NAME, au: 0, parent: null }
   for (const p of PLANETS) {
     if (p.id === id) return { name: p.name, au: p.distanceAu, parent: null }
     const moon = p.moons.find((m) => m.id === id)

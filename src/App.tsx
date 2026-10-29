@@ -12,6 +12,7 @@ import { AsteroidBelt } from './components/AsteroidBelt'
 import { WarpStreaks } from './components/WarpStreaks'
 import { TargetMarker } from './components/TargetMarker'
 import { Phaser } from './components/Phaser'
+import { CubeShip } from './components/cube/CubeShip'
 import { Hud, useGlobalKeys } from './ui/Hud'
 import { NavPanel } from './ui/NavPanel'
 import { LogPanel } from './ui/LogPanel'
@@ -31,6 +32,7 @@ export default function App() {
           <PlanetBody key={planet.id} planet={planet} startAngle={i * 2.39} />
         ))}
         <AsteroidBelt />
+        <CubeShip />
         <Ship />
         <WarpStreaks />
         <TargetMarker />

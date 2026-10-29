@@ -427,3 +427,13 @@ button:disabled {
 .log-panel footer {
   margin-top: 8px;
 }
+
+.nav-heading {
+  margin: 10px 0 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #7fe0a0;
+}
+

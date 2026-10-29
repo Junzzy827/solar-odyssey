@@ -9,9 +9,11 @@ export type Quiz = {
 }
 
 export type Facts = {
-  diameter: string
-  temperature: string
-  gravity: string
+  /** 天体以外（架空の船など）は表の項目を自由に決める */
+  rows?: [string, string][]
+  diameter?: string
+  temperature?: string
+  gravity?: string
   day?: string
   year?: string
   moons?: string
@@ -20,6 +22,25 @@ export type Facts = {
 }
 
 export const FACTS: Record<string, Facts> = {
+  cube: {
+    rows: [
+      ['大きさ', '一辺 約6km（自機の約10倍）'],
+      ['正体', '架空の船（お話の中の存在）'],
+      ['場所', '小惑星帯と木星のあいだ'],
+    ],
+    notes: [
+      'この船はお話の中の存在です。本物の宇宙では、ほかの文明の船や人工物はまだ見つかっていません。',
+      '地球の外の文明から届く電波を探す研究（SETI）は、1960年から今も続いています。',
+      '2017年、太陽系の外から飛んできた天体「オウムアムア」が見つかりました。細長い形が話題になりましたが、自然の天体と考えられています。',
+      '人類がつくった物でいちばん遠くにあるのは探査機ボイジャー1号。太陽から250億km近く離れたところを今も飛び続けています。',
+    ],
+    quiz: {
+      question: '太陽系の外から来たと確認された、最初の天体はどれ？',
+      choices: ['ハレー彗星', 'オウムアムア', '冥王星'],
+      answer: 1,
+      explanation: '2017年にハワイの望遠鏡で見つかりました。名前はハワイの言葉で「遠くから最初に来た使者」という意味です。',
+    },
+  },
   sun: {
     diameter: '約139万km（地球の約109倍）',
     temperature: '表面 約5,500℃、中心 約1,500万℃',

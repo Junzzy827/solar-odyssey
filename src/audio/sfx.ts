@@ -56,11 +56,12 @@ export function playWarp(chargeSeconds: number, seconds: number) {
 }
 
 /** ブラウザの音声合成で読み上げる */
-export function speak(text: string) {
+export function speak(text: string, opts: { rate?: number; pitch?: number } = {}) {
   if (!('speechSynthesis' in window)) return
   const u = new SpeechSynthesisUtterance(text)
   u.lang = 'ja-JP'
-  u.rate = 1.05
+  u.rate = opts.rate ?? 1.05
+  u.pitch = opts.pitch ?? 1
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(u)
 }
@@ -101,3 +102,4 @@ export function playBlast() {
   src.connect(filter).connect(gain).connect(c.destination)
   src.start(now)
 }
+

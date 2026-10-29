@@ -3,6 +3,7 @@ import { FACTS } from '../data/facts'
 import { PLANETS } from '../data/bodies'
 import { useStore } from '../state/store'
 import { bodyInfo } from '../state/flight'
+import { CUBE_ID } from '../data/cube'
 
 const TOTAL = 1 + PLANETS.reduce((n, p) => n + 1 + p.moons.length, 0)
 const NEAR = 10
@@ -47,7 +48,7 @@ export function LogPanel() {
   const answered = picked !== null
   const correct = picked === facts.quiz.answer
 
-  const rows: [string, string | undefined][] = [
+  const rows: [string, string | undefined][] = facts.rows ?? [
     ['直径', facts.diameter],
     ['温度', facts.temperature],
     ['重力', facts.gravity],
@@ -111,7 +112,7 @@ export function LogPanel() {
         )}
       </div>
       <footer className="muted">
-        探査済み {visited.length} / {TOTAL}（<kbd>I</kbd> で開閉）
+        探査済み {visited.filter((id) => id !== CUBE_ID).length} / {TOTAL}（<kbd>I</kbd> で開閉）
       </footer>
     </section>
   )

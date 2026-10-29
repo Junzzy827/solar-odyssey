@@ -4,6 +4,7 @@ import { OrbitControls, Stars } from '@react-three/drei'
 import { Bloom, EffectComposer, N8AO, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { ShipModel } from './components/ship/ShipModel'
+import { CubeModel } from './components/cube/CubeModel'
 
 /** 太陽光：影を落とす平行光。影の範囲は船の大きさに絞って解像度を稼ぐ */
 function SunLight() {
@@ -41,6 +42,7 @@ const CAM = vec('cam', [1.05, -0.2, -1.45])
 const TARGET = vec('target', [0, 0, 0.05])
 const FOV = Number(params.get('fov') ?? 26)
 const FIXED = params.has('cam')
+const MODEL = params.get('model') ?? 'ship'
 
 /**
  * 自機だけを眺める格納庫ビュー（URL の末尾に #hangar）。
@@ -54,7 +56,7 @@ export default function Hangar() {
         <Stars radius={50} depth={20} count={3000} factor={2} fade />
         <SunLight />
         <directionalLight position={[-2, -1, 2]} intensity={0.12} color="#8fa8ff" />
-        <ShipModel />
+        {MODEL === 'cube' ? <CubeModel /> : <ShipModel />}
         <OrbitControls autoRotate={!FIXED} autoRotateSpeed={0.35} minDistance={0.2} maxDistance={6} target={TARGET} />
         <EffectComposer>
           <N8AO aoRadius={0.08} distanceFalloff={0.5} intensity={2.5} quality="high" />

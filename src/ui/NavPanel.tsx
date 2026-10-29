@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { PLANETS } from '../data/bodies'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
+import { CUBE_ID, CUBE_NAME } from '../data/cube'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -40,6 +41,8 @@ export function NavPanel() {
             {open === p.id && p.moons.map((m) => <TargetButton key={m.id} id={m.id} name={m.name} sub />)}
           </div>
         ))}
+        <div className="nav-heading">未確認</div>
+        <TargetButton id={CUBE_ID} name={CUBE_NAME} />
       </div>
 
       <div className="nav-target">
