@@ -232,6 +232,7 @@ body.touch .nav-panel.collapsed:not(.gallery-panel),
 body.touch .sf-badge,
 body.touch .mode-button,
 body.touch .gallery-button,
+body.touch .bridge-button,
 body.touch .toast {
   display: none;
 }
@@ -628,4 +629,11 @@ body.touch[data-sheet='scale'] .sheet-backdrop {
 body.touch .beam-gauge {
   bottom: calc(var(--pad-b) + 14px);
   width: min(200px, 34vw);
+}
+
+/* ブリッジの中（スマホ縦）：「ブリッジから出る」を先頭にしたぶん、アイコン列のすぐ下から並べてスティックと重ねない */
+@media (max-width: 720px) {
+  body.touch .bridge-panel {
+    top: calc(var(--bar-h) + var(--safe-t) + 14px);
+  }
 }

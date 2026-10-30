@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { nextCameraMode, useStore } from '../state/store'
-import { useBridge } from '../state/bridge'
+import { enterBridge, leaveBridge, useBridge } from '../state/bridge'
 import { useCompare } from '../state/compare'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { RACE_TEXT, raceActive } from '../state/race'
@@ -25,6 +25,11 @@ export function useGlobalKeys() {
       if (s.mode === 'gallery') {
         if (e.code === 'KeyV' || e.code === 'Escape') closeGallery()
         else if (e.code === 'KeyM') s.setMode('map')
+        return
+      }
+      // ブリッジの中では Esc で外の視点へ（マウスを固定しているときの Esc は、固定を外すだけ）
+      if (e.code === 'Escape' && s.cameraMode === 'bridge' && s.mode === 'flight' && !document.pointerLockElement) {
+        leaveBridge()
         return
       }
       if (e.code === 'KeyV') {
@@ -167,6 +172,7 @@ export function Hud() {
   const setMode = useStore((s) => s.setMode)
   const targetId = useStore((s) => s.targetId)
   const warpPhase = useStore((s) => s.warpPhase)
+  const cameraMode = useStore((s) => s.cameraMode)
   const warpFactor = useStore((s) => s.warpFactor)
   const telemetry = useStore((s) => s.telemetry)
   const scopeNear = useStore((s) => s.scopeNear)
@@ -227,6 +233,15 @@ export function Hud() {
           <button className="mode-button" onClick={() => setMode(mode === 'map' ? 'flight' : 'map')}>
             {mode === 'map' ? t('操縦席へ', 'Cockpit') : t('全体マップ', 'Map')} <kbd>M</kbd>
           </button>
+          {mode === 'flight' && (cameraMode === 'bridge' ? (
+            <button className="bridge-button inside" onClick={leaveBridge}>
+              {t('◀ 外にもどる', '◀ Leave the bridge')} <kbd>Esc</kbd>
+            </button>
+          ) : (
+            <button className="bridge-button" onClick={enterBridge} disabled={raceActive()}>
+              {t('ブリッジに入る', 'Enter the bridge')}
+            </button>
+          ))}
           {mode === 'flight' && (
             <button className="gallery-button" onClick={openGallery} disabled={warpPhase !== 'idle' || !canOpenGallery()}>
               {t('船を眺める', 'View the ship')} <kbd>V</kbd>

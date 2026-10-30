@@ -1,5 +1,5 @@
 import { useStore } from '../state/store'
-import { useBridge } from '../state/bridge'
+import { leaveBridge, useBridge } from '../state/bridge'
 import { VIEWPOINTS } from '../data/bridge'
 import { BRIDGE_PARTS } from '../data/bridgeParts'
 import { isTouchDevice } from '../state/input'
@@ -28,6 +28,12 @@ export function BridgePanel() {
 
   return (
     <div className="bridge-panel">
+      {/* パソコンは画面下の「外にもどる」ボタン（Esc）。スマホはここにも大きく出す */}
+      {touch && (
+        <button className="bridge-exit" onClick={leaveBridge}>
+          {t('◀ ブリッジから出る', '◀ Leave the bridge')}
+        </button>
+      )}
       <div className="bridge-views">
         {VIEWPOINTS.map((vp) => (
           <button key={vp.id} className={vp.id === current ? 'active' : ''} onClick={() => setViewpoint(vp.id)}>

@@ -1263,10 +1263,56 @@ button:disabled {
   color: #f6c48f;
 }
 
+.bridge-button {
+  position: fixed;
+  right: calc(50% + 96px);
+  bottom: 24px;
+  padding: 10px 18px;
+  border: 1px solid rgba(95, 211, 230, 0.7);
+  border-radius: 20px;
+  background: rgba(8, 14, 20, 0.75);
+  color: #bfeaf2;
+}
+
+.bridge-button.inside {
+  border-color: #f2b45a;
+  background: #f2b45a;
+  color: #1b1325;
+  font-weight: 600;
+}
+
+.bridge-button:disabled {
+  opacity: 0.4;
+}
+
+/* 鑑賞モードの「艦橋の中に入る」 */
+.bridge-enter {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 12px;
+  border: 1px solid rgba(95, 211, 230, 0.7);
+  border-radius: 8px;
+  background: rgba(95, 211, 230, 0.16);
+  color: #d8f3f8;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bridge-enter:hover {
+  background: rgba(95, 211, 230, 0.3);
+}
+
 @media (max-width: 720px) {
   .gallery-button {
     left: auto;
     right: 12px;
+    padding: 10px 12px;
+  }
+
+  .bridge-button {
+    right: 12px;
+    bottom: 76px;
     padding: 10px 12px;
   }
 }
@@ -2338,6 +2384,22 @@ canvas {
   gap: 6px;
   max-width: min(560px, calc(100% - 700px));
   min-width: 300px;
+}
+
+/* ブリッジから出るボタン：いちばん目立つ色で、パネルの先頭に */
+.bridge-exit {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 20px;
+  background: #f2b45a;
+  color: #1b1325;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bridge-exit kbd {
+  margin-left: 6px;
 }
 
 .bridge-views {
