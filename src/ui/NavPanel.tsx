@@ -86,6 +86,7 @@ function Settings({ racing }: { racing: boolean }) {
       </div>
       <LookPick />
       <QualityPick />
+      <FxPick />
       <label className="nav-slider">
         <span>
           {t('距離', 'Distance')}{' '}
@@ -200,6 +201,42 @@ function QualityPick() {
           '— 惑星がちらついたり動きがカクカクするときは「軽量」に。自動では、描画が追いつかないと自動で下げます。',
           '— If planets flicker or motion stutters, pick Light. Auto lowers the quality when drawing falls behind.',
         )}
+      </div>
+    </>
+  )
+}
+
+/** 後処理を 1 つずつ切り替える（components/PostFx.tsx）。重いと感じたら切る */
+function FxPick() {
+  useLang()
+  const fx = useStore((s) => s.settings.fx)
+  const update = useStore((s) => s.updateSettings)
+  const level = useLevel()
+  const toggle = (key: keyof typeof fx) => update({ fx: { ...fx, [key]: !fx[key] } })
+  const items: [keyof typeof fx, string][] = [
+    ['bloom', t('光のにじみ', 'Glow')],
+    ['ao', t('陰影', 'Shading')],
+    ['film', t('フィルム調', 'Film look')],
+  ]
+  return (
+    <>
+      <div className="nav-check">
+        {t('後処理', 'Effects')}
+        <span className="nav-lang-pick" role="group" aria-label={t('後処理', 'Effects')}>
+          {items.map(([key, label]) => (
+            <button key={key} className={fx[key] ? 'on' : ''} aria-pressed={fx[key]} onClick={() => toggle(key)} disabled={level === 'low'}>
+              {label}
+            </button>
+          ))}
+        </span>
+      </div>
+      <div className="muted small">
+        {level === 'low'
+          ? t('画質が「軽量」のあいだは、後処理を使いません。', 'Effects are off while the quality is Light.')
+          : t(
+              '光のにじみ：エンジンや窓の光がにじむ。陰影：部品のすき間が暗く締まる。フィルム調：薄い粒子と周辺減光。重いときは切ってください。',
+              'Glow: engines and windows bleed light. Shading: gaps between parts darken. Film look: light grain and vignette. Turn them off if things feel slow.',
+            )}
       </div>
     </>
   )

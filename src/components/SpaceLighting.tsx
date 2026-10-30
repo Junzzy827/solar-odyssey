@@ -94,12 +94,19 @@ export function useSpaceEnvOn(materials: THREE.Material[]) {
   }, [env, materials])
 }
 
+/** 後処理（PostFx.tsx）を使うか。使わないとき（軽量・後処理をすべて切ったとき）は、レンダラーが直接トーンマッピングを掛ける */
+export function usePostFxActive() {
+  const allowed = QUALITY[useLevel()].bloom
+  const fx = useStore((s) => s.settings.fx)
+  return allowed && (fx.bloom || fx.ao || fx.film)
+}
+
 /**
- * 後処理の最後で ACES のトーンマッピングを掛けるか。後処理を使う画質だけ（軽量はレンダラーが掛ける）。
+ * 後処理の最後で ACES のトーンマッピングを掛けるか。
  * ブリッジの中は照明を焼き込んだ絵（トーンマッピングなしで色を決めてある）なので掛けない
  */
 export function usePostToneMapping() {
-  const bloom = QUALITY[useLevel()].bloom
+  const active = usePostFxActive()
   const bridge = useStore((s) => s.mode === 'flight' && s.cameraMode === 'bridge')
-  return bloom && !bridge
+  return active && !bridge
 }

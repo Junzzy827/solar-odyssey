@@ -75,10 +75,14 @@ export type Settings = {
   quality: QualitySetting
   /** 天体の見え方（state/look.ts）：見やすく強調した図鑑モード（illustrated）か、カメラで撮ったような写真モード（photo） */
   look: 'illustrated' | 'photo'
+  /** 後処理（components/PostFx.tsx）：光のにじみ・陰影（SSAO）・フィルムの粒子と周辺減光。画質が「軽量」のときはどれも使わない */
+  fx: PostFxSettings
 }
 
+export type PostFxSettings = { bloom: boolean; ao: boolean; film: boolean }
+
 const SETTINGS_KEY = 'solar-voyager:settings'
-const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real', ship: 'sv01', quality: 'auto', look: 'illustrated' }
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real', ship: 'sv01', quality: 'auto', look: 'illustrated', fx: { bloom: true, ao: true, film: true } }
 
 // リンクで世界を決めて開ける（#sf や #real）
 const worldFromUrl = /[?&#](sf|real)\b/.exec(location.search + location.hash)?.[1] as Settings['world'] | undefined

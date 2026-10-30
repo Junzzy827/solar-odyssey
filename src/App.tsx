@@ -1,13 +1,12 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing'
-import { ToneMappingMode } from 'postprocessing'
 import { PLANETS } from './data/bodies'
 import { useStore } from './state/store'
 import { Sun } from './components/Sun'
 import { PlanetBody } from './components/PlanetBody'
 import { Sky } from './components/Sky'
-import { SpaceLighting, usePostToneMapping } from './components/SpaceLighting'
+import { SpaceLighting } from './components/SpaceLighting'
+import { PostFx } from './components/PostFx'
 import { SimClock } from './components/SimClock'
 import { Ship } from './components/Ship'
 import { SpaceDust } from './components/SpaceDust'
@@ -30,7 +29,7 @@ import { NavPanel } from './ui/NavPanel'
 import { LogPanel } from './ui/LogPanel'
 import { TelescopeView } from './ui/TelescopeView'
 import { useLayout } from './state/useLayout'
-import { QUALITY, dprFor, useLevel } from './state/quality'
+import { dprFor, useLevel } from './state/quality'
 import { QualityGovernor } from './components/QualityGovernor'
 import { GalleryCamera } from './components/ship/GalleryCamera'
 import { GalleryPanel } from './ui/GalleryPanel'
@@ -68,8 +67,6 @@ export default function App() {
   const eclipseView = useEclipse((e) => e.open && e.eclipseId !== null)
   useGlobalKeys()
   const level = useLevel()
-  const quality = QUALITY[level]
-  const postTone = usePostToneMapping()
 
   return (
     <>
@@ -104,14 +101,7 @@ export default function App() {
         <EclipseScene />
         <Phaser />
         {mode === 'map' && !eclipseView && <MapControls />}
-        {/* 軽い画質では後処理を使わない（明るい光のにじみは無くなるが、描く回数と GPU のメモリが大きく減る） */}
-        {quality.bloom && (
-          <EffectComposer key={quality.msaa} multisampling={quality.msaa}>
-            <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />
-            {/* 後処理を通すとレンダラーのトーンマッピングが掛からないので、最後にここで掛ける（軽量の画質と同じ見え方に） */}
-            <ToneMapping mode={postTone ? ToneMappingMode.ACES_FILMIC : ToneMappingMode.LINEAR} />
-          </EffectComposer>
-        )}
+        <PostFx />
         {bridge && <BridgeInterior />}
         <BootFrames />
       </Canvas>
