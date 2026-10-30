@@ -337,6 +337,75 @@ export const FACTS_EN: Record<string, Facts> = {
       explanation: 'Hayabusa2 delivered samples from the asteroid Ryugu in 2020. Scientists have even found amino acids, building blocks of life, in them.',
     },
   },
+  dyson: {
+    rows: [
+      ['Where', 'Around the Sun, inside Mercury’s orbit'],
+      ['How many', 'About 6,300 collector satellites on 7 rings'],
+      ['Job', 'Catch sunlight and turn it into energy'],
+    ],
+    fiction: true,
+    notes: [
+      'Each turns a gold face to the Sun to catch light, and a blue panel on the back sheds heat into space.',
+      'It is still being built, so only parts of the rings are filled. The inner rings go around faster.',
+    ],
+    real: [
+      'In 1960 the physicist Freeman Dyson wrote that an advanced civilization might surround its star to collect its light, and that we could spot it by its heat (infrared).',
+      'In 2015 a star whose brightness dropped strangely, KIC 8462852 (“Tabby’s star”), made headlines. Later observations suggest clouds of dust are the cause.',
+      'Only about 1 part in 2 billion of the Sun’s light reaches Earth. Almost all of the rest spreads out into space.',
+    ],
+    quiz: {
+      question: 'How much of the Sun’s light reaches Earth?',
+      choices: ['About 1 part in 2 billion', 'About half', 'About a tenth'],
+      answer: 0,
+      explanation: 'Seen from the Sun, Earth is a tiny dot. Even so, the sunlight that reaches Earth is thousands of times more energy than people use.',
+    },
+  },
+  ark: {
+    rows: [
+      ['Size', 'About 12 km long (about 19 times your ship)'],
+      ['Heading for', 'Alpha Centauri (about 4.2 light years)'],
+      ['Speed', 'Now about 3.6 AU a year (about as fast as Voyager)'],
+    ],
+    fiction: true,
+    notes: [
+      'The thick shield at the front protects the ship from interstellar dust, and two habitat rings spin in opposite directions to make 1 g inside.',
+      'In this story a fusion engine at the back slowly speeds it up. Many generations live aboard during the trip.',
+    ],
+    real: [
+      'The nearest star system, Alpha Centauri (with Proxima Centauri), is about 4.2 light years away, about 40 trillion km.',
+      'At the speed of Voyager 1, the farthest probe today, the trip would take more than 70,000 years.',
+      'In the 1970s, Britain’s Project Daedalus, and later Project Icarus, studied uncrewed fusion probes reaching about a tenth of the speed of light.',
+    ],
+    quiz: {
+      question: 'At Voyager 1’s speed, how long would a trip to the nearest star take?',
+      choices: ['More than 70,000 years', 'About 70 years', 'About 700 years'],
+      answer: 0,
+      explanation: '4.2 light years is very far. Even Voyager, at about 17 km per second, would need more than 70,000 years. That is why stories imagine ships that travel for many generations.',
+    },
+  },
+  beacon: {
+    rows: [
+      ['Where', 'On the ice of Jupiter’s moon Europa'],
+      ['Height', 'About 150 km (drawn very large so you can see it)'],
+      ['What it is', 'Unknown (an object from a story)'],
+    ],
+    fiction: true,
+    notes: [
+      'Three rainbow-colored blades curve inward, with a ring floating above them. The crystal in the middle softly pulses, and a ball of light swells and fades.',
+      'It does nothing when you come close. It seems to keep quietly sending some kind of signal.',
+    ],
+    real: [
+      'Under Europa’s thick ice there is thought to be an ocean holding more water than all of Earth’s oceans together.',
+      'NASA’s Europa Clipper launched in 2024 and will start studying Europa in 2030. Europe’s JUICE mission is also on its way to Jupiter’s moons.',
+      'No life, and nothing made by another civilization, has been found beyond Earth yet.',
+    ],
+    quiz: {
+      question: 'What is thought to lie under Europa’s ice?',
+      choices: ['An ocean of water', 'An ocean of molten iron', 'Empty caves'],
+      answer: 0,
+      explanation: 'Jupiter’s strong pull squeezes Europa, and that heat keeps the water under the ice from freezing. It is one of the most promising places to look for life.',
+    },
+  },
   sun: {
     diameter: 'About 1.39 million km (about 109 times Earth)',
     temperature: 'Surface about 5,500 °C, core about 15 million °C',

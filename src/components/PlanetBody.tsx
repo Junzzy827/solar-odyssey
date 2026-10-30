@@ -132,7 +132,7 @@ export function PlanetBody({ planet }: { planet: Planet }) {
       <group ref={orbit}>
         {/* 地軸の傾き。地球の北極は、本物どおり黄経90度の向き（夏至の日に太陽の側）へ傾ける */}
         <group rotation={isEarth ? [-planet.tiltDeg * DEG, 0, 0] : [0, 0, planet.tiltDeg * DEG]}>
-          <group ref={spin} name={isEarth ? 'earth-spin' : undefined}>
+          <group ref={spin} name={`${planet.id}-spin`}>
             <group ref={surface}>
               {isEarth ? (
                 <EarthOrFallback radius={radius} color={planet.color} />

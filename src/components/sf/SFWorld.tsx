@@ -12,6 +12,10 @@ import { CROSS_ID, UMBRELLA_ID } from '../../data/sf'
 import { RadioMoon } from './RadioMoon'
 import { OreCarrier } from './OreCarrier'
 import { DiscFreighter } from './DiscFreighter'
+import { DysonSwarm } from './DysonSwarm'
+import { TerraMars } from './TerraMars'
+import { GenerationShip } from './GenerationShip'
+import { EuropaBeacon } from './EuropaBeacon'
 
 /** SF モードだけに出す、架空の船や構造物（data/sf.ts の SF_OBJECTS と対になる） */
 export function SFWorld() {
@@ -31,6 +35,10 @@ export function SFWorld() {
       <RadioMoon />
       <OreCarrier />
       <DiscFreighter />
+      <DysonSwarm />
+      <TerraMars />
+      <GenerationShip />
+      <EuropaBeacon />
     </>
   )
 }

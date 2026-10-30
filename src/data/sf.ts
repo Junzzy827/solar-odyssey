@@ -1,3 +1,4 @@
+import { create } from 'zustand'
 import { t } from '../i18n/lang'
 import { useStore } from '../state/store'
 import { CUBE_ID, cubeName } from './cube'
@@ -51,6 +52,20 @@ export const SITE_ZOOM = 20
 /** SITE_ZOOM のとき、1m が何表示単位か（自機は表示 0.3 で 640m） */
 export const UNITS_PER_METER = 0.3 / SITE_ZOOM / 640
 
+/** 太陽のまわりの集光衛星の群れ（水星の軌道より内側） */
+export const DYSON_ID = 'dyson'
+export const dysonName = () => t('ダイソン・スウォーム', 'Dyson Swarm')
+/** となりの恒星をめざす世代宇宙船（海王星の外） */
+export const ARK_ID = 'ark'
+export const arkName = () => t('世代宇宙船', 'Generation Ship')
+/** エウロパの氷の上の、謎のビーコン */
+export const BEACON_ID = 'beacon'
+export const beaconName = () => t('エウロパのビーコン', 'Europa Beacon')
+
+/** テラフォーミングした火星を見せるか（SF モードのときだけ。航海日誌のボタンで本物と見くらべる） */
+export const useTerra = create<{ on: boolean }>(() => ({ on: true }))
+export const toggleTerra = () => useTerra.setState((s) => ({ on: !s.on }))
+
 export type SFEntry = {
   id: string
   name: () => string
@@ -73,6 +88,9 @@ export const SF_OBJECTS: SFEntry[] = [
   { id: RADIO_MOON_ID, name: radioMoonName, spoken: 'the radio telescope moon', color: '#b8bcc6' },
   { id: CARRIER_ID, name: carrierName, spoken: 'the ore carrier', color: '#d9a066' },
   { id: FREIGHTER_ID, name: freighterName, spoken: 'the disc freighter', color: '#9ad0c8' },
+  { id: DYSON_ID, name: dysonName, spoken: 'the Dyson swarm', color: '#e0b25a' },
+  { id: ARK_ID, name: arkName, spoken: 'the generation ship', color: '#a8c0d8' },
+  { id: BEACON_ID, name: beaconName, spoken: 'the Europa beacon', color: '#5fd8e0' },
   { id: CUBE_ID, name: cubeName, spoken: 'the unknown vessel', color: '#6fd0b8' },
   { id: 'gate', name: () => t('時空のゲート', 'Space-Time Gate'), spoken: 'the gate', color: '#8f7dff' },
   { id: 'blackhole', name: () => t('ブラックホール（太陽系の外）', 'Black Hole (beyond the solar system)'), spoken: 'the black hole', color: '#f0b45a' },
@@ -96,6 +114,21 @@ export const COLONY_SPIN_SECONDS = 2 * Math.PI * Math.sqrt(4000 / 9.8)
 export const COLONY_PORT = COLONY_RADIUS * 0.3
 
 export const SF_TEXT = {
+  dysonFound: () =>
+    t(
+      'ダイソン・スウォームです。太陽のまわりの輪に、何千もの集光衛星が並んで、太陽の光を受けとめています。\n（I で航海日誌）',
+      'This is the Dyson swarm. Thousands of collector satellites line rings around the Sun, catching its light.\n(I for the ship’s log)',
+    ),
+  arkFound: () =>
+    t(
+      '世代宇宙船に追いつきました。何世代もかけて、となりの恒星ケンタウルス座アルファ星をめざしています。\n（I で航海日誌）',
+      'You have caught up with the generation ship. It is heading for the nearest star, Alpha Centauri, on a trip that will take many generations.\n(I for the ship’s log)',
+    ),
+  beaconFound: () =>
+    t(
+      'エウロパの氷の上に、見たことのない物体が立っています。光の球がゆっくりふくらんでは消えています。\n（I で航海日誌）',
+      'Something no one has seen before stands on Europa’s ice. A ball of light slowly swells and fades.\n(I for the ship’s log)',
+    ),
   colonyFound: () =>
     t(
       'コロニー群が見えてきた。1号基には、太陽と反対側の端にある港から入れます。\n（I で航海日誌）',
