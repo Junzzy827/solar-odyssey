@@ -2878,3 +2878,105 @@ body.sf .nav-panel {
   color: #9aa0b4;
   font-size: 12px;
 }
+
+/* ---------- チャージビーム：ゲージ、周りを暗くする幕、発射のフラッシュ ---------- */
+
+.beam-dim,
+.beam-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 4;
+}
+
+.beam-dim {
+  background: radial-gradient(ellipse at 50% 55%, rgba(0, 0, 0, 0) 18%, rgba(0, 2, 12, 0.85) 85%);
+}
+
+.beam-flash {
+  background: #fff;
+  mix-blend-mode: screen;
+}
+
+.beam-gauge {
+  position: fixed;
+  left: 50%;
+  bottom: 86px;
+  width: 240px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s;
+  z-index: 5;
+}
+
+.beam-gauge.show {
+  opacity: 1;
+}
+
+.beam-gauge-label {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: #cfe6ff;
+  text-shadow: 0 0 6px rgba(80, 160, 255, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
+.beam-gauge-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border: 1px solid rgba(160, 200, 255, 0.55);
+  border-radius: 4px;
+  background: rgba(8, 12, 30, 0.6);
+  overflow: hidden;
+}
+
+.beam-gauge-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: #4f86ff;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.beam-gauge[data-state='charge'][data-level='3'] .beam-gauge-fill {
+  animation: beam-gauge-full 0.25s ease-in-out infinite alternate;
+}
+
+.beam-gauge[data-state='firing'] .beam-gauge-fill {
+  background: linear-gradient(90deg, #8fdcff, #ffffff);
+}
+
+.beam-gauge[data-state='cool'] .beam-gauge-fill {
+  background: rgba(150, 160, 190, 0.7);
+}
+
+.beam-gauge[data-state='cool'] .beam-gauge-label {
+  color: #a9b2c8;
+  text-shadow: none;
+}
+
+.beam-gauge-bar i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(220, 235, 255, 0.75);
+}
+
+@keyframes beam-gauge-full {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.6);
+  }
+}

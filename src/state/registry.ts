@@ -48,3 +48,10 @@ export const zoomZones = new Set<ZoomZone>()
 export const colliders = new Set<() => void>()
 /** 天体の近づける限界を使わない id（colliders で自分で判定するもの） */
 export const passThrough = new Set<string>()
+
+/**
+ * チャージビームで壊せる、小惑星帯のほかのもの（宇宙ごみなど）。ビームが当たっているあいだ毎フレーム呼ばれる。
+ * from から dir（長さ 1）の向きに length まで、太さは中心から radius + 距離 × spread までに入ったものを壊し、hit で場所と大きさを知らせる
+ */
+export type BeamSweep = (from: THREE.Vector3, dir: THREE.Vector3, length: number, radius: number, spread: number, hit: (at: THREE.Vector3, size: number) => void) => void
+export const beamSweeps = new Set<BeamSweep>()
