@@ -47,6 +47,8 @@ const OVERVIEW_FITS = 200
 const START_ANGLE = 1.0
 /** 逆光の強さ（太陽の光の約 1/4） */
 const RIM_INTENSITY = 0.7
+// 全体マップから操縦席へ切り替えるとき、カメラが船まで飛んでくる時間（ワープのチャージ 1.8 秒の内に終わる）
+const FLY_IN_SECONDS = 1.4
 
 const keys = new Set<string>()
 const mouse = { dx: 0, dy: 0 }
@@ -67,6 +69,9 @@ const qLook = new THREE.Quaternion()
 const qDelta = new THREE.Quaternion()
 const euler = new THREE.Euler()
 const camOffset = new THREE.Vector3(0, 0.095, 0.6)
+/** マップから操縦席へ寄っていく途中（t が 1 で終わり）。from はマップのカメラの、自機からの位置 */
+const flyIn = { t: 1, from: new THREE.Vector3(), quat: new THREE.Quaternion() }
+const flyDir = new THREE.Vector3()
 const prevQuat = new THREE.Quaternion()
 const qTurn = new THREE.Quaternion()
 const eTurn = new THREE.Euler(0, 0, 0, 'YXZ')
@@ -94,6 +99,7 @@ export function Ship() {
   // 輪郭を立たせる弱い逆光（カメラから見て船の向こう側から、青白く）
   const rimSpot = useRef<THREE.SpotLight>(null!)
   const prevTarget = useRef<{ id: string; pos: THREE.Vector3 } | null>(null)
+  const prevMode = useRef(mode)
   const placed = useRef(false)
   // 距離や大きさを切りかえたとき、いちばん近い天体のそばに、同じ高さの割合のままついていく。
   // 天体が新しい位置と大きさになるのを待つため、切りかえてから数フレーム後に移す
@@ -193,6 +199,13 @@ export function Ship() {
     const st = useStore.getState()
     const target = st.targetId ? bodies.get(st.targetId) : undefined
     if (target) target.object.getWorldPosition(tp)
+    // マップを閉じた瞬間のカメラを覚えておき、そこから船の後ろまで飛んでくる
+    if (prevMode.current === 'map' && st.mode === 'flight') {
+      flyIn.t = 0
+      flyIn.from.copy(camera.position).sub(ship.position)
+      flyIn.quat.copy(camera.quaternion)
+    }
+    prevMode.current = st.mode
 
     // 目標の移動速度（公転している天体に追いつくため）
     const prev = prevTarget.current
@@ -361,6 +374,7 @@ export function Ship() {
         hero.active = false
         followCamera(camera as THREE.PerspectiveCamera, dt, st.warpPhase, zoomIn)
       }
+      if (flyIn.t < 1) flyInCamera(cam, rawDelta)
       if (st.settings.beamFx.shake) shakeCamera(cam, rawDelta, shipScale())
       else beamFx.shake = 0
     }
@@ -628,6 +642,19 @@ function bridgeCamera(camera: THREE.PerspectiveCamera, dt: number, bankQuat: THR
 /** 自機の後ろ上から追いかけるカメラ。ワープ中は視野角を広げる */
 /** 追いかけカメラが見る点を、船の前方からどれだけ上げるか */
 const CHASE_AIM_LIFT = 0.16
+
+/** マップのカメラから、いま決めた操縦席のカメラへ寄せる。距離は桁ごとに同じ速さで縮める */
+function flyInCamera(camera: THREE.PerspectiveCamera, rawDelta: number) {
+  flyIn.t = Math.min(1, flyIn.t + Math.min(rawDelta, 0.1) / FLY_IN_SECONDS)
+  const k = ease(flyIn.t)
+  v.copy(camera.position).sub(ship.position)
+  const near = Math.max(v.length(), 1e-6)
+  const far = Math.max(flyIn.from.length(), near)
+  flyDir.copy(flyIn.from).normalize().lerp(v.divideScalar(near), k)
+  if (flyDir.lengthSq() < 1e-8) flyDir.copy(v)
+  camera.position.copy(ship.position).addScaledVector(flyDir.normalize(), far * (near / far) ** k)
+  camera.quaternion.copy(qLook.copy(flyIn.quat).slerp(camera.quaternion, k))
+}
 
 function followCamera(camera: THREE.PerspectiveCamera, dt: number, phase: string, zoomIn: number) {
   // 自機からの相対位置で追従させる（天体と一緒に動いても遅れない）。接近ズーム中は船と一緒に近寄る
