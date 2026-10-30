@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { SHOTS, SHOT_SECONDS, type View } from '../../data/shipParts'
+import { SHOT_SECONDS, type View } from '../../data/shipParts'
+import { currentShip } from '../../data/ships'
 import { galleryAnchors, galleryGoal, stopAuto, useGallery } from '../../state/gallery'
 import { ship } from '../../state/flight'
 import { shipScale } from '../../state/zoom'
@@ -70,7 +71,8 @@ const smooth = (t: number) => t * t * (3 - 2 * t)
 
 /** おまかせの、今の時刻での視点 */
 function autoView(t: number, out: View) {
-  const shot = SHOTS[Math.floor(t / SHOT_SECONDS) % SHOTS.length]
+  const shots = currentShip().shots
+  const shot = shots[Math.floor(t / SHOT_SECONDS) % shots.length]
   const k = smooth((t % SHOT_SECONDS) / SHOT_SECONDS)
   out.yaw = shot.from.yaw + wrap(shot.to.yaw - shot.from.yaw) * k
   out.pitch = THREE.MathUtils.lerp(shot.from.pitch, shot.to.pitch, k)

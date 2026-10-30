@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { COMPARE_VIEW, DEFAULT_VIEW, SHIP_PARTS, type View } from '../data/shipParts'
+import { DEFAULT_VIEW, type View } from '../data/shipParts'
+import { currentShip } from '../data/ships'
 import { useStore } from './store'
 import { raceActive } from './race'
 
@@ -43,7 +44,7 @@ export function openGallery() {
   if (document.pointerLockElement) document.exitPointerLock()
   const s = useStore.getState()
   s.setAutopilot(false)
-  setGoal(DEFAULT_VIEW)
+  setGoal(currentShip().defaultView)
   useGallery.setState({ part: null, auto: false, compare: false })
   s.setMode('gallery')
 }
@@ -53,21 +54,22 @@ export function closeGallery() {
 }
 
 export function selectPart(id: string | null) {
-  const part = SHIP_PARTS.find((p) => p.id === id)
+  const ship = currentShip()
+  const part = ship.parts.find((p) => p.id === id)
   useGallery.setState({ part: part ? part.id : null, auto: false, compare: false })
-  setGoal(part ? part.view : DEFAULT_VIEW)
+  setGoal(part ? part.view : ship.defaultView)
 }
 
 export function toggleCompare() {
   const compare = !useGallery.getState().compare
   useGallery.setState({ compare, auto: false, part: null })
-  setGoal(compare ? COMPARE_VIEW : DEFAULT_VIEW)
+  setGoal(compare ? currentShip().compareView : currentShip().defaultView)
 }
 
 export function toggleAuto() {
   const auto = !useGallery.getState().auto
   useGallery.setState({ auto, part: null, compare: false })
-  if (!auto) setGoal(DEFAULT_VIEW)
+  if (!auto) setGoal(currentShip().defaultView)
 }
 
 /** マウスで動かしたら、おまかせは止める */

@@ -1,5 +1,7 @@
-import { COMPARE, SHIP_LENGTH_M, SHIP_PARTS } from '../data/shipParts'
+import { COMPARE } from '../data/shipParts'
 import { useBridge } from '../state/bridge'
+import { useShip } from '../data/ships'
+import { ShipPicker } from './ShipPicker'
 import { closeGallery, selectPart, toggleAuto, toggleCompare, useGallery } from '../state/gallery'
 import { useStore } from '../state/store'
 import { isTouchDevice } from '../state/input'
@@ -16,14 +18,19 @@ function enterBridge() {
 export function GalleryPanel() {
   const mode = useStore((s) => s.mode)
   const { part, auto, compare, labels } = useGallery()
+  const ship = useShip()
   useLang()
   if (mode !== 'gallery') return null
-  const selected = SHIP_PARTS.find((p) => p.id === part)
+  const selected = ship.parts.find((p) => p.id === part)
+  const len = ship.lengthM
 
   return (
     <aside className="nav-panel gallery-panel">
       <h2>{t('鑑賞モード', 'Viewing mode')}</h2>
-      <div className="muted">{t(`SV-01 ソーラーボイジャー（全長 約${SHIP_LENGTH_M}m）`, `SV-01 Solar Voyager (about ${SHIP_LENGTH_M} m long)`)}</div>
+      <div className="muted">
+        {t(`${ship.registry} ${ship.name}（${ship.kind}・全長 約${len}m）`, `${ship.registry} ${ship.nameEn} (${ship.kindEn.toLowerCase()}, about ${len} m long)`)}
+      </div>
+      <ShipPicker compact />
       <div className="gallery-modes">
         <button className={`secondary${auto ? ' on' : ''}`} onClick={toggleAuto}>
           {t('おまかせ', 'Auto tour')}
@@ -42,7 +49,7 @@ export function GalleryPanel() {
             <div className="nav-target-name">{t('本物の大きさでくらべる', 'Compared at real size')}</div>
             <ul className="gallery-compare">
               <li>
-                {t(`SV-01：${SHIP_LENGTH_M}m`, `SV-01: ${SHIP_LENGTH_M} m`)}
+                {t(`${ship.registry}：${len}m`, `${ship.registry}: ${len} m`)}
                 <span className="muted">{t('（この船の設定）', ' (from this ship’s story)')}</span>
               </li>
               {COMPARE.map((c) => (
@@ -76,7 +83,7 @@ export function GalleryPanel() {
 
       <div className="nav-heading">{t('各部の名前', 'Parts of the ship')}</div>
       <div className="nav-list gallery-parts">
-        {SHIP_PARTS.map((p) => (
+        {ship.parts.map((p) => (
           <button key={p.id} className={`nav-item${part === p.id ? ' active' : ''}`} onClick={() => selectPart(part === p.id ? null : p.id)}>
             {named(p)}
           </button>

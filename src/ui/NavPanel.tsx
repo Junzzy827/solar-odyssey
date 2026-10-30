@@ -16,6 +16,7 @@ import { closeEclipses, openEclipses, useEclipse } from '../state/eclipse'
 import { openStamps, useStamps } from '../state/stamps'
 import { NATURAL } from '../data/stamps'
 import { ui } from '../i18n'
+import { ShipSection } from './ShipPicker'
 import { named, setLang, t, useLang } from '../i18n/lang'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
@@ -306,6 +307,7 @@ export function NavPanel() {
         ))}
       </div>
       <SimDate />
+      <ShipSection />
       <Settings racing={racing} />
     </aside>
   )

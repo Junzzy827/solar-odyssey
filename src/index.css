@@ -2585,3 +2585,69 @@ body.sf .nav-panel {
   flex-wrap: wrap;
   row-gap: 4px;
 }
+
+/* 乗る船をえらぶ */
+.ship-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ship-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ship-card:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ship-card.on {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.ship-card img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #000;
+}
+
+.ship-card-name b {
+  color: var(--accent);
+}
+
+.ship-card-kind {
+  color: #9aa3c7;
+  font-size: 11px;
+}
+
+.ship-card-blurb {
+  color: #c4c8dc;
+  font-size: 11px;
+}
+
+.ship-picker.compact {
+  grid-template-columns: repeat(4, 1fr);
+  margin: 6px 0;
+}
+
+.ship-picker.compact .ship-card {
+  font-size: 10px;
+  padding: 3px;
+}

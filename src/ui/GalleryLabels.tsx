@@ -1,5 +1,5 @@
-import { SHIP_PARTS } from '../data/shipParts'
-import { COMPARE_LABELS } from '../components/ship/CompareModels'
+import { useShip } from '../data/ships'
+import { compareLabels } from '../components/ship/CompareModels'
 import { galleryAnchors, selectPart, useGallery } from '../state/gallery'
 import { useStore } from '../state/store'
 import { named, useLang } from '../i18n/lang'
@@ -14,6 +14,7 @@ const anchor = (key: string, pos: [number, number, number], side: [number, numbe
 export function GalleryLabels() {
   const mode = useStore((s) => s.mode)
   const { part, auto, compare, labels } = useGallery()
+  const ship = useShip()
   useLang()
   if (mode !== 'gallery') return null
   return (
@@ -21,16 +22,16 @@ export function GalleryLabels() {
       {labels &&
         !auto &&
         !compare &&
-        SHIP_PARTS.map((p) => (
-          <div key={p.id} ref={anchor(`part:${p.id}`, p.pos, p.id === part ? null : p.side)} className="gallery-anchor">
+        ship.parts.map((p) => (
+          <div key={`${ship.id}:${p.id}`} ref={anchor(`part:${p.id}`, p.pos, p.id === part ? null : p.side)} className="gallery-anchor">
             <button className={part === p.id ? 'on' : ''} onClick={() => selectPart(part === p.id ? null : p.id)}>
               {named(p)}
             </button>
           </div>
         ))}
       {compare &&
-        COMPARE_LABELS.map((c) => (
-          <div key={c.id} ref={anchor(`compare:${c.id}`, c.pos, null)} className="gallery-anchor compare">
+        compareLabels(ship).map((c) => (
+          <div key={`${ship.id}:${c.id}`} ref={anchor(`compare:${c.id}`, c.pos, null)} className="gallery-anchor compare">
             <span>{c.text}</span>
           </div>
         ))}

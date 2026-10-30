@@ -4,6 +4,7 @@ import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { warpFx } from '../../state/flight'
+import type { Flood } from '../../data/ships'
 import { bussardTexture, coilSpillTexture, coilTexture, deflectorTexture, hullTextures, nameTexture, shuttleBayTexture, windowBandTexture } from './hullTextures'
 
 // 自機「SV-01 ソーラーボイジャー」。円盤部・首・副船体・2本のナセルという構成は借りるが、
@@ -393,7 +394,7 @@ export function ShipModel({
  * 光のたまりを作る。暗い宇宙でも形と大きさが分かる。
  */
 function Floodlights({ unitScale, saucerTop }: { unitScale: number | (() => number); saucerTop: number }) {
-  const lights: { from: [number, number, number]; to: [number, number, number]; angle: number; intensity: number }[] = [
+  const lights = useMemo<Flood[]>(() => [
     // 円盤上面（船名のあたり）を後ろから
     { from: [0, saucerTop + 0.08, 0.1], to: [0, saucerTop - 0.01, -0.33], angle: 0.45, intensity: 0.7 },
     // 円盤の下面を首の付け根から
@@ -401,12 +402,17 @@ function Floodlights({ unitScale, saucerTop }: { unitScale: number | (() => numb
     // 副船体の側面をパイロンから
     { from: [0.16, 0.05, 0.46], to: [0.02, -0.09, 0.18], angle: 0.5, intensity: 0.5 },
     { from: [-0.16, 0.05, 0.46], to: [-0.02, -0.09, 0.18], angle: 0.5, intensity: 0.5 },
-  ]
+  ], [saucerTop])
+  return <FloodLights unitScale={unitScale} lights={lights} />
+}
+
+/** 投光器（位置は船の座標）。ほかの船（VariantModel）でも使う */
+export function FloodLights({ unitScale, lights }: { unitScale: number | (() => number); lights: Flood[] }) {
   const targets = useMemo(() => lights.map((l) => {
     const o = new THREE.Object3D()
     o.position.set(...l.to)
     return o
-  }), [saucerTop])
+  }), [lights])
   const spots = useRef<THREE.SpotLight[]>([])
   const scaleNow = () => (typeof unitScale === 'function' ? unitScale() : unitScale)
   useFrame(() => {
@@ -442,13 +448,13 @@ function Floodlights({ unitScale, saucerTop }: { unitScale: number | (() => numb
 // ワープコイルの溝（tools/blender/build_hull.py の SLOT_* と同じ値。ナセル先端からの距離）
 // ストロボの光り方（秒）：周期、1回の光る長さ、2回目までの間。
 // 灯りは小さい方が船が大きく見えるので、光のにじみも控えめにする
-const STROBE_PERIOD = 3
-const STROBE_FLASH = 0.07
-const STROBE_GAP = 0.25
+export const STROBE_PERIOD = 3
+export const STROBE_FLASH = 0.07
+export const STROBE_GAP = 0.25
 
 /** ストロボの光のにじみ（中心が明るく外へ消える丸） */
 let halo: THREE.CanvasTexture | null = null
-function haloTexture() {
+export function haloTexture() {
   if (halo) return halo
   const size = 64
   const canvas = document.createElement('canvas')

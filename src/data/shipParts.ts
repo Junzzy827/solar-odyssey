@@ -141,7 +141,7 @@ export const SHIP_PARTS: ShipPart[] = [
 export type CompareItem = { id: string; name: string; nameEn: string; meters: number; note: string; noteEn: string }
 
 export const COMPARE: CompareItem[] = [
-  { id: 'skytree', name: '東京スカイツリー', nameEn: 'Tokyo Skytree', meters: 634, note: 'この船とほぼ同じ長さ（寝かせて並べています）', noteEn: 'about the same length as this ship (laid on its side)' },
+  { id: 'skytree', name: '東京スカイツリー', nameEn: 'Tokyo Skytree', meters: 634, note: '高さ634m。寝かせて並べています', noteEn: '634 m tall, laid on its side' },
   { id: 'iss', name: '国際宇宙ステーション', nameEn: 'International Space Station', meters: 109, note: '人が住んでいる、いちばん大きな宇宙の建物', noteEn: 'the biggest structure in space where people live' },
   { id: 'jet', name: 'ジャンボジェット', nameEn: 'Jumbo jet', meters: 71, note: 'ボーイング747', noteEn: 'Boeing 747' },
   { id: 'hubble', name: 'ハッブル宇宙望遠鏡', nameEn: 'Hubble Space Telescope', meters: 13, note: '大型バスくらい', noteEn: 'about as long as a big bus' },

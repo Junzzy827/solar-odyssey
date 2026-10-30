@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Near } from './proximity'
 import type { ScopeId } from '../data/telescopes'
 import { DEFAULT_RATE } from '../data/scale'
+import type { ShipId } from '../data/ships'
 
 /** 全体マップ・操縦席・鑑賞モード（止まった自機のまわりを回って眺める） */
 export type Mode = 'map' | 'flight' | 'gallery'
@@ -67,13 +68,18 @@ export type Settings = {
   lang: 'ja' | 'en' | null
   /** 世界：本物の太陽系だけ（real）か、架空の船や構造物も出す SF モード（sf） */
   world: 'real' | 'sf'
+  /** 乗る船（data/ships.ts） */
+  ship: ShipId
 }
 
 const SETTINGS_KEY = 'solar-voyager:settings'
-const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real' }
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real', ship: 'sv01' }
 
 // リンクで世界を決めて開ける（#sf や #real）
 const worldFromUrl = /[?&#](sf|real)\b/.exec(location.search + location.hash)?.[1] as Settings['world'] | undefined
+
+// リンクで船を決めて開ける（#ship=heron など）
+const shipFromUrl = /[?&#]ship=(sv01|heron|sorakaze|hakobune)\b/.exec(location.search + location.hash)?.[1] as ShipId | undefined
 
 function loadSettings(): Settings {
   let saved: Partial<Settings> = {}
@@ -82,7 +88,7 @@ function loadSettings(): Settings {
   } catch {
     // 読めなければ初めの設定で
   }
-  return { ...DEFAULT_SETTINGS, ...saved, ...(worldFromUrl ? { world: worldFromUrl } : {}) }
+  return { ...DEFAULT_SETTINGS, ...saved, ...(worldFromUrl ? { world: worldFromUrl } : {}), ...(shipFromUrl ? { ship: shipFromUrl } : {}) }
 }
 
 const VISITED_KEY = 'solar-voyager:visited'

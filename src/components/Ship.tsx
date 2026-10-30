@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { BRIDGE_BASE, METERS_PER_UNIT, ShipModel } from './ship/ShipModel'
+import { BRIDGE_BASE, METERS_PER_UNIT } from './ship/ShipModel'
 import { GalleryScene } from './ship/GalleryScene'
+import { OwnShipModel } from './ship/VariantModel'
+import { currentShip, useShip } from '../data/ships'
 import { bodies, colliders, passThrough } from '../state/registry'
 import { useStore } from '../state/store'
 import { CHARGE_SECONDS, EXIT_SECONDS, SHIP_SCALE, flightControl, ship, standoff, warpFx } from '../state/flight'
@@ -73,6 +75,7 @@ export function Ship() {
   const bank = useRef<THREE.Group>(null!)
   const { gl, camera } = useThree()
   const mode = useStore((s) => s.mode)
+  const spec = useShip()
 
   // 周回待機：天体と一緒に動く（ワープ到着や自動航行の後）
   const hold = useRef<{ id: string; offset: THREE.Vector3 } | null>(null)
@@ -318,7 +321,9 @@ export function Ship() {
     <>
       <group ref={group} name="ownship" scale={SHIP_SCALE}>
         <group ref={bank}>
-          <ShipModel unitScale={shipScale} />
+          <Suspense fallback={null}>
+            <OwnShipModel spec={spec} unitScale={shipScale} />
+          </Suspense>
         </group>
         {mode === 'gallery' && <GalleryScene />}
       </group>
@@ -356,7 +361,9 @@ function steer(dt: number, enabled: boolean) {
   mouse.dx = mouse.dy = 0
   touchInput.lookX = touchInput.lookY = 0
   const k = 1 - Math.exp(-TURN_EASE * dt)
-  const step = (a: number) => THREE.MathUtils.clamp(a * k, -TURN_MAX * dt, TURN_MAX * dt)
+  // 船ごとの曲がりやすさ（小さな船は速く、大きな船はゆっくり）
+  const turnMax = TURN_MAX * currentShip().turn
+  const step = (a: number) => THREE.MathUtils.clamp(a * k, -turnMax * dt, turnMax * dt)
   const pitch = step(turn.pitch)
   const yaw = step(turn.yaw)
   turn.pitch -= pitch
@@ -507,10 +514,13 @@ function bridgeCamera(camera: THREE.PerspectiveCamera, dt: number, bankQuat: THR
   bridgeEye.quaternion.copy(qHead)
 
   // 部屋の目の位置（m）→ 模型の座標 → 宇宙の座標（傾きも含めて船と一緒に）
-  eyeModel.copy(bridgeEye.pos).setY(bridgeEye.pos.y + FLOOR_ABOVE_BASE).divideScalar(METERS_PER_UNIT)
-  eyeModel.x += BRIDGE_BASE[0]
-  eyeModel.y += BRIDGE_BASE[1]
-  eyeModel.z += BRIDGE_BASE[2]
+  // SV-01 は船の模型の寸法から、ほかの船は data/ships.ts の値で
+  const spec = currentShip()
+  const base = spec.model ? spec.bridgeBase : BRIDGE_BASE
+  eyeModel.copy(bridgeEye.pos).setY(bridgeEye.pos.y + FLOOR_ABOVE_BASE).divideScalar(spec.model ? spec.metersPerUnit : METERS_PER_UNIT)
+  eyeModel.x += base[0]
+  eyeModel.y += base[1]
+  eyeModel.z += base[2]
   eyeModel.applyQuaternion(bankQuat).multiplyScalar(shipScale()).applyQuaternion(ship.quaternion)
   camera.position.copy(ship.position).add(eyeModel)
   camera.quaternion.copy(ship.quaternion).multiply(bankQuat).multiply(qHead)

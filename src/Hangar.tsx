@@ -11,6 +11,9 @@ import { HubbleTelescope } from './components/telescope/HubbleNasa'
 import { WebbModel } from './components/telescope/WebbModel'
 import { ColonyModel } from './components/sf/ColonyModel'
 import { WorkMech } from './components/sf/WorkMech'
+import { VariantModel } from './components/ship/VariantModel'
+import { shipSpec, type ShipId } from './data/ships'
+import { Suspense } from 'react'
 
 /** 小惑星の見本：大きな岩の形を3つ並べる */
 function AsteroidSamples() {
@@ -94,6 +97,10 @@ export default function Hangar() {
           <HubbleModel />
         ) : MODEL === 'webb' ? (
           <WebbModel />
+        ) : ['heron', 'sorakaze', 'hakobune'].includes(MODEL) ? (
+          <Suspense fallback={null}>
+            <VariantModel spec={shipSpec(MODEL as ShipId)} />
+          </Suspense>
         ) : MODEL === 'sv02' ? (
           <ShipModel registry="SV-02" shipName="SOLAR WIND" tint="#e3cfa4" />
         ) : MODEL === 'colony' ? (

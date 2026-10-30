@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { COMPARE, METERS_PER_UNIT, SHIP_LENGTH_M } from '../../data/shipParts'
+import { COMPARE, METERS_PER_UNIT } from '../../data/shipParts'
+import { compareScale, useShip, type ShipSpec } from '../../data/ships'
 import { named, t } from '../../i18n/lang'
 
 // 大きさくらべ：本物の大きさで、自機（ShipModel の座標）の横に並べる簡単な模型。
@@ -104,31 +105,28 @@ const PLACES: Record<string, [number, number, number]> = {
 /** 名札の高さ（物の中心から上へ） */
 const LABEL_LIFT: Record<string, number> = { skytree: 0.07, iss: 0.04, jet: 0.04, hubble: 0.025 }
 
-/** 大きさくらべの名札（船の座標）。スカイツリーは寝かせているので、真ん中の上に出す */
-export const COMPARE_LABELS: { id: string; text: string; pos: [number, number, number] }[] = [
-  ...COMPARE.map((item) => {
-    const [x, y, z] = PLACES[item.id]
-    const pos: [number, number, number] = [x, y + LABEL_LIFT[item.id], item.id === 'skytree' ? z - m(634) / 2 : z]
-    return {
-      id: item.id,
-      get text() {
-        return `${named(item)} ${item.meters}m`
-      },
-      pos,
-    }
-  }),
-  {
-    id: 'ship',
-    get text() {
-      return t(`SV-01 ${SHIP_LENGTH_M}m（設定）`, `SV-01 ${SHIP_LENGTH_M} m (story)`)
+/** 大きさくらべの名札（船の座標）。スカイツリーは寝かせているので、真ん中の上に出す。
+ * 模型は SV-01 の座標で作ってあるので、ほかの船では位置を倍率に合わせる */
+export function compareLabels(ship: ShipSpec): { id: string; text: string; pos: [number, number, number] }[] {
+  const k = compareScale(ship)
+  return [
+    ...COMPARE.map((item) => {
+      const [x, y, z] = PLACES[item.id]
+      const pos: [number, number, number] = [x * k, (y + LABEL_LIFT[item.id]) * k, (item.id === 'skytree' ? z - m(634) / 2 : z) * k]
+      return { id: item.id, text: `${named(item)} ${item.meters}m`, pos }
+    }),
+    {
+      id: 'ship',
+      text: t(`${ship.registry} ${ship.lengthM}m（設定）`, `${ship.registry} ${ship.lengthM} m (story)`),
+      pos: ship.model ? [0, 0.25, 0] : [0, 0.16, -0.17],
     },
-    pos: [0, 0.16, -0.17],
-  },
-]
+  ]
+}
 
 export function CompareModels() {
+  const ship = useShip()
   return (
-    <group>
+    <group scale={compareScale(ship)}>
       {COMPARE.map((item) => {
         const Model = MODELS[item.id]
         return (
