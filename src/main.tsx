@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import Hangar from './Hangar'
 import './index.css'
+import './touch.css'
 import { setupMusic } from './audio/music'
 
 // 録画・動作確認用

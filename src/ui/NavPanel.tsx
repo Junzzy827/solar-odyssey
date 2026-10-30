@@ -19,6 +19,8 @@ import { ui } from '../i18n'
 import { ShipSection } from './ShipPicker'
 import { useLevel, useQuality, type QualitySetting } from '../state/quality'
 import { named, setLang, t, useLang } from '../i18n/lang'
+import { isTouchDevice } from '../state/input'
+import { useTouchUI } from '../state/touchUI'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -204,8 +206,14 @@ function SimDate() {
 export function NavPanel() {
   const [open, setOpen] = useState<string | null>('saturn')
   // スマホでは、ふだんは目標とワープのボタンだけの小さな形にたたんでおく
-  const small = useSmallScreen()
-  const [expanded, setExpanded] = useState(false)
+  // スマホ・タブレットでは、画面下のボタンから引き出す（ふだんは目標とワープだけの小さな形）
+  const touch = isTouchDevice()
+  const small = useSmallScreen() || touch
+  const [localExpanded, setLocalExpanded] = useState(false)
+  const sheet = useTouchUI((u) => u.sheet)
+  const setSheet = useTouchUI((u) => u.setSheet)
+  const expanded = touch ? sheet === 'nav' : localExpanded
+  const setExpanded = (on: boolean) => (touch ? setSheet(on ? 'nav' : null) : setLocalExpanded(on))
   const collapsed = small && !expanded
   const pick = () => small && setExpanded(false)
   const s = useStore()
@@ -300,7 +308,7 @@ export function NavPanel() {
             </div>
             {facts && <div className="muted">{t(`太陽から光で約${Math.round(facts.lightMinutes)}分`, `About ${Math.round(facts.lightMinutes)} light-minutes from the Sun`)}</div>}
             {!s.logOpen && (
-              <button className="nav-log" onClick={() => s.setLogOpen(true)}>
+              <button className="nav-log" onClick={() => (s.setLogOpen(true), touch && setSheet('log'))}>
                 {t('航海日誌をひらく', 'Open ship’s log')} <kbd>I</kbd>
               </button>
             )}

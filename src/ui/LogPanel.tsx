@@ -11,6 +11,8 @@ import { useQuiz } from '../state/quiz'
 import { useProbes } from '../state/probes'
 import { t, useLang } from '../i18n/lang'
 import { TerraMarsNote } from './TerraMarsNote'
+import { isTouchDevice } from '../state/input'
+import { useTouchUI } from '../state/touchUI'
 
 const TOTAL = 1 + PLANETS.reduce((n, p) => n + 1 + p.moons.length, 0)
 const NEAR = 10
@@ -29,6 +31,9 @@ export function LogPanel() {
   const probesOpen = useProbes((p) => p.open)
   const [picked, setPicked] = useState<number | null>(null)
   const autoOpened = useRef<string | null>(null)
+  // スマホ・タブレットでは、近づいても画面下の「日誌」ボタンに印を付けるだけで、押したときに引き出す
+  const touch = isTouchDevice()
+  const sheet = useTouchUI((u) => u.sheet)
   useLang()
 
   // 目標に近づいたら一度だけ自動で開く
@@ -53,7 +58,7 @@ export function LogPanel() {
 
   const facts = targetId ? factsFor(targetId) : undefined
   const info = targetId ? bodyInfo(targetId) : null
-  if (!logOpen || quizOpen || probesOpen || !facts || !info || !targetId) return null
+  if (!logOpen || (touch && sheet !== 'log') || quizOpen || probesOpen || !facts || !info || !targetId) return null
 
   const done = visited.includes(targetId)
   const answered = picked !== null

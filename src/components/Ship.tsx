@@ -42,6 +42,9 @@ const OVERVIEW = new THREE.Vector3(0, 120, 220)
 /** OVERVIEW から全体が見える、いちばん外の軌道の半径 */
 const OVERVIEW_FITS = 200
 
+/** 出発点：地球から見て太陽の方向から、どれだけ横へずらすか（rad）。太陽は船の斜め後ろになる */
+const START_ANGLE = 1.0
+
 const keys = new Set<string>()
 const mouse = { dx: 0, dy: 0 }
 // まだ回り切っていない量（ピッチ・ヨー）と、今のロールの速さ
@@ -86,6 +89,7 @@ export function Ship() {
   // 太陽の方向から自機だけを照らして影を落とす光（惑星には届かない狭い円錐）
   const sunSpot = useRef<THREE.SpotLight>(null!)
   const prevTarget = useRef<{ id: string; pos: THREE.Vector3 } | null>(null)
+  const placed = useRef(false)
 
   useEffect(() => {
     sunSpot.current.target = group.current
@@ -173,6 +177,21 @@ export function Ship() {
     prevTarget.current = target ? { id: target.id, pos: tp.clone() } : null
 
     up.set(0, 1, 0).applyQuaternion(ship.quaternion)
+
+    // 出発点：地球のそば。太陽は斜め後ろにして、昼の側の地球を見る（太陽の真ん前だと、何が何だかわからないので）
+    if (!placed.current) {
+      const earth = bodies.get('earth')
+      if (earth) {
+        placed.current = true
+        earth.object.getWorldPosition(hp)
+        v.copy(hp).negate().setY(0).normalize().applyAxisAngle(up.set(0, 1, 0), START_ANGLE)
+        ship.position.copy(hp).addScaledVector(v, earth.radius * 4 + 1.2)
+        ship.position.y += earth.radius * 0.8
+        ship.quaternion.copy(facing(ship.position, hp, up))
+        ship.velocity.set(0, 0, 0)
+        hold.current = { id: 'earth', offset: ship.position.clone().sub(hp) }
+      }
+    }
 
     if (flightControl.releaseHold) {
       flightControl.releaseHold = false

@@ -3,6 +3,9 @@ import { isTouchDevice, touchInput } from '../state/input'
 import { nextCameraMode, useStore } from '../state/store'
 import { useQuiz } from '../state/quiz'
 import { t, useLang } from '../i18n/lang'
+import { useTouchUI } from '../state/touchUI'
+import { bodyInfo, engage } from '../state/flight'
+import { raceActive } from '../state/race'
 
 /** スティックを倒しきったときの、つまみの動く半径（ピクセル） */
 const STICK_RADIUS = 48
@@ -104,6 +107,39 @@ function useLookDrag(enabled: boolean) {
   }, [enabled])
 }
 
+/** 目標を選んでいるときだけ出す、目標の名前とワープ・自動航行（全体マップでも出す） */
+export function TouchWarp() {
+  useLang()
+  const mode = useStore((s) => s.mode)
+  const scope = useStore((s) => s.scope)
+  const targetId = useStore((s) => s.targetId)
+  const warpPhase = useStore((s) => s.warpPhase)
+  const autopilot = useStore((s) => s.autopilot)
+  const setAutopilot = useStore((s) => s.setAutopilot)
+  const distance = useStore((s) => s.telemetry.distance)
+  const quizOpen = useQuiz((q) => q.open)
+  const sheet = useTouchUI((u) => u.sheet)
+  if (!isTouchDevice() || mode === 'gallery' || scope || quizOpen || sheet || !targetId || raceActive()) return null
+  const info = bodyInfo(targetId)
+  const busy = warpPhase !== 'idle'
+  return (
+    <div className={`touch-warp ${mode}`}>
+      <div className="touch-warp-name">
+        {info?.name}
+        {distance !== null && <span>{distance < 10 ? distance.toFixed(1) : Math.round(distance)}</span>}
+      </div>
+      <div className="touch-row">
+        <button className="touch-button wide warp" onClick={engage} disabled={busy}>
+          {t('ワープ', 'Warp')}
+        </button>
+        <button className={`touch-button wide auto${autopilot ? ' on' : ''}`} onClick={() => setAutopilot(!autopilot)} disabled={busy}>
+          {t('自動', 'Auto')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /** スマホ・タブレットの操縦：スティック、なぞって向き、上昇・下降・回転・ビーム・カメラのボタン */
 export function TouchControls() {
   useLang()
@@ -112,8 +148,9 @@ export function TouchControls() {
   const cameraMode = useStore((s) => s.cameraMode)
   const setCameraMode = useStore((s) => s.setCameraMode)
   const quizOpen = useQuiz((q) => q.open)
+  const sheet = useTouchUI((u) => u.sheet)
   const touch = isTouchDevice()
-  const show = touch && mode === 'flight' && !scope && !quizOpen
+  const show = touch && mode === 'flight' && !scope && !quizOpen && !sheet
   useLookDrag(show)
 
   // 操縦席を離れたら、押しっぱなしの入力を残さない

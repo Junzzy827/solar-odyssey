@@ -4,9 +4,81 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
     <title>Solar Odyssey</title>
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- 読み込み中の画面：プログラムが届く前から出しておき、太陽系の準備ができたら消す（src/ui/Boot.tsx） -->
+    <style>
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 16777500;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: #000 radial-gradient(ellipse at 50% 120%, #2a1d44 0%, #000 60%);
+        color: #cfc8e8;
+        font-family: system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+        transition: opacity 0.6s;
+      }
+      #boot.done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #boot .boot-title {
+        font-size: 22px;
+        letter-spacing: 0.2em;
+        color: #f2a65a;
+      }
+      #boot .boot-bar {
+        position: relative;
+        width: min(260px, 70vw);
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+      }
+      #boot .boot-bar i {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 30%;
+        border-radius: 2px;
+        background: #f2a65a;
+        animation: boot-slide 1.4s ease-in-out infinite;
+      }
+      #boot.measured .boot-bar i {
+        animation: none;
+        transition: width 0.3s;
+      }
+      #boot .boot-text {
+        font-size: 13px;
+        color: #9aa0b4;
+      }
+      /* 言語を選んでいるあいだは、下のほうに細く出す（選ぶ画面の上に重ねない） */
+      #boot.compact {
+        inset: auto 0 0 0;
+        padding: 14px 0 calc(env(safe-area-inset-bottom, 0px) + 18px);
+        gap: 8px;
+        background: none;
+      }
+      #boot.compact .boot-title {
+        display: none;
+      }
+      @keyframes boot-slide {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(340%); }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="boot" role="status" aria-live="polite">
+      <div class="boot-title">SOLAR ODYSSEY</div>
+      <div class="boot-bar"><i></i></div>
+      <div class="boot-text">読み込み中… / Loading…</div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

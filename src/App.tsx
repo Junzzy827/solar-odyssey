@@ -33,7 +33,9 @@ import { QualityGovernor } from './components/QualityGovernor'
 import { GalleryCamera } from './components/ship/GalleryCamera'
 import { GalleryPanel } from './ui/GalleryPanel'
 import { GalleryLabels } from './ui/GalleryLabels'
-import { TouchControls } from './ui/TouchControls'
+import { TouchControls, TouchWarp } from './ui/TouchControls'
+import { TouchBar } from './ui/TouchBar'
+import { BootFrames, BootScreen } from './ui/Boot'
 import { QuizPanel } from './ui/QuizPanel'
 import { ProbeScene } from './components/ProbeScene'
 import { ProbePanel } from './ui/ProbePanel'
@@ -103,13 +105,17 @@ export default function App() {
           </EffectComposer>
         )}
         {bridge && <BridgeInterior />}
+        <BootFrames />
       </Canvas>
+      <BootScreen />
       <GalleryLabels />
       <BridgeLabels />
       <Hud />
       <NavPanel />
       <GalleryPanel />
       <TouchControls />
+      <TouchWarp />
+      <TouchBar />
       <BridgePanel />
       <RacePanel />
       <MissionPanel />

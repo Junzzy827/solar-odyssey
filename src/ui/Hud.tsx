@@ -174,6 +174,14 @@ export function Hud() {
   const info = targetId ? bodyInfo(targetId) : null
   const facts = info && info.au > 0 ? travelFacts(info.au) : null
   const touch = isTouchDevice()
+  // スマホでは、操作の説明は画面を切り替えたときに少しだけ出す
+  const [hint, setHint] = useState(true)
+  useEffect(() => {
+    if (!touch) return
+    setHint(true)
+    const timer = setTimeout(() => setHint(false), 8000)
+    return () => clearTimeout(timer)
+  }, [touch, mode])
   useLang()
 
   return (
@@ -181,7 +189,7 @@ export function Hud() {
       <div className="hud">
         <h1>SOLAR ODYSSEY</h1>
         {touch ? (
-          <div className="hud-hint">
+          <div className={`hud-hint${hint ? '' : ' hidden'}`}>
             {mode === 'map'
               ? t('指でなぞって回転・2本指で拡大縮小・名前をタップで目標', 'Drag to rotate · pinch to zoom · tap a name to target it')
               : mode === 'gallery'
@@ -209,7 +217,8 @@ export function Hud() {
         {mode === 'flight' && telemetry.near && <NearReadout near={telemetry.near} />}
       </div>
 
-      {mode === 'gallery' ? (
+      {/* スマホ・タブレットでは、画面下のボタン列（TouchDock）にまとめる */}
+      {touch ? null : mode === 'gallery' ? (
         <button className="mode-button" onClick={closeGallery}>
           {t('操縦席へ', 'Cockpit')} <kbd>V</kbd>
         </button>
@@ -233,7 +242,8 @@ export function Hud() {
       )}
 
       {mode === 'flight' && locked && <div className="crosshair" />}
-      <Toast />
+      {/* スマホ・タブレットでは、お知らせは上のアイコン（TouchBar）にためる */}
+      {!touch && <Toast />}
 
       <div id="target-marker">
         <div className="reticle" />

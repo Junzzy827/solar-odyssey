@@ -1,0 +1,579 @@
+/*
+ * スマホ・タブレット用の画面（body.touch のとき。index.css のあとに読み込み、上書きする）
+ *  - 画面の上にアイコン列（マップ・航法・日誌・お知らせ・船を見る・現実｜SF）。押すとその下にメニューが開く
+ *  - ふだんの画面には、アイコン列と操縦のボタン（と、目標を選んだときのワープ）だけ
+ *  - お知らせはアイコンに数の印を付けて、タップで読む
+ */
+body.touch {
+  --bar-h: 52px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  /* アイコン列の下のふち */
+  --below-bar: calc(var(--safe-t) + var(--bar-h) + 6px);
+  /* 操縦のボタンの下のふち */
+  --pad-b: calc(var(--safe-b) + 14px);
+  /* なぞってもページが動いたり、引っぱって再読み込みしたりしない */
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body.touch #root {
+  touch-action: none;
+}
+
+/* メニューやパネルの中だけは、縦にスクロールできる */
+body.touch .nav-panel,
+body.touch .log-panel,
+body.touch .notice-panel,
+body.touch .quiz-run,
+body.touch .probe-panel,
+body.touch .stamp-book,
+body.touch .scope-view,
+body.touch .lang-picker,
+body.touch .gallery-panel {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------- 上のアイコン列 ---------- */
+
+body.touch .touch-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: var(--bar-h);
+  padding: var(--safe-t) calc(var(--safe-r) + 8px) 0 calc(var(--safe-l) + 4px);
+  background: linear-gradient(rgba(10, 8, 18, 0.85), rgba(10, 8, 18, 0.55));
+  border-bottom: 1px solid rgba(155, 140, 217, 0.18);
+  box-sizing: content-box;
+  z-index: 23;
+}
+
+body.touch .bar-icon {
+  flex: 0 1 60px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: #c9c4de;
+  touch-action: manipulation;
+}
+
+body.touch .bar-icon.on {
+  background: rgba(155, 140, 217, 0.22);
+  color: var(--accent);
+}
+
+body.touch .bar-glyph {
+  position: relative;
+  font-size: 19px;
+  line-height: 1;
+}
+
+body.touch .bar-label {
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* まだ見ていないお知らせ・読める航海日誌の印 */
+body.touch .bar-badge {
+  position: absolute;
+  top: -5px;
+  left: calc(100% - 4px);
+  min-width: 8px;
+  height: 8px;
+  padding: 0;
+  border-radius: 8px;
+  background: #e8584a;
+  box-shadow: 0 0 0 2px rgba(10, 8, 18, 0.9);
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 15px;
+  text-align: center;
+  animation: badge-pop 0.3s ease-out;
+}
+
+body.touch .bar-badge:not(:empty) {
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+}
+
+@keyframes badge-pop {
+  from {
+    transform: scale(0.3);
+  }
+}
+
+/* 現実｜SF は右はしに */
+body.touch .bar-world {
+  flex: none;
+  margin: 9px 0 9px auto;
+  display: flex;
+  padding: 0;
+  border: 1.5px solid #6c6688;
+  border-radius: 10px;
+  background: rgba(16, 18, 34, 0.82);
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: bold;
+  touch-action: manipulation;
+}
+
+body.touch .bar-world span {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  white-space: nowrap;
+  color: #8f8aa8;
+}
+
+body.touch .bar-world span.on {
+  background: #3b5a86;
+  color: #fff;
+}
+
+body.touch .bar-world.sf {
+  border-color: #c79bff;
+}
+
+body.touch .bar-world.sf span.on {
+  background: #7a4bc0;
+}
+
+/* お知らせが届いたときに、少しだけ出す1行（タップで全部読める） */
+body.touch .notice-ticker {
+  position: fixed;
+  top: var(--below-bar);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(440px, calc(100% - 24px));
+  padding: 6px 12px;
+  border: 1px solid rgba(232, 88, 74, 0.5);
+  border-radius: 16px;
+  background: rgba(20, 16, 30, 0.88);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 22;
+  animation: sheet-down 0.2s ease-out;
+}
+
+/* ---------- ふだんは出さないもの ---------- */
+
+/* 左上の説明・速度は出さない（画面を切りかえたときの操作の説明と、天体のそばの高さの1行だけ） */
+body.touch .hud {
+  top: var(--below-bar);
+  left: calc(var(--safe-l) + 8px);
+  max-width: calc(100% - 16px - var(--safe-l) - var(--safe-r));
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 11px;
+  line-height: 1.5;
+  text-shadow: 0 0 4px #000, 0 0 2px #000;
+}
+
+body.touch .hud h1,
+body.touch .hud > .muted,
+body.touch .hud .near > .muted,
+body.touch .hud .near-zoom,
+body.touch .hud .compare-row .muted,
+body.touch .hud-hint.hidden {
+  display: none;
+}
+
+body.touch .hud-hint {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 10px;
+  background: rgba(20, 16, 30, 0.75);
+}
+
+body.touch .hud .near {
+  margin-top: 2px;
+}
+
+body.touch .hud .compare-row {
+  margin-top: 4px;
+  pointer-events: auto;
+}
+
+body.touch .hud .compare-button {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* 航法コンピュータは、アイコンから開いたときだけ */
+body.touch .nav-panel.collapsed:not(.gallery-panel),
+body.touch .sf-badge,
+body.touch .mode-button,
+body.touch .gallery-button,
+body.touch .toast {
+  display: none;
+}
+
+/* ---------- アイコンから開くメニュー（航法コンピュータ・航海日誌・お知らせ）：アイコン列のすぐ下に ---------- */
+
+body.touch .sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 19;
+}
+
+body.touch .nav-panel:not(.collapsed):not(.gallery-panel),
+body.touch .log-panel,
+body.touch .notice-panel {
+  position: fixed;
+  top: var(--below-bar);
+  left: calc(var(--safe-l) + 8px);
+  right: auto;
+  bottom: auto;
+  width: min(460px, calc(100% - 16px - var(--safe-l) - var(--safe-r)));
+  max-height: calc(100% - var(--below-bar) - var(--safe-b) - 12px);
+  margin: 0;
+  padding: 10px 14px 14px;
+  border: 1px solid rgba(155, 140, 217, 0.45);
+  border-radius: 14px;
+  background: rgba(18, 14, 28, 0.97);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  box-sizing: border-box;
+  overflow-y: auto;
+  transform: none;
+  z-index: 20;
+  animation: sheet-down 0.18s ease-out;
+}
+
+@keyframes sheet-down {
+  from {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+}
+
+body.touch .nav-panel:not(.collapsed):not(.gallery-panel) {
+  /* 見出しの「たたむ」ボタンは、アイコンをもう一度押せば閉じるので小さく */
+  gap: 8px;
+}
+
+body.touch .nav-panel:not(.collapsed):not(.gallery-panel) .nav-list {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 2px 8px;
+  overflow: visible;
+}
+
+body.touch .nav-panel:not(.collapsed) .nav-item {
+  padding: 8px 10px;
+}
+
+body.touch .nav-panel:not(.collapsed) .nav-heading,
+body.touch .nav-panel:not(.collapsed) .nav-list > div:has(.nav-item.sub) {
+  grid-column: 1 / -1;
+}
+
+body.touch .notice-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+body.touch .notice-panel h2 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--accent);
+}
+
+body.touch .notice-panel .close {
+  padding: 0 6px;
+  border: none;
+  background: none;
+  font-size: 22px;
+}
+
+body.touch .notice-panel ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+body.touch .notice-panel li {
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.touch .notice-panel li:first-child {
+  border-top: none;
+}
+
+/* ---------- 操縦（左下のスティック、右下のボタン） ---------- */
+
+body.touch .touch-stick {
+  left: calc(var(--safe-l) + 16px);
+  bottom: var(--pad-b);
+  width: 120px;
+  height: 120px;
+}
+
+body.touch .touch-knob {
+  width: 52px;
+  height: 52px;
+}
+
+body.touch .touch-buttons {
+  right: calc(var(--safe-r) + 12px);
+  bottom: var(--pad-b);
+  gap: 8px;
+}
+
+body.touch .touch-row {
+  gap: 8px;
+}
+
+body.touch .touch-button {
+  width: 50px;
+  height: 50px;
+  font-size: 18px;
+}
+
+body.touch .touch-button.wide {
+  width: 50px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 11px;
+}
+
+/* 目標を選んだときのワープと自動航行：操縦のボタンの上に */
+body.touch .touch-warp {
+  position: fixed;
+  right: calc(var(--safe-r) + 12px);
+  bottom: calc(var(--pad-b) + 3 * 50px + 3 * 8px + 4px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+/* 全体マップでは、下のまんなかに */
+body.touch .touch-warp.map {
+  right: 50%;
+  bottom: var(--pad-b);
+  transform: translateX(50%);
+  align-items: center;
+}
+
+body.touch .touch-warp-name {
+  max-width: 160px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(20, 16, 30, 0.7);
+  color: #cfd8ff;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.touch .touch-warp-name span {
+  margin-left: 6px;
+  color: #9aa0b4;
+  font-size: 11px;
+}
+
+body.touch .touch-warp .touch-button.wide {
+  width: auto;
+  min-width: 50px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+body.touch .touch-warp .touch-button.warp {
+  border-color: #f2a65a;
+  background: rgba(214, 112, 76, 0.85);
+  color: #fff;
+  font-weight: bold;
+}
+
+body.touch .touch-warp .touch-button.auto.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 出典は全体マップと鑑賞モードの下に小さく */
+body.touch .credit {
+  left: 8px;
+  right: 8px;
+  width: auto;
+  transform: none;
+  bottom: calc(var(--safe-b) + 2px);
+  font-size: 9px;
+  text-align: center;
+}
+
+body.touch[data-mode='flight'] .credit {
+  display: none;
+}
+
+body.touch[data-mode='map'] .touch-warp.map {
+  bottom: calc(var(--pad-b) + 12px);
+}
+
+/* ---------- ほかの画面も、アイコン列の下・操縦のボタンの上におさめる ---------- */
+
+/* 「望遠鏡でのぞく」は、操縦のボタンにかからないよう、アイコン列の下のまんなかに */
+body.touch .scope-prompt {
+  top: calc(var(--below-bar) + 28px);
+  bottom: auto;
+  max-width: calc(100% - 32px);
+  padding: 7px 16px;
+  font-size: 13px;
+  white-space: nowrap;
+  z-index: 6;
+}
+
+body.touch .touch-warp .touch-row {
+  flex-direction: row;
+}
+
+body.touch .nav-panel.gallery-panel {
+  top: auto;
+  left: calc(var(--safe-l) + 8px);
+  right: calc(var(--safe-r) + 8px);
+  bottom: calc(var(--pad-b) + 8px);
+  width: auto;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+body.touch .quiz-run,
+body.touch .probe-panel,
+body.touch .stamp-book {
+  max-height: calc(100% - var(--below-bar) - var(--pad-b));
+  overflow-y: auto;
+}
+
+/* ---------- 横向きのスマホ（高さが低い） ---------- */
+
+@media (max-height: 500px) {
+  body.touch {
+    --bar-h: 44px;
+  }
+
+  body.touch .bar-icon {
+    flex-direction: row;
+    flex-basis: auto;
+    gap: 5px;
+    padding: 0 10px;
+  }
+
+  body.touch .bar-glyph {
+    font-size: 16px;
+  }
+
+  body.touch .bar-label {
+    font-size: 11px;
+  }
+
+  body.touch .bar-world {
+    margin: 6px 0 6px auto;
+  }
+
+  body.touch .touch-stick {
+    width: 108px;
+    height: 108px;
+  }
+
+  body.touch .touch-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  body.touch .touch-button.wide {
+    width: 44px;
+  }
+
+  body.touch .touch-warp {
+    bottom: calc(var(--pad-b) + 3 * 44px + 3 * 8px + 4px);
+  }
+
+  /* 横向きでは、右手のボタンは縦2つずつの3列（index.css）なので、その上に */
+  body.touch .touch-warp.flight {
+    bottom: calc(var(--pad-b) + 2 * 44px + 8px + 10px);
+  }
+}
+
+/* ---------- タブレット（広い画面） ---------- */
+
+@media (min-width: 721px) and (min-height: 501px) {
+  body.touch {
+    --bar-h: 58px;
+  }
+
+  body.touch .bar-icon {
+    flex-basis: 76px;
+  }
+
+  body.touch .bar-glyph {
+    font-size: 22px;
+  }
+
+  body.touch .bar-label {
+    font-size: 11px;
+  }
+
+  body.touch .touch-stick {
+    left: calc(var(--safe-l) + 28px);
+    bottom: calc(var(--pad-b) + 12px);
+    width: 150px;
+    height: 150px;
+  }
+
+  body.touch .touch-buttons {
+    right: calc(var(--safe-r) + 28px);
+    bottom: calc(var(--pad-b) + 12px);
+  }
+
+  body.touch .touch-button,
+  body.touch .touch-button.wide {
+    width: 58px;
+    height: 58px;
+  }
+
+  body.touch .touch-warp {
+    right: calc(var(--safe-r) + 28px);
+    bottom: calc(var(--pad-b) + 12px + 3 * 58px + 3 * 8px + 6px);
+  }
+
+  body.touch .hud {
+    font-size: 13px;
+  }
+}
