@@ -64,6 +64,8 @@ export function engage() {
   if (distance === null) return
   warpFx.seconds = warpSeconds(distance, s.warpFactor)
   s.setAutopilot(false)
+  // 全体マップから押したら、操縦席へ切り替えて、船がワープに入るところを見せる
+  if (s.mode === 'map') s.setMode('flight')
   s.setWarpPhase('charge')
   // 艦長の号令は、低く力強く（声の高さは 0〜2。下げすぎると機械のような声になる）
   speak(warpCall(s.targetId, s.warpFactor), { rate: 0.9, pitch: 0.5 })
