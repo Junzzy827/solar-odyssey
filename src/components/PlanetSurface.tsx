@@ -45,6 +45,8 @@ export function PlanetSurface({
     }
     material.uniforms.uMap.value = map
     material.uniforms.uHasMap.value = map ? 1 : 0
+    const width = (map?.image as { width?: number } | undefined)?.width ?? 2048
+    material.uniforms.uMapFreq.value = width / (Math.PI * 2)
     material.uniforms.uRingMap.value = ringMap
     material.uniforms.uRingHasMap.value = ringMap ? 1 : 0
   }, [map, ringMap, material])

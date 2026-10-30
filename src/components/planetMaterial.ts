@@ -89,6 +89,7 @@ const fragmentShader = /* glsl */ `
   uniform sampler2D uRingMap;
   uniform float uRingHasMap;
   uniform float uDetail;
+  uniform float uMapFreq;
   uniform float uSeed;
   uniform vec4 uRegion[${MAX_REGIONS}];
   uniform vec4 uRegionColor[${MAX_REGIONS}];
@@ -270,7 +271,8 @@ const fragmentShader = /* glsl */ `
     vec3 Nb = N;
     if (solid) {
       float h = 0.0;
-      if (uHasMap > 0.5) h = dot(albedo, vec3(0.3, 0.59, 0.11)) * 0.6;
+      // 地図の明るさを高さとみなす。地図の1画素が画面の1ピクセルより細かくなると、陰影が画素の並びでざらつくので弱める
+      if (uHasMap > 0.5) h = dot(albedo, vec3(0.3, 0.59, 0.11)) * 0.6 * fine(px, uMapFreq * 2.0);
       for (int i = 0; i < MAX_REGIONS; i++) {
         if (i >= uRegionCount) break;
         if (uRegionColor[i].w > 0.0) continue;
@@ -415,6 +417,8 @@ export function createSurfaceMaterial(opts: SurfaceOptions) {
       uRingMap: { value: null as THREE.Texture | null },
       uRingHasMap: { value: 0 },
       uDetail: { value: 0 },
+      // 地図の細かさ（球の座標で1あたりの画素の数）
+      uMapFreq: { value: 2048 / (Math.PI * 2) },
       uSeed: { value: opts.seed ?? 0 },
       uRegion: { value: regionDirs },
       uRegionColor: { value: regionColors },
