@@ -2581,6 +2581,67 @@ body.sf .nav-panel {
   opacity: 0.85;
 }
 
+/* 距離・大きさの3段の切りかえ（パソコンでは 現実｜SF の下） */
+.scale-badge {
+  position: fixed;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 4px;
+  pointer-events: auto;
+  z-index: 5;
+}
+
+.scale-row {
+  display: grid;
+  grid-template-columns: 4.2em repeat(3, auto);
+  align-items: stretch;
+  border: 1px solid rgba(108, 102, 136, 0.8);
+  border-radius: 10px;
+  background: rgba(16, 18, 34, 0.72);
+  overflow: hidden;
+}
+
+.scale-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  color: #8f8aa8;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.scale-row button {
+  min-width: 4.6em;
+  padding: 3px 9px;
+  border: none;
+  border-left: 1px solid rgba(108, 102, 136, 0.45);
+  background: transparent;
+  color: #a9a4c0;
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.scale-row button:hover:not(:disabled):not(.on) {
+  color: #fff;
+}
+
+.scale-row button.on {
+  background: rgba(242, 166, 90, 0.85);
+  color: #1a1020;
+  font-weight: bold;
+}
+
+.scale-row button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 @media (hover: none) and (pointer: coarse) {
   .sf-badge button {
     padding: 8px 16px;
@@ -2590,6 +2651,12 @@ body.sf .nav-panel {
 
 /* 縦長のスマホでは上が名札と航法コンピュータでいっぱいなので、左の空いたところへ */
 @media (max-width: 560px) and (orientation: portrait) {
+  .scale-badge {
+    top: 244px;
+    left: 12px;
+    transform: none;
+  }
+
   .sf-badge {
     top: 200px;
     left: 12px;

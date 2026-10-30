@@ -34,6 +34,7 @@ body.touch #root {
 body.touch .nav-panel,
 body.touch .log-panel,
 body.touch .notice-panel,
+body.touch .scale-sheet,
 body.touch .quiz-run,
 body.touch .probe-panel,
 body.touch .stamp-book,
@@ -265,6 +266,46 @@ body.touch .notice-panel {
   transform: none;
   z-index: 20;
   animation: sheet-down 0.18s ease-out;
+}
+
+/* 縮尺：距離・大きさの3段の切りかえ */
+body.touch .scale-sheet {
+  position: fixed;
+  top: var(--below-bar);
+  left: calc(var(--safe-l) + 8px);
+  width: min(400px, calc(100% - 16px - var(--safe-l) - var(--safe-r)));
+  max-height: calc(100% - var(--below-bar) - var(--safe-b) - 12px);
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(155, 140, 217, 0.45);
+  border-radius: 14px;
+  background: rgba(18, 14, 28, 0.97);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  box-sizing: border-box;
+  overflow-y: auto;
+  z-index: 20;
+  animation: sheet-down 0.18s ease-out;
+}
+
+body.touch .scale-sheet .scale-row {
+  grid-template-columns: 4.4em repeat(3, 1fr);
+}
+
+body.touch .scale-sheet .scale-label {
+  font-size: 13px;
+}
+
+body.touch .scale-sheet .scale-row button {
+  min-width: 0;
+  padding: 10px 4px;
+  font-size: 14px;
+  touch-action: manipulation;
+}
+
+body.touch .scale-sheet p {
+  margin: 2px 2px 0;
+  line-height: 1.5;
 }
 
 @keyframes sheet-down {
@@ -576,4 +617,9 @@ body.touch .stamp-book {
   body.touch .hud {
     font-size: 13px;
   }
+}
+
+/* 縮尺を切りかえるときは、変わる様子が見えるよう画面を暗くしない */
+body.touch[data-sheet='scale'] .sheet-backdrop {
+  background: transparent;
 }

@@ -5,7 +5,7 @@ import { BRIDGE_BASE, METERS_PER_UNIT } from './ship/ShipModel'
 import { GalleryScene } from './ship/GalleryScene'
 import { OwnShipModel } from './ship/VariantModel'
 import { currentShip, useShip } from '../data/ships'
-import { bodies, colliders, passThrough } from '../state/registry'
+import { bodies, colliders, passThrough, type BodyEntry } from '../state/registry'
 import { useStore } from '../state/store'
 import { CHARGE_SECONDS, EXIT_SECONDS, SHIP_SCALE, flightControl, ship, standoff, warpFx } from '../state/flight'
 import { APPROACH_TEXT, approachKind, limitDistance } from '../data/approach'
@@ -94,6 +94,11 @@ export function Ship() {
   const rimSpot = useRef<THREE.SpotLight>(null!)
   const prevTarget = useRef<{ id: string; pos: THREE.Vector3 } | null>(null)
   const placed = useRef(false)
+  // 距離や大きさを切りかえたとき、いちばん近い天体のそばに、同じ高さの割合のままついていく。
+  // 天体が新しい位置と大きさになるのを待つため、切りかえてから数フレーム後に移す
+  const anchor = useRef<{ id: string; offset: THREE.Vector3; radius: number } | null>(null)
+  const shownLayout = useRef<unknown>(null)
+  const rescaleIn = useRef(0)
 
   useEffect(() => {
     sunSpot.current.target = group.current
@@ -169,6 +174,18 @@ export function Ship() {
     return () => gl.domElement.removeEventListener('click', lock)
   }, [mode, gl, camera])
 
+  const followRescale = () => {
+    const a = anchor.current
+    const body = a ? bodies.get(a.id) : undefined
+    // ワープ中は、着いたところで目標のそばに出るので、そのままにする
+    if (!a || !body || useStore.getState().warpPhase !== 'idle') return
+    body.object.getWorldPosition(hp)
+    const offset = a.offset.clone().multiplyScalar(body.radius / a.radius)
+    ship.position.copy(hp).add(offset)
+    ship.velocity.set(0, 0, 0)
+    hold.current = offset.length() <= body.radius * 12 + 6 ? { id: body.id, offset } : null
+  }
+
   useFrame((_, rawDelta) => {
     const dt = Math.min(rawDelta, 0.05)
     const st = useStore.getState()
@@ -197,6 +214,12 @@ export function Ship() {
         hold.current = { id: 'earth', offset: ship.position.clone().sub(hp) }
       }
     }
+
+    if (shownLayout.current !== layout) {
+      if (shownLayout.current) rescaleIn.current = 3
+      shownLayout.current = layout
+    }
+    if (rescaleIn.current > 0 && --rescaleIn.current === 0) followRescale()
 
     if (flightControl.releaseHold) {
       flightControl.releaseHold = false
@@ -286,6 +309,8 @@ export function Ship() {
         if (hold.current.offset.length() > held.radius * 12 + 6) hold.current = null
       }
     }
+
+    if (rescaleIn.current === 0) anchor.current = nearestBody(layout.radius, anchor.current)
 
     // 天体に近づくほど船とカメラを縮める（鑑賞モードでは今の大きさのまま）
     updateZoom(ship.position, dt, st.mode === 'gallery')
@@ -443,6 +468,28 @@ function notice(key: string, text: string) {
   useStore.getState().showToast(text)
 }
 let insideGas: string | null = null
+
+/** 自機にいちばん近い太陽・惑星・衛星（表面からの高さで比べる）と、そこからの位置 */
+function nearestBody(natural: Map<string, number>, reuse: { id: string; offset: THREE.Vector3; radius: number } | null) {
+  let best: BodyEntry | null = null
+  let bestScore = Infinity
+  for (const body of bodies.values()) {
+    if (body.id !== 'sun' && !natural.has(body.id)) continue
+    body.object.getWorldPosition(v)
+    const score = ship.position.distanceTo(v) - body.radius
+    if (score < bestScore) {
+      bestScore = score
+      best = body
+    }
+  }
+  if (!best) return null
+  best.object.getWorldPosition(v)
+  const out = reuse ?? { id: '', offset: new THREE.Vector3(), radius: 1 }
+  out.id = best.id
+  out.radius = best.radius
+  out.offset.copy(ship.position).sub(v)
+  return out
+}
 
 function avoidBodies() {
   for (const body of bodies.values()) {
