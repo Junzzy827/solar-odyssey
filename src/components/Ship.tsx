@@ -44,6 +44,8 @@ const OVERVIEW_FITS = 200
 
 /** 出発点：地球から見て太陽の方向から、どれだけ横へずらすか（rad）。太陽は船の斜め後ろになる */
 const START_ANGLE = 1.0
+/** 逆光の強さ（太陽の光の約 1/4） */
+const RIM_INTENSITY = 0.7
 
 const keys = new Set<string>()
 const mouse = { dx: 0, dy: 0 }
@@ -88,11 +90,14 @@ export function Ship() {
   const telemetryClock = useRef(0)
   // 太陽の方向から自機だけを照らして影を落とす光（惑星には届かない狭い円錐）
   const sunSpot = useRef<THREE.SpotLight>(null!)
+  // 輪郭を立たせる弱い逆光（カメラから見て船の向こう側から、青白く）
+  const rimSpot = useRef<THREE.SpotLight>(null!)
   const prevTarget = useRef<{ id: string; pos: THREE.Vector3 } | null>(null)
   const placed = useRef(false)
 
   useEffect(() => {
     sunSpot.current.target = group.current
+    rimSpot.current.target = group.current
   }, [])
 
   useEffect(() => {
@@ -329,6 +334,15 @@ export function Ship() {
       }
     }
 
+    // 逆光はカメラの反対側の少し上から。ブリッジの中からは船体の前が不自然に光るので消す
+    const rim = rimSpot.current
+    rim.intensity = bridgeView ? 0 : RIM_INTENSITY
+    v.copy(ship.position).sub(cam.position)
+    if (v.lengthSq() < 1e-12) v.set(0, 0, -1)
+    v.normalize().addScaledVector(up.set(0, 1, 0).applyQuaternion(cam.quaternion), 0.15).normalize()
+    rim.position.copy(ship.position).addScaledVector(v, 2 * zoomIn)
+    if (rim.distance !== 4 * zoomIn) rim.distance = 4 * zoomIn
+
     telemetryClock.current += dt
     if (telemetryClock.current > 0.1) {
       telemetryClock.current = 0
@@ -365,6 +379,7 @@ export function Ship() {
         shadow-camera-near={1}
         shadow-camera-far={3}
       />
+      <spotLight ref={rimSpot} angle={0.25} penumbra={0.5} distance={4} decay={0} intensity={RIM_INTENSITY} color="#bccbff" />
     </>
   )
 }

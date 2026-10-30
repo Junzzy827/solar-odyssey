@@ -1,11 +1,13 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { Bloom, EffectComposer } from '@react-three/postprocessing'
+import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing'
+import { ToneMappingMode } from 'postprocessing'
 import { PLANETS } from './data/bodies'
 import { useStore } from './state/store'
 import { Sun } from './components/Sun'
 import { PlanetBody } from './components/PlanetBody'
 import { Sky } from './components/Sky'
+import { SpaceLighting, usePostToneMapping } from './components/SpaceLighting'
 import { SimClock } from './components/SimClock'
 import { Ship } from './components/Ship'
 import { SpaceDust } from './components/SpaceDust'
@@ -66,13 +68,16 @@ export default function App() {
   useGlobalKeys()
   const level = useLevel()
   const quality = QUALITY[level]
+  const postTone = usePostToneMapping()
 
   return (
     <>
       <Canvas shadows dpr={dprFor(level)} camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
         <SimClock />
         <QualityGovernor />
-        <ambientLight intensity={0.08} />
+        <SpaceLighting />
+        {/* 宇宙には回り込む光がほとんど無いので、環境光はごく弱く（影の側が暗く締まる） */}
+        <ambientLight intensity={0.04} />
         <Sky />
         <Sun />
         {PLANETS.map((planet) => (
@@ -102,6 +107,8 @@ export default function App() {
         {quality.bloom && (
           <EffectComposer key={quality.msaa} multisampling={quality.msaa}>
             <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />
+            {/* 後処理を通すとレンダラーのトーンマッピングが掛からないので、最後にここで掛ける（軽量の画質と同じ見え方に） */}
+            <ToneMapping mode={postTone ? ToneMappingMode.ACES_FILMIC : ToneMappingMode.LINEAR} />
           </EffectComposer>
         )}
         {bridge && <BridgeInterior />}
