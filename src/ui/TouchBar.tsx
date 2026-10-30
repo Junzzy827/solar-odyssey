@@ -3,6 +3,7 @@ import { useStore } from '../state/store'
 import { useTouchUI, type Sheet } from '../state/touchUI'
 import { isTouchDevice } from '../state/input'
 import { canOpenGallery, closeGallery, openGallery } from '../state/gallery'
+import { enterBridge, leaveBridge } from '../state/bridge'
 import { factsFor } from '../data/facts'
 import { setWorld, useSF } from '../data/sf'
 import { useRace } from '../state/race'
@@ -93,6 +94,7 @@ export function TouchBar() {
   const setLogOpen = useStore((s) => s.setLogOpen)
   const warpPhase = useStore((s) => s.warpPhase)
   const scope = useStore((s) => s.scope)
+  const inBridge = useStore((s) => s.cameraMode === 'bridge')
   const sheet = useTouchUI((u) => u.sheet)
   const setSheet = useTouchUI((u) => u.setSheet)
   const sf = useSF()
@@ -141,6 +143,12 @@ export function TouchBar() {
             <Icon glyph="⇔" label={t('縮尺', 'Scale')} on={sheet === 'scale'} onClick={() => toggle('scale')} />
             <Icon glyph="❒" label={t('日誌', 'Log')} on={sheet === 'log'} badge={logOpen && sheet !== 'log'} disabled={!hasLog} onClick={() => toggle('log')} />
             <Icon glyph="✉" label={t('お知らせ', 'News')} on={sheet === 'notice'} badge={notices.unread} disabled={notices.list.length === 0} onClick={() => toggle('notice')} />
+            {mode === 'flight' &&
+              (inBridge ? (
+                <Icon glyph="◀" label={t('外へ', 'Outside')} on onClick={leaveBridge} />
+              ) : (
+                <Icon glyph="⌂" label={t('ブリッジ', 'Bridge')} disabled={racing} onClick={() => (setSheet(null), enterBridge())} />
+              ))}
             {mode === 'flight' && <Icon glyph="◇" label={t('船を見る', 'Ship')} disabled={warpPhase !== 'idle' || !canOpenGallery()} onClick={openGallery} />}
           </>
         )}
