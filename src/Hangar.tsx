@@ -80,6 +80,8 @@ const MODEL = params.get('model') ?? 'ship'
  * 望遠気味の画角で低い位置から見上げると、模型ではなく巨大な船に見える。
  */
 export default function Hangar() {
+  // 格納庫ビューは太陽系を読み込まないので、読み込み中の画面はすぐ消す
+  useEffect(() => document.getElementById('boot')?.remove(), [])
   return (
     <>
       <Canvas shadows camera={{ position: CAM, fov: FOV, near: 0.01, far: 100 }}>
@@ -97,7 +99,7 @@ export default function Hangar() {
           <HubbleModel />
         ) : MODEL === 'webb' ? (
           <WebbModel />
-        ) : ['heron', 'sorakaze', 'hakobune', 'meguri'].includes(MODEL) ? (
+        ) : ['heron', 'sorakaze', 'hakobune', 'meguri', 'amatsu'].includes(MODEL) ? (
           <Suspense fallback={null}>
             <VariantModel spec={shipSpec(MODEL as ShipId)} />
           </Suspense>

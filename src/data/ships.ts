@@ -5,7 +5,7 @@ import { COMPARE_VIEW, DEFAULT_VIEW, METERS_PER_UNIT, SHIP_LENGTH_M, SHIP_PARTS,
 // どれもこのアプリのオリジナルの空想の船で、本物の科学や乗り物と結びつく話をそえる。
 // 位置はどれも船の模型の座標（Y が上、前方が -Z、全長およそ 1）
 
-export type ShipId = 'sv01' | 'heron' | 'sorakaze' | 'hakobune' | 'meguri'
+export type ShipId = 'sv01' | 'heron' | 'sorakaze' | 'hakobune' | 'meguri' | 'amatsu'
 
 /** 灯火：strobe は白い衝突防止灯（3秒おきに2回光る）、port は左舷の赤、starboard は右舷の緑、beacon は赤い回転灯風 */
 export type ShipLight = { pos: [number, number, number]; kind: 'strobe' | 'port' | 'starboard' | 'beacon'; size: number }
@@ -477,7 +477,111 @@ const MEGURI: ShipSpec = {
   swatch: ['#e9e8e3', '#9097a0', '#d4552a'],
 }
 
-export const SHIPS: ShipSpec[] = [SV01, HERON, SORAKAZE, HAKOBUNE, MEGURI]
+const AMATSU: ShipSpec = {
+  id: 'amatsu',
+  registry: 'SA-07',
+  name: 'アマツ',
+  nameEn: 'Amatsu',
+  kind: '宇宙航行船',
+  kindEn: 'Ocean-hull starship',
+  blurb: '海を行く大きな船の姿のまま宇宙へ出た船。赤い船底、段々の艦橋、船尾の大きな噴射口。甲板には大砲のかわりに天文台があります。',
+  blurbEn: 'A starship shaped like a great ocean ship: red hull bottom, stepped bridge tower, big engine at the stern. Its deck carries observatory domes instead of guns.',
+  lengthM: 270,
+  metersPerUnit: 270 / 1.04,
+  turn: 0.85,
+  model: 'ship-amatsu.glb',
+  bridgeBase: [0, 0.177, -0.01],
+  parts: [
+    {
+      id: 'hull',
+      name: '船体',
+      nameEn: 'Hull',
+      text: '海の船と同じ形の船体。宇宙では水も空気もないので、本当はこの形でなくても進めます。この船は、海に降りて浮かび、港で点検できるように作られた、という設定です。船底の赤は、海の船が貝や海藻をつきにくくする塗料の色と同じです。',
+      textEn: 'The hull is shaped like an ocean ship. In space there is no water or air, so a ship does not need this shape. In the story it can land on a sea, float, and be checked in harbour. The red bottom is the colour of the paint real ships use to keep shellfish and seaweed off.',
+      pos: [0.1, -0.04, 0.15],
+      side: null,
+      view: { yaw: PI / 2 + 0.2, pitch: 0.08, dist: 1.5, target: [0, 0, 0] },
+    },
+    {
+      id: 'telescope',
+      name: '船首の望遠鏡',
+      nameEn: 'Bow telescope',
+      text: '船首の丸い口は、大きな望遠鏡の入り口。船ごと向きを変えて、遠くの星や銀河をねらいます。ハッブル宇宙望遠鏡も、望遠鏡ごと向きを変えて観測します。',
+      textEn: 'The round mouth at the bow is the opening of a big telescope. The whole ship turns to aim it at distant stars and galaxies. The Hubble Space Telescope also turns its whole body to point.',
+      pos: [0, 0.012, -0.5],
+      side: [0, 0, -1],
+      view: { yaw: PI + 0.35, pitch: 0.12, dist: 0.4, target: [0, 0.01, -0.46] },
+    },
+    {
+      id: 'domes',
+      name: '天文台のドーム',
+      nameEn: 'Observatory domes',
+      text: '甲板の丸い屋根は天文台。すき間の扉を開けて、中の望遠鏡で空を見ます。地上の天文台と同じしくみです。',
+      textEn: 'The round roofs on deck are observatories. A slot opens and the telescope inside looks at the sky, just like observatories on Earth.',
+      pos: [0, 0.09, -0.2],
+      side: [0, 1, 0],
+      view: { yaw: PI - 0.6, pitch: 0.4, dist: 0.6, target: [0, 0.05, -0.2] },
+    },
+    {
+      id: 'bridge',
+      name: '艦橋',
+      nameEn: 'Bridge tower',
+      text: '段々に積み上がった塔のいちばん上が、船を指揮する部屋。高いところほど遠くまで見渡せるので、海の船も艦橋を高くしています。',
+      textEn: 'The command room is at the top of the stepped tower. The higher you are, the farther you can see, which is why ocean ships build tall bridges too.',
+      pos: [0, 0.2, 0],
+      side: null,
+      view: { yaw: PI - 0.7, pitch: 0.25, dist: 0.5, target: [0, 0.14, 0] },
+    },
+    {
+      id: 'stack',
+      name: '排熱塔',
+      nameEn: 'Heat stack',
+      text: '海の船の煙突の位置にあるのは、エンジンの熱を逃がす塔。宇宙では空気で冷やせないので、熱は光（赤外線）にして宇宙へ捨てます。',
+      textEn: 'Where an ocean ship has its funnel, this ship has a tower that sheds engine heat. Space has no air to cool things, so heat is thrown away as light (infrared).',
+      pos: [0, 0.11, 0.15],
+      side: null,
+      view: { yaw: 0.9, pitch: 0.35, dist: 0.5, target: [0, 0.08, 0.14] },
+    },
+    {
+      id: 'engine',
+      name: '主噴射口',
+      nameEn: 'Main engine',
+      text: '船尾の大きな噴射口がひとつと、左右に小さな補助の噴射口。大きな噴射口で進み、小さいほうで向きや速さを細かく合わせます。',
+      textEn: 'One big nozzle at the stern and small helpers on each side. The big one pushes the ship; the small ones fine-tune direction and speed.',
+      pos: [0, 0.05, 0.5],
+      side: [0, 0, 1],
+      view: { yaw: 0.4, pitch: 0.2, dist: 0.5, target: [0, 0, 0.45] },
+    },
+  ],
+  defaultView: { yaw: PI - 0.9, pitch: 0.25, dist: 1.6, target: [0, 0.03, 0] },
+  compareView: { yaw: -1.2, pitch: 0.42, dist: 3.4, target: [-1.0, -0.08, 0.05] },
+  shots: [
+    { from: { yaw: PI - 1.0, pitch: 0.15, dist: 1.6, target: [0, 0.03, -0.05] }, to: { yaw: PI - 0.4, pitch: 0.25, dist: 1.3, target: [0, 0.03, -0.1] } },
+    { from: { yaw: PI / 2 + 0.1, pitch: 0.05, dist: 1.4, target: [0, 0.02, 0] }, to: { yaw: PI / 2 - 0.2, pitch: 0.1, dist: 1.3, target: [0, 0.02, 0.05] } },
+    { from: { yaw: PI - 0.6, pitch: 0.3, dist: 0.5, target: [0, 0.15, 0] }, to: { yaw: PI - 1.4, pitch: 0.2, dist: 0.45, target: [0, 0.15, 0.02] } },
+    { from: { yaw: 0.7, pitch: 0.2, dist: 1.0, target: [0, 0, 0.35] }, to: { yaw: -0.5, pitch: 0.3, dist: 1.1, target: [0, 0, 0.3] } },
+  ],
+  lights: [
+    { pos: [0, 0.242, 0.005], kind: 'strobe', size: 0.0011 },
+    { pos: [0, 0.035, 0.47], kind: 'strobe', size: 0.0011 },
+    { pos: [-0.1, 0.034, 0.05], kind: 'port', size: 0.003 },
+    { pos: [0.1, 0.034, 0.05], kind: 'starboard', size: 0.003 },
+    { pos: [0, -0.087, 0.1], kind: 'beacon', size: 0.0026 },
+  ],
+  floods: [
+    { from: [0, 0.06, -0.3], to: [0, 0.14, 0.0], angle: 0.45, intensity: 0.7 },
+    { from: [0.25, 0.1, 0.1], to: [0, 0.0, -0.2], angle: 0.5, intensity: 0.5 },
+    { from: [-0.25, 0.1, 0.1], to: [0, 0.0, -0.2], angle: 0.5, intensity: 0.5 },
+  ],
+  decals: [
+    { text: 'SA-07  AMATSU', pos: [0.0655, 0.012, -0.3], rot: [0, PI / 2, 0], size: [0.11, 0.013] },
+    { text: 'SA-07  AMATSU', pos: [-0.0655, 0.012, -0.3], rot: [0, -PI / 2, 0], size: [0.11, 0.013] },
+  ],
+  glow: { idle: [1.8, 0.95, 0.45], warp: [2.6, 1.9, 1.3] },
+  swatch: ['#b9bec6', '#6d747e', '#9e2a22'],
+}
+
+export const SHIPS: ShipSpec[] = [SV01, HERON, SORAKAZE, HAKOBUNE, MEGURI, AMATSU]
 export const SHIP_IDS = SHIPS.map((s) => s.id)
 
 export const shipSpec = (id: ShipId) => SHIPS.find((s) => s.id === id) ?? SV01
