@@ -16,8 +16,10 @@ import { WarpStreaks } from './components/WarpStreaks'
 import { TargetMarker } from './components/TargetMarker'
 import { Phaser } from './components/Phaser'
 import { SFWorld } from './components/sf/SFWorld'
+import { SFBoundary } from './components/sf/SFBoundary'
 import { useSF } from './data/sf'
 import { SFBadge } from './ui/SFBadge'
+import { ContextLost } from './ui/ContextLost'
 import { Telescopes } from './components/telescope/Telescopes'
 import { Race } from './components/race/Race'
 import { RacePanel } from './ui/RacePanel'
@@ -70,7 +72,11 @@ export default function App() {
           <PlanetBody key={planet.id} planet={planet} />
         ))}
         <AsteroidBelt />
-        {sf && <SFWorld />}
+        {sf && (
+          <SFBoundary>
+            <SFWorld />
+          </SFBoundary>
+        )}
         <Telescopes />
         <Race />
         <MissionRunner />
@@ -107,6 +113,7 @@ export default function App() {
       <TelescopeView />
       <LanguagePicker />
       <SFBadge />
+      <ContextLost />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}
         <a href="https://science.nasa.gov/resource/hubble-space-telescope-3d-model/" target="_blank" rel="noreferrer">NASA VTAD</a>

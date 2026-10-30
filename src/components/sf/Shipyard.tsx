@@ -130,7 +130,7 @@ export function Shipyard() {
           {detail && (
             <>
               <group scale={shipScale} rotation={[0, Math.PI, 0]}>
-                <ShipModel registry="SV-03" shipName="SOLAR DAWN" tint="#9a9ea4" unitScale={shipScale * UNITS_PER_METER} />
+                <ShipModel registry="SV-03" shipName="SOLAR DAWN" tint="#9a9ea4" floods={false} unitScale={shipScale * UNITS_PER_METER} />
               </group>
               {sparkSpots.map((p, i) => (
                 <mesh

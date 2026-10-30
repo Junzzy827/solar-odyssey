@@ -56,6 +56,7 @@ function glowTexture() {
 function Exoplanet({ id, position, kind, air, stars, binarySpin = 0, arrived }: Props) {
   useLang()
   const group = useRef<THREE.Group>(null!)
+  const body = useRef<THREE.Group>(null!)
   const back = useRef<THREE.Group>(null!)
   const planet = useRef<THREE.Mesh>(null!)
   const starRefs = useRef<THREE.Group[]>([])
@@ -123,7 +124,9 @@ function Exoplanet({ id, position, kind, air, stars, binarySpin = 0, arrived }: 
 
   const dir = new THREE.Vector3()
   const lights = [new THREE.Vector3(), new THREE.Vector3()]
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera }) => {
+    // 光の計算が重い惑星なので、近くにいるときだけ描く（太陽系からは遠すぎて見えない）
+    body.current.visible = camera.position.distanceTo(center) < 4000
     const time = clock.getElapsedTime()
     // 恒星：着く場所から見て、惑星の向こう側のふちのすぐ外
     stars.forEach((s, i) => {
@@ -167,19 +170,21 @@ function Exoplanet({ id, position, kind, air, stars, binarySpin = 0, arrived }: 
   return (
     <>
       <group ref={group} position={position}>
-        <mesh ref={planet} geometry={parts.sphere} material={parts.surface} />
-        <mesh geometry={parts.airSphere} material={parts.air} renderOrder={1} />
-        {stars.map((s, i) => (
-          <group
-            key={i}
-            ref={(g: THREE.Group | null) => {
-              if (g) starRefs.current[i] = g
-            }}
-          >
-            <mesh geometry={parts.starGeometry} material={parts.starMats[i]} scale={s.size} />
-            <sprite material={parts.haloMats[i]} scale={s.size * 9} />
-          </group>
-        ))}
+        <group ref={body}>
+          <mesh ref={planet} geometry={parts.sphere} material={parts.surface} />
+          <mesh geometry={parts.airSphere} material={parts.air} renderOrder={1} />
+          {stars.map((s, i) => (
+            <group
+              key={i}
+              ref={(g: THREE.Group | null) => {
+                if (g) starRefs.current[i] = g
+              }}
+            >
+              <mesh geometry={parts.starGeometry} material={parts.starMats[i]} scale={s.size} />
+              <sprite material={parts.haloMats[i]} scale={s.size * 9} />
+            </group>
+          ))}
+        </group>
         <Html position={[0, R * 1.25, 0]} center className="label" zIndexRange={LABEL_Z}>
           <span ref={labelRef} onClick={() => useStore.getState().setTarget(id)}>
             {sfEntry(id)?.name()}

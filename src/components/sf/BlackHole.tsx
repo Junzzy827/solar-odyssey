@@ -22,6 +22,7 @@ const RETURN_GATE: [number, number, number] = [26, 5, 72]
 const LIMIT = 3.6
 
 const center = new THREE.Vector3(...BLACK_HOLE_POS)
+const FAR_DRAW = 4000
 const rel = new THREE.Vector3()
 
 /**
@@ -32,6 +33,7 @@ export function BlackHole() {
   useLang()
   const group = useRef<THREE.Group>(null!)
   const back = useRef<THREE.Group>(null!)
+  const lens = useRef<THREE.Mesh>(null!)
   const labels = useRef<HTMLSpanElement[]>([])
   const labelRef = (el: HTMLSpanElement | null) => {
     if (el && !labels.current.includes(el)) labels.current.push(el)
@@ -86,8 +88,10 @@ export function BlackHole() {
     }
   }, [])
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera }) => {
     material.uniforms.uTime.value = clock.getElapsedTime()
+    // 光の道すじを画面の点ごとにたどる重い描き方なので、近くにいるときだけ描く（遠くでは点にもならない）
+    lens.current.visible = camera.position.distanceTo(center) < FAR_DRAW
     moved()
     // 名札は、ブラックホールのそばにいるときだけ（太陽系から見ると、遠い方向に名札だけが浮いてしまう）
     const show = ship.position.distanceTo(center) < BH_RS * BH_LENS * 3 ? '' : 'none'
@@ -97,7 +101,7 @@ export function BlackHole() {
   return (
     <>
       <group ref={group} position={BLACK_HOLE_POS}>
-        <mesh geometry={geometry} material={material} renderOrder={1} frustumCulled={false} />
+        <mesh ref={lens} geometry={geometry} material={material} renderOrder={1} frustumCulled={false} />
         <Html position={[0, BH_RS * 9, 0]} center className="label" zIndexRange={LABEL_Z}>
           <span ref={labelRef} onClick={() => useStore.getState().setTarget(BLACK_HOLE_ID)}>{sfEntry(BLACK_HOLE_ID)?.name()}</span>
         </Html>

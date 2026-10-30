@@ -88,11 +88,14 @@ export function ShipModel({
   registry = 'SV-01',
   shipName = 'SOLAR VOYAGER',
   tint,
+  floods = true,
 }: {
   unitScale?: number | (() => number)
   registry?: string
   shipName?: string
   tint?: string
+  /** 船体を照らす投光器。何隻も並べるときは消して、光の数を増やしすぎない（スマホで描けなくなる） */
+  floods?: boolean
 }) {
   const { gl } = useThree()
   const root = useRef<THREE.Group>(null!)
@@ -284,7 +287,7 @@ export function ShipModel({
 
   return (
     <group ref={root}>
-      <Floodlights unitScale={unitScale} saucerTop={saucerTop} />
+      {floods && <Floodlights unitScale={unitScale} saucerTop={saucerTop} />}
       {/* 円盤部 */}
       <mesh geometry={parts.saucer} material={parts.saucerMat} position={SAUCER_POS} scale={SAUCER_SCALE} />
       {/* ブリッジ：段になった構造物と窓の帯、頂上の標識灯 */}

@@ -100,7 +100,13 @@ button:disabled {
   border-radius: 12px 0 0 12px;
   background: rgba(20, 16, 30, 0.75);
   font-size: 13px;
-  overflow: hidden;
+  /* ボタンが増えて縦に入りきらないときは、目標の一覧をつぶさずに航法コンピュータごとスクロールする */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.nav-panel > * {
+  flex-shrink: 0;
 }
 
 .nav-panel h2 {
@@ -111,7 +117,8 @@ button:disabled {
 }
 
 .nav-list {
-  flex: 1;
+  flex: 1 1 180px;
+  min-height: 180px;
   overflow-y: auto;
 }
 
@@ -2579,6 +2586,11 @@ body.sf .nav-panel {
   .sf-badge span {
     display: none;
   }
+
+  /* 航法コンピュータをひらいたら、その中の切りかえを使う */
+  body:has(.nav-panel:not(.collapsed):not(.gallery-panel)) .sf-badge {
+    display: none;
+  }
 }
 
 .nav-world {
@@ -2707,4 +2719,29 @@ body.sf .nav-panel {
 .ship-picker.compact .ship-card {
   font-size: 10px;
   padding: 3px;
+}
+
+.context-lost {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: min(360px, calc(100% - 32px));
+  padding: 16px 20px;
+  border: 1px solid #6c6688;
+  border-radius: 12px;
+  background: rgba(20, 16, 30, 0.95);
+  color: #e8e4f4;
+  text-align: center;
+  z-index: 20;
+}
+
+.context-lost button {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #1b1325;
+  font-weight: bold;
+  cursor: pointer;
 }
