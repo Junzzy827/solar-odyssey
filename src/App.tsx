@@ -49,6 +49,7 @@ import { StampBook } from './ui/StampBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
 import { BridgePanel } from './ui/BridgePanel'
 import { BridgeLabels } from './ui/BridgeLabels'
+import { PhotoNote } from './ui/PhotoNote'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -127,6 +128,7 @@ export default function App() {
       <TelescopeView />
       <LanguagePicker />
       <SFBadge />
+      <PhotoNote />
       <ContextLost />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}

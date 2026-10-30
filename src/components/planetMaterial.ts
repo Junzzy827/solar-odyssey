@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { ECLIPSE_GLSL, eclipseUniforms } from './eclipseShadow'
+import { PHOTO_GLSL, photoUniform } from '../state/look'
 
 // 惑星と衛星の表面。光の当たり方を天体の種類ごとに変え、ガス惑星は雲を流し、
 // 近づいたときはクレーターや凹凸を細かく足す。テクスチャが無い天体は模様を作る。
@@ -83,6 +84,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uSpotShape;
   uniform float uEclipseTarget;
   ${ECLIPSE_GLSL}
+  ${PHOTO_GLSL}
   uniform float uRingOn;
   uniform float uRingIn;
   uniform float uRingOut;
@@ -270,6 +272,8 @@ const fragmentShader = /* glsl */ `
     // ---- 凹凸（岩の天体） ----
     vec3 Nb = N;
     if (solid) {
+      // 写真モード：中くらいの距離からも、クレーターの凹凸を明暗の境目で立体的に見せる
+      float detail = max(uDetail, uPhoto * 0.6);
       float h = 0.0;
       // 地図の明るさを高さとみなす。地図の1画素が画面の1ピクセルより細かくなると、陰影が画素の並びでざらつくので弱める
       if (uHasMap > 0.5) h = dot(albedo, vec3(0.3, 0.59, 0.11)) * 0.6 * fine(px, uMapFreq * 2.0);
@@ -280,26 +284,28 @@ const fragmentShader = /* glsl */ `
         float t = acos(clamp(dot(unit, uRegion[i].xyz), -1.0, 1.0)) / uRegion[i].w;
         h += ((t < 1.0 ? (t * t - 1.0) : 0.0) + exp(-pow((t - 1.0) * 6.0, 2.0)) * 0.4 + exp(-t * t * 90.0) * 0.5) * uRegion[i].w * 6.0;
       }
-      if (uDetail > 0.001) {
+      if (detail > 0.001) {
         // 近づいたときだけ、細かいクレーターと岩肌を足す（画面上で細かすぎる模様は消す）
         // クレーターの縁は細いので、セルより2.5倍細かい模様として消し始める（縁がざらざらにちらつかないように）
         float w28 = fine(px, 28.0 * 2.5);
         float w85 = fine(px, 85.0 * 2.5);
         float w260 = fine(px, 260.0 * 2.5);
-        h += (fbm3(unit * 90.0) - 0.5) * 0.25 * uDetail * fine(px, 90.0 * 3.0);
+        h += (fbm3(unit * 90.0) - 0.5) * 0.25 * detail * fine(px, 90.0 * 3.0);
         // さらに細かい岩肌（低い軌道から見下ろすとき）
-        h += ((noise3(unit * 330.0) - 0.5) * 0.07 * fine(px, 330.0 * 2.0) + (noise3(unit * 1100.0) - 0.5) * 0.022 * fine(px, 1100.0 * 2.0)) * uDetail;
+        h += ((noise3(unit * 330.0) - 0.5) * 0.07 * fine(px, 330.0 * 2.0) + (noise3(unit * 1100.0) - 0.5) * 0.022 * fine(px, 1100.0 * 2.0)) * detail;
         if (uStyle == 0 || uHasMap < 0.5) {
-          h += (craters(unit * 28.0) * 0.6 * w28 + (w85 > 0.0 ? craters(unit * 85.0) * 0.25 * w85 : 0.0)) * uDetail;
+          h += (craters(unit * 28.0) * 0.6 * w28 + (w85 > 0.0 ? craters(unit * 85.0) * 0.25 * w85 : 0.0)) * detail;
           // 小さなクレーターがびっしり（月や水星の表面は、どの大きさでもクレーターだらけ）
-          if (w260 > 0.0) h += craters(unit * 260.0) * 0.085 * w260 * uDetail;
+          if (w260 > 0.0 && uDetail > 0.001) h += craters(unit * 260.0) * 0.085 * w260 * uDetail;
         } else {
-          h += craters(unit * 40.0) * 0.25 * uDetail * w28;
-          if (fine(px, 400.0) > 0.0) h += craters(unit * 160.0) * 0.06 * fine(px, 400.0) * uDetail;
+          h += craters(unit * 40.0) * 0.25 * detail * w28;
+          if (fine(px, 400.0) > 0.0) h += craters(unit * 160.0) * 0.06 * fine(px, 400.0) * detail;
         }
       }
       // 縁（視線が地表をかすめるところ）では凹凸を弱める。画素の並びのざらつきが出やすい
-      Nb = bump(N, vPosW, h, uRadius * 0.012 * smoothstep(0.04, 0.3, dot(N, V)));
+      // 写真モード：太陽が低い明暗の境目の近くでは、影が長くのびて凹凸が強く見える
+      float relief = 1.0 + uPhoto * 1.6 * (1.0 - smoothstep(0.05, 0.6, dot(N, L)));
+      Nb = bump(N, vPosW, h, uRadius * 0.012 * relief * smoothstep(0.04, 0.3, dot(N, V)));
     }
 
     // ---- 光 ----
@@ -307,7 +313,17 @@ const fragmentShader = /* glsl */ `
     float ndl = dot(Nb, L);
     float mu = max(dot(N, V), 0.0);
     float light;
-    if (uStyle == 0) {
+    if (uStyle == 0 && uPhoto > 0.5) {
+      // 写真モード：大気がないので光が散らされず、明暗の境目はくっきり。
+      // 表面は細かな砂とでこぼこで、どこも太陽と目の両方に対して同じように光を返す（ロンメル・ゼーリガー則）。
+      // そのため満月は縁まで明るく、真ん中だけ明るいボールのようには見えない。
+      // 位相角（太陽－天体－目の角度）が大きいほど影が増えて全体が暗くなる（ハプケの式の簡単な近似。太陽の真後ろでは少し明るくなる）
+      float mu0 = max(ndl, 0.0);
+      float ls = 2.0 * mu0 / (mu0 + mu + 1e-4);
+      float alpha = acos(clamp(dot(L, V), -1.0, 1.0));
+      float phaseFn = (1.0 - 0.32 * alpha) * (1.0 + 0.25 * exp(-alpha * 12.0));
+      light = ls * max(phaseFn, 0.15) * smoothstep(-0.004, 0.012, ndlGeo);
+    } else if (uStyle == 0) {
       // 大気がない：縁まで明るい（ロンメル・ゼーリガー）と、凹凸の陰影を混ぜる
       float mu0 = max(ndl, 0.0);
       float ls = 2.0 * mu0 / (mu0 + mu + 1e-4);
@@ -315,6 +331,11 @@ const fragmentShader = /* glsl */ `
     } else if (uStyle == 1) {
       float wrap = clamp((ndl + 0.05) / 1.05, 0.0, 1.0);
       light = wrap * smoothstep(-0.08, 0.1, ndlGeo);
+    } else if (uPhoto > 0.5 && uStyle <= 3) {
+      // 写真モードのガス・氷の巨大惑星：もやで縁をぼかさず、縁へ向かって暗くなる（周縁減光）。
+      // 縁では大気を斜めに見るので、光が上の層で散らされ、深い明るい雲まで届く光が減る
+      float lam = clamp((ndl + 0.03) / 1.03, 0.0, 1.0);
+      light = lam * pow(mu, 0.38) * 1.12;
     } else {
       // ガス・雲：境目がやわらかく、縁が少し暗い（周縁減光）
       float wrap = clamp((ndl + 0.12) / 1.12, 0.0, 1.0);
@@ -330,7 +351,7 @@ const fragmentShader = /* glsl */ `
         if (r > uRingIn && r < uRingOut) {
           float x = (r - uRingIn) / (uRingOut - uRingIn);
           float a = uRingHasMap > 0.5 ? texture2D(uRingMap, vec2(x, 0.5)).a : 0.6;
-          light *= 1.0 - a * 0.85;
+          light *= 1.0 - a * mix(0.85, 0.97, uPhoto);
         }
       }
     }
@@ -357,16 +378,19 @@ const fragmentShader = /* glsl */ `
     color = mix(color, albedo * vec3(0.62, 0.2, 0.08) * redLevel * (0.55 + 0.45 * mu) * smoothstep(-0.05, 0.15, ndlGeo), eclipseRed);
 
     // ---- 大気のもや：昼側の縁ににじむ光と、明暗境界の夕焼け色 ----
-    if (uHazeAmount > 0.0) {
+    // 写真モードでは、ガス・氷の巨大惑星の縁のもや（グロー）を外して、縁のくっきりした球にする
+    float hazeAmount = (uStyle == 2 || uStyle == 3) ? uHazeAmount * (1.0 - uPhoto) : uHazeAmount * (1.0 - 0.55 * uPhoto);
+    if (hazeAmount > 0.0) {
       float day = smoothstep(-0.25, 0.45, ndlGeo);
       float rim = pow(1.0 - mu, 2.6);
-      color += uHaze * rim * day * uHazeAmount;
+      color += uHaze * rim * day * hazeAmount;
       float dusk = exp(-pow(ndlGeo * 5.0, 2.0)) * (0.4 + 0.6 * rim);
-      color += uHaze * vec3(1.0, 0.55, 0.3) * dusk * uHazeAmount * 0.35;
+      color += uHaze * vec3(1.0, 0.55, 0.3) * dusk * hazeAmount * 0.35;
     }
 
-    // 夜側もほんの少し見える（星明かり）
-    color += albedo * 0.012;
+    // 夜側もほんの少し見える（星明かり）。写真モードでは、昼側に露出を合わせるので写らない
+    color += albedo * 0.012 * (1.0 - uPhoto);
+    color = photoColor(color);
 
     gl_FragColor = vec4(color, 1.0);
     #include <logdepthbuf_fragment>
@@ -425,6 +449,7 @@ export function createSurfaceMaterial(opts: SurfaceOptions) {
       uRegionCount: { value: regions.length },
       uEclipseTarget: { value: opts.eclipse === 'moon' ? 2 : opts.eclipse === 'earth' ? 1 : 0 },
       ...eclipseUniforms,
+      uPhoto: photoUniform,
     },
   })
 }

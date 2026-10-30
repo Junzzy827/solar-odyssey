@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { photoUniform } from '../state/look'
 
 const vertexShader = /* glsl */ `
   #include <common>
@@ -23,6 +24,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uColor;
   uniform float uPower;
   uniform vec3 uSunDir;
+  uniform float uFade;
   varying vec3 vNormal;
   varying vec3 vView;
   varying vec3 vNormalW;
@@ -31,6 +33,7 @@ const fragmentShader = /* glsl */ `
     float glow = pow(abs(dot(vNormal, vView)), uPower);
     // 太陽に照らされた側の縁だけ光る（夜側の縁はほとんど見えない）
     glow *= smoothstep(-0.45, 0.35, dot(normalize(vNormalW), uSunDir)) * 0.95 + 0.05;
+    glow *= uFade;
     gl_FragColor = vec4(uColor * glow, glow);
     #include <logdepthbuf_fragment>
   }
@@ -38,16 +41,21 @@ const fragmentShader = /* glsl */ `
 
 const center = new THREE.Vector3()
 
+/** 写真モードの地球の大気の厚さ（半径に対する比） */
+const PHOTO_EARTH_SCALE = 1.035
+
 /** 縁がぼんやり光る大気のグロー（背面を加算合成で描く） */
-export function Atmosphere({ radius, color, power = 1.4, scale = 1.08 }: { radius: number; color: string; power?: number; scale?: number }) {
+/** photoFade: 写真モードのときの明るさ（太陽のグローは、写真ではレンズのにじみ程度に弱める） */
+export function Atmosphere({ radius, color, power = 1.4, scale = 1.08, photoFade = 1 }: { radius: number; color: string; power?: number; scale?: number; photoFade?: number }) {
   const uniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color(color) }, uPower: { value: power }, uSunDir: { value: new THREE.Vector3(1, 0, 0) } }),
+    () => ({ uColor: { value: new THREE.Color(color) }, uPower: { value: power }, uSunDir: { value: new THREE.Vector3(1, 0, 0) }, uFade: { value: 1 } }),
     [color, power],
   )
   const mesh = useRef<THREE.Mesh>(null!)
   useFrame(() => {
     mesh.current.getWorldPosition(center)
     uniforms.uSunDir.value.copy(center).negate().normalize()
+    uniforms.uFade.value = photoUniform.value > 0.5 ? photoFade : 1
   })
   return (
     <mesh ref={mesh} scale={scale}>
@@ -85,6 +93,7 @@ const shellFragment = /* glsl */ `
   uniform float uR;
   uniform float uA;
   uniform float uStrength;
+  uniform float uPhoto;
   varying vec3 vWorld;
 
   void main() {
@@ -127,6 +136,35 @@ const shellFragment = /* glsl */ `
     float glow = (1.0 - exp(-light * 0.28 * phase)) * uStrength;
     gl_FragColor = vec4(uColor * glow, glow);
 
+    if (uPhoto > 0.5) {
+      // 写真モード（地球）：簡単なレイリー散乱。空気は青い光ほど強く散らす。
+      // 太陽の光がその場所まで空気を長く通ってくる（明け方・夕方の）ところでは、青が抜けてオレンジになる。
+      // 惑星の影に入った空気は光らないので、夜側の縁は光らない
+      vec3 beta = vec3(0.17, 0.41, 1.0);
+      vec3 ray = vec3(0.0);
+      vec3 mie = vec3(0.0);
+      float tauV = 0.0;
+      for (int i = 0; i < 12; i++) {
+        vec3 p = ro + rd * (t0 + (float(i) + 0.5) * ds);
+        float r = length(p);
+        float d = exp(-max(r - uR, 0.0) / H) * ds / H;
+        tauV += d;
+        float cs = dot(p, uSunDir) / r;
+        // 太陽への光線が惑星にさえぎられるか（影）
+        float axis = length(p - dot(p, uSunDir) * uSunDir);
+        float lit = cs > 0.0 ? 1.0 : smoothstep(uR * 0.995, uR * 1.01, axis);
+        // 太陽の光が通ってくる空気の量（太陽が低いほど多い）
+        float airmass = exp(-max(r - uR, 0.0) / H) / max(cs + 0.18, 0.06);
+        vec3 sun = exp(-beta * airmass * 0.55) * lit;
+        vec3 seen = exp(-beta * tauV * 0.06);
+        ray += d * sun * seen;
+        mie += d * sun * seen * exp(-tauV * 0.04);
+      }
+      vec3 c = ray * beta * 0.08 * phase + mie * 0.0015 * (1.0 + 4.0 * pow(max(mu, 0.0), 6.0));
+      c = (1.0 - exp(-c * 1.6)) * uStrength;
+      gl_FragColor = vec4(c, max(c.r, max(c.g, c.b)));
+    }
+
     // 深さは、視線が地表（または大気の外）に出る点のものにする。
     // こうすると惑星の表面の手前にかすみが重なり、手前にある船にはかからない
     #ifdef USE_LOGDEPTHBUF
@@ -140,7 +178,11 @@ const shellFragment = /* glsl */ `
  * 惑星の大気。視線が通る空気の量を計算して光らせるので、遠くからは縁の光る輪、
  * 低い軌道からは地平線にそって光る薄い層、斜めに見下ろす地表には青いかすみになる。
  */
-export function PlanetAtmosphere({ radius, color, strength = 1, scale = 1.08 }: { radius: number; color: string; strength?: number; scale?: number }) {
+/**
+ * 写真モードでは、ガス・氷の巨大惑星（kind="giant"）の大気の輪は描かない。
+ * 地球（kind="earth"）は昼側の縁に細く光る薄い膜にして、明け方・夕方の境目をほんのりオレンジにする
+ */
+export function PlanetAtmosphere({ radius, color, strength = 1, scale = 1.08, kind = 'other' }: { radius: number; color: string; strength?: number; scale?: number; kind?: 'earth' | 'giant' | 'other' }) {
   const uniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color(color) },
@@ -149,11 +191,21 @@ export function PlanetAtmosphere({ radius, color, strength = 1, scale = 1.08 }: 
       uR: { value: radius },
       uA: { value: radius * scale },
       uStrength: { value: strength },
+      uPhoto: { value: 0 },
     }),
     [color, radius, scale, strength],
   )
   const mesh = useRef<THREE.Mesh>(null!)
   useFrame(() => {
+    const photo = photoUniform.value > 0.5
+    mesh.current.visible = !(photo && kind === 'giant')
+    // 地球の写真モード：大気の層を薄く（本物の大気は半径の約1.5%。光って見えるのはもっと下のほう）
+    const s = photo && kind === 'earth' ? PHOTO_EARTH_SCALE : scale
+    mesh.current.scale.setScalar(s)
+    uniforms.uA.value = radius * s
+    uniforms.uPhoto.value = photo && kind === 'earth' ? 1 : 0
+    // 火星・金星・タイタンなどのもやも、写真では控えめ
+    uniforms.uStrength.value = photo && kind === 'other' ? strength * 0.45 : strength
     mesh.current.getWorldPosition(center)
     uniforms.uCenter.value.copy(center)
     uniforms.uSunDir.value.copy(center).negate().normalize()

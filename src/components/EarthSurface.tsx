@@ -6,6 +6,7 @@ import { useCloseTexture } from '../hooks/useCloseTexture'
 import { closeTextureUrl, textureUrl } from '../data/textures'
 import { ECLIPSE_GLSL, eclipseUniforms } from './eclipseShadow'
 import { useStore } from '../state/store'
+import { PHOTO_GLSL, photoUniform } from '../state/look'
 
 const vertexShader = /* glsl */ `
   #include <common>
@@ -67,7 +68,12 @@ const fragmentShader = /* glsl */ `
   uniform float uHasClouds;
   uniform float uCloudShift;
   uniform vec3 uSunDir;
+  uniform mat3 uInvRot;
   ${ECLIPSE_GLSL}
+  ${PHOTO_GLSL}
+  #define PI 3.141592653589793
+  // 雲の層の高さ（半径に対する比。雲の球は 1.012 倍）
+  #define CLOUD_HEIGHT 0.012
   varying vec2 vUv;
   varying vec3 vWorldNormal;
   varying vec3 vPosW;
@@ -114,8 +120,16 @@ const fragmentShader = /* glsl */ `
     // 雲の影：雲の層は少し速く回るので、ずらした位置の雲を読む
     float shadow = 1.0;
     if (uHasClouds > 0.5) {
-      float c = texture2D(uClouds, vUv + vec2(uCloudShift, 0.0)).r;
-      shadow = 1.0 - 0.45 * c;
+      vec2 cloudUv = vUv;
+      if (uPhoto > 0.5) {
+        // 写真モード：雲は地表より上にあるので、影は太陽と反対の側へずれて落ちる（太陽が低いほど長く）
+        vec3 toSun = uInvRot * L;
+        vec3 at = normalize(vPosL) + toSun * (CLOUD_HEIGHT / max(lightGeo, 0.12));
+        at = normalize(at);
+        cloudUv = vec2(fract(atan(at.z, -at.x) / (2.0 * PI)), 1.0 - acos(clamp(at.y, -1.0, 1.0)) / PI);
+      }
+      float c = texture2D(uClouds, cloudUv + vec2(uCloudShift, 0.0)).r;
+      shadow = 1.0 - mix(0.45, 0.6, uPhoto) * c;
     }
     // 日食のときの、月の影
     float eclipse = solarShadow(vPosW);
@@ -130,11 +144,22 @@ const fragmentShader = /* glsl */ `
     vec3 night = texture2D(uNight, vUv).rgb * 1.4;
     vec3 color = mix(night, day, dayMix);
 
-    // 大気の散乱：昼側の縁が青く光り、明暗境界は夕焼け色に
-    float rim = pow(1.0 - mu, 2.4);
-    float lit = smoothstep(-0.25, 0.45, lightGeo);
-    color += vec3(0.32, 0.58, 1.0) * rim * lit * 0.55 * eclipse;
-    color += vec3(1.0, 0.5, 0.25) * exp(-pow(lightGeo * 9.0, 2.0)) * rim * 0.12 * eclipse;
+    if (uPhoto < 0.5) {
+      // 大気の散乱：昼側の縁が青く光り、明暗境界は夕焼け色に
+      float rim = pow(1.0 - mu, 2.4);
+      float lit = smoothstep(-0.25, 0.45, lightGeo);
+      color += vec3(0.32, 0.58, 1.0) * rim * lit * 0.55 * eclipse;
+      color += vec3(1.0, 0.5, 0.25) * exp(-pow(lightGeo * 9.0, 2.0)) * rim * 0.12 * eclipse;
+    } else {
+      // 写真モード：地表にかかる青いかすみは、縁の近くの薄いものだけ。夜側には無い
+      float rim = pow(1.0 - mu, 5.0);
+      float lit = smoothstep(0.0, 0.35, lightGeo);
+      color += vec3(0.22, 0.42, 0.9) * rim * lit * 0.35 * eclipse;
+      // 明け方・夕方の境目は、空気を長く通ってきた赤っぽい光で照らされる
+      float dusk = exp(-pow((lightGeo - 0.04) * 11.0, 2.0));
+      color = mix(color, color * vec3(1.25, 0.82, 0.55) + vec3(0.06, 0.025, 0.0) * dayTex, dusk * 0.7);
+      color = photoColor(color);
+    }
 
     gl_FragColor = vec4(color, 1.0);
     #include <logdepthbuf_fragment>
@@ -199,6 +224,8 @@ export function EarthSurface({ radius }: { radius: number }) {
       uDetail: detail,
       uRadius: { value: radius },
       ...eclipseUniforms,
+      uPhoto: photoUniform,
+      uInvRot: { value: new THREE.Matrix3() },
     }),
     [radius],
   )
@@ -218,6 +245,8 @@ export function EarthSurface({ radius }: { radius: number }) {
     // 表面に近づくほど細部を足す
     detail.value = 1 - THREE.MathUtils.smoothstep(camera.position.distanceTo(worldPos) - radius, radius * 0.15, radius * 1.4)
     uniforms.uSunDir.value.copy(worldPos).negate().normalize()
+    // 世界の向きから、この球の座標の向きへ（雲の影のずれを地図の上で計算する）
+    uniforms.uInvRot.value.setFromMatrix4(surface.current.matrixWorld).invert()
     if (cloudLayer.current) {
       // 雲は風で少しずつ流れる（時間の速さに合わせる。1秒で1時間のとき、1秒に0.02ラジアン）
       cloudLayer.current.rotation.y += delta * Math.min(0.02 * useStore.getState().timeScale, 0.05)

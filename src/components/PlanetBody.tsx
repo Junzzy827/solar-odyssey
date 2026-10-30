@@ -142,7 +142,7 @@ export function PlanetBody({ planet }: { planet: Planet }) {
             </group>
             {isGas && <CloudInterior id={planet.id} radius={radius} haze={planet.atmosphere ?? planet.color} deep={deep} map={map} surface={surface} />}
           </group>
-          {planet.atmosphere && <PlanetAtmosphere radius={radius} color={planet.atmosphere} strength={isEarth ? 1.1 : 0.65} />}
+          {planet.atmosphere && <PlanetAtmosphere radius={radius} color={planet.atmosphere} strength={isEarth ? 1.1 : 0.65} kind={isEarth ? 'earth' : isGas ? 'giant' : 'other'} />}
           {planet.ring && <SaturnRing inner={radius * planet.ring.inner} outer={radius * planet.ring.outer} color={planet.ring.color} planetRadius={radius} />}
         </group>
         <Html position={[0, radius + 1, 0]} center className="label" zIndexRange={LABEL_Z}>
