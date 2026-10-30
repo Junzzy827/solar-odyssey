@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { warpFx } from '../../state/flight'
+import { thrustFx, warpFx } from '../../state/flight'
 import type { ShipId, ShipSpec } from '../../data/ships'
 import { hullTextures } from './hullTextures'
 import { useSpaceEnvOn } from '../SpaceLighting'
@@ -192,8 +192,11 @@ export function VariantModel({ spec, unitScale = 1 }: { spec: ShipSpec; unitScal
   useFrame(({ clock }, dt) => {
     const t = clock.getElapsedTime()
     const w = warpFx.glow
-    // 噴射口：ふだんは穏やかにゆらぎ、ワープの準備で強く
-    built.glow.color.copy(idle).lerp(hot, w).multiplyScalar(0.92 + 0.08 * Math.sin(t * 9.3) * Math.sin(t * 3.1))
+    // 噴射口：ふだんは穏やかにゆらぎ、噴かすと（EngineFx）・ワープの準備で強く
+    built.glow.color
+      .copy(idle)
+      .lerp(hot, w)
+      .multiplyScalar((0.92 + 0.08 * Math.sin(t * 9.3) * Math.sin(t * 3.1)) * (1 + 0.8 * thrustFx.power))
     const b = (1.1 + 1.4 * w) * (0.95 + 0.05 * Math.sin(t * 1.7))
     built.blue.color.setRGB(0.3 * b, 0.68 * b, 2 * b)
     // 放熱板：ワープの準備で、熱を逃がしてほんのり赤く

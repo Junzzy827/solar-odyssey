@@ -77,14 +77,18 @@ export type Settings = {
   look: 'illustrated' | 'photo'
   /** 後処理（components/PostFx.tsx）：光のにじみ・陰影（SSAO）・フィルムの粒子と周辺減光。画質が「軽量」のときはどれも使わない */
   fx: PostFxSettings
+  /** エンジン噴射と姿勢制御の演出の量（components/ship/EngineFx.tsx） */
+  thrust: ThrustFxLevel
   /** チャージビームの演出：発射の瞬間の白いフラッシュと、カメラの揺れ（光の点滅や揺れが苦手な人は切れる） */
   beamFx: { flash: boolean; shake: boolean }
 }
 
+export type ThrustFxLevel = 'many' | 'normal' | 'off'
+
 export type PostFxSettings = { bloom: boolean; ao: boolean; film: boolean }
 
 const SETTINGS_KEY = 'solar-voyager:settings'
-const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real', ship: 'sv01', quality: 'auto', look: 'illustrated', fx: { bloom: true, ao: true, film: true }, beamFx: { flash: true, shake: true } }
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real', ship: 'sv01', quality: 'auto', look: 'illustrated', fx: { bloom: true, ao: true, film: true }, thrust: 'normal', beamFx: { flash: true, shake: true } }
 
 // リンクで世界を決めて開ける（#sf や #real）
 const worldFromUrl = /[?&#](sf|real)\b/.exec(location.search + location.hash)?.[1] as Settings['world'] | undefined
