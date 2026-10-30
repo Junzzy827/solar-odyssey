@@ -2,7 +2,7 @@
 // 終わりが頭につながるように作ってあるので、Web Audio ですき間なくくり返す。
 
 import { useStore } from '../state/store'
-import { audio, volume } from './sfx'
+import { audio, output, volume } from './sfx'
 
 /** 効果音とのつりあい（設定の音の大きさに掛ける） */
 const LEVEL = 0.55
@@ -34,7 +34,7 @@ async function start() {
     gain = c.createGain()
     gain.gain.setValueAtTime(0, c.currentTime)
     gain.gain.linearRampToValueAtTime(level(), c.currentTime + 2)
-    src.connect(gain).connect(c.destination)
+    src.connect(gain).connect(output(c))
     src.start(c.currentTime, ogg ? 0 : MP3_DELAY)
   } catch {
     // 読み込めなくても遊べる

@@ -1,6 +1,6 @@
 // 艦橋の中の音：低い空調・機関のうなりと、ときどき鳴る短い電子音。すべて Web Audio で合成（作品の音源は使わない）
 
-import { audio, volume } from './sfx'
+import { audio, output, volume } from './sfx'
 import { useStore } from '../state/store'
 
 /** うなりの大きさ（音の大きさの設定に掛ける）。BGM の邪魔をしないよう、ごく小さく */
@@ -42,7 +42,7 @@ export function setBridgeAmbience(on: boolean) {
   }
   const gain = c.createGain()
   gain.gain.value = 0
-  gain.connect(c.destination)
+  gain.connect(output(c))
   const air = loopNoise(c)
   const lowpass = c.createBiquadFilter()
   lowpass.type = 'lowpass'
@@ -98,7 +98,7 @@ export function chirp(count = 2 + Math.floor(Math.random() * 3), loud = 1) {
     g.gain.setValueAtTime(0.0001, at)
     g.gain.exponentialRampToValueAtTime(v, at + 0.008)
     g.gain.exponentialRampToValueAtTime(0.0001, at + 0.07)
-    o.connect(g).connect(c.destination)
+    o.connect(g).connect(output(c))
     o.start(at)
     o.stop(at + 0.09)
     at += 0.085

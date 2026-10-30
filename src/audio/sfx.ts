@@ -4,11 +4,62 @@ import { useStore } from '../state/store'
 
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
+/** すべての音（BGM・効果音・艦橋の音）が最後に通る出口。裏に回ったときはここで絞る */
+let bus: GainNode | null = null
+/** タブが隠れているか、ウィンドウが前面にないとき true */
+let away = false
+let suspendTimer = 0
+
+/** 裏に回ったとき・戻ったときの音の消え方・戻り方（秒） */
+const FADE_OUT = 0.4
+const FADE_IN = 0.8
 
 export function audio() {
   ctx ??= new AudioContext()
-  if (ctx.state === 'suspended') void ctx.resume()
+  if (ctx.state === 'suspended' && !away) void ctx.resume()
   return ctx
+}
+
+/** 音の出口。c.destination の代わりにここへつなぐ */
+export function output(c: AudioContext) {
+  if (!bus) {
+    bus = c.createGain()
+    bus.gain.value = away ? 0 : 1
+    bus.connect(c.destination)
+  }
+  return bus
+}
+
+/** ブラウザを裏に回したら音を消して止め、前に戻ったらまた鳴らす */
+function setAway(next: boolean) {
+  if (next === away) return
+  away = next
+  if (away && 'speechSynthesis' in window) window.speechSynthesis.cancel()
+  if (!ctx) return
+  const c = ctx
+  const g = output(c).gain
+  window.clearTimeout(suspendTimer)
+  g.cancelScheduledValues(c.currentTime)
+  g.setValueAtTime(g.value, c.currentTime)
+  if (away) {
+    g.linearRampToValueAtTime(0, c.currentTime + FADE_OUT)
+    // 消えきったら止めて、裏で CPU を使わないようにする
+    suspendTimer = window.setTimeout(() => {
+      if (away) void c.suspend()
+    }, FADE_OUT * 1000 + 100)
+  } else {
+    void c.resume()
+    g.linearRampToValueAtTime(1, c.currentTime + FADE_IN)
+  }
+}
+
+if (typeof window !== 'undefined') {
+  const check = () => setAway(document.hidden || !document.hasFocus())
+  document.addEventListener('visibilitychange', check)
+  window.addEventListener('blur', check)
+  window.addEventListener('focus', check)
+  window.addEventListener('pagehide', () => setAway(true))
+  window.addEventListener('pageshow', check)
 }
 
 /** 設定の音の大きさ（0〜1。消音なら 0） */
@@ -21,7 +72,7 @@ export const volume = () => {
 function out(c: AudioContext) {
   if (!master) {
     master = c.createGain()
-    master.connect(c.destination)
+    master.connect(output(c))
   }
   master.gain.value = volume()
   return master
@@ -108,7 +159,7 @@ export function speak(text: string, opts: { rate?: number; pitch?: number } = {}
   u.rate = opts.rate ?? 0.88
   u.pitch = opts.pitch ?? 0.6
   u.volume = volume()
-  if (u.volume === 0) return
+  if (u.volume === 0 || away) return
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(u)
 }
