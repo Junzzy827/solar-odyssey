@@ -6,6 +6,7 @@ import { CARRIER_ID, FREIGHTER_ID, RADIO_MOON_ID, carrierName, freighterName, ra
 import { MOON_CITY_ID, RAILWAY_ID, moonCityName, railwayName } from './sfJapan'
 import { HOURGLASS_ID, hourglassName } from './sfHourglass'
 import { COLONY_GROUPS, colonyGroupName } from './sfSides'
+import { ENGINE_ROCK_ID, engineRockName } from './sfEngine'
 
 // SF モード：本物の太陽系に、架空の船や構造物を重ねて出す。
 // どれも実在の研究や構想をもとにしたオリジナルのデザインで、作品の名前・ロゴ・設定画の形は使わない。
@@ -106,6 +107,7 @@ export const SF_OBJECTS: SFEntry[] = [
   { id: DEBRIS_ID, name: debrisName, spoken: 'the debris collector', color: '#f0b429' },
   { id: RAILWAY_ID, name: railwayName, spoken: 'the Galactic Railway', color: '#7fa6ff' },
   { id: MOON_CITY_ID, name: moonCityName, spoken: 'the Moon capital', color: '#e8cf8a' },
+  { id: ENGINE_ROCK_ID, name: engineRockName, spoken: 'the engine asteroid', color: '#a8b4c8' },
   { id: CUBE_ID, name: cubeName, spoken: 'the unknown vessel', color: '#6fd0b8' },
   { id: 'gate', name: () => t('時空のゲート', 'Space-Time Gate'), spoken: 'the gate', color: '#8f7dff' },
   { id: 'blackhole', name: () => t('ブラックホール（太陽系の外）', 'Black Hole (beyond the solar system)'), spoken: 'the black hole', color: '#f0b45a' },

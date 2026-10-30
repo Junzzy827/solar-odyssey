@@ -3,6 +3,7 @@ import { SPACE_FACTS_EN } from './sfSpace'
 import { JAPAN_FACTS_EN } from './sfJapan'
 import { HOURGLASS_FACTS_EN } from './sfHourglass'
 import { SIDE_FACTS_EN } from './sfSides'
+import { ENGINE_FACTS_EN } from './sfEngine'
 
 // FACTS の英語版。キーと並びは facts.ts と同じ（数値も同じ概数）
 
@@ -11,6 +12,7 @@ export const FACTS_EN: Record<string, Facts> = {
   ...JAPAN_FACTS_EN,
   ...HOURGLASS_FACTS_EN,
   ...SIDE_FACTS_EN,
+  ...ENGINE_FACTS_EN,
   hubble: {
     rows: [
       ['Launched', '1990 (by Space Shuttle)'],

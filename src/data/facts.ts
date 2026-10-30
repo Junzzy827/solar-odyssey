@@ -4,6 +4,7 @@ import { SPACE_FACTS } from './sfSpace'
 import { JAPAN_FACTS } from './sfJapan'
 import { HOURGLASS_FACTS } from './sfHourglass'
 import { SIDE_FACTS } from './sfSides'
+import { ENGINE_FACTS } from './sfEngine'
 
 // 航海日誌に出す解説とクイズ。数値は NASA の公開データの概数。
 // 衛星の数は発見が続いているので「以上」と書く。
@@ -37,6 +38,7 @@ export const FACTS: Record<string, Facts> = {
   ...JAPAN_FACTS,
   ...HOURGLASS_FACTS,
   ...SIDE_FACTS,
+  ...ENGINE_FACTS,
   hubble: {
     rows: [
       ['打ち上げ', '1990年（スペースシャトルで）'],

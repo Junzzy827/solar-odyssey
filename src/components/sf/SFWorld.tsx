@@ -21,6 +21,7 @@ import { EuropaBeacon } from './EuropaBeacon'
 import { DebrisCollector } from './DebrisCollector'
 import { DesertPlanet, IcePlanet } from './Exoplanet'
 import { HourglassColonies } from './HourglassColonies'
+import { EngineAsteroid } from './EngineAsteroid'
 import { GalacticRailway } from './GalacticRailway'
 import { MoonCity } from './MoonCity'
 
@@ -52,6 +53,7 @@ export function SFWorld() {
       <DebrisCollector />
       <DesertPlanet />
       <IcePlanet />
+      <EngineAsteroid />
       <GalacticRailway />
       <MoonCity />
     </>
