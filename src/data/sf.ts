@@ -1,6 +1,7 @@
 import { t } from '../i18n/lang'
 import { useStore } from '../state/store'
 import { CUBE_ID, cubeName } from './cube'
+import { CARRIER_ID, FREIGHTER_ID, RADIO_MOON_ID, carrierName, freighterName, radioMoonName } from './sfSpace'
 
 // SF モード：本物の太陽系に、架空の船や構造物を重ねて出す。
 // どれも実在の研究や構想をもとにしたオリジナルのデザインで、作品の名前・ロゴ・設定画の形は使わない。
@@ -69,6 +70,9 @@ export const SF_OBJECTS: SFEntry[] = [
   { id: UMBRELLA_ID, name: umbrellaName, spoken: 'the umbrella asteroid base', color: '#9c8f86' },
   { id: SOLAR_PLANT_ID, name: solarPlantName, spoken: 'the solar power station', color: '#f2cf6a' },
   { id: SAIL_LAUNCHER_ID, name: sailLauncherName, spoken: 'the light-sail launcher', color: '#b49cff' },
+  { id: RADIO_MOON_ID, name: radioMoonName, spoken: 'the radio telescope moon', color: '#b8bcc6' },
+  { id: CARRIER_ID, name: carrierName, spoken: 'the ore carrier', color: '#d9a066' },
+  { id: FREIGHTER_ID, name: freighterName, spoken: 'the disc freighter', color: '#9ad0c8' },
   { id: CUBE_ID, name: cubeName, spoken: 'the unknown vessel', color: '#6fd0b8' },
   { id: 'gate', name: () => t('時空のゲート', 'Space-Time Gate'), spoken: 'the gate', color: '#8f7dff' },
   { id: 'blackhole', name: () => t('ブラックホール（太陽系の外）', 'Black Hole (beyond the solar system)'), spoken: 'the black hole', color: '#f0b45a' },

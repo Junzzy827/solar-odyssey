@@ -1,5 +1,6 @@
 import { getLang } from '../i18n/lang'
 import { FACTS_EN } from './facts.en'
+import { SPACE_FACTS } from './sfSpace'
 
 // 航海日誌に出す解説とクイズ。数値は NASA の公開データの概数。
 // 衛星の数は発見が続いているので「以上」と書く。
@@ -29,6 +30,7 @@ export type Facts = {
 }
 
 export const FACTS: Record<string, Facts> = {
+  ...SPACE_FACTS,
   hubble: {
     rows: [
       ['打ち上げ', '1990年（スペースシャトルで）'],

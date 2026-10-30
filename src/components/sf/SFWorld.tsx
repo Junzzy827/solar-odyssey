@@ -9,6 +9,9 @@ import { AsteroidBase } from './AsteroidBase'
 import { Shipyard } from './Shipyard'
 import { SpaceElevator } from './SpaceElevator'
 import { CROSS_ID, UMBRELLA_ID } from '../../data/sf'
+import { RadioMoon } from './RadioMoon'
+import { OreCarrier } from './OreCarrier'
+import { DiscFreighter } from './DiscFreighter'
 
 /** SF モードだけに出す、架空の船や構造物（data/sf.ts の SF_OBJECTS と対になる） */
 export function SFWorld() {
@@ -25,6 +28,9 @@ export function SFWorld() {
       <SpaceElevator />
       <AsteroidBase id={CROSS_ID} shape="cross" point="L4" />
       <AsteroidBase id={UMBRELLA_ID} shape="umbrella" point="L2" />
+      <RadioMoon />
+      <OreCarrier />
+      <DiscFreighter />
     </>
   )
 }
