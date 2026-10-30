@@ -340,7 +340,7 @@ export const FACTS: Record<string, Facts> = {
   'rock-base': {
     rows: [
       ['大きさ', '傘の直径 約6km、柱の長さ 約4km'],
-      ['場所', '地球と月のL3点（地球をはさんで月の反対側）'],
+      ['場所', '地球と月のL2点（地球から見て月の向こう側）'],
       ['役目', '補給と船の整備の基地'],
     ],
     fiction: true,

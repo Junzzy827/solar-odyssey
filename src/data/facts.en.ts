@@ -314,7 +314,7 @@ export const FACTS_EN: Record<string, Facts> = {
   'rock-base': {
     rows: [
       ['Size', 'Cap about 6 km across, stem about 4 km long'],
-      ['Where', 'The Earth–Moon L3 point (on the far side of Earth from the Moon)'],
+      ['Where', 'The Earth–Moon L2 point (beyond the Moon, seen from Earth)'],
       ['Job', 'A base for supplies and ship repairs'],
     ],
     fiction: true,

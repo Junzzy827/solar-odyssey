@@ -25,7 +25,7 @@ export const colonyMemberName = (n: number) => t(`L5コロニー群 ${n}号基`,
 /** ドーナツ型のコロニー（スタンフォード・トーラスの構想がもと） */
 export const TORUS_ID = 'torus'
 export const torusName = () => t('ドーナツ型コロニー', 'Torus Colony')
-/** くりぬいた小惑星の宇宙港（十字形は地球と月の L4、傘形は L3） */
+/** くりぬいた小惑星の宇宙港（十字形は地球と月の L4、傘形は L2） */
 export const CROSS_ID = 'rock-port'
 export const crossName = () => t('十字の小惑星港', 'Cross Asteroid Port')
 export const UMBRELLA_ID = 'rock-base'

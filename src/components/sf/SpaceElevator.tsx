@@ -133,8 +133,11 @@ export function SpaceElevator() {
     rock.setColorAt(0, new THREE.Color('#857a6e'))
     return {
       cableLength,
-      cable: new THREE.CylinderGeometry(0.0012, 0.0012, cableLength, 6),
-      cableMat: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.9, 1.1, 1.4), toneMapped: false }),
+      // 本物は幅1mほどのリボン。遠くからも見えるよう、細い線も重ねる
+      cable: new THREE.CylinderGeometry(0.00015, 0.00015, cableLength, 6),
+      cableMat: new THREE.MeshBasicMaterial({ color: '#9fb4cc' }),
+      line: new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(EARTH_R, 0, 0), new THREE.Vector3(TOP_R, 0, 0)]),
+      lineMat: new THREE.LineBasicMaterial({ color: '#7d93ad', transparent: true, opacity: 0.7 }),
       rock,
       platform: new THREE.CylinderGeometry(1500, 1700, 300, 32),
       platformMat: new THREE.MeshStandardMaterial({ color: '#9aa0a8', metalness: 0.4, roughness: 0.6 }),
@@ -150,6 +153,7 @@ export function SpaceElevator() {
   return createPortal(
     <group rotation={[0, Math.PI + lon, 0]}>
       <mesh geometry={parts.cable} material={parts.cableMat} position={[EARTH_R + parts.cableLength / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} />
+      <lineSegments geometry={parts.line} material={parts.lineMat} />
       <primitive object={parts.rock} />
       <mesh geometry={parts.platform} material={parts.platformMat} position={[EARTH_R + 0.0005, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={UNITS_PER_METER} />
       <Climbers parts={parts} />

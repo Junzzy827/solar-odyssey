@@ -24,7 +24,7 @@ export function SFWorld() {
       <Shipyard />
       <SpaceElevator />
       <AsteroidBase id={CROSS_ID} shape="cross" point="L4" />
-      <AsteroidBase id={UMBRELLA_ID} shape="umbrella" point="L3" />
+      <AsteroidBase id={UMBRELLA_ID} shape="umbrella" point="L2" />
     </>
   )
 }
