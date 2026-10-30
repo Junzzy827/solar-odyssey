@@ -5,6 +5,7 @@ import { registerBody } from '../state/registry'
 import { t } from '../i18n/lang'
 import { useLayout } from '../state/useLayout'
 import { Atmosphere } from './Atmosphere'
+import { usePostToneMapping } from './SpaceLighting'
 
 const vertexShader = /* glsl */ `
   #include <common>
@@ -26,6 +27,7 @@ const vertexShader = /* glsl */ `
 const fragmentShader = /* glsl */ `
   #include <logdepthbuf_pars_fragment>
   uniform float uTime;
+  uniform float uToned;
   varying vec3 vPos;
   varying vec3 vNormal;
   varying vec3 vView;
@@ -76,14 +78,18 @@ const fragmentShader = /* glsl */ `
     float mu = clamp(dot(normalize(vNormal), normalize(vView)), 0.0, 1.0);
     color *= 0.45 + 0.55 * pow(mu, 0.45);
 
-    gl_FragColor = vec4(color * 1.6, 1.0);
+    color *= 1.6;
+    // 後処理でトーンマッピング（ACES）を掛ける画質では、掛けた後も今までの金色に近く見えるよう、色を寄せておく
+    if (uToned > 0.5) color *= vec3(1.2, 0.85, 0.65);
+    gl_FragColor = vec4(color, 1.0);
     #include <logdepthbuf_fragment>
   }
 `
 
 export function Sun() {
   const surface = useRef<THREE.Mesh>(null!)
-  const uniforms = useMemo(() => ({ uTime: { value: 0 } }), [])
+  const uniforms = useMemo(() => ({ uTime: { value: 0 }, uToned: { value: 0 } }), [])
+  uniforms.uToned.value = usePostToneMapping() ? 1 : 0
   const radius = useLayout().sun
 
   useEffect(() => registerBody({ id: 'sun', get name() { return t('太陽', 'Sun') }, radius, object: surface.current }), [radius])
