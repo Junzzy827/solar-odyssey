@@ -2643,16 +2643,23 @@ body.sf .nav-panel {
   opacity: 0.85;
 }
 
-/* 距離・大きさの3段の切りかえ（パソコンでは 現実｜SF の下） */
+/* スケールの3段の切りかえ（パソコンでは 現実｜SF の右どなり。せまい画面ではその下） */
 .scale-badge {
   position: fixed;
-  top: 48px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 12px;
+  left: calc(50% + 100px);
   display: grid;
   gap: 4px;
   pointer-events: auto;
   z-index: 5;
+}
+
+@media (max-width: 1319px) {
+  .scale-badge {
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
 }
 
 .scale-row {
@@ -2678,7 +2685,7 @@ body.sf .nav-panel {
 
 .scale-row button {
   min-width: 4.6em;
-  padding: 3px 9px;
+  padding: 6px 9px;
   border: none;
   border-left: 1px solid rgba(108, 102, 136, 0.45);
   background: transparent;

@@ -80,7 +80,7 @@ function Icon(props: { glyph: string; label: string; on?: boolean; badge?: numbe
 }
 
 /**
- * スマホ・タブレットの画面の上のアイコン列：マップ・航法・縮尺・日誌・お知らせ・船を見る・現実｜SF。
+ * スマホ・タブレットの画面の上のアイコン列：マップ・航法・スケール・日誌・お知らせ・船を見る・現実｜SF。
  * 押すとその下にメニューが開く。ふだんの画面には、これと操縦のボタンだけを出す
  */
 export function TouchBar() {
@@ -140,7 +140,7 @@ export function TouchBar() {
               onClick={() => setMode(mode === 'map' ? 'flight' : 'map')}
             />
             <Icon glyph="✦" label={t('航法', 'Navigate')} on={sheet === 'nav'} onClick={() => toggle('nav')} />
-            <Icon glyph="⇔" label={t('縮尺', 'Scale')} on={sheet === 'scale'} onClick={() => toggle('scale')} />
+            <Icon glyph="⇔" label={t('スケール', 'Scale')} on={sheet === 'scale'} onClick={() => toggle('scale')} />
             <Icon glyph="❒" label={t('日誌', 'Log')} on={sheet === 'log'} badge={logOpen && sheet !== 'log'} disabled={!hasLog} onClick={() => toggle('log')} />
             <Icon glyph="✉" label={t('お知らせ', 'News')} on={sheet === 'notice'} badge={notices.unread} disabled={notices.list.length === 0} onClick={() => toggle('notice')} />
             {mode === 'flight' &&
