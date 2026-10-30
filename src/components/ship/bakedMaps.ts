@@ -59,7 +59,7 @@ export function setBakedLevel(mat: THREE.MeshStandardMaterial, level: Level) {
   mat.normalScale.set(1, 1)
   if (info.windows) {
     mat.emissiveMap = full ? baked.emissive : null
-    mat.emissive.setRGB(full ? 1.1 : 0, full ? 1.05 : 0, full ? 0.95 : 0)
+    mat.emissive.setRGB(full ? 2 : 0, full ? 1.9 : 0, full ? 1.7 : 0)
   }
   mat.needsUpdate = true
 }
