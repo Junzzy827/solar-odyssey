@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PLANETS } from '../data/bodies'
-import { computeLayout } from '../data/layout'
-import { bodyRadius, TIME_RATES } from '../data/scale'
+import { TIME_RATES } from '../data/scale'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { SF_OBJECTS, setWorld } from '../data/sf'
@@ -17,6 +16,7 @@ import { openStamps, useStamps } from '../state/stamps'
 import { NATURAL } from '../data/stamps'
 import { ui } from '../i18n'
 import { ShipSection } from './ShipPicker'
+import { scaleFacts, stepName, stepOf } from './ScaleToggle'
 import { useLevel, useQuality, type QualitySetting } from '../state/quality'
 import { setLook } from '../state/look'
 import { named, setLang, t, useLang } from '../i18n/lang'
@@ -55,21 +55,14 @@ function TargetButton({ id, name, sub, onPick }: { id: string; name: string; sub
   )
 }
 
-const EARTH = PLANETS.find((p) => p.id === 'earth')!
-
-const count = (n: number) => (n < 10 ? n.toFixed(1) : Math.round(n).toString())
-
 /** 表示の設定：距離の広さ、天体の大きさ、旋回の傾き */
 function Settings({ racing }: { racing: boolean }) {
   const settings = useStore((s) => s.settings)
   const lang = useLang()
   const update = useStore((s) => s.updateSettings)
-  const layout = computeLayout(settings.distance, settings.size)
-  const earth = bodyRadius(EARTH.radiusKm)
-  // 月までの距離を、地球の直径いくつ分かで見せる（本物は約30個分）
-  const moonGap = layout.moon.get('moon')!.radius / (2 * earth)
-  // 太陽の直径は地球のいくつ分か（本物は約109個分）
-  const sunSize = layout.sun / earth
+  const { moonGap, sunSize } = scaleFacts(settings.distance, settings.size)
+  const distanceStep = stepOf(settings.distance)
+  const sizeStep = stepOf(settings.size)
   return (
     <details className="nav-settings">
       <summary>{t('表示の設定', 'Display settings')}</summary>
@@ -90,26 +83,26 @@ function Settings({ racing }: { racing: boolean }) {
       <label className="nav-slider">
         <span>
           {t('距離', 'Distance')}{' '}
-          <span className="muted">{settings.distance < 0.01 ? t('見やすい距離', 'easy to see') : settings.distance > 0.99 ? t('本物に近い', 'close to real') : ''}</span>
+          <span className="muted">{distanceStep === null ? '' : stepName('distance', distanceStep)}</span>
         </span>
         <input type="range" min={0} max={1} step={0.01} value={settings.distance} onChange={(e) => update({ distance: Number(e.target.value) })} disabled={racing} />
       </label>
       <div className="muted small">
         {t(
-          `月まで：地球の直径の約${count(moonGap)}個分（本物は約30個分）。右にすると衛星は本物の比率に、惑星どうしも本物の約20〜50分の1まで離れます。`,
-          `To the Moon: about ${count(moonGap)} Earth diameters (really about 30). Slide right and the moons move to their real spacing, and the planets spread out to about 1/20 to 1/50 of the real distances.`,
+          `月まで：地球の直径の約${moonGap}個分（本物は約30個分）。右にすると衛星は本物の比率に、惑星どうしも本物の約20〜50分の1まで離れます。`,
+          `To the Moon: about ${moonGap} Earth diameters (really about 30). Slide right and the moons move to their real spacing, and the planets spread out to about 1/20 to 1/50 of the real distances.`,
         )}
       </div>
       <label className="nav-slider">
         <span>
-          {t('大きさ', 'Size')} <span className="muted">{settings.size < 0.01 ? t('見やすい大きさ', 'easy to see') : settings.size > 0.99 ? t('本物の比率', 'real proportions') : ''}</span>
+          {t('大きさ', 'Size')} <span className="muted">{sizeStep === null ? '' : stepName('size', sizeStep)}</span>
         </span>
         <input type="range" min={0} max={1} step={0.05} value={settings.size} onChange={(e) => update({ size: Number(e.target.value) })} disabled={racing} />
       </label>
       <div className="muted small">
         {t(
-          `太陽：地球の約${count(sunSize)}倍（本物は約109倍）。地球の大きさはそのままで、右にすると太陽や木星は大きく、月や小さな惑星は小さくなります。小さな衛星は見失わないよう、ある大きさより小さくはしません。`,
-          `The Sun: about ${count(sunSize)} times Earth (really about 109). Earth stays the same size; slide right and the Sun and Jupiter grow while the Moon and small planets shrink. Tiny moons never get too small to find.`,
+          `太陽：地球の約${sunSize}倍（本物は約109倍）。地球の大きさはそのままで、右にすると太陽や木星は大きく、月や小さな惑星は小さくなります。小さな衛星は見失わないよう、ある大きさより小さくはしません。`,
+          `The Sun: about ${sunSize} times Earth (really about 109). Earth stays the same size; slide right and the Sun and Jupiter grow while the Moon and small planets shrink. Tiny moons never get too small to find.`,
         )}
         {racing && t('レース中は見やすい距離と大きさで走ります。', ' During the race, the easy-to-see distance and size are used.')}
       </div>

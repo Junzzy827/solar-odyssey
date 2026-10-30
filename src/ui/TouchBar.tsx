@@ -7,6 +7,7 @@ import { factsFor } from '../data/facts'
 import { setWorld, useSF } from '../data/sf'
 import { useRace } from '../state/race'
 import { t, useLang } from '../i18n/lang'
+import { ScaleSheet } from './ScaleToggle'
 
 /** 中で指を動かすとスクロールしてよい画面（ほかの場所では、なぞってもページは動かさない） */
 const SCROLLABLE = '.nav-panel, .log-panel, .quiz-run, .probe-panel, .stamp-book, .scope-view, .lang-picker, .bridge-panel, .race-bar, .notice-panel'
@@ -78,7 +79,7 @@ function Icon(props: { glyph: string; label: string; on?: boolean; badge?: numbe
 }
 
 /**
- * スマホ・タブレットの画面の上のアイコン列：マップ・航法・日誌・お知らせ・船を見る・現実｜SF。
+ * スマホ・タブレットの画面の上のアイコン列：マップ・航法・縮尺・日誌・お知らせ・船を見る・現実｜SF。
  * 押すとその下にメニューが開く。ふだんの画面には、これと操縦のボタンだけを出す
  */
 export function TouchBar() {
@@ -137,6 +138,7 @@ export function TouchBar() {
               onClick={() => setMode(mode === 'map' ? 'flight' : 'map')}
             />
             <Icon glyph="✦" label={t('航法', 'Navigate')} on={sheet === 'nav'} onClick={() => toggle('nav')} />
+            <Icon glyph="⇔" label={t('縮尺', 'Scale')} on={sheet === 'scale'} onClick={() => toggle('scale')} />
             <Icon glyph="❒" label={t('日誌', 'Log')} on={sheet === 'log'} badge={logOpen && sheet !== 'log'} disabled={!hasLog} onClick={() => toggle('log')} />
             <Icon glyph="✉" label={t('お知らせ', 'News')} on={sheet === 'notice'} badge={notices.unread} disabled={notices.list.length === 0} onClick={() => toggle('notice')} />
             {mode === 'flight' && <Icon glyph="◇" label={t('船を見る', 'Ship')} disabled={warpPhase !== 'idle' || !canOpenGallery()} onClick={openGallery} />}
@@ -152,6 +154,7 @@ export function TouchBar() {
           {notices.ticker}
         </button>
       )}
+      {sheet === 'scale' && <ScaleSheet />}
       {sheet === 'notice' && (
         <section className="notice-panel" aria-label={t('お知らせ', 'News')}>
           <header>

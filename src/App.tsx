@@ -20,6 +20,7 @@ import { SFWorld } from './components/sf/SFWorld'
 import { SFBoundary } from './components/sf/SFBoundary'
 import { useSF } from './data/sf'
 import { SFBadge } from './ui/SFBadge'
+import { ScaleBadge } from './ui/ScaleToggle'
 import { ContextLost } from './ui/ContextLost'
 import { LabelDeclutter } from './ui/LabelDeclutter'
 import { Telescopes } from './components/telescope/Telescopes'
@@ -126,6 +127,7 @@ export default function App() {
       <TelescopeView />
       <LanguagePicker />
       <SFBadge />
+      <ScaleBadge />
       <PhotoNote />
       <ContextLost />
       <LabelDeclutter />
