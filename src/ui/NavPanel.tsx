@@ -18,6 +18,7 @@ import { NATURAL } from '../data/stamps'
 import { ui } from '../i18n'
 import { ShipSection } from './ShipPicker'
 import { useLevel, useQuality, type QualitySetting } from '../state/quality'
+import { setLook } from '../state/look'
 import { named, setLang, t, useLang } from '../i18n/lang'
 import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
@@ -83,6 +84,7 @@ function Settings({ racing }: { racing: boolean }) {
           </button>
         </span>
       </div>
+      <LookPick />
       <QualityPick />
       <label className="nav-slider">
         <span>
@@ -135,6 +137,32 @@ function Settings({ racing }: { racing: boolean }) {
         )}
       </div>
     </details>
+  )
+}
+
+/** 天体の描き方：図鑑モード（強調した見やすい絵）か、写真モード（カメラで撮ったような見え方）。現実／SF とは別の切り替え */
+function LookPick() {
+  useLang()
+  const look = useStore((s) => s.settings.look)
+  return (
+    <>
+      <div className="nav-check">
+        {t('天体の描き方', 'Planet look')}
+        <span className="nav-lang-pick" role="group" aria-label={t('天体の描き方', 'Planet look')}>
+          <button className={look === 'illustrated' ? 'on' : ''} onClick={() => setLook('illustrated')}>
+            {t('図鑑', 'Illustrated')}
+          </button>
+          <button className={look === 'photo' ? 'on' : ''} onClick={() => setLook('photo')}>
+            {t('写真', 'Photographic')}
+          </button>
+        </span>
+      </div>
+      <div className="muted small">
+        {look === 'photo'
+          ? t('探査機のカメラで撮ったような見え方。大気の光は薄く、明るい天体を見ると星は写りません。', 'As a spacecraft camera would see it: thin air glow, and stars fade out next to bright worlds.')
+          : t('見やすく強調した図鑑の絵。大気の光や星をはっきり見せます。', 'An enhanced, easy-to-read picture-book view with bold air glow and stars.')}
+      </div>
+    </>
   )
 }
 

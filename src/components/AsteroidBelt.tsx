@@ -6,6 +6,7 @@ import { angularSpeed } from '../data/scale'
 import { useLayout } from '../state/useLayout'
 import { BELT_AU } from '../data/layout'
 import { asteroids, sim, type RockType } from '../state/registry'
+import { photoUniform } from '../state/look'
 
 const COUNT = 3000
 // 小さな岩は粗い形、大きな岩は細かい形（数が多いので三角形を節約する）
@@ -26,6 +27,31 @@ function random(seed: number) {
   }
 }
 
+/** 写真モードで、カメラからこれより遠い岩は小さくして消す（本物の小惑星は、少し離れると点にも見えない） */
+const PHOTO_FADE = { near: 12, far: 36 }
+
+/**
+ * 帯の岩の材質。写真モードでは、帯の外から見ると岩の輪が見えないようにする
+ * （本物の小惑星帯は岩どうしが平均で数十万〜百万kmも離れていて、帯として目に見えることはない）
+ */
+function beltMaterial() {
+  const material = asteroidMaterial()
+  const base = material.onBeforeCompile
+  material.onBeforeCompile = (shader, renderer) => {
+    base.call(material, shader, renderer)
+    shader.uniforms.uPhoto = photoUniform
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float uPhoto;').replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+      if (uPhoto > 0.5) {
+        vec3 rockAt = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+        transformed *= 1.0 - smoothstep(${PHOTO_FADE.near.toFixed(1)}, ${PHOTO_FADE.far.toFixed(1)}, distance(rockAt, cameraPosition));
+      }`,
+    )
+  }
+  return material
+}
+
 /** 火星と木星の間の小惑星帯。実際はもっとまばらだが、見て分かる密度にしている */
 export function AsteroidBelt() {
   const belt = useRef<THREE.Group>(null!)
@@ -37,7 +63,7 @@ export function AsteroidBelt() {
     const rand = random(7)
     return {
       geometries: Array.from({ length: SHAPES }, (_, i) => asteroidGeometry(rand, i < SMALL_SHAPES ? 2 : 3)),
-      material: asteroidMaterial(),
+      material: beltMaterial(),
     }
   }, [])
 

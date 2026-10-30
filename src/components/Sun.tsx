@@ -5,6 +5,7 @@ import { registerBody } from '../state/registry'
 import { t } from '../i18n/lang'
 import { useLayout } from '../state/useLayout'
 import { Atmosphere } from './Atmosphere'
+import { photoUniform } from '../state/look'
 import { usePostToneMapping } from './SpaceLighting'
 
 const vertexShader = /* glsl */ `
@@ -27,6 +28,7 @@ const vertexShader = /* glsl */ `
 const fragmentShader = /* glsl */ `
   #include <logdepthbuf_pars_fragment>
   uniform float uTime;
+  uniform float uPhoto;
   uniform float uToned;
   varying vec3 vPos;
   varying vec3 vNormal;
@@ -76,19 +78,28 @@ const fragmentShader = /* glsl */ `
 
     // 周縁減光：縁ほど暗く赤くなる
     float mu = clamp(dot(normalize(vNormal), normalize(vView)), 0.0, 1.0);
-    color *= 0.45 + 0.55 * pow(mu, 0.45);
-
-    color *= 1.6;
-    // 後処理でトーンマッピング（ACES）を掛ける画質では、掛けた後も今までの金色に近く見えるよう、色を寄せておく
-    if (uToned > 0.5) color *= vec3(1.2, 0.85, 0.65);
-    gl_FragColor = vec4(color, 1.0);
+    if (uPhoto < 0.5) {
+      color *= 0.45 + 0.55 * pow(mu, 0.45);
+      color *= 1.6;
+      // 後処理でトーンマッピング（ACES）を掛ける画質では、掛けた後も今までの金色に近く見えるよう、色を寄せておく
+      if (uToned > 0.5) color *= vec3(1.2, 0.85, 0.65);
+      gl_FragColor = vec4(color, 1.0);
+    } else {
+      // 写真モード：太陽の本当の色はほぼ白。縁では浅く熱い層しか見えないので、暗く、少し赤くなる
+      // （観測に合う二次式 I = 0.3 + 0.93μ − 0.23μ²。色ごとに、青ほど強く暗くなる）
+      vec3 limb = vec3(0.3) + vec3(0.93) * mu - vec3(0.23) * mu * mu;
+      limb *= pow(vec3(max(mu, 0.001)), vec3(0.0, 0.08, 0.2));
+      vec3 white = vec3(1.0, 0.95, 0.86) * (0.9 + 0.1 * heat) - spots * 0.06;
+      // トーンマッピングで白が灰色に沈まないよう、そのときは少し明るく
+      gl_FragColor = vec4(white * limb * (uToned > 0.5 ? 1.45 : 1.3), 1.0);
+    }
     #include <logdepthbuf_fragment>
   }
 `
 
 export function Sun() {
   const surface = useRef<THREE.Mesh>(null!)
-  const uniforms = useMemo(() => ({ uTime: { value: 0 }, uToned: { value: 0 } }), [])
+  const uniforms = useMemo(() => ({ uTime: { value: 0 }, uPhoto: photoUniform, uToned: { value: 0 } }), [])
   uniforms.uToned.value = usePostToneMapping() ? 1 : 0
   const radius = useLayout().sun
 
@@ -106,7 +117,7 @@ export function Sun() {
         <sphereGeometry args={[radius, 96, 96]} />
         <shaderMaterial vertexShader={vertexShader} fragmentShader={fragmentShader} uniforms={uniforms} toneMapped={false} />
       </mesh>
-      <Atmosphere radius={radius} color="#ffb347" power={1.5} scale={1.4} />
+      <Atmosphere radius={radius} color="#ffb347" power={1.5} scale={1.4} photoFade={0.18} />
       <pointLight intensity={3} distance={0} decay={0} />
     </group>
   )

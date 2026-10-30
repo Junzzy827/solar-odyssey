@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { textureUrl } from '../data/textures'
+import { PHOTO_GLSL, photoUniform } from '../state/look'
 
 const vertexShader = /* glsl */ `
   #include <common>
@@ -30,6 +31,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uColor;
   uniform vec3 uCenter;
   uniform float uPlanetRadius;
+  ${PHOTO_GLSL}
   varying vec2 vUv;
   varying vec3 vPosW;
   varying vec3 vNormalW;
@@ -56,9 +58,15 @@ const fragmentShader = /* glsl */ `
     float b = dot(oc, L);
     float c = dot(oc, oc) - uPlanetRadius * uPlanetRadius;
     float disc = b * b - c;
-    if (disc > 0.0 && -b - sqrt(disc) > 0.0) light *= 0.05;
+    if (uPhoto < 0.5) {
+      if (disc > 0.0 && -b - sqrt(disc) > 0.0) light *= 0.05;
+    } else if (b < 0.0) {
+      // 写真モード：本体の影はほぼ真っ暗で、縁は太陽の大きさの分だけ少しぼける
+      float miss = sqrt(max(dot(oc, oc) - b * b, 0.0)) / uPlanetRadius;
+      light *= mix(0.005, 1.0, smoothstep(0.985, 1.01, miss));
+    }
 
-    gl_FragColor = vec4(tex.rgb * light, tex.a);
+    gl_FragColor = vec4(photoColor(tex.rgb * light), tex.a);
     #include <logdepthbuf_fragment>
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -92,6 +100,7 @@ export function SaturnRing({ inner, outer, color, planetRadius }: { inner: numbe
           uColor: { value: new THREE.Color(color) },
           uCenter: { value: new THREE.Vector3() },
           uPlanetRadius: { value: planetRadius },
+          uPhoto: photoUniform,
         },
         transparent: true,
         depthWrite: false,

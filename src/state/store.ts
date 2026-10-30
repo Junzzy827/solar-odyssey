@@ -73,13 +73,18 @@ export type Settings = {
   ship: ShipId
   /** 画質（state/quality.ts）。auto は FPS を見て自動で選ぶ */
   quality: QualitySetting
+  /** 天体の見え方（state/look.ts）：見やすく強調した図鑑モード（illustrated）か、カメラで撮ったような写真モード（photo） */
+  look: 'illustrated' | 'photo'
 }
 
 const SETTINGS_KEY = 'solar-voyager:settings'
-const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real', ship: 'sv01', quality: 'auto' }
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real', ship: 'sv01', quality: 'auto', look: 'illustrated' }
 
 // リンクで世界を決めて開ける（#sf や #real）
 const worldFromUrl = /[?&#](sf|real)\b/.exec(location.search + location.hash)?.[1] as Settings['world'] | undefined
+
+// リンクで見え方を決めて開ける（#look=photo）
+const lookFromUrl = /[?&#]look=(illustrated|photo)\b/.exec(location.search + location.hash)?.[1] as Settings['look'] | undefined
 
 // リンクで船を決めて開ける（#ship=heron など）
 const shipFromUrl = /[?&#]ship=(sv01|heron|sorakaze|hakobune|meguri|amatsu)\b/.exec(location.search + location.hash)?.[1] as ShipId | undefined
@@ -91,7 +96,7 @@ function loadSettings(): Settings {
   } catch {
     // 読めなければ初めの設定で
   }
-  return { ...DEFAULT_SETTINGS, ...saved, ...(worldFromUrl ? { world: worldFromUrl } : {}), ...(shipFromUrl ? { ship: shipFromUrl } : {}) }
+  return { ...DEFAULT_SETTINGS, ...saved, ...(worldFromUrl ? { world: worldFromUrl } : {}), ...(shipFromUrl ? { ship: shipFromUrl } : {}), ...(lookFromUrl ? { look: lookFromUrl } : {}) }
 }
 
 const VISITED_KEY = 'solar-voyager:visited'
