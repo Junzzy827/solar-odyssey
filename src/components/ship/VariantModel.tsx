@@ -25,6 +25,8 @@ const PALETTES: Record<Exclude<ShipId, 'sv01'>, Palette> = {
   // 白い居住区に、橙の帯。帆は鏡
   sorakaze: { hull: '#efeee9', hull2: '#a9b2bf', accent: '#de6a2c', cargo: [], panelScale: 0.6, seed: 53 },
   // 使いこまれた貨物船：くすんだ白、注意の黄色、色とりどりのコンテナ
+  // 白い長旅の船：灰色の機械区画、朱色の帯
+  meguri: { hull: '#e9e8e3', hull2: '#9097a0', accent: '#d4552a', cargo: [], panelScale: 0.6, seed: 79 },
   hakobune: { hull: '#dedad0', hull2: '#7f8690', accent: '#e0a526', cargo: ['#c8662a', '#2f7d86', '#b9b7ae', '#3b4a6b'], panelScale: 0.8, seed: 67 },
 }
 
@@ -183,8 +185,8 @@ export function VariantModel({ spec, unitScale = 1 }: { spec: ShipSpec; unitScal
     built.blue.color.setRGB(0.3 * b, 0.68 * b, 2 * b)
     // 放熱板：ワープの準備で、熱を逃がしてほんのり赤く
     built.radiator.emissive.setRGB(0.25 * w, 0.05 * w, 0.02 * w)
-    // 光の帆：ゆっくり回る（約40秒で1回転）
-    if (built.rotor) built.rotor.rotation.z += dt * ((Math.PI * 2) / 40) * (1 + 2 * w)
+    // 回る部品：光の帆はゆっくり（約40秒で1回転）、回転リングは人工重力の速さで
+    if (built.rotor) built.rotor.rotation.z += dt * ((Math.PI * 2) / (spec.spinSeconds ?? 40)) * (spec.spinSeconds ? 1 : 1 + 2 * w)
     const phase = t % STROBE_PERIOD
     const on = phase < STROBE_FLASH || (phase > STROBE_GAP && phase < STROBE_GAP + STROBE_FLASH)
     const flash = on ? 5 : 0.3

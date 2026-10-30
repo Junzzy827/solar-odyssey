@@ -79,7 +79,7 @@ const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume
 const worldFromUrl = /[?&#](sf|real)\b/.exec(location.search + location.hash)?.[1] as Settings['world'] | undefined
 
 // リンクで船を決めて開ける（#ship=heron など）
-const shipFromUrl = /[?&#]ship=(sv01|heron|sorakaze|hakobune)\b/.exec(location.search + location.hash)?.[1] as ShipId | undefined
+const shipFromUrl = /[?&#]ship=(sv01|heron|sorakaze|hakobune|meguri)\b/.exec(location.search + location.hash)?.[1] as ShipId | undefined
 
 function loadSettings(): Settings {
   let saved: Partial<Settings> = {}

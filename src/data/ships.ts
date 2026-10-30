@@ -5,7 +5,7 @@ import { COMPARE_VIEW, DEFAULT_VIEW, METERS_PER_UNIT, SHIP_LENGTH_M, SHIP_PARTS,
 // どれもこのアプリのオリジナルの空想の船で、本物の科学や乗り物と結びつく話をそえる。
 // 位置はどれも船の模型の座標（Y が上、前方が -Z、全長およそ 1）
 
-export type ShipId = 'sv01' | 'heron' | 'sorakaze' | 'hakobune'
+export type ShipId = 'sv01' | 'heron' | 'sorakaze' | 'hakobune' | 'meguri'
 
 /** 灯火：strobe は白い衝突防止灯（3秒おきに2回光る）、port は左舷の赤、starboard は右舷の緑、beacon は赤い回転灯風 */
 export type ShipLight = { pos: [number, number, number]; kind: 'strobe' | 'port' | 'starboard' | 'beacon'; size: number }
@@ -46,6 +46,8 @@ export type ShipSpec = {
   decals: Decal[]
   /** 噴射の光の色（ふだん・ワープ準備） */
   glow: { idle: [number, number, number]; warp: [number, number, number] }
+  /** 回る部品（Rotor）が1回転する秒数 */
+  spinSeconds?: number
   /** 選ぶ画面のカードの色（外板の主な色） */
   swatch: string[]
 }
@@ -372,7 +374,110 @@ const HAKOBUNE: ShipSpec = {
   swatch: ['#e5e2da', '#d5782a', '#2f7f86'],
 }
 
-export const SHIPS: ShipSpec[] = [SV01, HERON, SORAKAZE, HAKOBUNE]
+const MEGURI: ShipSpec = {
+  id: 'meguri',
+  registry: 'RS-06',
+  name: 'メグリ',
+  nameEn: 'Meguri',
+  kind: '回転リングの探査船',
+  kindEn: 'Ring-ship explorer',
+  blurb: '輪に並べた10個のモジュールが回り、遠心力で床に重さを作る長旅の船。2機の着陸艇を積んでいます。',
+  blurbEn: 'A long-voyage ship whose ring of ten modules spins to make gravity on the floors. It carries two landers.',
+  lengthM: 100,
+  metersPerUnit: 45 / 0.42,
+  turn: 1.1,
+  model: 'ship-meguri.glb',
+  bridgeBase: [0, 0.051, -0.3],
+  spinSeconds: 13.5,
+  parts: [
+    {
+      id: 'ring',
+      name: '回るリング',
+      nameEn: 'Spinning ring',
+      text: '直径約90mの輪が13.5秒で1回まわると、外側の床で地球と同じ重さ（1G）を感じます。回る乗り物の外側へ押しつけられる力（遠心力）を、重力のかわりに使う考え方です。長く無重力でいると骨や筋肉が弱るので、本物の宇宙でも研究されています。',
+      textEn: 'When the ring, about 90 m across, turns once every 13.5 seconds, the outer floor feels like Earth’s gravity (1 g). It uses the push you feel toward the outside of a turning ride in place of gravity. Long stays without gravity weaken bones and muscles, so real scientists study this idea too.',
+      pos: [0.42, 0.06, 0],
+      side: null,
+      view: { yaw: PI - 0.7, pitch: 0.35, dist: 1.6, target: [0, 0, 0] },
+    },
+    {
+      id: 'modules',
+      name: '居住区と機械区画',
+      nameEn: 'Crew and service modules',
+      text: '窓の並ぶ白いモジュールが乗組員の部屋、金色の断熱材を貼った灰色のモジュールが水・空気・電気をつくる機械の区画。交互に並べて、輪の重さをつり合わせています。',
+      textEn: 'The white modules with rows of windows are crew quarters; the grey ones with gold insulation hold machines for water, air and power. They alternate so the ring stays balanced.',
+      pos: [-0.42, 0.06, 0],
+      side: null,
+      view: { yaw: PI + 1.2, pitch: 0.25, dist: 0.6, target: [-0.36, 0, 0] },
+    },
+    {
+      id: 'hub',
+      name: 'ハブとスポーク',
+      nameEn: 'Hub and spokes',
+      text: '真ん中の軸は回らず、まわりのハブだけが軸受けで回ります。スポークの中は通路で、輪の外側へ行くほど体が重くなります。',
+      textEn: 'The central spine does not turn; only the hub around it spins on bearings. The spokes are corridors, and you feel heavier the farther out you go.',
+      pos: [0, 0.09, 0],
+      side: null,
+      view: { yaw: PI - 0.5, pitch: 0.3, dist: 0.6, target: [0, 0, 0] },
+    },
+    {
+      id: 'landers',
+      name: '着陸艇',
+      nameEn: 'Landers',
+      text: '軸の上と下に1機ずつ。惑星や衛星に降りて、また戻ってくる小型艇です。下面の黒いタイルは、大気に入るときの熱から機体を守ります。スペースシャトルも同じような黒いタイルを使いました。',
+      textEn: 'One above the spine and one below: small craft that land on planets and moons and fly back. The black tiles underneath protect them from the heat of entering an atmosphere, like the tiles on the Space Shuttle.',
+      pos: [0, 0.07, -0.15],
+      side: null,
+      view: { yaw: PI - 1.0, pitch: 0.25, dist: 0.45, target: [0, 0, -0.14] },
+    },
+    {
+      id: 'cab',
+      name: '操縦区画',
+      nameEn: 'Command module',
+      text: '軸の前の、回らない区画。船を操縦する部屋と、前のドッキング口があります。',
+      textEn: 'The non-spinning module at the front of the spine, with the flight deck and a docking port at the nose.',
+      pos: [0, 0.06, -0.32],
+      side: null,
+      view: { yaw: PI - 0.6, pitch: 0.25, dist: 0.45, target: [0, 0, -0.32] },
+    },
+    {
+      id: 'engines',
+      name: '主機と放熱板',
+      nameEn: 'Engines and radiators',
+      text: '後ろの3つの噴射口で進み、左右の板でエンジンの熱を宇宙へ逃がします。',
+      textEn: 'Three nozzles at the back push the ship; the side panels shed the engines’ heat into space.',
+      pos: [0.14, 0.01, 0.26],
+      side: null,
+      view: { yaw: 0.5, pitch: 0.3, dist: 0.6, target: [0, 0, 0.36] },
+    },
+  ],
+  defaultView: { yaw: PI - 0.7, pitch: 0.35, dist: 1.8, target: [0, 0, 0] },
+  compareView: { yaw: -1.2, pitch: 0.42, dist: 9.5, target: [-3.5, -0.3, 0.2] },
+  shots: [
+    { from: { yaw: PI - 0.9, pitch: 0.25, dist: 1.8, target: [0, 0, 0] }, to: { yaw: PI - 0.3, pitch: 0.35, dist: 1.5, target: [0, 0, -0.05] } },
+    { from: { yaw: PI - 0.5, pitch: 0.2, dist: 0.55, target: [0, 0, -0.2] }, to: { yaw: PI - 1.2, pitch: 0.15, dist: 0.5, target: [0, 0, -0.1] } },
+    { from: { yaw: 0.15, pitch: 0.05, dist: 1.6, target: [0, 0, 0] }, to: { yaw: -0.25, pitch: 0.1, dist: 1.4, target: [0, 0, 0] } },
+    { from: { yaw: 1.4, pitch: 0.9, dist: 1.4, target: [0, 0, 0.1] }, to: { yaw: 0.8, pitch: 0.6, dist: 1.1, target: [0, 0, 0.1] } },
+  ],
+  lights: [
+    { pos: [0, 0.052, -0.36], kind: 'strobe', size: 0.0008 },
+    { pos: [0, 0.058, 0.43], kind: 'strobe', size: 0.0009 },
+    { pos: [-0.221, 0.0, 0.255], kind: 'port', size: 0.0022 },
+    { pos: [0.221, 0.0, 0.255], kind: 'starboard', size: 0.0022 },
+  ],
+  floods: [
+    { from: [0, 0.18, 0.15], to: [0, 0.0, -0.25], angle: 0.5, intensity: 0.6 },
+    { from: [0, -0.15, 0.3], to: [0, 0.0, 0.0], angle: 0.7, intensity: 0.5 },
+  ],
+  decals: [
+    { text: 'RS-06 MEGURI', pos: [0.0565, 0.006, -0.3], rot: [0, PI / 2, 0], size: [0.1, 0.012] },
+    { text: 'RS-06 MEGURI', pos: [-0.0565, 0.006, -0.3], rot: [0, -PI / 2, 0], size: [0.1, 0.012] },
+  ],
+  glow: { idle: [0.6, 0.8, 2.0], warp: [1.4, 1.9, 3.3] },
+  swatch: ['#e9e8e3', '#9097a0', '#d4552a'],
+}
+
+export const SHIPS: ShipSpec[] = [SV01, HERON, SORAKAZE, HAKOBUNE, MEGURI]
 export const SHIP_IDS = SHIPS.map((s) => s.id)
 
 export const shipSpec = (id: ShipId) => SHIPS.find((s) => s.id === id) ?? SV01

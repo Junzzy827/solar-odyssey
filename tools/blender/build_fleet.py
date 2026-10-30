@@ -756,7 +756,129 @@ def hakobune():
     return hull, rotor
 
 
-SHIPS = {'heron': heron, 'sorakaze': sorakaze, 'hakobune': hakobune}
+# ---- 4. 回転リングの探査船（MEGURI） ---------------------------------------------
+# 長い旅のための船。輪に並べたモジュールがまわって、遠心力で床に重さ（人工重力）を作る。
+# 真ん中の軸は回らず、前に操縦区画と 2 機の着陸艇、後ろに主機と放熱板。
+
+
+def meguri():
+    hull, rotor = Part(), Part()
+    H, H2, A, D, M = 'Hull', 'Hull2', 'Accent', 'Dark', 'Metal'
+    R, N = 0.42, 10
+
+    def place(part_src, angle, dest):
+        """Y 軸のまわりに angle だけ回して dest に足す（輪の上に並べる）"""
+        c, s_ = math.cos(angle), math.sin(angle)
+        verts = [(x * c - z * s_, y, x * s_ + z * c) for x, y, z in part_src.verts]
+        dest.add(verts, part_src.faces, part_src.mats)
+
+    # 輪のモジュール：居住区（白・窓）と機械区画（灰色・金の断熱材）を交互に。
+    # いったん「+X 方向の輪の上、接線が Z」に作ってから回して並べる
+    seg = 2 * math.pi / N
+    for k in range(N):
+        mod = Part()
+        crew = k % 2 == 0
+        half_arc = R * seg * 0.36
+        loft = FacetLoft([
+            (-half_arc, 0, 0, 0.036, 0.046, 0.040, 0.034, 0.034, H2),
+            (-half_arc + 0.008, 0, 0, 0.040, 0.050, 0.044, 0.040, 0.040, H if crew else H2),
+            (half_arc - 0.008, 0, 0, 0.040, 0.050, 0.044, 0.040, 0.040, H2),
+            (half_arc, 0, 0, 0.036, 0.046, 0.040, 0.034, 0.034, H2),
+        ], chamfer=0.3, seg=3)
+        # ロフトは Y 方向に作られるので、Y→Z（接線）、X→Y（船の前後）、Z→X（外向き）へ並べ替え
+        loft.build(mod, transform=lambda v: (R + v[2], v[0], v[1]))
+        if crew:
+            # 居住区：前後の面に窓の列、外周に赤い帯
+            for side in (-1, 1):
+                for j in range(9):
+                    zz = -half_arc + 0.012 + j * (2 * half_arc - 0.024) / 8
+                    for rr in (R - 0.012, R + 0.012):
+                        box(mod, (rr, side * 0.0502, zz), (0.006, 0.0012, 0.0045), 'Window')
+            box(mod, (R + 0.0402, 0, 0), (0.0012, 0.1, 0.012), A)
+        else:
+            # 機械区画：金色の断熱材の箱と、短い放熱フィン
+            box(mod, (R + 0.044, 0, 0), (0.01, 0.06, 0.05), 'Gold')
+            for side in (-1, 1):
+                plate(mod, [(R - 0.02, side * 0.05, -0.02), (R + 0.02, side * 0.05, -0.02), (R + 0.02, side * 0.085, -0.02), (R - 0.02, side * 0.085, -0.02)][::side], 0.002, 'Radiator', edge_mat=M)
+        place(mod, k * seg, rotor)
+        # モジュールどうしをつなぐ短い通路
+        a0 = k * seg + seg * 0.36
+        a1 = (k + 1) * seg - seg * 0.36
+        p0 = (R * math.cos(a0), 0, R * math.sin(a0))
+        p1 = (R * math.cos(a1), 0, R * math.sin(a1))
+        cylinder(rotor, p0, p1, 0.016, 0.016, M, n=16)
+
+    # スポーク（輪と真ん中のハブをつなぐ 4 本の通路）
+    for k in range(4):
+        a = k * math.pi / 2 + seg / 2
+        cylinder(rotor, (0.07 * math.cos(a), 0, 0.07 * math.sin(a)), ((R - 0.03) * math.cos(a), 0, (R - 0.03) * math.sin(a)), 0.011, 0.011, M, n=14)
+        cylinder(rotor, ((R - 0.07) * math.cos(a), 0, (R - 0.07) * math.sin(a)), ((R - 0.035) * math.cos(a), 0, (R - 0.035) * math.sin(a)), 0.016, 0.016, H2, n=14)
+    # ハブ（回る部分）：軸受けの太い輪
+    cylinder(rotor, (0, -0.05, 0), (0, 0.05, 0), 0.075, 0.075, H, n=48)
+    cylinder(rotor, (0, -0.055, 0), (0, -0.05, 0), 0.06, 0.075, A, n=48)
+    cylinder(rotor, (0, 0.05, 0), (0, 0.055, 0), 0.075, 0.06, A, n=48)
+
+    # 回らない軸：前の操縦区画から後ろの主機まで
+    cylinder(hull, (0, -0.40, 0), (0, 0.30, 0), 0.03, 0.03, H2, n=32)
+    for y in np.arange(-0.36, 0.28, 0.06):
+        cylinder(hull, (0, y, 0), (0, y + 0.008, 0), 0.034, 0.034, M, n=32)
+    cab = FacetLoft([
+        (0.22, 0, 0, 0.034, 0.046, 0.040, 0.040, 0.040, H2),
+        (0.24, 0, 0, 0.044, 0.056, 0.050, 0.050, 0.050, H),
+        (0.36, 0, 0, 0.044, 0.056, 0.050, 0.050, 0.050, H),
+        (0.40, 0, 0, 0.030, 0.040, 0.036, 0.036, 0.036, H),
+        (0.42, 0, 0, 0.016, 0.022, 0.020, 0.020, 0.020, M),
+    ], chamfer=0.35, seg=3)
+    cab.build(hull)
+    strip(hull, cab, 0.0, 0.25, 0.37, 0.004, 'Window', mirror_x=True)
+    strip(hull, cab, math.pi / 2, 0.25, 0.37, 0.004, A)
+    for i in range(4):
+        box(hull, ((i - 1.5) * 0.016, 0.395, 0.022), (0.011, 0.003, 0.008), 'Window', rot_x=-0.7)
+    # 前のドッキング口
+    cylinder(hull, (0, 0.42, 0), (0, 0.432, 0), 0.02, 0.02, D, n=24)
+
+    # 着陸艇 2 機：軸の上と下に、機首を前へ向けてドッキング。下面は黒い耐熱タイル
+    for sz in (1, -1):
+        lander = Part()
+        body = FacetLoft([
+            (-0.09, 0, 0.0, 0.020, 0.034, 0.036, 0.012, 0.010, H),
+            (-0.08, 0, 0.0, 0.024, 0.040, 0.044, 0.016, 0.011, H),
+            (0.02, 0, 0.0, 0.020, 0.034, 0.038, 0.016, 0.011, H),
+            (0.07, 0, -0.002, 0.008, 0.016, 0.020, 0.010, 0.008, H),
+            (0.09, 0, -0.004, 0.002, 0.004, 0.005, 0.003, 0.003, H),
+        ], chamfer=0.3, mid=-0.3, seg=2, cap_back=D)
+        body.build(lander)
+        strip(lander, body, -math.pi / 2, -0.085, 0.085, 0.07, D, lift=0.0006)
+        box(lander, (0, 0.05, 0.012), (0.018, 0.003, 0.004), 'Window', rot_x=-0.5)
+        for sx in (-1, 1):
+            plate(lander, [(sx * 0.03, -0.085, 0), (sx * 0.07, -0.095, 0.0), (sx * 0.07, -0.08, 0), (sx * 0.03, -0.04, 0)][::sx], 0.003, H, edge_mat=A)
+            nozzle(lander, (sx * 0.012, -0.1, 0.0), (sx * 0.012, -0.09, 0.0), 0.005, 0.008, n=12)
+        # 上下に置く（下の機は上下を返す）
+        for i, (x, y, z) in enumerate(lander.verts):
+            lander.verts[i] = (x, y + 0.13, sz * (0.048 + z))
+        if sz < 0:
+            lander.faces = [list(reversed(f)) for f in lander.faces]
+        hull.add(lander.verts, lander.faces, lander.mats)
+        cylinder(hull, (0, 0.13, sz * 0.03), (0, 0.13, sz * 0.04), 0.008, 0.008, M, n=12)
+
+    # 後ろ：主機の台と 3 つの噴射口、左右の放熱板
+    eng = FacetLoft([
+        (-0.44, 0, 0, 0.040, 0.055, 0.050, 0.050, 0.050, H2),
+        (-0.42, 0, 0, 0.046, 0.060, 0.056, 0.056, 0.056, H),
+        (-0.34, 0, 0, 0.046, 0.060, 0.056, 0.056, 0.056, A),
+        (-0.33, 0, 0, 0.040, 0.050, 0.046, 0.046, 0.046, H),
+    ], chamfer=0.35, seg=3, cap_back=D)
+    eng.build(hull)
+    for k in range(3):
+        a = math.pi / 2 + k * 2 * math.pi / 3
+        nozzle(hull, (0.026 * math.cos(a), -0.475, 0.026 * math.sin(a)), (0.026 * math.cos(a), -0.44, 0.026 * math.sin(a)), 0.012, 0.02, n=24)
+    for sx in (-1, 1):
+        plate(hull, [(sx * 0.06, -0.30, 0), (sx * 0.22, -0.31, 0), (sx * 0.22, -0.20, 0), (sx * 0.06, -0.21, 0)][::sx], 0.003, 'Radiator', edge_mat=M)
+        cylinder(hull, (sx * 0.03, -0.255, 0), (sx * 0.06, -0.255, 0), 0.004, 0.004, M, n=8)
+    return hull, rotor
+
+
+SHIPS = {'heron': heron, 'sorakaze': sorakaze, 'hakobune': hakobune, 'meguri': meguri}
 
 
 # ---- Blender での仕上げ ---------------------------------------------------------
