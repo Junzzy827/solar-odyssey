@@ -170,11 +170,32 @@ export function GalacticRailway() {
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-    const material = new THREE.PointsMaterial({ size: 0.022, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })
+    // 粒をまるくぼかす
+    const c = document.createElement('canvas')
+    c.width = c.height = 32
+    const g = c.getContext('2d')!
+    const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16)
+    grad.addColorStop(0, 'rgba(255,255,255,1)')
+    grad.addColorStop(0.4, 'rgba(255,255,255,0.45)')
+    grad.addColorStop(1, 'rgba(255,255,255,0)')
+    g.fillStyle = grad
+    g.fillRect(0, 0, 32, 32)
+    const map = new THREE.CanvasTexture(c)
+    const material = new THREE.PointsMaterial({ map, size: 0.022, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })
     const points = new THREE.Points(geometry, material)
     points.frustumCulled = false
     return { points, positions, colors, age: new Float32Array(SMOKE).fill(99), drift: new Float32Array(SMOKE * 3), next: 0, tint: Array.from({ length: SMOKE }, (_, i) => new THREE.Color().setHSL(0.12 + (i % 7) * 0.07, 0.6, 0.75)) }
   }, [])
+
+  useEffect(
+    () => () => {
+      const m = smoke.points.material as THREE.PointsMaterial
+      m.map?.dispose()
+      m.dispose()
+      smoke.points.geometry.dispose()
+    },
+    [smoke],
+  )
 
   const rails = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color(0.8, 1.2, 2.2), toneMapped: false }), [])
   const lineMat = useMemo(() => new THREE.LineBasicMaterial({ color: '#7fa6ff', transparent: true, opacity: 0.35 }), [])

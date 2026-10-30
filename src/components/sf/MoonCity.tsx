@@ -79,11 +79,11 @@ function makeParts() {
     cone: new THREE.ConeGeometry(1, 1, 4, 1),
     cyl: new THREE.CylinderGeometry(1, 1, 1, 12),
     disc: new THREE.CircleGeometry(1, 48),
-    base: glow(0.62, 0.6, 0.56),
-    wall: glow(1.05, 1.02, 0.95),
-    window: glow(2.2, 1.55, 0.7),
-    roof: glow(1.5, 1.15, 0.55),
-    pond: glow(0.8, 1.3, 1.7),
+    base: glow(0.45, 0.44, 0.42),
+    wall: glow(0.82, 0.8, 0.76),
+    window: glow(1.7, 1.15, 0.5),
+    roof: glow(0.95, 0.74, 0.36),
+    pond: glow(0.6, 1.0, 1.35),
     lamp: glow(2.4, 1.8, 0.9),
     floor: new THREE.MeshStandardMaterial({ color: '#6c6a66', roughness: 1, emissive: '#2a2618', emissiveIntensity: 0.5 }),
     rim: new THREE.MeshStandardMaterial({ color: '#85827c', roughness: 1 }),
@@ -96,7 +96,7 @@ function makeParts() {
       blending: THREE.AdditiveBlending,
       toneMapped: false,
     }),
-    haloMat: new THREE.SpriteMaterial({ map: soft, color: new THREE.Color(1.0, 0.82, 0.45), transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
+    haloMat: new THREE.SpriteMaterial({ map: soft, color: new THREE.Color(1.0, 0.82, 0.45), transparent: true, opacity: 0.12, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
   }
 }
 
@@ -228,7 +228,7 @@ function City({ moonRadius }: { moonRadius: number }) {
           <mesh key={i} geometry={parts.box} material={parts.lamp} position={[x, ground(x, z) + 0.25, z]} scale={[0.14, 0.28, 0.14]} />
         ))}
         <points ref={lanternRef} geometry={lanterns.geo} material={parts.lanternMat} frustumCulled={false} />
-        <sprite material={parts.haloMat} position={[0, 1.5, 0]} scale={[30, 30, 1]} />
+        <sprite material={parts.haloMat} position={[0, 1.5, 0]} scale={[26, 26, 1]} />
       </group>
       <group ref={anchor} position={[0, ANCHOR, 0]} />
       <Html position={[0, 0.09, 0]} center className="label" zIndexRange={LABEL_Z}>
