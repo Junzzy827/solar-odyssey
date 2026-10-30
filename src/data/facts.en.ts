@@ -164,6 +164,58 @@ export const FACTS_EN: Record<string, Facts> = {
       explanation: 'Each bird only matches its few nearest neighbours, but that spreads through the flock and makes the big shape.',
     },
   },
+  'solar-plant': {
+    rows: [
+      ['Size', 'The dish is about 26 km across (about 40 times your ship)'],
+      ['Mirrors', 'About 3,800 (each about 380 m across)'],
+      ['Where', 'The Sun–Earth L1 point (on the Sun side of Earth, where it can always face the Sun)'],
+    ],
+    fiction: true,
+    notes: [
+      'Mirrors laid out like a shallow bowl gather sunlight onto the collector at the focus. The collector turns the light into electricity, and the antenna in the middle of the bowl beams it to Earth as microwaves.',
+      'The beam is drawn so you can see it, but real microwaves are invisible. On the ground, a wide field of antennas (a rectenna) would collect the weak, spread-out beam.',
+      'Up close, glints sweep across the bowl like a wave as the mirrors keep adjusting their angles.',
+    ],
+    real: [
+      'Collecting sunlight in space and beaming the power to Earth (space-based solar power) was proposed by Peter Glaser in 1968.',
+      'In space there is no night and no clouds, so it can generate power almost all the time. With no air to dim it, sunlight is also stronger than on the ground (about 1.4 times a clear noon).',
+      'Japan’s JAXA and others have studied it for years. In 2015 a ground test beamed microwave power 55 m.',
+      'In 2023, Caltech’s test satellite SSPD-1 beamed microwave power in space for the first time, and the signal was also picked up on the ground.',
+      'The big challenge is cost: building a huge power station in space means launching a lot of parts.',
+    ],
+    quiz: {
+      question: 'Why is solar power better in space than on the ground?',
+      choices: ['No night or clouds, so it can generate almost all the time', 'Space is many times closer to the Sun', 'Electricity gets lighter in space'],
+      answer: 0,
+      explanation: 'Space has no day and night cycle and no weather, and no air dims the sunlight. The same mirrors or panels can make far more electricity than on the ground.',
+    },
+  },
+  'sail-launcher': {
+    rows: [
+      ['Size', 'About 20 km long and 4 km across (a rebuilt old cylinder habitat)'],
+      ['Emitter', 'A face about 6 km across, tiled with hexagonal lasers'],
+      ['Where', 'The Earth–Moon L3 point (on the far side of Earth from the Moon)'],
+      ['Aimed at', 'Alpha Centauri (about 4.4 light-years away)'],
+    ],
+    fiction: true,
+    notes: [
+      'Every 10 seconds it pushes a thin sail carrying a stamp-sized probe away with laser light. It is not a machine for breaking anything.',
+      'Light pushes on whatever it hits (radiation pressure). The push is tiny, but if it keeps pushing a very light sail, the sail ends up going very fast.',
+      'The fins around the body are radiators. Powerful lasers make a lot of heat, which has to be shed into space.',
+    ],
+    real: [
+      'Breakthrough Starshot, started in 2016, plans to push sails carrying probes of a few grams to about 20% of the speed of light with a giant laser on the ground, reaching Alpha Centauri in about 20 years.',
+      'In 2010, JAXA’s IKAROS became the first spacecraft to sail through space pushed by sunlight (a solar sail).',
+      'In 2019, The Planetary Society’s LightSail 2 showed that sunlight alone could raise its orbit.',
+      'In the real Starshot plan, the laser is not in space: it would be an array of hundreds of thousands of small lasers on the ground.',
+    ],
+    quiz: {
+      question: 'What makes a light sail move?',
+      choices: ['The push of light hitting it (radiation pressure)', 'Gas from the sail burning', 'The stars pulling on the sail'],
+      answer: 0,
+      explanation: 'Particles of light carry momentum even though they have no mass, so they push a little on whatever they hit. The push is weak, but a light sail can slowly build up a lot of speed.',
+    },
+  },
   sun: {
     diameter: 'About 1.39 million km (about 109 times Earth)',
     temperature: 'Surface about 5,500 °C, core about 15 million °C',

@@ -21,6 +21,14 @@ export function setWorld(world: 'real' | 'sf') {
 export const COLONY_ID = 'colony'
 export const colonyName = () => t('L5スペースコロニー', 'L5 Space Colony')
 
+/** 太陽光ミラー発電所（太陽と地球の L1 点。宇宙太陽光発電の研究がもと） */
+export const SOLAR_PLANT_ID = 'solar-plant'
+export const solarPlantName = () => t('太陽光ミラー発電所', 'Solar Mirror Power Station')
+
+/** 光帆の発射台（地球と月の L3 点。円筒を改造したレーザー発射台。ブレークスルー・スターショット計画がもと） */
+export const SAIL_LAUNCHER_ID = 'sail-launcher'
+export const sailLauncherName = () => t('光帆発射台', 'Light-Sail Launcher')
+
 /** 構造物のそばで自機を縮める割合の目安（近くの構造物は、この倍率で本物の大きさの比率になるよう作る） */
 export const SITE_ZOOM = 20
 /** SITE_ZOOM のとき、1m が何表示単位か（自機は表示 0.3 で 640m） */
@@ -38,6 +46,8 @@ export type SFEntry = {
 /** SF モードだけに出るもの。航法コンピュータの一覧・スタンプ帳はこの順に並ぶ */
 export const SF_OBJECTS: SFEntry[] = [
   { id: COLONY_ID, name: colonyName, spoken: 'the L5 colony', color: '#9fc6e8' },
+  { id: SOLAR_PLANT_ID, name: solarPlantName, spoken: 'the solar power station', color: '#f2cf6a' },
+  { id: SAIL_LAUNCHER_ID, name: sailLauncherName, spoken: 'the light-sail launcher', color: '#b49cff' },
   { id: CUBE_ID, name: cubeName, spoken: 'the unknown vessel', color: '#6fd0b8' },
   { id: 'gate', name: () => t('時空のゲート', 'Space-Time Gate'), spoken: 'the gate', color: '#8f7dff' },
   { id: 'blackhole', name: () => t('ブラックホール（太陽系の外）', 'Black Hole (beyond the solar system)'), spoken: 'the black hole', color: '#f0b45a' },
@@ -70,6 +80,16 @@ export const SF_TEXT = {
     t(
       'コロニーの中に入りました。頭の上にも大地が広がっています。回転の遠心力が、内側の地面に重力の代わりの力を生んでいます。',
       'You are inside the colony. There is land above your head too. The spin pushes everything outward, and that push works like gravity on the inner ground.',
+    ),
+  solarPlantFound: () =>
+    t(
+      '太陽光ミラー発電所が見えてきた。約3800枚の鏡が太陽の光を1点に集め、電気に変えて地球へ送っています。\n（I で航海日誌）',
+      'The Solar Mirror Power Station comes into view. About 3,800 mirrors gather sunlight onto one spot, turn it into electricity and beam it to Earth.\n(I for the ship’s log)',
+    ),
+  sailLauncherFound: () =>
+    t(
+      '光帆発射台が見えてきた。レーザーで、切手ほどの小さな探査機を星へ向けて送り出しています。\n（I で航海日誌）',
+      'The Light-Sail Launcher comes into view. It uses a laser to send stamp-sized probes off toward the stars.\n(I for the ship’s log)',
     ),
   worldOn: () => t('SFモード：架空の船や構造物も出します。本物の太陽系の上に重ねて表示しています。', 'SF mode: imaginary ships and structures appear on top of the real solar system.'),
   worldOff: () => t('現実モード：本物の太陽系だけを表示します。', 'Real mode: only the real solar system is shown.'),
