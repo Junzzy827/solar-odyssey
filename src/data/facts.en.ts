@@ -429,6 +429,31 @@ export const FACTS_EN: Record<string, Facts> = {
       explanation: 'Jupiter’s strong pull squeezes Europa, and that heat keeps the water under the ice from freezing. It is one of the most promising places to look for life.',
     },
   },
+  'debris-tug': {
+    rows: [
+      ['Size', 'About 60 m long (drawn about 3 times larger so you can see it)'],
+      ['Where', 'Low Earth orbit (a few hundred km up)'],
+      ['Job', 'Collecting space debris'],
+    ],
+    fiction: true,
+    notes: [
+      'A small work ship with a yellow stripe. The net at the end of its arm catches old rocket parts and fragments one by one as they slowly drift closer.',
+      'The dots around it are space debris circling Earth. The collected debris is dropped into the atmosphere to burn up.',
+    ],
+    real: [
+      'ESA (the European Space Agency) estimates that more than about 36,000 pieces of debris larger than 10 cm circle Earth, and about 1 million pieces between 1 and 10 cm.',
+      'Debris moves at about 7 to 8 km per second, so even a small fragment can punch a big hole.',
+      'The worry that collisions make more debris, which causes more collisions, is called Kessler syndrome (pointed out by Donald Kessler in 1978).',
+      'In 2024, ADRAS-J, a satellite from the Japanese company Astroscale, came within tens of meters of an old H-IIA rocket upper stage left in orbit and photographed it.',
+      'The International Space Station (ISS) changes its orbit a few times a year to dodge debris.',
+    ],
+    quiz: {
+      question: 'Why is space debris dangerous?',
+      choices: ['It moves very fast, about 8 km per second', 'It is poisonous', 'Magnets pull it toward ships'],
+      answer: 0,
+      explanation: 'It flies about ten times faster than a bullet, so even a small fragment can break a satellite or a space station.',
+    },
+  },
   sun: {
     diameter: 'About 1.39 million km (about 109 times Earth)',
     temperature: 'Surface about 5,500 °C, core about 15 million °C',

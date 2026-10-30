@@ -64,6 +64,9 @@ export const arkName = () => t('世代宇宙船', 'Generation Ship')
 /** エウロパの氷の上の、謎のビーコン */
 export const BEACON_ID = 'beacon'
 export const beaconName = () => t('エウロパのビーコン', 'Europa Beacon')
+/** 地球の低い軌道で宇宙ごみを集める回収船 */
+export const DEBRIS_ID = 'debris-tug'
+export const debrisName = () => t('宇宙ごみ回収船', 'Debris Collector')
 
 /** テラフォーミングした火星を見せるか（SF モードのときだけ。航海日誌のボタンで本物と見くらべる） */
 export const useTerra = create<{ on: boolean }>(() => ({ on: true }))
@@ -95,6 +98,7 @@ export const SF_OBJECTS: SFEntry[] = [
   { id: DYSON_ID, name: dysonName, spoken: 'the Dyson swarm', color: '#e0b25a' },
   { id: ARK_ID, name: arkName, spoken: 'the generation ship', color: '#a8c0d8' },
   { id: BEACON_ID, name: beaconName, spoken: 'the Europa beacon', color: '#5fd8e0' },
+  { id: DEBRIS_ID, name: debrisName, spoken: 'the debris collector', color: '#f0b429' },
   { id: CUBE_ID, name: cubeName, spoken: 'the unknown vessel', color: '#6fd0b8' },
   { id: 'gate', name: () => t('時空のゲート', 'Space-Time Gate'), spoken: 'the gate', color: '#8f7dff' },
   { id: 'blackhole', name: () => t('ブラックホール（太陽系の外）', 'Black Hole (beyond the solar system)'), spoken: 'the black hole', color: '#f0b45a' },
@@ -132,6 +136,11 @@ export const SF_TEXT = {
     t(
       'エウロパの氷の上に、見たことのない物体が立っています。光の球がゆっくりふくらんでは消えています。\n（I で航海日誌）',
       'Something no one has seen before stands on Europa’s ice. A ball of light slowly swells and fades.\n(I for the ship’s log)',
+    ),
+  debrisFound: () =>
+    t(
+      '宇宙ごみの回収船です。地球の低い軌道を回りながら、腕の先の網で、古いロケットや破片を1つずつつかまえています。\n（I で航海日誌）',
+      'This is the debris collector. Circling Earth in low orbit, it catches old rocket parts and fragments one by one with the net on its arm.\n(I for the ship’s log)',
     ),
   colonyFound: () =>
     t(

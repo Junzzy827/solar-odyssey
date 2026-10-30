@@ -17,6 +17,7 @@ import { DysonSwarm } from './DysonSwarm'
 import { TerraMars } from './TerraMars'
 import { GenerationShip } from './GenerationShip'
 import { EuropaBeacon } from './EuropaBeacon'
+import { DebrisCollector } from './DebrisCollector'
 
 /** SF モードだけに出す、架空の船や構造物（data/sf.ts の SF_OBJECTS と対になる） */
 export function SFWorld() {
@@ -41,6 +42,7 @@ export function SFWorld() {
       <TerraMars />
       <GenerationShip />
       <EuropaBeacon />
+      <DebrisCollector />
     </>
   )
 }
