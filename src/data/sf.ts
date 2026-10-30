@@ -3,6 +3,7 @@ import { t } from '../i18n/lang'
 import { useStore } from '../state/store'
 import { CUBE_ID, cubeName } from './cube'
 import { CARRIER_ID, FREIGHTER_ID, RADIO_MOON_ID, carrierName, freighterName, radioMoonName } from './sfSpace'
+import { MOON_CITY_ID, RAILWAY_ID, moonCityName, railwayName } from './sfJapan'
 
 // SF モード：本物の太陽系に、架空の船や構造物を重ねて出す。
 // どれも実在の研究や構想をもとにしたオリジナルのデザインで、作品の名前・ロゴ・設定画の形は使わない。
@@ -99,6 +100,8 @@ export const SF_OBJECTS: SFEntry[] = [
   { id: ARK_ID, name: arkName, spoken: 'the generation ship', color: '#a8c0d8' },
   { id: BEACON_ID, name: beaconName, spoken: 'the Europa beacon', color: '#5fd8e0' },
   { id: DEBRIS_ID, name: debrisName, spoken: 'the debris collector', color: '#f0b429' },
+  { id: RAILWAY_ID, name: railwayName, spoken: 'the Galactic Railway', color: '#7fa6ff' },
+  { id: MOON_CITY_ID, name: moonCityName, spoken: 'the Moon capital', color: '#e8cf8a' },
   { id: CUBE_ID, name: cubeName, spoken: 'the unknown vessel', color: '#6fd0b8' },
   { id: 'gate', name: () => t('時空のゲート', 'Space-Time Gate'), spoken: 'the gate', color: '#8f7dff' },
   { id: 'blackhole', name: () => t('ブラックホール（太陽系の外）', 'Black Hole (beyond the solar system)'), spoken: 'the black hole', color: '#f0b45a' },

@@ -19,6 +19,8 @@ import { GenerationShip } from './GenerationShip'
 import { EuropaBeacon } from './EuropaBeacon'
 import { DebrisCollector } from './DebrisCollector'
 import { DesertPlanet, IcePlanet } from './Exoplanet'
+import { GalacticRailway } from './GalacticRailway'
+import { MoonCity } from './MoonCity'
 
 /** SF モードだけに出す、架空の船や構造物（data/sf.ts の SF_OBJECTS と対になる） */
 export function SFWorld() {
@@ -46,6 +48,8 @@ export function SFWorld() {
       <DebrisCollector />
       <DesertPlanet />
       <IcePlanet />
+      <GalacticRailway />
+      <MoonCity />
     </>
   )
 }
