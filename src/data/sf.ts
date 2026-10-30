@@ -5,6 +5,7 @@ import { CUBE_ID, cubeName } from './cube'
 import { CARRIER_ID, FREIGHTER_ID, RADIO_MOON_ID, carrierName, freighterName, radioMoonName } from './sfSpace'
 import { MOON_CITY_ID, RAILWAY_ID, moonCityName, railwayName } from './sfJapan'
 import { HOURGLASS_ID, hourglassName } from './sfHourglass'
+import { COLONY_GROUPS, colonyGroupName } from './sfSides'
 
 // SF モード：本物の太陽系に、架空の船や構造物を重ねて出す。
 // どれも実在の研究や構想をもとにしたオリジナルのデザインで、作品の名前・ロゴ・設定画の形は使わない。
@@ -23,9 +24,9 @@ export function setWorld(world: 'real' | 'sf') {
 
 /** スペースコロニー（地球と月の L5 点。オニールの「島3号」の構想がもと） */
 export const COLONY_ID = 'colony'
-export const colonyName = () => t('L5コロニー群', 'L5 Colony Cluster')
+export const colonyName = () => t('第1コロニー群（L5）', 'Colony Group 1 (L5)')
 /** 群の中の、ほかの円筒コロニー（入れるのは代表の1号基だけ） */
-export const colonyMemberName = (n: number) => t(`L5コロニー群 ${n}号基`, `L5 Colony ${n}`)
+export const colonyMemberName = (n: number) => t(`第1コロニー群 ${n}号基`, `Group 1, Colony ${n}`)
 /** ドーナツ型のコロニー（スタンフォード・トーラスの構想がもと） */
 export const TORUS_ID = 'torus'
 export const torusName = () => t('ドーナツ型コロニー', 'Torus Colony')
@@ -85,7 +86,8 @@ export type SFEntry = {
 
 /** SF モードだけに出るもの。航法コンピュータの一覧・スタンプ帳はこの順に並ぶ */
 export const SF_OBJECTS: SFEntry[] = [
-  { id: COLONY_ID, name: colonyName, spoken: 'the L5 colonies', color: '#9fc6e8' },
+  { id: COLONY_ID, name: colonyName, spoken: 'Colony Group 1', color: '#9fc6e8' },
+  ...COLONY_GROUPS.map((g) => ({ id: g.id, name: () => colonyGroupName(g.n, g.point), spoken: `Colony Group ${g.n}`, color: '#8fb8dc' })),
   { id: TORUS_ID, name: torusName, spoken: 'the torus colony', color: '#c8d6a0' },
   { id: HOURGLASS_ID, name: hourglassName, spoken: 'the hourglass colonies', color: '#d8c7a0' },
   { id: YARD_ID, name: yardName, spoken: 'the lunar shipyard', color: '#d0b070' },
@@ -151,8 +153,8 @@ export const SF_TEXT = {
     ),
   colonyFound: () =>
     t(
-      'コロニー群が見えてきた。1号基には、太陽と反対側の端にある港から入れます。\n（I で航海日誌）',
-      'A cluster of space colonies comes into view. In Colony 1 you can fly inside through the port at the end facing away from the Sun.\n(I for the ship’s log)',
+      '第1コロニー群が見えてきた。1号基には、太陽と反対側の端にある港から入れます。\n（I で航海日誌）',
+      'Colony Group 1 comes into view. In Colony 1 you can fly inside through the port at the end facing away from the Sun.\n(I for the ship’s log)',
     ),
   torusFound: () =>
     t(

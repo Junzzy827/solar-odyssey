@@ -2,6 +2,7 @@ import type { Facts } from './facts'
 import { SPACE_FACTS_EN } from './sfSpace'
 import { JAPAN_FACTS_EN } from './sfJapan'
 import { HOURGLASS_FACTS_EN } from './sfHourglass'
+import { SIDE_FACTS_EN } from './sfSides'
 
 // FACTS の英語版。キーと並びは facts.ts と同じ（数値も同じ概数）
 
@@ -9,6 +10,7 @@ export const FACTS_EN: Record<string, Facts> = {
   ...SPACE_FACTS_EN,
   ...JAPAN_FACTS_EN,
   ...HOURGLASS_FACTS_EN,
+  ...SIDE_FACTS_EN,
   hubble: {
     rows: [
       ['Launched', '1990 (by Space Shuttle)'],
@@ -81,6 +83,7 @@ export const FACTS_EN: Record<string, Facts> = {
     fiction: true,
     notes: [
       'Several colonies are gathered at the same Lagrange point as a cluster. You can fly inside Colony 1.',
+      'Colony Groups 1 to 7 are spread over the five Earth–Moon Lagrange points. Group 1, here at L5, is the largest.',
       'The cylinder is split into six strips around: three strips of land and three of windows. Big mirrors outside bounce sunlight in through the windows.',
       'The port is on the spin axis at the end facing away from the Sun. Fly in there and you will see land above your head too.',
       'Next to Colony 1, Colony 4 is being built. Humanoid work machines fit the hull plates one by one (they are drawn about 10 times larger than planned so you can see them).',
@@ -232,7 +235,7 @@ export const FACTS_EN: Record<string, Facts> = {
     ],
     fiction: true,
     notes: [
-      'One of the L5 cluster. It is far smaller than the cylinders, about 1/18 of their length.',
+      'One of Colony Group 1 at L5. It is far smaller than the cylinders, about 1/18 of their length.',
       'A big mirror on the Sun side catches sunlight and sends it to a ring of mirrors above the torus, which shine it in through the windows.',
     ],
     real: [

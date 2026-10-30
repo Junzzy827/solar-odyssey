@@ -2,10 +2,10 @@ import * as THREE from 'three'
 import { bodies } from '../../state/registry'
 
 // 地球と月のラグランジュ点。L4 は月の軌道の上で月より60度前、L5 は60度うしろ、L3 は地球をはさんで月の反対側、
-// L2 は地球から見て月の向こう側（本物は月の約6万km先。距離を縮めて描いているので、月のすぐ先に置く）。
+// L1 は地球と月のあいだ（地球と月の表面のまんなかに置く）、L2 は地球から見て月の向こう側（本物は月の約6万km先。距離を縮めて描いているので、月のすぐ先に置く）。
 // 本物の月の軌道は少し傾いているので、月の動きから軌道の面の向き（法線）を求めて回す。
 
-export type LagrangePoint = 'L2' | 'L3' | 'L4' | 'L5'
+export type LagrangePoint = 'L1' | 'L2' | 'L3' | 'L4' | 'L5'
 
 const earth = new THREE.Vector3()
 const moon = new THREE.Vector3()
@@ -30,6 +30,11 @@ export function earthMoonPoint(point: LagrangePoint, out: THREE.Vector3) {
   }
   prevRel.copy(rel)
   hasPrev = true
+  if (point === 'L1') {
+    const d = rel.length()
+    out.copy(earth).addScaledVector(rel.divideScalar(d), e.radius + (d - e.radius - m.radius) / 2)
+    return true
+  }
   if (point === 'L2') {
     out.copy(moon).addScaledVector(rel.normalize(), m.radius * 2.2)
     return true
@@ -39,3 +44,6 @@ export function earthMoonPoint(point: LagrangePoint, out: THREE.Vector3) {
   out.copy(earth).add(rel)
   return true
 }
+
+/** 月の軌道の面の向き（法線）。earthMoonPoint を呼んだあとに使う */
+export const earthMoonNormal = (out: THREE.Vector3) => out.copy(normal)

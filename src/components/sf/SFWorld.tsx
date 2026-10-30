@@ -5,6 +5,7 @@ import { Swarm } from './Swarm'
 import { SolarPlant } from './SolarPlant'
 import { SailLauncher } from './SailLauncher'
 import { ColonyCluster } from './ColonyCluster'
+import { ColonyGroups } from './ColonyGroups'
 import { AsteroidBase } from './AsteroidBase'
 import { Fleet } from './Fleet'
 import { Shipyard } from './Shipyard'
@@ -35,6 +36,7 @@ export function SFWorld() {
       <SailLauncher />
       <ColonyCluster />
       <HourglassColonies />
+      <ColonyGroups />
       <Shipyard />
       <SpaceElevator />
       <AsteroidBase id={CROSS_ID} shape="cross" point="L4" />

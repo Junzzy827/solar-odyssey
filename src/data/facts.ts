@@ -3,6 +3,7 @@ import { FACTS_EN } from './facts.en'
 import { SPACE_FACTS } from './sfSpace'
 import { JAPAN_FACTS } from './sfJapan'
 import { HOURGLASS_FACTS } from './sfHourglass'
+import { SIDE_FACTS } from './sfSides'
 
 // 航海日誌に出す解説とクイズ。数値は NASA の公開データの概数。
 // 衛星の数は発見が続いているので「以上」と書く。
@@ -35,6 +36,7 @@ export const FACTS: Record<string, Facts> = {
   ...SPACE_FACTS,
   ...JAPAN_FACTS,
   ...HOURGLASS_FACTS,
+  ...SIDE_FACTS,
   hubble: {
     rows: [
       ['打ち上げ', '1990年（スペースシャトルで）'],
@@ -107,6 +109,7 @@ export const FACTS: Record<string, Facts> = {
     fiction: true,
     notes: [
       '同じラグランジュ点に、いくつものコロニーを集めて「群」にしています。中へ入れるのは1号基です。',
+      '地球と月の5つのラグランジュ点に、第1から第7までのコロニー群があります。ここL5の第1コロニー群が、いちばん大きな群です。',
       '円周を6つに分け、大地の帯3本と窓の帯3本が交互に並びます。外の大きな鏡が太陽の光を窓から中へ送ります。',
       '太陽と反対側の端の、回転軸のところに港があります。そこから中へ入ると、頭の上にも大地が広がっています。',
       '1号基のとなりでは4号基を建設中です。人型の作業機が、外板を1枚ずつ取りつけています（作業機は見やすいよう、本物の想定の約10倍の大きさで描いています）。',
@@ -258,7 +261,7 @@ export const FACTS: Record<string, Facts> = {
     ],
     fiction: true,
     notes: [
-      'L5コロニー群の1基です。円筒型にくらべるとずっと小さく、円筒の長さの約18分の1です。',
+      'L5の第1コロニー群の1基です。円筒型にくらべるとずっと小さく、円筒の長さの約18分の1です。',
       '太陽側の大きな鏡が光を受けて、輪の上の鏡の輪へ送り、そこから窓を通して中へ光を入れます。',
     ],
     real: [
