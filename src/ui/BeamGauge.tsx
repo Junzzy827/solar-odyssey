@@ -28,6 +28,7 @@ export function BeamGauge() {
   useEffect(() => {
     let raf = 0
     let last = now()
+    const cache = new Map<HTMLElement, Record<string, string>>()
     const tick = () => {
       raf = requestAnimationFrame(tick)
       const texts = { charge: t('チャージ', 'Charge'), cool: t('クールダウン', 'Cooldown'), firing: t('発射中', 'Firing') }
@@ -38,34 +39,54 @@ export function BeamGauge() {
       const g = gauge.current
       if (!g || !fill.current || !label.current) return
 
+      // 変わったときだけ書き換える（毎フレーム DOM に書くと、そのたびに画面の組み直しが起きて重くなる）
+      const put = (el: HTMLElement, key: string, value: string) => {
+        if (cache.get(el)?.[key] === value) return
+        const c0 = cache.get(el) ?? {}
+        c0[key] = value
+        cache.set(el, c0)
+        if (key === 'text') el.textContent = value
+        else if (key.startsWith('data-')) el.setAttribute(key, value)
+        else el.style.setProperty(key, value)
+      }
+
       let show = false
       if (c.charging) {
         const k = Math.min(1, (time - c.start) / FULL)
         show = true
-        g.dataset.state = 'charge'
-        g.dataset.level = String(c.level)
-        fill.current.style.transform = `scaleX(${k})`
-        fill.current.style.background = LEVEL_COLORS[c.level]
-        label.current.textContent = c.level > 0 ? `${texts.charge} Lv${c.level}` : texts.charge
+        put(g, 'data-state', 'charge')
+        put(g, 'data-level', String(c.level))
+        put(fill.current, 'transform', `scaleX(${k.toFixed(3)})`)
+        put(fill.current, 'background', LEVEL_COLORS[c.level])
+        put(label.current, 'text', c.level > 0 ? `${texts.charge} Lv${c.level}` : texts.charge)
       } else if (time < c.readyAt) {
         const cooling = c.readyAt - time
         show = true
         if (cooling > c.cooldown) {
-          g.dataset.state = 'firing'
-          fill.current.style.transform = 'scaleX(1)'
-          label.current.textContent = texts.firing
+          put(g, 'data-state', 'firing')
+          put(fill.current, 'transform', 'scaleX(1)')
+          put(label.current, 'text', texts.firing)
         } else {
-          g.dataset.state = 'cool'
-          fill.current.style.transform = `scaleX(${1 - cooling / c.cooldown})`
-          label.current.textContent = `${texts.cool} ${cooling.toFixed(1)}s`
+          put(g, 'data-state', 'cool')
+          put(fill.current, 'transform', `scaleX(${(1 - cooling / c.cooldown).toFixed(3)})`)
+          put(label.current, 'text', `${texts.cool} ${cooling.toFixed(1)}s`)
         }
-        fill.current.style.background = ''
+        put(fill.current, 'background', '')
       }
-      g.classList.toggle('show', show)
+      put(g, 'opacity', show ? '1' : '0')
 
-      if (dim.current) dim.current.style.opacity = beamFx.dim.toFixed(3)
+      // 暗さとフラッシュの幕は、使っていないときは描かない（画面いっぱいの幕は、透明でも重ねるだけで重い）
+      const dimV = beamFx.dim > 0.005 ? beamFx.dim.toFixed(2) : ''
+      if (dim.current) {
+        put(dim.current, 'display', dimV ? 'block' : 'none')
+        if (dimV) put(dim.current, 'opacity', dimV)
+      }
       const allowFlash = useStore.getState().settings.beamFx.flash
-      if (flash.current) flash.current.style.opacity = allowFlash ? (beamFx.flash * FLASH_MAX).toFixed(3) : '0'
+      const flashV = allowFlash && beamFx.flash > 0.01 ? (beamFx.flash * FLASH_MAX).toFixed(2) : ''
+      if (flash.current) {
+        put(flash.current, 'display', flashV ? 'block' : 'none')
+        if (flashV) put(flash.current, 'opacity', flashV)
+      }
       beamFx.flash = Math.max(0, beamFx.flash - dt / FLASH_SECONDS)
     }
     tick()

@@ -2947,6 +2947,7 @@ body.sf .nav-panel {
 .beam-flash {
   position: fixed;
   inset: 0;
+  display: none;
   pointer-events: none;
   opacity: 0;
   z-index: 4;
@@ -2958,7 +2959,6 @@ body.sf .nav-panel {
 
 .beam-flash {
   background: #fff;
-  mix-blend-mode: screen;
 }
 
 .beam-gauge {
@@ -2975,10 +2975,6 @@ body.sf .nav-panel {
   opacity: 0;
   transition: opacity 0.25s;
   z-index: 5;
-}
-
-.beam-gauge.show {
-  opacity: 1;
 }
 
 .beam-gauge-label {
