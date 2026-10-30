@@ -22,6 +22,7 @@ import { SFBoundary } from './components/sf/SFBoundary'
 import { useSF } from './data/sf'
 import { SFBadge } from './ui/SFBadge'
 import { ContextLost } from './ui/ContextLost'
+import { LabelDeclutter } from './ui/LabelDeclutter'
 import { Telescopes } from './components/telescope/Telescopes'
 import { Race } from './components/race/Race'
 import { RacePanel } from './ui/RacePanel'
@@ -137,6 +138,7 @@ export default function App() {
       <SFBadge />
       <PhotoNote />
       <ContextLost />
+      <LabelDeclutter />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}
         <a href="https://science.nasa.gov/resource/hubble-space-telescope-3d-model/" target="_blank" rel="noreferrer">NASA VTAD</a>

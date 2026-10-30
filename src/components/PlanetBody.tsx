@@ -145,7 +145,7 @@ export function PlanetBody({ planet }: { planet: Planet }) {
           {planet.atmosphere && <PlanetAtmosphere radius={radius} color={planet.atmosphere} strength={isEarth ? 1.1 : 0.65} kind={isEarth ? 'earth' : isGas ? 'giant' : 'other'} />}
           {planet.ring && <SaturnRing inner={radius * planet.ring.inner} outer={radius * planet.ring.outer} color={planet.ring.color} planetRadius={radius} />}
         </group>
-        <Html position={[0, radius + 1, 0]} center className="label" zIndexRange={LABEL_Z}>
+        <Html position={[0, radius + 1, 0]} center className={`label planet-label${planet.id === 'earth' ? ' home-label' : ''}`} zIndexRange={LABEL_Z}>
           <span ref={label} onClick={() => useStore.getState().setTarget(planet.id)}>
             {named(planet)}
           </span>
