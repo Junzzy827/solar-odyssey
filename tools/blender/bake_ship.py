@@ -50,7 +50,7 @@ SHIPS = {
     'sorakaze': dict(file='ship-sorakaze.glb'),
     'hakobune': dict(file='ship-hakobune.glb'),
     'meguri': dict(file='ship-meguri.glb'),
-    'amatsu': dict(file='ship-amatsu.glb'),
+    # amatsu は build_amatsukaze.py が色・窓まで丸ごと焼くので、ここでは焼かない
     'sv01': dict(file='ship-hull.glb', lines=False, ao=False, windows=False, normal=False, uv_scale=1.0),
 }
 

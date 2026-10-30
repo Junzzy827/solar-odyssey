@@ -578,17 +578,17 @@ const MEGURI: ShipSpec = {
 const AMATSU: ShipSpec = {
   id: 'amatsu',
   registry: 'SA-07',
-  name: 'アマツ',
-  nameEn: 'Amatsu',
+  name: 'アマツカゼ',
+  nameEn: 'Amatsukaze',
   kind: '宇宙航行船',
   kindEn: 'Ocean-hull starship',
-  blurb: '海を行く大きな船の姿のまま宇宙へ出た船。赤い船底、段々の艦橋、船尾の大きな噴射口。甲板には大砲のかわりに天文台があります。',
-  blurbEn: 'A starship shaped like a great ocean ship: red hull bottom, stepped bridge tower, big engine at the stern. Its deck carries observatory domes instead of guns.',
+  blurb: '海を行く大きな船の姿のまま宇宙へ出た観測船。白銀の船体に臙脂の船底、ひさしが重なる細い艦橋、船尾の大きな噴射口。甲板には大砲のかわりに真鍮色の天文台があります。',
+  blurbEn: 'An observation starship shaped like a great ocean ship: silver hull, deep red bottom, a slim bridge tower with layered eaves, big engine at the stern. Its deck carries brass observatory domes instead of guns.',
   lengthM: 270,
   metersPerUnit: 270 / 1.04,
   turn: 0.85,
   model: 'ship-amatsu.glb',
-  bridgeBase: [0, 0.177, -0.01],
+  bridgeBase: [0, 0.199, -0.006],
   parts: [
     {
       id: 'hull',
@@ -614,7 +614,7 @@ const AMATSU: ShipSpec = {
       id: 'domes',
       name: '天文台のドーム',
       nameEn: 'Observatory domes',
-      text: '甲板の丸い屋根は天文台。すき間の扉を開けて、中の望遠鏡で空を見ます。地上の天文台と同じしくみです。',
+      text: '甲板の丸い屋根は天文台。縦のすき間（スリット）の扉がときどき開いて、中の望遠鏡で空を見ます。地上の天文台と同じしくみです。',
       textEn: 'The round roofs on deck are observatories. A slot opens and the telescope inside looks at the sky, just like observatories on Earth.',
       pos: [0, 0.09, -0.2],
       side: [0, 1, 0],
@@ -624,11 +624,11 @@ const AMATSU: ShipSpec = {
       id: 'bridge',
       name: '艦橋',
       nameEn: 'Bridge tower',
-      text: '段々に積み上がった塔のいちばん上が、船を指揮する部屋。高いところほど遠くまで見渡せるので、海の船も艦橋を高くしています。',
-      textEn: 'The command room is at the top of the stepped tower. The higher you are, the farther you can see, which is why ocean ships build tall bridges too.',
-      pos: [0, 0.2, 0],
+      text: '上へ行くほど細くなる塔のいちばん上、窓の帯がある部分が、船を指揮する部屋。高いところほど遠くまで見渡せるので、海の船も艦橋を高くしています。',
+      textEn: 'The command room is at the top of the tapering tower, behind the band of windows. The higher you are, the farther you can see, which is why ocean ships build tall bridges too.',
+      pos: [0, 0.235, 0.04],
       side: null,
-      view: { yaw: PI - 0.7, pitch: 0.25, dist: 0.5, target: [0, 0.14, 0] },
+      view: { yaw: PI - 0.7, pitch: 0.25, dist: 0.55, target: [0, 0.15, 0.03] },
     },
     {
       id: 'stack',
@@ -660,7 +660,7 @@ const AMATSU: ShipSpec = {
     { from: { yaw: 0.7, pitch: 0.2, dist: 1.0, target: [0, 0, 0.35] }, to: { yaw: -0.5, pitch: 0.3, dist: 1.1, target: [0, 0, 0.3] } },
   ],
   lights: [
-    { pos: [0, 0.242, 0.005], kind: 'strobe', size: 0.0011 },
+    { pos: [0, 0.2635, 0.058], kind: 'strobe', size: 0.0011 },
     { pos: [0, 0.035, 0.47], kind: 'strobe', size: 0.0011 },
     { pos: [-0.1, 0.034, 0.05], kind: 'port', size: 0.003 },
     { pos: [0.1, 0.034, 0.05], kind: 'starboard', size: 0.003 },
@@ -672,8 +672,8 @@ const AMATSU: ShipSpec = {
     { from: [-0.25, 0.1, 0.1], to: [0, 0.0, -0.2], angle: 0.5, intensity: 0.5 },
   ],
   decals: [
-    { text: 'SA-07  AMATSU', pos: [0.0655, 0.012, -0.3], rot: [0, PI / 2, 0], size: [0.11, 0.013] },
-    { text: 'SA-07  AMATSU', pos: [-0.0655, 0.012, -0.3], rot: [0, -PI / 2, 0], size: [0.11, 0.013] },
+    { text: 'SA-07  AMATSUKAZE', pos: [0.069, 0.012, -0.3], rot: [0, PI / 2, 0], size: [0.11, 0.012] },
+    { text: 'SA-07  AMATSUKAZE', pos: [-0.069, 0.012, -0.3], rot: [0, -PI / 2, 0], size: [0.11, 0.012] },
   ],
   engine: {
     kind: 'nozzle',
@@ -689,7 +689,7 @@ const AMATSU: ShipSpec = {
     length: 7,
   },
   glow: { idle: [1.8, 0.95, 0.45], warp: [2.6, 1.9, 1.3] },
-  swatch: ['#b9bec6', '#6d747e', '#9e2a22'],
+  swatch: ['#c3c7cc', '#2d3a50', '#b8904c'],
 }
 
 export const SHIPS: ShipSpec[] = [SV01, HERON, SORAKAZE, HAKOBUNE, MEGURI, AMATSU]

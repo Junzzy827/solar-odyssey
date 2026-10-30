@@ -878,128 +878,40 @@ def meguri():
     return hull, rotor
 
 
-# ---- 5. 海の船の形をした宇宙船（AMATSU） ----------------------------------------
-# 海を行く大きな船の姿をそのまま宇宙へ持ち出した、昔ながらの「宇宙を走る船」。
-# 船底は赤、舷側は明るい灰色、甲板は濃い灰色。甲板には大砲のかわりに天文台のドーム、
-# 船首には大きな望遠鏡の口、船尾に大きな主噴射口。武装はない。
+def vloft(part, levels, n=48, p=2.4):
+    """
+    上へ積んだ水平の断面をつないだ塔。levels: (z, 中心の y, 半幅, 前の長さ, 後ろの長さ, その区間の材質)。
+    前と後ろの長さを変えると、前が丸く後ろがすぼまる卵形の断面になる。
+    """
+    verts, faces, mats = [], [], []
+    for z, cy, hw, df, db, _ in levels:
+        for i in range(n):
+            a = 2 * math.pi * i / n
+            c, s = math.cos(a), math.sin(a)
+            x = hw * math.copysign(abs(c) ** (2 / p), c)
+            d = (df if s > 0 else db) * math.copysign(abs(s) ** (2 / p), s)
+            verts.append((x, cy + d, z))
+    for k in range(len(levels) - 1):
+        for i in range(n):
+            a, b = k * n + i, k * n + (i + 1) % n
+            faces.append([a, b, b + n, a + n])
+            mats.append(levels[k][5])
+    for k, up in ((0, False), (len(levels) - 1, True)):
+        z, cy = levels[k][:2]
+        ci = len(verts)
+        verts.append((0, cy, z))
+        for i in range(n):
+            a, b = k * n + i, k * n + (i + 1) % n
+            faces.append([ci, a, b] if up else [ci, b, a])
+            mats.append(levels[k][5])
+    part.add(verts, faces, mats)
 
 
-def amatsu():
-    hull, rotor = Part(), None
-    rng = random.Random(21)
-    H, H2, A, D, M = 'Hull', 'Hull2', 'Accent', 'Dark', 'Metal'
-    WATERLINE = -0.022
-
-    # 船体：甲板は平ら、舷側は少し開き、船底は細くすぼまる。船首は甲板が反り上がる
-    hull_loft = FacetLoft([
-        (-0.47, 0, 0.0, 0.050, 0.052, 0.020, 0.024, 0.030, H),
-        (-0.44, 0, 0.0, 0.074, 0.078, 0.026, 0.028, 0.058, H),
-        (-0.36, 0, 0.0, 0.088, 0.092, 0.030, 0.030, 0.072, H),
-        (-0.10, 0, 0.0, 0.096, 0.100, 0.034, 0.032, 0.084, H),
-        (0.14, 0, 0.0, 0.088, 0.092, 0.030, 0.034, 0.080, H),
-        (0.32, 0, 0.0, 0.060, 0.064, 0.020, 0.040, 0.070, H),
-        (0.44, 0, 0.0, 0.030, 0.032, 0.010, 0.050, 0.058, H),
-        (0.49, 0, 0.0, 0.012, 0.012, 0.004, 0.054, 0.040, H),
-    ], chamfer=0.12, mid=0.0, seg=4)
-    tmp = Part()
-    hull_loft.build(tmp)
-    # 水線より下を赤、甲板（上を向いた面）を濃い灰色に塗り分ける
-    mats = []
-    for f, m in zip(tmp.faces, tmp.mats):
-        zs = [tmp.verts[i][2] for i in f]
-        cz = sum(zs) / len(zs)
-        ys = [tmp.verts[i][1] for i in f]
-        if cz < WATERLINE:
-            mats.append(A)
-        elif cz > 0.024 and max(abs(tmp.verts[i][0]) for i in f) < 0.098 and min(zs) > 0.02 and max(zs) - min(zs) < 0.012:
-            mats.append(H2)
-        else:
-            mats.append(m)
-    hull.add(tmp.verts, tmp.faces, mats)
-    # 水線の白い線
-    for ang in (-0.08, math.pi + 0.08):
-        strip(hull, hull_loft, ang, -0.44, 0.44, 0.003, H, lift=0.0008)
-
-    # 船首の大きな望遠鏡の口（暗い筒の奥に青い光）
-    cylinder(hull, (0, 0.47, 0.012), (0, 0.497, 0.012), 0.022, 0.022, M, n=40, cap0=None, cap1=None)
-    cylinder(hull, (0, 0.497, 0.012), (0, 0.44, 0.012), 0.019, 0.019, D, n=40, cap0=None, cap1=None, inward=True)
-    cylinder(hull, (0, 0.452, 0.012), (0, 0.454, 0.012), 0.019, 0.019, 'Blue', n=40)
-
-    # 甲板の天文台のドーム（前に 2 基、後ろに 1 基）。細い観測窓のすき間つき
-    def dome(y, z, r):
-        cylinder(hull, (0, y, z), (0, y, z + r * 0.35), r * 1.05, r * 1.05, H2, n=40)
-        steps = 6
-        for k in range(1, steps + 1):
-            t0 = (k - 1) / steps * math.pi / 2
-            t1 = k / steps * math.pi / 2
-            cylinder(hull, (0, y, z + r * 0.35 + r * math.sin(t0)), (0, y, z + r * 0.35 + r * math.sin(t1)), r * math.cos(t0), max(r * math.cos(t1), 0.0005), H, n=40, cap0=None, cap1='same' if k == steps else None)
-        box(hull, (0, y + r * 0.62, z + r * 0.9), (r * 0.28, r * 0.7, r * 0.9), D, rot_x=-0.75)
-    dome(0.27, 0.036, 0.034)
-    dome(0.17, 0.05, 0.036)
-    dome(-0.26, 0.032, 0.034)
-    # 前のドームの台（一段高い）
-    box(hull, (0, 0.17, 0.042), (0.09, 0.08, 0.02), H)
-
-    # 艦橋：段々に積み上がった塔
-    tiers = [
-        (-0.09, 0.09, 0.030, 0.12, 0.030, H),
-        (-0.06, 0.065, 0.060, 0.08, 0.032, H),
-        (-0.04, 0.05, 0.092, 0.058, 0.034, H),
-        (-0.03, 0.04, 0.126, 0.044, 0.030, H),
-        (-0.035, 0.048, 0.156, 0.072, 0.020, H2),
-        (-0.02, 0.02, 0.176, 0.03, 0.014, H),
-    ]
-    for y0, y1, z0, w, h, mat in tiers:
-        box(hull, (0, (y0 + y1) / 2, z0 + h / 2), (w, y1 - y0, h), mat)
-    # 艦橋の窓の帯（前と横）と、各段の前の小窓
-    box(hull, (0, 0.0482, 0.166), (0.066, 0.002, 0.007), 'Window')
-    for sx in (-1, 1):
-        box(hull, (sx * 0.0362, 0.006, 0.166), (0.002, 0.07, 0.006), 'Window')
-    for y1, z, w in ((0.065, 0.08, 0.06), (0.05, 0.112, 0.04), (0.04, 0.143, 0.03)):
-        box(hull, (0, y1 + 0.0011, z), (w, 0.002, 0.004), 'Window')
-    # アンテナの柱と、レーダーの皿
-    cylinder(hull, (0, -0.005, 0.19), (0, -0.005, 0.24), 0.003, 0.0015, M, n=10)
-    box(hull, (0, -0.005, 0.222), (0.05, 0.003, 0.003), M)
-    cylinder(hull, (0, 0.008, 0.19), (0, 0.012, 0.198), 0.014, 0.005, M, n=24)
-
-    # 後ろの塔：放熱の煙突（排熱のための斜めの筒）
-    stack = FacetLoft([
-        (-0.17, 0, 0.065, 0.020, 0.030, 0.032, 0.036, 0.034, H),
-        (-0.10, 0, 0.065, 0.016, 0.026, 0.030, 0.030, 0.034, H),
-    ], chamfer=0.4, seg=2)
-    stack.build(hull, transform=lambda v: (v[0], v[1] - (v[2] - 0.03) * 0.5, v[2]))
-    box(hull, (0, -0.152, 0.098), (0.04, 0.05, 0.004), D)
-    for k in range(5):
-        box(hull, (0, -0.172 + k * 0.01, 0.1005), (0.036, 0.0025, 0.001), 'Glow')
-
-    # 船尾：大きな主噴射口と、左右の補助噴射口
-    nozzle(hull, (0, -0.52, 0.0), (0, -0.465, 0.0), 0.034, 0.05, n=48)
-    for sx in (-1, 1):
-        nozzle(hull, (sx * 0.055, -0.49, -0.012), (sx * 0.055, -0.455, -0.012), 0.012, 0.018, n=24)
-    # 船底の安定翼と、左右の短い翼（大気のある星に降りるとき開く）
-    fin = [(-0.30, -0.06), (-0.44, -0.06), (-0.47, -0.13), (-0.40, -0.13)]
-    plate(hull, fin, 0.006, A, edge_mat=A, axis='x')
-    for sx in (-1, 1):
-        w = Part()
-        pts = [(sx * 0.095, -0.06, -0.01), (sx * 0.20, -0.12, -0.03), (sx * 0.20, -0.17, -0.03), (sx * 0.097, -0.20, -0.01)]
-        plate(w, pts if sx > 0 else pts[::-1], 0.006, H, edge_mat=A)
-        hull.add(w.verts, w.faces, w.mats)
-
-    # 舷側の窓の列と、甲板の細かい部品
-    for ang, skip in ((0.12, 0.3), (0.02, 0.4)):
-        window_row(hull, hull_loft, ang, -0.40, 0.38, 0.0085, skip=skip, rng=rng, mirror_x=True)
-    for y in np.arange(-0.40, 0.40, 0.04):
-        if -0.30 < y < 0.10 or 0.13 < y < 0.31:
-            continue
-        for sx in (-1, 1):
-            box(hull, (sx * 0.06, y, 0.0335), (0.012, 0.018, 0.003), M)
-    # 甲板のふちの手すり
-    for sx in (-1, 1):
-        strip(hull, hull_loft, math.pi / 2 - sx * 0.83, -0.42, 0.44, 0.002, M, lift=0.0015)
-    return hull, rotor
+# 5. 海の船の形をした観測船（SA-07 AMATSUKAZE）は、テクスチャまで焼き込むので別のファイル
+# （build_amatsukaze.py）で組み立てる。
 
 
-SHIPS = {'heron': heron, 'sorakaze': sorakaze, 'hakobune': hakobune, 'meguri': meguri, 'amatsu': amatsu}
+SHIPS = {'heron': heron, 'sorakaze': sorakaze, 'hakobune': hakobune, 'meguri': meguri}
 
 
 # ---- Blender での仕上げ ---------------------------------------------------------

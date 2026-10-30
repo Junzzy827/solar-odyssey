@@ -10,6 +10,8 @@ import { applyBaked, findBaked, setBakedLevel, type BakedMaps } from './bakedMap
 import { useLevel } from '../../state/quality'
 
 // 焼いたテクスチャを使う材質（bake_ship.py の PAINTED / BARE と同じ分け方）。光の帆と放熱板は今までどおり
+// アマツカゼだけは、色・パネル・窓の明かりまで丸ごと Blender で焼いてある（材質の名前 Baked。
+// tools/blender/build_amatsukaze.py）。その材質は glb のまま使い、映り込みと光り方だけここで合わせる。
 const BAKED_PAINTED = new Set(['Hull', 'Hull2', 'Accent', 'CargoA', 'CargoB', 'CargoC', 'CargoD'])
 const BAKED_BARE = new Set(['Dark', 'Metal', 'Gold'])
 import { FloodLights, STROBE_FLASH, STROBE_GAP, STROBE_PERIOD, ShipModel, haloTexture } from './ShipModel'
@@ -115,6 +117,9 @@ function materials(spec: ShipSpec, baked: BakedMaps | null) {
     Gold: plain('#c99a3c', 1, 0.32, { envMapIntensity: 1.8 }),
     Window: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.1, 1.85, 1.35), toneMapped: false }),
     Glow: glow,
+    // 航行灯のレンズ（左舷は赤、右舷は緑）。明滅は下の useFrame で
+    NavRed: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.3, 0.04, 0.04), toneMapped: false }),
+    NavGreen: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.04, 1.3, 0.15), toneMapped: false }),
     // 青い光（発進レール・センサー・吸気口）。ワープの準備で明るく
     Blue: blue,
     // 発進口の奥：格納庫の明かり
@@ -156,27 +161,47 @@ export function VariantModel({ spec, unitScale = 1 }: { spec: ShipSpec; unitScal
     const { mats, glow, blue, radiator } = materials(spec, findBaked(scene))
     const model = scene.clone(true)
     let rotor: THREE.Object3D | null = null
+    // ドームのスリットの扉（ドームの中心を軸に X のまわりに回して開ける）
+    const slits: THREE.Object3D[] = []
+    const whole: THREE.MeshStandardMaterial[] = []
     model.traverse((o) => {
       if (o.name === 'Rotor') rotor = o
+      if (/^Slit\d$/.test(o.name)) slits.push(o)
       const mesh = o as THREE.Mesh
       if (!mesh.isMesh) return
-      const name = (mesh.material as THREE.Material).name
-      mesh.material = mats[name] ?? mats.Hull
+      const src = mesh.material as THREE.MeshStandardMaterial
+      const name = src.name
+      if (name === 'Baked') {
+        // 窓の明かりは Bloom で白飛びしない明るさに（しきい値 1 をほとんど超えない）
+        const m = src.clone()
+        m.emissive.setRGB(1, 1, 1)
+        m.emissiveIntensity = 1
+        m.userData.normal = m.normalMap
+        for (const t of [m.map, m.normalMap, m.roughnessMap, m.emissiveMap]) if (t) t.anisotropy = 8
+        whole.push(m)
+        mesh.material = m
+      } else mesh.material = mats[name] ?? mats.Hull
       const lit = !(mesh.material instanceof THREE.MeshBasicMaterial)
       mesh.castShadow = lit
       mesh.receiveShadow = lit
     })
     const decals = spec.decals.map((d) => ({ ...d, map: decalTexture(d.text, d.color) }))
-    return { model, rotor: rotor as THREE.Object3D | null, mats, glow, blue, radiator, decals }
+    return { model, rotor: rotor as THREE.Object3D | null, slits, whole, mats, glow, blue, radiator, decals }
   }, [scene, spec])
-  useSpaceEnvOn(useMemo(() => Object.values(built.mats), [built]))
+  useSpaceEnvOn(useMemo(() => [...Object.values(built.mats), ...built.whole], [built]))
   useEffect(() => {
     for (const m of Object.values(built.mats)) setBakedLevel(m as THREE.MeshStandardMaterial, level)
+    // 丸ごと焼いた材質：軽量の画質では継ぎ目の凹凸（ノーマル）を外す
+    for (const m of built.whole) {
+      m.normalMap = level === 'low' ? null : (m.userData.normal as THREE.Texture | null)
+      m.needsUpdate = true
+    }
   }, [built, level])
 
   useEffect(
     () => () => {
       Object.values(built.mats).forEach((m) => m.dispose())
+      built.whole.forEach((m) => m.dispose())
       built.radiator.map?.dispose()
       built.decals.forEach((d) => d.map.dispose())
     },
@@ -203,6 +228,12 @@ export function VariantModel({ spec, unitScale = 1 }: { spec: ShipSpec; unitScal
     built.radiator.emissive.setRGB(0.25 * w, 0.05 * w, 0.02 * w)
     // 回る部品：光の帆はゆっくり（約40秒で1回転）、回転リングは人工重力の速さで
     if (built.rotor) built.rotor.rotation.z += dt * ((Math.PI * 2) / (spec.spinSeconds ?? 40)) * (spec.spinSeconds ? 1 : 1 + 2 * w)
+    // 天文台の扉：ドームごとに時間をずらして、ゆっくり開いて、しばらくして閉じる（約 48 秒で 1 回）
+    built.slits.forEach((o, i) => {
+      const c = ((t + i * 16) % 48) / 48
+      const open = Math.min(1, Math.max(0, Math.min((c - 0.1) / 0.12, (0.85 - c) / 0.12)))
+      o.rotation.x = 1.3 * open * open * (3 - 2 * open)
+    })
     const phase = t % STROBE_PERIOD
     const on = phase < STROBE_FLASH || (phase > STROBE_GAP && phase < STROBE_GAP + STROBE_FLASH)
     const flash = on ? 5 : 0.3
@@ -216,6 +247,8 @@ export function VariantModel({ spec, unitScale = 1 }: { spec: ShipSpec; unitScal
       else if (kind === 'starboard') m.color.setRGB(0.04, 1.3 * nav, 0.15)
       else m.color.setRGB(1.6 * beacon, 0.08 * beacon, 0.04 * beacon)
     })
+    ;(built.mats.NavRed as THREE.MeshBasicMaterial).color.setRGB(1.3 * nav, 0.04, 0.04)
+    ;(built.mats.NavGreen as THREE.MeshBasicMaterial).color.setRGB(0.04, 1.3 * nav, 0.15)
   })
 
   return (
