@@ -35,6 +35,16 @@ export const flightControl = { locked: false, speedScale: 1, releaseHold: false,
 /** ワープ演出の共有値（光の筋・ナセルの発光が参照する） */
 export const warpFx = { intensity: 0, glow: 0, seconds: 3 }
 
+/**
+ * 噴射の演出に渡す操縦の様子（Ship が毎フレーム書き、components/ship/EngineFx.tsx が読む）。どれも船の座標で
+ * - throttle：前進の噴かし具合 0〜1（W・自動航行）
+ * - move：並進の入力（右・上・後ろが +、-1〜1）
+ * - turn：回る速さ（ピッチ・ヨー・ロール。旋回の上限を 1 とする）
+ * - speed：速さ（最高速度を 1 とする）
+ * - power：EngineFx がなめらかにした噴射の強さ（ナセルや噴射口の光が参照する。演出オフなら 0）
+ */
+export const thrustFx = { throttle: 0, move: new THREE.Vector3(), turn: new THREE.Vector3(), speed: 0, power: 0 }
+
 export const CHARGE_SECONDS = 1.8
 export const EXIT_SECONDS = 0.9
 

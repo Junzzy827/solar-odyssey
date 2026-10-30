@@ -46,10 +46,58 @@ export type ShipSpec = {
   decals: Decal[]
   /** 噴射の光の色（ふだん・ワープ準備） */
   glow: { idle: [number, number, number]; warp: [number, number, number] }
+  /** エンジン噴射と姿勢制御の演出（components/ship/EngineFx.tsx） */
+  engine: EngineSpec
   /** 回る部品（Rotor）が1回転する秒数 */
   spinSeconds?: number
   /** 選ぶ画面のカードの色（外板の主な色） */
   swatch: string[]
+}
+
+type Vec3 = [number, number, number]
+
+/** 姿勢制御の噴射口（pos）と、ガスを吹き出す向き（dir、船体の外向き）。噴射の反動で船が動く・回る向きから、どれを吹くかを決める */
+export type Rcs = { pos: Vec3; dir: Vec3 }
+
+/** 主エンジンの噴射口：pos は出口の中心、r は出口の半径。炎は +Z（後ろ）へ伸びる */
+export type Nozzle = { pos: Vec3; r: number }
+
+/**
+ * 噴射の演出。噴射口のある船（nozzle）は青白い炎、噴射口のない船（nacelle）はナセルの光と光の粒。
+ * 位置はどれも模型の座標（Blender の (x, y, z) は three.js の (x, z, -y)。tools/blender/build_fleet.py の nozzle() の back が出口）
+ */
+export type EngineSpec =
+  | {
+      kind: 'nozzle'
+      nozzles: Nozzle[]
+      rcs: Rcs[]
+      /** 炎の芯と外側の光の色（明るさ込み） */
+      core: Vec3
+      outer: Vec3
+      /** 全開のときの炎の長さ（噴射口の半径の何倍か） */
+      length: number
+    }
+  | {
+      kind: 'nacelle'
+      /** 光の粒が出るナセルの後端と、その広がり（半径） */
+      vents: Vec3[]
+      ventRadius: number
+      /** 姿勢制御のときに一瞬光る、船体の端 */
+      rcs: Rcs[]
+    }
+
+/**
+ * 姿勢制御の噴射口を、船の左右（x = ±hx）の高さ y、前後 z の位置に置く。
+ * 片側に上・下・外向きの 3 つ。front なら前向き（後退用）も足す
+ */
+function rcsPair(hx: number, y: number, z: number, front = false): Rcs[] {
+  const list: Rcs[] = []
+  for (const sx of [-1, 1]) {
+    const pos: Vec3 = [sx * hx, y, z]
+    list.push({ pos, dir: [0, 1, 0] }, { pos, dir: [0, -1, 0] }, { pos, dir: [sx, 0, 0] })
+    if (front) list.push({ pos, dir: [0, 0, -1] })
+  }
+  return list
 }
 
 const PI = Math.PI
@@ -74,6 +122,14 @@ const SV01: ShipSpec = {
   lights: [],
   floods: [],
   decals: [],
+  engine: {
+    kind: 'nacelle',
+    // ナセルの後端（ShipModel の NACELLE_X/Y/Z と、ナセルの長さ 0.437）
+    vents: [[-0.2, 0.068, 0.567], [0.2, 0.068, 0.567]],
+    ventRadius: 0.012,
+    // 円盤の左右の縁と前の縁、ナセルの後端
+    rcs: [...rcsPair(0.31, 0.07, -0.17), ...rcsPair(0.1, 0.07, -0.47, true), ...rcsPair(0.235, 0.068, 0.54)],
+  },
   glow: { idle: [1, 1, 1], warp: [1, 1, 1] },
   swatch: ['#e6e4dc', '#4aa8ff', '#ff4a2a'],
 }
@@ -184,6 +240,22 @@ const HERON: ShipSpec = {
     { text: 'SC-03', pos: [-0.212, 0.0262, 0.16], rot: [-PI / 2, 0, 0], size: [0.08, 0.032] },
     { text: 'SC-03  WHITE HERON', pos: [0, 0.0615, -0.15], rot: [-PI / 2, 0, 0], size: [0.11, 0.014] },
   ],
+  engine: {
+    kind: 'nozzle',
+    nozzles: [
+      // 機関ブロックの 4 つ、胴の後ろの 2 つ、脚の付け根の 2 つ
+      ...[-1, 1].flatMap((sx) => [-0.022, 0.032].map((y) => ({ pos: [sx * 0.118, y, 0.555] as Vec3, r: 0.027 }))),
+      { pos: [0, -0.022, 0.445], r: 0.022 },
+      { pos: [0, 0.028, 0.445], r: 0.022 },
+      { pos: [-0.212, -0.034, 0.355], r: 0.024 },
+      { pos: [0.212, -0.034, 0.355], r: 0.024 },
+    ],
+    // 脚の先と、機関ブロックの外側
+    rcs: [...rcsPair(0.25, 0, -0.44, true), ...rcsPair(0.185, 0.004, 0.49)],
+    core: [1.6, 1.9, 2.6],
+    outer: [0.35, 0.6, 1.5],
+    length: 9,
+  },
   glow: { idle: [0.55, 0.85, 1.9], warp: [1.4, 1.9, 3.2] },
   swatch: ['#eef0f2', '#8d96a3', '#d9472b'],
 }
@@ -276,6 +348,15 @@ const SORAKAZE: ShipSpec = {
     { text: 'LS-04 SORAKAZE', pos: [0.0465, 0, -0.355], rot: [0, PI / 2, 0], size: [0.08, 0.009] },
     { text: 'LS-04 SORAKAZE', pos: [-0.0465, 0, -0.355], rot: [0, -PI / 2, 0], size: [0.08, 0.009] },
   ],
+  engine: {
+    kind: 'nozzle',
+    // 小さなイオンエンジン 4 つ。青く淡い
+    nozzles: [[-0.014, 0], [0.014, 0], [0, -0.014], [0, 0.014]].map(([x, y]) => ({ pos: [x, y, 0.425] as Vec3, r: 0.011 })),
+    rcs: [...rcsPair(0.046, 0, -0.35, true), ...rcsPair(0.027, 0, 0.37)],
+    core: [0.9, 1.3, 2.6],
+    outer: [0.25, 0.45, 1.6],
+    length: 10,
+  },
   glow: { idle: [0.5, 0.75, 2.2], warp: [1.2, 1.8, 3.5] },
   swatch: ['#f2f2ee', '#c9d4e4', '#e0662f'],
 }
@@ -370,6 +451,15 @@ const HAKOBUNE: ShipSpec = {
     { text: 'HT-05 HAKOBUNE', pos: [0.0755, 0.01, -0.43], rot: [0, PI / 2, 0], size: [0.11, 0.013] },
     { text: 'HT-05 HAKOBUNE', pos: [-0.0755, 0.01, -0.43], rot: [0, -PI / 2, 0], size: [0.11, 0.013] },
   ],
+  engine: {
+    kind: 'nozzle',
+    // 磁気ノズルの輪の奥から、紫がかったプラズマ
+    nozzles: [{ pos: [0, 0, 0.45], r: 0.045 }],
+    rcs: [...rcsPair(0.076, 0, -0.38, true), ...rcsPair(0.076, 0, 0.38)],
+    core: [1.7, 1.6, 2.6],
+    outer: [0.75, 0.35, 1.6],
+    length: 7,
+  },
   glow: { idle: [1.1, 0.6, 2.4], warp: [2.2, 1.4, 3.6] },
   swatch: ['#e5e2da', '#d5782a', '#2f7f86'],
 }
@@ -473,6 +563,14 @@ const MEGURI: ShipSpec = {
     { text: 'RS-06 MEGURI', pos: [0.0565, 0.006, -0.3], rot: [0, PI / 2, 0], size: [0.1, 0.012] },
     { text: 'RS-06 MEGURI', pos: [-0.0565, 0.006, -0.3], rot: [0, -PI / 2, 0], size: [0.1, 0.012] },
   ],
+  engine: {
+    kind: 'nozzle',
+    nozzles: [PI / 2, (7 * PI) / 6, (11 * PI) / 6].map((a) => ({ pos: [0.026 * Math.cos(a), 0.026 * Math.sin(a), 0.475] as Vec3, r: 0.02 })),
+    rcs: [...rcsPair(0.04, 0, -0.38, true), ...rcsPair(0.05, 0, 0.4)],
+    core: [1.6, 1.9, 2.6],
+    outer: [0.35, 0.6, 1.5],
+    length: 9,
+  },
   glow: { idle: [0.6, 0.8, 2.0], warp: [1.4, 1.9, 3.3] },
   swatch: ['#e9e8e3', '#9097a0', '#d4552a'],
 }
@@ -577,6 +675,19 @@ const AMATSU: ShipSpec = {
     { text: 'SA-07  AMATSU', pos: [0.0655, 0.012, -0.3], rot: [0, PI / 2, 0], size: [0.11, 0.013] },
     { text: 'SA-07  AMATSU', pos: [-0.0655, 0.012, -0.3], rot: [0, -PI / 2, 0], size: [0.11, 0.013] },
   ],
+  engine: {
+    kind: 'nozzle',
+    // 大きな主噴射口と、左右の補助噴射口。外側の光は噴射口の色に合わせて暖かく
+    nozzles: [
+      { pos: [0, 0, 0.52], r: 0.05 },
+      { pos: [-0.055, -0.012, 0.49], r: 0.018 },
+      { pos: [0.055, -0.012, 0.49], r: 0.018 },
+    ],
+    rcs: [...rcsPair(0.086, 0, -0.36, true), ...rcsPair(0.06, 0, 0.32)],
+    core: [1.9, 1.8, 2.2],
+    outer: [1.2, 0.55, 0.35],
+    length: 7,
+  },
   glow: { idle: [1.8, 0.95, 0.45], warp: [2.6, 1.9, 1.3] },
   swatch: ['#b9bec6', '#6d747e', '#9e2a22'],
 }

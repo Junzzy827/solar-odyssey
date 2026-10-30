@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PLANETS } from '../data/bodies'
 import { TIME_RATES } from '../data/scale'
-import { useStore } from '../state/store'
+import { useStore, type ThrustFxLevel } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { SF_OBJECTS, setWorld } from '../data/sf'
 import { HUBBLE_ID, scopeName, WEBB_ID } from '../data/telescopes'
@@ -80,6 +80,7 @@ function Settings({ racing }: { racing: boolean }) {
       <LookPick />
       <QualityPick />
       <FxPick />
+      <ThrustPick />
       <label className="nav-slider">
         <span>
           {t('距離', 'Distance')}{' '}
@@ -232,6 +233,30 @@ function FxPick() {
             )}
       </div>
     </>
+  )
+}
+
+/** エンジン噴射と姿勢制御の演出の量（components/ship/EngineFx.tsx） */
+function ThrustPick() {
+  useLang()
+  const thrust = useStore((s) => s.settings.thrust)
+  const update = useStore((s) => s.updateSettings)
+  const items: [ThrustFxLevel, string][] = [
+    ['many', t('多い', 'More')],
+    ['normal', t('普通', 'Normal')],
+    ['off', t('オフ', 'Off')],
+  ]
+  return (
+    <div className="nav-check">
+      {t('噴射の演出', 'Thrusters')}
+      <span className="nav-lang-pick" role="group" aria-label={t('噴射の演出', 'Thrusters')}>
+        {items.map(([key, label]) => (
+          <button key={key} className={thrust === key ? 'on' : ''} aria-pressed={thrust === key} onClick={() => update({ thrust: key })}>
+            {label}
+          </button>
+        ))}
+      </span>
+    </div>
   )
 }
 

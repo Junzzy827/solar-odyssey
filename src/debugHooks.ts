@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
-import { flightControl, ship, warpFx } from './state/flight'
+import { flightControl, ship, thrustFx, warpFx } from './state/flight'
 import { bodies, sim } from './state/registry'
 import { useRace } from './state/race'
 import { useMission } from './state/mission'
@@ -30,6 +30,7 @@ const sv = {
   quality: useQuality,
   flightControl,
   warpFx,
+  thrustFx,
   bodies,
   sim,
   camera: null as CameraFn | null,

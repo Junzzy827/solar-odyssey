@@ -4,10 +4,11 @@ import * as THREE from 'three'
 import { BRIDGE_BASE, METERS_PER_UNIT } from './ship/ShipModel'
 import { GalleryScene } from './ship/GalleryScene'
 import { OwnShipModel } from './ship/VariantModel'
+import { EngineFx } from './ship/EngineFx'
 import { currentShip, useShip } from '../data/ships'
 import { bodies, colliders, passThrough, type BodyEntry } from '../state/registry'
 import { useStore } from '../state/store'
-import { CHARGE_SECONDS, EXIT_SECONDS, SHIP_SCALE, flightControl, ship, standoff, warpFx } from '../state/flight'
+import { CHARGE_SECONDS, EXIT_SECONDS, SHIP_SCALE, flightControl, ship, standoff, thrustFx, warpFx } from '../state/flight'
 import { APPROACH_TEXT, approachKind, limitDistance } from '../data/approach'
 import { approachSpeedFactor, nearInfo, proximity, updateProximity } from '../state/proximity'
 import { useLayout } from '../state/useLayout'
@@ -292,6 +293,7 @@ export function Ship() {
         // 遠い目標ほど速く進む（距離のスライダーで太陽系を広げても、40秒ほどで着く）
         ship.velocity.copy(v).setLength(Math.min(Math.max(AUTO_SPEED, d / 40), d * 1.5 + 0.2)).add(targetVel)
         ship.quaternion.slerp(facing(ship.position, tp, up), 1 - Math.exp(-2.5 * dt))
+        thrustFx.throttle = Math.min(1, ship.velocity.length() / AUTO_SPEED)
         if (d < 0.05) {
           ship.velocity.set(0, 0, 0)
           hold.current = { id: target.id, offset: ship.position.clone().sub(tp) }
@@ -325,6 +327,9 @@ export function Ship() {
     eTurn.setFromQuaternion(qTurn, 'YXZ')
     prevQuat.copy(ship.quaternion)
     const yawRate = dt > 0 && st.warpPhase === 'idle' ? eTurn.y / dt : 0
+    // 噴射の演出へ：回る速さ（ワープ中の向き直しも含む）と、進む速さ
+    if (dt > 0) thrustFx.turn.set(eTurn.x, eTurn.y, eTurn.z).divideScalar(dt * TURN_MAX)
+    thrustFx.speed = Math.min(1, ship.velocity.length() / MAX_SPEED)
     const bankTo = st.settings.banking ? THREE.MathUtils.clamp(yawRate / TURN_MAX, -1, 1) * BANK_MAX : 0
     bank.current.rotation.z += (bankTo - bank.current.rotation.z) * (1 - Math.exp(-BANK_EASE * dt))
     v.copy(ship.position).negate()
@@ -384,6 +389,7 @@ export function Ship() {
           <Suspense fallback={null}>
             <OwnShipModel spec={spec} unitScale={shipScale} />
           </Suspense>
+          <EngineFx key={spec.id} spec={spec} />
         </group>
         {mode === 'gallery' && <GalleryScene />}
       </group>
@@ -416,6 +422,8 @@ function steer(dt: number, enabled: boolean) {
     touchInput.lookX = touchInput.lookY = 0
     turn.pitch = turn.yaw = turn.roll = 0
     ship.velocity.multiplyScalar(Math.exp(-0.8 * dt))
+    thrustFx.move.set(0, 0, 0)
+    thrustFx.throttle = 0
     return false
   }
   const clampTurn = (a: number) => THREE.MathUtils.clamp(a, -TURN_BACKLOG, TURN_BACKLOG)
@@ -444,6 +452,8 @@ function steer(dt: number, enabled: boolean) {
     (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0) + touchInput.y,
   )
   const thrusting = v.lengthSq() > 0.01
+  thrustFx.move.copy(v).clampScalar(-1, 1)
+  thrustFx.throttle = Math.max(0, -thrustFx.move.z)
   const before = ship.velocity.length()
   if (thrusting) {
     if (v.lengthSq() > 1) v.normalize()

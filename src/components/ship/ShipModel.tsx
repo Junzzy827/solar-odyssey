@@ -2,7 +2,8 @@ import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { warpFx } from '../../state/flight'
+import { thrustFx, warpFx } from '../../state/flight'
+import { useStore } from '../../state/store'
 import { useSpaceEnvOn } from '../SpaceLighting'
 import { findBaked, multiplyDetail } from './bakedMaps'
 import type { Flood } from '../../data/ships'
@@ -201,6 +202,7 @@ export function ShipModel({
       coilSpillTex: coilSpillTexture(),
       coilPlate: coilBand(0.0006, 0),
       coilSpill: coilBand(COIL_BAND.depth + 0.0007, 0.007),
+      coilFlow: coilFlowMaterial(),
       name: nameTexture(`${registry}  ${shipName}`),
     }
   }, [registry, shipName, tint])
@@ -216,7 +218,7 @@ export function ShipModel({
   const halos = useRef<THREE.SpriteMaterial[]>([])
   const navLights = useRef<THREE.MeshBasicMaterial[]>([])
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const t = clock.getElapsedTime()
     const w = warpFx.glow
     // バサード：赤い光がゆっくり脈打つ
@@ -226,10 +228,15 @@ export function ShipModel({
       m.color.setRGB(k * 1.7, k * 1.05, k)
       if (m.map) m.map.offset.x = (t * 0.15 * (i % 2 ? 1 : -1)) % 1
     })
-    // ワープコイル：普段は穏やか、ワープ準備で明るく
-    const coil = 1.25 + w * 1.8 + 0.05 * Math.sin(t * 2.3)
+    // ワープコイル：普段は穏やか、加速（thrustFx.power）とワープ準備で明るく
+    const power = thrustFx.power
+    const coil = 1.25 + w * 1.8 + power * 0.7 + 0.05 * Math.sin(t * 2.3)
     grilles.current.forEach((m) => m.color.setScalar(coil))
-    spills.current.forEach((m) => m.color.setScalar(0.55 + w * 1.2))
+    spills.current.forEach((m) => m.color.setScalar(0.55 + w * 1.2 + power * 0.4))
+    // コイルの上を後ろへ流れる光：加速するほど明るく速く
+    const flow = parts.coilFlow.uniforms
+    flow.uPower.value = useStore.getState().settings.thrust === 'off' ? 0 : 0.12 + Math.max(power, w)
+    flow.uPhase.value += Math.min(delta, 0.05) * (0.4 + 1.6 * power + 3 * w)
     // ディフレクター：ゆっくり呼吸するように明滅、ワープ準備で強く
     const d = (1.15 + w * 1.4) * (0.94 + 0.06 * Math.sin(t * 1.7))
     deflector.current.color.setRGB(d, d, d * 1.1)
@@ -365,6 +372,8 @@ export function ShipModel({
                 toneMapped={false}
               />
             </mesh>
+            {/* コイルの上を後ろへ流れる光（加速・ワープで強く） */}
+            <mesh geometry={parts.coilPlate} position={[nx, NACELLE_Y, NACELLE_Z]} material={parts.coilFlow} renderOrder={1} />
             {/* ナセル後端のストロボ */}
             {strobe([nx, NACELLE_Y + 0.02, NACELLE_Z + 0.42], 0.0012)}
           </group>
@@ -487,6 +496,42 @@ const smooth = (e0: number, e1: number, x: number) => {
 function bandHalfHeight(zz: number) {
   const { front, thin, wide, swell, round } = COIL_BAND
   return (thin + (wide - thin) * smooth(swell[0], swell[1], zz)) * Math.sqrt(THREE.MathUtils.clamp((zz - front) / round, 0, 1))
+}
+
+/**
+ * コイルの帯の上を、前から後ろへ流れる光の筋。帯の u は外側の前端 0 → 後端 0.5 → 内側の前端 1 なので、
+ * 後端からの距離 |u - 0.5| に沿って模様をずらすと、両側とも後ろへ流れて見える
+ */
+function coilFlowMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uPhase: { value: 0 }, uPower: { value: 0 } },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uPhase;
+      uniform float uPower;
+      varying vec2 vUv;
+      void main() {
+        float d = abs(vUv.x - 0.5) * 2.0;
+        float across = abs(vUv.y - 0.5) * 2.0;
+        float wave = pow(0.5 + 0.5 * sin((d * 5.0 + uPhase) * 6.2832), 6.0);
+        float k = wave * (1.0 - across * across) * smoothstep(1.0, 0.85, d) * uPower;
+        gl_FragColor = vec4(vec3(0.55, 0.85, 1.6) * k, 1.0);
+        #include <colorspace_fragment>
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+  })
 }
 
 /**
