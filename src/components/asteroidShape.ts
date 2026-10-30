@@ -69,6 +69,58 @@ export function asteroidGeometry(rand: () => number, detail: number) {
 }
 
 /**
+ * 形を決めた岩：方向 d（長さ1）ごとの中心からの距離 radius(d) で面を作る。
+ * 立方体を細かく割って球にするので、±x・±y・±z の6方向にちょうど頂点が来る（角の先が欠けない）
+ */
+export function radialRock(radius: (d: THREE.Vector3) => number, segments: number) {
+  const box = new THREE.BoxGeometry(2, 2, 2, segments, segments, segments)
+  box.deleteAttribute('normal')
+  box.deleteAttribute('uv')
+  const g = mergeVertices(box)
+  box.dispose()
+  const pos = g.attributes.position
+  const d = new THREE.Vector3()
+  for (let i = 0; i < pos.count; i++) {
+    d.fromBufferAttribute(pos, i).normalize()
+    d.multiplyScalar(radius(d))
+    pos.setXYZ(i, d.x, d.y, d.z)
+  }
+  return g
+}
+
+/** 6本の角が出た岩：|x/sx|^p + |y/sy|^p + |z/sz|^p = 1 の面。tips は角の長さ（+x, -x, +y, -y, +z, -z）。p < 1 で角が細く尖り、あいだがくぼむ */
+export function pointedRock(tips: number[], p: number, segments: number) {
+  return radialRock((d) => {
+    const sum =
+      (Math.abs(d.x) / (d.x >= 0 ? tips[0] : tips[1])) ** p +
+      (Math.abs(d.y) / (d.y >= 0 ? tips[2] : tips[3])) ** p +
+      (Math.abs(d.z) / (d.z >= 0 ? tips[4] : tips[5])) ** p
+    return sum ** (-1 / p)
+  }, segments)
+}
+
+/** 面に垂直に、大きなこぶと小さなこぶを足す。tip を渡すと、中心からその距離に近い角の先ほどこぶを弱くして尖りを残す */
+export function roughen(g: THREE.BufferGeometry, big: number, small: number, seed: number, tip?: number) {
+  g.computeVertexNormals()
+  const pos = g.attributes.position
+  const nrm = g.attributes.normal
+  const v = new THREE.Vector3()
+  const n = new THREE.Vector3()
+  const q = new THREE.Vector3()
+  const off = new THREE.Vector3(seed * 13.1, seed * 7.7, seed * 3.3)
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i)
+    n.fromBufferAttribute(nrm, i)
+    const keep = tip ? 1 - 0.85 * Math.min(1, v.length() / tip) ** 3 : 1
+    const h = big * (fbm(q.copy(v).multiplyScalar(1.1).add(off), 3) - 0.5) + small * (fbm(q.copy(v).multiplyScalar(3.4).add(off), 2) - 0.5)
+    v.addScaledVector(n, h * keep)
+    pos.setXYZ(i, v.x, v.y, v.z)
+  }
+  g.computeVertexNormals()
+  return g
+}
+
+/**
  * 岩の質感：細かいクレーターと砂の凹凸を、岩の座標の上で作る（拡大しても崩れない）。
  * 光は MeshStandardMaterial のまま使い、法線だけをずらす。
  */

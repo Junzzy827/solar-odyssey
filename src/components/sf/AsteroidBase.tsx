@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
-import { asteroidGeometry, asteroidMaterial } from '../asteroidShape'
+import { asteroidMaterial } from '../asteroidShape'
+import { MUSHROOM_SIZE, MUSHROOM_STEM_TIP, STAR_SIZE, STAR_TURN, mushroomGeometry, rockMesh, scatterLights, starGeometry, surfaceProbe } from './rockShapes'
 import { bodies } from '../../state/registry'
 import { useStore } from '../../state/store'
 import { SF_TEXT, UNITS_PER_METER, sfEntry } from '../../data/sf'
@@ -12,62 +13,60 @@ import { earthMoonPoint, type LagrangePoint } from './lagrange'
 import { useSite } from './useSite'
 
 // 小惑星を運んできて、中をくりぬいた宇宙港（オリジナルのデザイン）。戦いの場面はなく、船が出入りする港として描く。
-// cross：4本の腕が十字に伸びた形。umbrella：広い傘の下に柱が伸びた形。
+// cross：四方と上下に尖った角が出た、金平糖のような形。umbrella：厚い傘の下に段が重なり、ねじれた柄が伸びるキノコ形。
+// 岩の形は rockShapes.ts。
 // 形は m（メートル）で決め、UNITS_PER_METER で表示単位にする（そばでは自機が本物の比率になる）
 
 export type BaseShape = 'cross' | 'umbrella'
 
-/** rot：岩の向き。細長い向き（x）を腕や傘の広がりにそろえる */
-type Rock = { pos: [number, number, number]; scale: [number, number, number]; color: string; rot: [number, number, number] }
 type Bay = { pos: [number, number, number]; normal: [number, number, number]; size: number }
+type Spot = { pos: THREE.Vector3; normal: THREE.Vector3 }
 
-const rng = (seed: number) => {
-  let s = seed
-  return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646
+const FAR = 20000
+const bay = (hit: Spot | null, size: number): Bay[] => (hit ? [{ pos: hit.pos.clone().addScaledVector(hit.normal, 60).toArray(), normal: hit.normal.toArray(), size }] : [])
+const lift = (hit: Spot | null, by: number) => (hit ? (hit.pos.clone().addScaledVector(hit.normal, by).toArray() as [number, number, number]) : null)
+
+/** 金平糖形：角と角のあいだのくぼみに港の口、6本の角の先に灯 */
+function starLayout(geometry: THREE.BufferGeometry) {
+  const probe = surfaceProbe(geometry)
+  // 回す前の向き（x, y, z）から、表面へ光線を当てる
+  const hitAt = (x: number, y: number, z: number) => {
+    const dir = new THREE.Vector3(x, y, z).normalize().applyAxisAngle(Y, STAR_TURN).multiplyScalar(FAR)
+    return probe(dir, { x: 0, y: 0, z: 0 })
+  }
+  const bays: Bay[] = []
+  // 地球に向いたくぼみ（k = 0）に大きな口
+  for (let k = 0; k < 4; k++) {
+    const a = Math.PI / 4 + (k * Math.PI) / 2
+    bays.push(...bay(hitAt(Math.cos(a), k === 0 ? -0.05 : 0.3, Math.sin(a)), k === 0 ? 420 : 260))
+  }
+  bays.push(...bay(hitAt(Math.cos(Math.PI / 4), -0.45, Math.sin(Math.PI / 4)), 260))
+  const axes: [number, number, number][] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+  const beacons = axes.map((a) => lift(hitAt(...a), 60)).filter((p) => p !== null)
+  const ant = hitAt(Math.cos(Math.PI / 4), 0.75, Math.sin(Math.PI / 4))
+  return { bays, beacons, antenna: ant, lights: [] as THREE.Vector3[] }
 }
 
-/** 岩の並べ方・港の口・灯の位置（m） */
-function layout(shape: BaseShape) {
-  const rand = rng(shape === 'cross' ? 101 : 202)
-  const rocks: Rock[] = []
+/** キノコ形：傘の裏と柄の先に港の口、傘の縁に灯、表面に暖色の窓明かり */
+function mushroomLayout(geometry: THREE.BufferGeometry) {
+  const probe = surfaceProbe(geometry)
   const bays: Bay[] = []
-  const beacons: [number, number, number][] = []
-  const tone = () => ['#7a7068', '#8a8178', '#6b645e', '#958a7c'][Math.floor(rand() * 4)]
-  if (shape === 'cross') {
-    rocks.push({ pos: [0, 0, 0], scale: [1700, 1500, 1600], color: tone(), rot: [0.3, 0.2, 0.7] })
-    for (let k = 0; k < 4; k++) {
-      const a = (k / 4) * Math.PI * 2 + 0.12 * (rand() - 0.5)
-      const dir = [Math.cos(a), Math.sin(a)]
-      for (let i = 1; i <= 3; i++) {
-        const d = 700 + i * 800 + rand() * 150
-        const r = 1150 - i * 200
-        rocks.push({ pos: [dir[0] * d, dir[1] * d, (rand() - 0.5) * 300], scale: [r * 1.4, r, r], color: tone(), rot: [(rand() - 0.5) * 0.4, (rand() - 0.5) * 0.4, a] })
-      }
-      beacons.push([dir[0] * 3900, dir[1] * 3900, 0])
-      // 腕の付け根の前面に港の口
-      bays.push({ pos: [dir[0] * 1300, dir[1] * 1300, 1150], normal: [0, 0, 1], size: 260 })
-    }
-    bays.push({ pos: [0, 0, 1550], normal: [0, 0, 1], size: 420 })
-  } else {
-    // 傘：平たく広い岩をいくつか重ね、下に柱を伸ばす
-    for (let k = 0; k < 7; k++) {
-      const a = (k / 7) * Math.PI * 2
-      const d = k === 0 ? 0 : 1500
-      rocks.push({ pos: [Math.cos(a) * d, (rand() - 0.5) * 150, Math.sin(a) * d], scale: [1600, 450, 1500], color: tone(), rot: [(rand() - 0.5) * 0.15, rand() * 6, (rand() - 0.5) * 0.15] })
-    }
-    for (let i = 1; i <= 3; i++) rocks.push({ pos: [(rand() - 0.5) * 200, -i * 1000, (rand() - 0.5) * 200], scale: [1000, 800 - i * 90, 800 - i * 90], color: tone(), rot: [rand() * 0.3, rand() * 6, Math.PI / 2] })
-    // 傘の縁の灯と、傘の裏・柱の港の口
-    for (let k = 0; k < 10; k++) {
-      const a = (k / 10) * Math.PI * 2
-      beacons.push([Math.cos(a) * 2900, -100, Math.sin(a) * 2900])
-    }
-    for (let k = 0; k < 4; k++) {
-      const a = (k / 4) * Math.PI * 2 + 0.4
-      bays.push({ pos: [Math.cos(a) * 1600, -420, Math.sin(a) * 1600], normal: [0, -1, 0], size: 260 })
-    }
-    bays.push({ pos: [0, -3900, 0], normal: [0, -1, 0], size: 380 })
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + 0.4
+    const x = Math.cos(a) * 2500
+    const z = Math.sin(a) * 2500
+    bays.push(...bay(probe({ x, y: -FAR, z }, { x, y: FAR, z }), 260))
   }
-  return { rocks, bays, beacons }
+  const tip = MUSHROOM_STEM_TIP
+  bays.push(...bay(probe({ x: tip.x, y: -FAR, z: tip.z }, { x: tip.x, y: 0, z: tip.z }), 380))
+  const beacons: [number, number, number][] = []
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2
+    const p = lift(probe({ x: Math.cos(a) * FAR, y: 0, z: Math.sin(a) * FAR }, { x: 0, y: 0, z: 0 }), 60)
+    if (p) beacons.push(p)
+  }
+  const ant = probe({ x: 600, y: FAR, z: 400 }, { x: 600, y: -FAR, z: 400 })
+  return { bays, beacons, antenna: ant, lights: scatterLights(geometry, 90, 77, [-5200, 600], 3200) }
 }
 
 const Y = new THREE.Vector3(0, 1, 0)
@@ -82,7 +81,7 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
   const group = useRef<THREE.Group>(null!)
   const label = useRef<HTMLSpanElement>(null)
   useHideBehindSun(label, group)
-  const size = (shape === 'cross' ? 4200 : 4100) * UNITS_PER_METER
+  const size = (shape === 'cross' ? STAR_SIZE : MUSHROOM_SIZE) * UNITS_PER_METER
   const moved = useSite(group, {
     id,
     radius: size,
@@ -90,22 +89,19 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
     notice: { distance: size * 4, text: shape === 'cross' ? SF_TEXT.crossFound : SF_TEXT.umbrellaFound },
   })
 
-  const { rocks, bays, beacons } = useMemo(() => layout(shape), [shape])
-  const parts = useMemo(() => {
-    const rand = rng(shape === 'cross' ? 7 : 9)
-    const geometry = asteroidGeometry(rand, 5)
-    const mesh = new THREE.InstancedMesh(geometry, asteroidMaterial(), rocks.length)
-    const m = new THREE.Matrix4()
-    const q = new THREE.Quaternion()
-    rocks.forEach((r, i) => {
-      q.setFromEuler(new THREE.Euler(...r.rot))
-      m.compose(new THREE.Vector3(...r.pos), q, new THREE.Vector3(...r.scale))
-      mesh.setMatrixAt(i, m)
-      mesh.setColorAt(i, new THREE.Color(r.color))
-    })
-    mesh.castShadow = mesh.receiveShadow = true
-    return {
-      mesh,
+  const { mesh, bays, beacons, antenna, glow } = useMemo(() => {
+    const geometry = shape === 'cross' ? starGeometry() : mushroomGeometry()
+    const mesh = rockMesh(geometry, asteroidMaterial(), shape === 'cross' ? '#857b72' : '#8a8279')
+    const { antenna: ant, lights, ...rest } = shape === 'cross' ? starLayout(geometry) : mushroomLayout(geometry)
+    const antenna = { pos: (ant?.pos.toArray() ?? [0, 0, 0]) as [number, number, number], quat: new THREE.Quaternion().setFromUnitVectors(Y, ant?.normal ?? Y) }
+    // 窓明かり：小さな暖色の点を1つの InstancedMesh で描く
+    const glow = new THREE.InstancedMesh(new THREE.SphereGeometry(32, 6, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 1.5, 0.6), toneMapped: false }), Math.max(1, lights.length))
+    glow.count = lights.length
+    lights.forEach((p, i) => glow.setMatrixAt(i, new THREE.Matrix4().makeTranslation(p)))
+    return { mesh, antenna, glow, ...rest }
+  }, [shape])
+  const parts = useMemo(
+    () => ({
       bay: new THREE.PlaneGeometry(1, 0.6),
       bayMat: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.25, 0.7), toneMapped: false, side: THREE.DoubleSide }),
       frame: new THREE.EdgesGeometry(new THREE.PlaneGeometry(1.15, 0.72)),
@@ -117,15 +113,18 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
       metal: new THREE.MeshStandardMaterial({ color: '#c4c8d0', metalness: 0.5, roughness: 0.4, side: THREE.DoubleSide }),
       shuttle: new THREE.BoxGeometry(60, 40, 160),
       shuttleLight: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.2, 2.6), toneMapped: false }),
-    }
-  }, [rocks, shape])
+    }),
+    [],
+  )
   useEffect(
     () => () => {
-      parts.mesh.geometry.dispose()
-      ;(parts.mesh.material as THREE.Material).dispose()
-      parts.mesh.dispose()
+      for (const m of [mesh, glow]) {
+        m.geometry.dispose()
+        ;(m.material as THREE.Material).dispose()
+        m.dispose()
+      }
     },
-    [parts],
+    [mesh, glow],
   )
 
   const beaconMat = useRef(parts.beaconMat)
@@ -159,7 +158,8 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
   return (
     <group ref={group}>
       <group scale={UNITS_PER_METER}>
-        <primitive object={parts.mesh} />
+        <primitive object={mesh} />
+        <primitive object={glow} />
         {bays.map((b, i) => {
           const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...b.normal))
           return (
@@ -173,7 +173,7 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
           <mesh key={i} geometry={parts.beacon} material={parts.beaconMat} position={p} />
         ))}
         {/* アンテナ */}
-        <group position={shape === 'cross' ? [0, 1500, 600] : [0, 450, 0]}>
+        <group position={antenna.pos} quaternion={antenna.quat}>
           <mesh geometry={parts.mast} material={parts.metal} position={[0, 350, 0]} />
           <mesh geometry={parts.dish} material={parts.metal} position={[0, 700, 0]} rotation={[0.5, 0, 0]} />
         </group>
