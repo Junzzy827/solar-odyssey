@@ -6,6 +6,7 @@ import { SolarPlant } from './SolarPlant'
 import { SailLauncher } from './SailLauncher'
 import { ColonyCluster } from './ColonyCluster'
 import { AsteroidBase } from './AsteroidBase'
+import { Fleet } from './Fleet'
 import { Shipyard } from './Shipyard'
 import { SpaceElevator } from './SpaceElevator'
 import { CROSS_ID, UMBRELLA_ID } from '../../data/sf'
@@ -32,6 +33,7 @@ export function SFWorld() {
       <SpaceElevator />
       <AsteroidBase id={CROSS_ID} shape="cross" point="L4" />
       <AsteroidBase id={UMBRELLA_ID} shape="umbrella" point="L2" />
+      <Fleet />
       <RadioMoon />
       <OreCarrier />
       <DiscFreighter />

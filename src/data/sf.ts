@@ -31,6 +31,9 @@ export const torusName = () => t('ドーナツ型コロニー', 'Torus Colony')
 export const CROSS_ID = 'rock-port'
 export const crossName = () => t('十字の小惑星港', 'Cross Asteroid Port')
 export const UMBRELLA_ID = 'rock-base'
+/** 移民船団（街を載せた都市船の隊列） */
+export const FLEET_ID = 'fleet'
+export const fleetName = () => t('移民船団', 'Migrant Fleet')
 export const umbrellaName = () => t('傘の小惑星基地', 'Umbrella Asteroid Base')
 /** 月の軌道の造船所（自機 SV-01 の母港） */
 export const YARD_ID = 'shipyard'
@@ -83,6 +86,7 @@ export const SF_OBJECTS: SFEntry[] = [
   { id: ELEVATOR_ID, name: elevatorName, spoken: 'the space elevator', color: '#a0c8f0' },
   { id: CROSS_ID, name: crossName, spoken: 'the cross asteroid port', color: '#b59a7a' },
   { id: UMBRELLA_ID, name: umbrellaName, spoken: 'the umbrella asteroid base', color: '#9c8f86' },
+  { id: FLEET_ID, name: fleetName, spoken: 'the migrant fleet', color: '#e0c6a0' },
   { id: SOLAR_PLANT_ID, name: solarPlantName, spoken: 'the solar power station', color: '#f2cf6a' },
   { id: SAIL_LAUNCHER_ID, name: sailLauncherName, spoken: 'the light-sail launcher', color: '#b49cff' },
   { id: RADIO_MOON_ID, name: radioMoonName, spoken: 'the radio telescope moon', color: '#b8bcc6' },
@@ -158,6 +162,11 @@ export const SF_TEXT = {
     t(
       '軌道エレベーターの駅です。赤道の海の基地からケーブルが伸びていて、昇降機がゆっくり上り下りしています。\n（I で航海日誌）',
       'This is the space elevator station. A cable rises from a base on the ocean at the equator, and climbers slowly ride up and down.\n(I for the ship’s log)',
+    ),
+  fleetFound: () =>
+    t(
+      '移民船団です。背中の透明な丸屋根の中に、森と街がまるごと載っています。先頭が旗艦、まわりの小さな船は補給船です。\n（I で航海日誌）',
+      'This is the migrant fleet. Under the clear domes on their backs, whole towns and forests ride along. The lead ship is the flagship; the small ones are supply ships.\n(I for the ship’s log)',
     ),
   colonyInside: () =>
     t(

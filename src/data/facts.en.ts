@@ -289,6 +289,29 @@ export const FACTS_EN: Record<string, Facts> = {
       explanation: 'About 36,000 km up, one orbit takes exactly one day. It keeps pace with Earth’s spin, so from the ground it stays in the same spot.',
     },
   },
+  fleet: {
+    rows: [
+      ['Formation', 'Five city ships and three supply ships'],
+      ['Flagship length', 'About 8 km'],
+      ['Route', 'A slow loop about 1.8 AU from the Sun'],
+    ],
+    fiction: true,
+    notes: [
+      'A fleet of whole towns travelling in search of a new home. Under the dome on each city ship’s back are forests and streets.',
+      'Unlike a generation ship heading to another star over many lifetimes, this fleet moves around within the solar system.',
+    ],
+    real: [
+      'Living on a ship for years needs systems that reuse air, water and food. On the ISS even sweat and urine are turned back into drinking water, and about 98% of the water is recycled.',
+      'In the 1991 US experiment Biosphere 2, eight people lived for two years in a sealed glass building, but oxygen ran low and had to be added from outside. Keeping a closed world in balance is very hard.',
+      'Growing food in space is being tested too. Lettuce and chili peppers have been grown on the ISS and eaten by astronauts.',
+    ],
+    quiz: {
+      question: 'About how much of its water does the ISS recycle back into drinking water?',
+      choices: ['About 98%', 'About 50%', 'About 10%'],
+      answer: 0,
+      explanation: 'In 2023, adding up sweat, breath moisture and urine recovery, it reached about 98%. Ships travelling far will need this kind of technology.',
+    },
+  },
   'rock-port': {
     rows: [
       ['Size', 'About 8 km from tip to tip'],
