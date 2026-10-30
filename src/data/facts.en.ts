@@ -454,6 +454,54 @@ export const FACTS_EN: Record<string, Facts> = {
       explanation: 'It flies about ten times faster than a bullet, so even a small fragment can break a satellite or a space station.',
     },
   },
+  desert: {
+    rows: [
+      ['Suns', 'Two (an orange K star and a red M star)'],
+      ['Surface', 'Dunes, rocky plateaus and dried-up salt flats'],
+      ['Where', 'Far beyond the solar system (an imaginary place)'],
+    ],
+    fiction: true,
+    notes: [
+      'A desert planet that circles two suns. From low orbit you can watch an orange sun and a red sun set side by side over the horizon.',
+      'The two suns circle each other while they light the planet together.',
+      'The planet is drawn much smaller than a real one so it is easier to see.',
+    ],
+    real: [
+      'In 2011 NASA’s Kepler space telescope found Kepler-16b, a planet that circles two stars: an orange K star (about 0.7 times the Sun’s mass) and a red M star (about 0.2). It goes around them in about 229 days.',
+      'The real Kepler-16b is a gas planet about the size of Saturn, thought to be around −70 to −100 °C. The desert is the science-fiction part.',
+      'Planets like this are found by watching a star dim slightly as the planet passes in front (a transit). Because the two stars also hide each other, their masses could be measured precisely.',
+      'Pairs of stars (binaries) are common in the Milky Way. About half of Sun-like stars are thought to have a partner.',
+    ],
+    quiz: {
+      question: 'What found the real two-sun planet Kepler-16b?',
+      choices: ['The Kepler space telescope', 'An Apollo spacecraft', 'The Hayabusa probe'],
+      answer: 0,
+      explanation: 'The Kepler space telescope, which watched stars for tiny dips in brightness, found it in 2011. A planet that orbits two stars is called a circumbinary planet.',
+    },
+  },
+  iceworld: {
+    rows: [
+      ['Surface', 'Blue-white ice sheets and thin clouds'],
+      ['Temperature', 'Imagined at around −200 °C'],
+      ['Where', 'Far beyond the solar system (an imaginary place)'],
+    ],
+    fiction: true,
+    notes: [
+      'A planet covered in ice from pole to pole. Cracks in the ice glow blue, and dark sea shows through near the equator.',
+      'The planet is drawn much smaller than a real one so it is easier to see.',
+    ],
+    real: [
+      'About 700 million years ago, Earth itself is thought to have frozen over all the way to the equator: “Snowball Earth”. Carbon dioxide from volcanoes slowly built up and melted it.',
+      'In 2006 a cold planet, OGLE-2005-BLG-390Lb, was found using gravitational microlensing (a distant star’s light briefly brightened by gravity). It is about 5 times Earth’s mass and thought to be around −220 °C.',
+      'In our own solar system, Jupiter’s moon Europa and Saturn’s moon Enceladus have oceans under their ice.',
+    ],
+    quiz: {
+      question: 'What is Earth thought to have looked like about 700 million years ago?',
+      choices: ['Covered in ice all the way to the equator', 'All ocean with no land', 'Hotter than today, with no ice at all'],
+      answer: 0,
+      explanation: 'It is called “Snowball Earth”. White ice reflects sunlight, so once Earth froze over it stayed frozen for a very long time.',
+    },
+  },
   sun: {
     diameter: 'About 1.39 million km (about 109 times Earth)',
     temperature: 'Surface about 5,500 °C, core about 15 million °C',

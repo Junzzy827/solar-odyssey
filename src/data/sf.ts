@@ -103,6 +103,8 @@ export const SF_OBJECTS: SFEntry[] = [
   { id: 'gate', name: () => t('時空のゲート', 'Space-Time Gate'), spoken: 'the gate', color: '#8f7dff' },
   { id: 'blackhole', name: () => t('ブラックホール（太陽系の外）', 'Black Hole (beyond the solar system)'), spoken: 'the black hole', color: '#f0b45a' },
   { id: 'swarm', name: () => t('銀色の群れ', 'Silver Swarm'), spoken: 'the silver swarm', color: '#c9d2dc' },
+  { id: 'desert', name: () => t('2つの太陽の砂の惑星（太陽系の外）', 'Desert Planet of Two Suns (beyond the solar system)'), spoken: 'the desert world', color: '#d9a066' },
+  { id: 'iceworld', name: () => t('氷の惑星（太陽系の外）', 'Ice Planet (beyond the solar system)'), spoken: 'the ice world', color: '#bfe3ff' },
 ]
 export const sfEntry = (id: string | null) => SF_OBJECTS.find((e) => e.id === id)
 export const isSFObject = (id: string | null) => sfEntry(id) !== undefined
@@ -233,4 +235,29 @@ export const SF_SPACE_TEXT = {
     ),
   swarmFound: () =>
     t('銀色の群れです。液体の金属のように形を変えながら、静かに漂っています。近づいても何もしてきません。', 'A silver swarm. It drifts quietly, changing shape like liquid metal. It does nothing when you come close.'),
+}
+
+/**
+ * 太陽系の外の惑星（架空の場所）。ブラックホールと同じく、太陽系からずっと離れた位置に置き、ワープで行く。
+ * 砂の惑星は、本物の周連星惑星ケプラー16b（橙色のK型星と赤いM型星の2つの太陽を回る）がもと
+ */
+export const DESERT_ID = 'desert'
+export const ICE_ID = 'iceworld'
+export const DESERT_POS: [number, number, number] = [19000, 0, 6000]
+export const ICE_POS: [number, number, number] = [-19000, 0, 6000]
+/** 惑星の半径（表示単位。自機の長さの約100倍） */
+export const EXO_RADIUS = 30
+
+export const EXO_TEXT = {
+  desertArrived: () =>
+    t(
+      '2つの太陽を回る砂の惑星に着きました。惑星のふちに、橙色と赤の太陽が並んでしずんでいきます。\n帰りは近くのゲートをくぐるか、太陽系の目標へワープ。',
+      'You have reached a desert planet that circles two suns. An orange sun and a red sun set side by side over its edge.\nTo go home, fly through the nearby gate or warp to any target in the solar system.',
+    ),
+  iceArrived: () =>
+    t(
+      '氷の惑星に着きました。青白い氷が星じゅうをおおい、うすい雲が流れています。\n帰りは近くのゲートをくぐるか、太陽系の目標へワープ。',
+      'You have reached an ice planet. Blue-white ice covers the whole world, with thin clouds drifting over it.\nTo go home, fly through the nearby gate or warp to any target in the solar system.',
+    ),
+  low: () => t('これより低くは飛べません（大気の上で止まります）。', 'You cannot fly any lower (you stop above the air).'),
 }

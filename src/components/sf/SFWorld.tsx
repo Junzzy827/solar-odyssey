@@ -18,6 +18,7 @@ import { TerraMars } from './TerraMars'
 import { GenerationShip } from './GenerationShip'
 import { EuropaBeacon } from './EuropaBeacon'
 import { DebrisCollector } from './DebrisCollector'
+import { DesertPlanet, IcePlanet } from './Exoplanet'
 
 /** SF モードだけに出す、架空の船や構造物（data/sf.ts の SF_OBJECTS と対になる） */
 export function SFWorld() {
@@ -43,6 +44,8 @@ export function SFWorld() {
       <GenerationShip />
       <EuropaBeacon />
       <DebrisCollector />
+      <DesertPlanet />
+      <IcePlanet />
     </>
   )
 }
