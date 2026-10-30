@@ -7,6 +7,7 @@ import { PlanetBody } from './components/PlanetBody'
 import { Sky } from './components/Sky'
 import { SpaceLighting } from './components/SpaceLighting'
 import { PostFx } from './components/PostFx'
+import { StructureLook } from './components/StructureLook'
 import { SimClock } from './components/SimClock'
 import { Ship } from './components/Ship'
 import { SpaceDust } from './components/SpaceDust'
@@ -88,10 +89,14 @@ export default function App() {
         <AsteroidBelt />
         {sf && (
           <SFBoundary>
-            <SFWorld />
+            <StructureLook>
+              <SFWorld />
+            </StructureLook>
           </SFBoundary>
         )}
-        <Telescopes />
+        <StructureLook detail={false}>
+          <Telescopes />
+        </StructureLook>
         <Race />
         <MissionRunner />
         <Ship />
