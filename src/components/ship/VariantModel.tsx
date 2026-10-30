@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { warpFx } from '../../state/flight'
 import type { ShipId, ShipSpec } from '../../data/ships'
 import { hullTextures } from './hullTextures'
+import { useSpaceEnvOn } from '../SpaceLighting'
 import { FloodLights, STROBE_FLASH, STROBE_GAP, STROBE_PERIOD, ShipModel, haloTexture } from './ShipModel'
 
 // SV-01 以外の自機。形は Blender で組み立てたモデル（tools/blender/build_fleet.py）で、
@@ -76,7 +76,7 @@ function decalTexture(text: string, color = 'rgba(40,44,52,0.88)') {
   return t
 }
 
-function materials(spec: ShipSpec, envMap: THREE.Texture) {
+function materials(spec: ShipSpec) {
   const pal = PALETTES[spec.id as Exclude<ShipId, 'sv01'>]
   const tex = hullTextures({ width: 1024, height: 1024, seed: pal.seed, panelScale: pal.panelScale, windows: [] })
   // モデルの UV は 1 単位 = 6。模様 1 枚を 1/2 単位に広げて、外板のパネルが SV-01 と同じくらいの大きさに見えるように
@@ -90,12 +90,11 @@ function materials(spec: ShipSpec, envMap: THREE.Texture) {
       bumpScale: 1.1,
       metalness: 0.2,
       roughness: 0.66,
-      envMap,
-      envMapIntensity: 0.3,
+      envMapIntensity: 0.8,
       ...opts,
     })
   const plain = (color: string, metalness: number, roughness: number, opts: Partial<THREE.MeshPhysicalMaterialParameters> = {}) =>
-    new THREE.MeshPhysicalMaterial({ color, vertexColors: true, metalness, roughness, envMap, envMapIntensity: 0.6, ...opts })
+    new THREE.MeshPhysicalMaterial({ color, vertexColors: true, metalness, roughness, envMapIntensity: 1.3, ...opts })
   const glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(...spec.glow.idle), toneMapped: false })
   const blue = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 0.75, 2.2), toneMapped: false })
   const mats: Record<string, THREE.Material> = {
@@ -106,7 +105,7 @@ function materials(spec: ShipSpec, envMap: THREE.Texture) {
     Dark: plain('#1c1f25', 0.5, 0.55),
     Metal: plain('#a3a8b0', 0.8, 0.35),
     // 断熱材の金色の膜（本物の人工衛星にも貼られている）
-    Gold: plain('#c99a3c', 1, 0.32, { envMapIntensity: 0.9 }),
+    Gold: plain('#c99a3c', 1, 0.32, { envMapIntensity: 1.8 }),
     Window: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.1, 1.85, 1.35), toneMapped: false }),
     Glow: glow,
     // 青い光（発進レール・センサー・吸気口）。ワープの準備で明るく
@@ -121,8 +120,7 @@ function materials(spec: ShipSpec, envMap: THREE.Texture) {
       iridescence: 0.7,
       iridescenceIOR: 1.4,
       iridescenceThicknessRange: [200, 600],
-      envMap,
-      envMapIntensity: 1.1,
+      envMapIntensity: 2.2,
       side: THREE.DoubleSide,
     }),
     Radiator: plain('#ffffff', 0.45, 0.45, { map: radiatorTexture(), side: THREE.DoubleSide, emissive: new THREE.Color(0, 0, 0) }),
@@ -135,18 +133,10 @@ function materials(spec: ShipSpec, envMap: THREE.Texture) {
 
 /** 乗る船が SV-01 以外のときの自機。unitScale は自機に掛かっている拡大率（投光器の届く距離を合わせる） */
 export function VariantModel({ spec, unitScale = 1 }: { spec: ShipSpec; unitScale?: number | (() => number) }) {
-  const { gl } = useThree()
   const { scene } = useGLTF(url(spec.model!))
 
-  const envMap = useMemo(() => {
-    const pmrem = new THREE.PMREMGenerator(gl)
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-    pmrem.dispose()
-    return env
-  }, [gl])
-
   const built = useMemo(() => {
-    const { mats, glow, blue, radiator } = materials(spec, envMap)
+    const { mats, glow, blue, radiator } = materials(spec)
     const model = scene.clone(true)
     let rotor: THREE.Object3D | null = null
     model.traverse((o) => {
@@ -161,7 +151,8 @@ export function VariantModel({ spec, unitScale = 1 }: { spec: ShipSpec; unitScal
     })
     const decals = spec.decals.map((d) => ({ ...d, map: decalTexture(d.text, d.color) }))
     return { model, rotor: rotor as THREE.Object3D | null, mats, glow, blue, radiator, decals }
-  }, [scene, spec, envMap])
+  }, [scene, spec])
+  useSpaceEnvOn(useMemo(() => Object.values(built.mats), [built]))
 
   useEffect(
     () => () => {

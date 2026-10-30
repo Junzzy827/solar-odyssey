@@ -1,9 +1,9 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { warpFx } from '../../state/flight'
+import { useSpaceEnvOn } from '../SpaceLighting'
 import type { Flood } from '../../data/ships'
 import { bussardTexture, coilSpillTexture, coilTexture, deflectorTexture, hullTextures, nameTexture, shuttleBayTexture, windowBandTexture } from './hullTextures'
 
@@ -62,7 +62,7 @@ const NACELLE_X = 0.2
 const NACELLE_Y = 0.068
 const NACELLE_Z = 0.14
 
-function hullMaterial(tex: ReturnType<typeof hullTextures>, envMap: THREE.Texture, vertexColors = false) {
+function hullMaterial(tex: ReturnType<typeof hullTextures>, vertexColors = false) {
   return new THREE.MeshPhysicalMaterial({
     vertexColors,
     map: tex.map,
@@ -74,8 +74,7 @@ function hullMaterial(tex: ReturnType<typeof hullTextures>, envMap: THREE.Textur
     roughness: 0.68,
     iridescence: 0.3,
     iridescenceIOR: 1.6,
-    envMap,
-    envMapIntensity: 0.3,
+    envMapIntensity: 0.8,
   })
 }
 
@@ -97,7 +96,6 @@ export function ShipModel({
   /** 船体を照らす投光器。何隻も並べるときは消して、光の数を増やしすぎない（スマホで描けなくなる） */
   floods?: boolean
 }) {
-  const { gl } = useThree()
   const root = useRef<THREE.Group>(null!)
 
   // すべての船体パーツに影を落とし、受けさせる
@@ -110,13 +108,6 @@ export function ShipModel({
       mesh.receiveShadow = !basic
     })
   }, [])
-
-  const envMap = useMemo(() => {
-    const pmrem = new THREE.PMREMGenerator(gl)
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-    pmrem.dispose()
-    return env
-  }, [gl])
 
   const parts = useMemo(() => {
     const saucer = lathe(SAUCER, 128, 160)
@@ -180,15 +171,15 @@ export function ShipModel({
 
     return {
       saucer: saucer.geometry,
-      saucerMat: tinted(hullMaterial(saucerTex, envMap)),
+      saucerMat: tinted(hullMaterial(saucerTex)),
       // 一体成形モデルは頂点カラーに焼き込んだ環境遮蔽（AO）を持つ
-      secondaryMat: tinted(hullMaterial(secondaryTex, envMap, true)),
-      nacelleMat: tinted(hullMaterial(nacelleTex, envMap, true)),
+      secondaryMat: tinted(hullMaterial(secondaryTex, true)),
+      nacelleMat: tinted(hullMaterial(nacelleTex, true)),
       bridge: lathe(BRIDGE, 64, 64).geometry,
-      bridgeMat: new THREE.MeshPhysicalMaterial({ color: '#c3c7ce', metalness: 0.15, roughness: 0.55, envMap, envMapIntensity: 0.3 }),
+      bridgeMat: new THREE.MeshPhysicalMaterial({ color: '#c3c7ce', metalness: 0.15, roughness: 0.55, envMapIntensity: 0.8 }),
       bridgeWindows: windowBandTexture(),
-      trimMat: new THREE.MeshPhysicalMaterial({ color: '#9aa0aa', metalness: 0.55, roughness: 0.35, envMap, envMapIntensity: 0.5 }),
-      deflectorRimMat: new THREE.MeshPhysicalMaterial({ color: '#2b3442', metalness: 0.85, roughness: 0.3, envMap, envMapIntensity: 0.9 }),
+      trimMat: new THREE.MeshPhysicalMaterial({ color: '#9aa0aa', metalness: 0.55, roughness: 0.35, envMapIntensity: 1.2 }),
+      deflectorRimMat: new THREE.MeshPhysicalMaterial({ color: '#2b3442', metalness: 0.85, roughness: 0.3, envMapIntensity: 1.6 }),
       // バサードの外殻：薄く色の付いたガラス。発光体の上に映り込みとハイライトを乗せる
       bussardGlass: new THREE.MeshPhysicalMaterial({
         color: '#ff2a10',
@@ -199,8 +190,7 @@ export function ShipModel({
         transparent: true,
         opacity: 0.12,
         depthWrite: false,
-        envMap,
-        envMapIntensity: 1.2,
+        envMapIntensity: 2,
       }),
       deflector: deflectorTexture(),
       bussardL: bussardTexture(),
@@ -212,7 +202,8 @@ export function ShipModel({
       coilSpill: coilBand(COIL_BAND.depth + 0.0007, 0.007),
       name: nameTexture(`${registry}  ${shipName}`),
     }
-  }, [envMap, registry, shipName, tint])
+  }, [registry, shipName, tint])
+  useSpaceEnvOn(useMemo(() => [parts.saucerMat, parts.secondaryMat, parts.nacelleMat, parts.bridgeMat, parts.trimMat, parts.deflectorRimMat, parts.bussardGlass], [parts]))
 
   // 発光部（ワープ時に強める・明滅させる）
   const bussards = useRef<THREE.MeshBasicMaterial[]>([])
