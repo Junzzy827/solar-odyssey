@@ -10,6 +10,11 @@ export const useBridge = create<{
   /** 正面の窓ガラスを大画面にして、目標の天体を拡大して映す */
   viewscreen: boolean
   setViewscreen: (on: boolean) => void
+  /** 見どころの名札を出す・説明を開いている見どころ */
+  labels: boolean
+  part: string | null
+  setLabels: (on: boolean) => void
+  selectPart: (id: string | null) => void
   setViewpoint: (id: ViewpointId) => void
   setLooking: (on: boolean) => void
 }>((set) => ({
@@ -17,6 +22,10 @@ export const useBridge = create<{
   looking: false,
   viewscreen: false,
   setViewscreen: (viewscreen) => set({ viewscreen }),
+  labels: false,
+  part: null,
+  setLabels: (labels) => set({ labels, part: null }),
+  selectPart: (part) => set({ part }),
   setViewpoint: (viewpoint) => set({ viewpoint, looking: false }),
   setLooking: (looking) => set({ looking }),
 }))
@@ -31,3 +40,6 @@ export const bridgeEye = {
 
 /** 拡大画面の倍率（窓から見たときの何倍か。画面の表示に使う） */
 export const viewscreenInfo = { zoom: 1 }
+
+/** 名札の要素と、部屋の中の位置（m）。BridgeInterior が毎フレーム画面の位置へ動かす */
+export const bridgeAnchors = new Map<string, { el: HTMLElement; pos: [number, number, number] }>()

@@ -3,10 +3,12 @@ import { createPortal, useFrame, useLoader } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { ROOM } from '../../data/bridge'
-import { bridgeEye, useBridge, viewscreenInfo } from '../../state/bridge'
+import { bridgeAnchors, bridgeEye, useBridge, viewscreenInfo } from '../../state/bridge'
 import { useStore } from '../../state/store'
 import { bodies } from '../../state/registry'
 import { isTouchDevice } from '../../state/input'
+import { Consoles, orientScreen, screenRoles } from './consoles'
+import { chirp, setBridgeAmbience } from '../../audio/bridge'
 
 /**
  * 艦橋の中の部屋。船は 1 単位が約 2 km の縮尺なので、16 m の部屋はそのままでは近すぎて描けない。
@@ -19,6 +21,17 @@ export function BridgeInterior() {
   const viewscreen = useBridge((b) => b.viewscreen)
   const zoom = useMemo(() => new ZoomView(), [])
   useEffect(() => () => zoom.dispose(), [zoom])
+  // 艦橋の音（入っているあいだだけ）。見どころを移ったり拡大画面を切り替えたりすると、短く鳴る
+  useEffect(() => {
+    setBridgeAmbience(true)
+    const unsub = useBridge.subscribe((b, prev) => {
+      if (b.viewpoint !== prev.viewpoint || b.viewscreen !== prev.viewscreen) chirp(2, 1.6)
+    })
+    return () => {
+      unsub()
+      setBridgeAmbience(false)
+    }
+  }, [])
 
   useFrame(({ gl, camera: main, scene: space }, dt) => {
     const cam = main as THREE.PerspectiveCamera
@@ -34,6 +47,7 @@ export function BridgeInterior() {
     gl.clearDepth()
     gl.render(scene, camera)
     gl.autoClear = autoClear
+    placeLabels(camera, gl.domElement)
     // 後処理（ブルーム）のあとに描くので、優先度を上げる
   }, 2)
 
@@ -43,6 +57,20 @@ export function BridgeInterior() {
     </Suspense>,
     scene,
   )
+}
+
+const projected = new THREE.Vector3()
+/** 見どころの名札を、部屋の中の位置に合わせて画面の上で動かす */
+function placeLabels(camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement) {
+  if (!bridgeAnchors.size) return
+  const w = canvas.clientWidth
+  const h = canvas.clientHeight
+  for (const a of bridgeAnchors.values()) {
+    projected.fromArray(a.pos).project(camera)
+    const behind = projected.z > 1 || Math.abs(projected.x) > 1.1 || Math.abs(projected.y) > 1.1
+    a.el.style.visibility = behind ? 'hidden' : 'visible'
+    if (!behind) a.el.style.transform = `translate(${((projected.x + 1) / 2) * w}px, ${((1 - projected.y) / 2) * h}px)`
+  }
 }
 
 /** 拡大画面の幅と高さの比（正面の窓の弧の長さ ÷ 高さ） */
@@ -138,64 +166,6 @@ function wallBand(from: number, to: number, y0: number, y1: number, inset = 0) {
   return g
 }
 
-/**
- * コンソールの画面の絵（オリジナルの見た目：黒いガラスに、細い線と数字。水色と琥珀色）。
- * B3 で本物の飛行データを描く画面に置き換える
- */
-function panelTexture(seed: number, wide = false) {
-  const c = document.createElement('canvas')
-  c.width = wide ? 512 : 256
-  c.height = 128
-  const g = c.getContext('2d')!
-  let r = seed * 9301 + 49297
-  const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280)
-  g.fillStyle = '#04070b'
-  g.fillRect(0, 0, c.width, c.height)
-  g.strokeStyle = 'rgba(95, 211, 230, 0.35)'
-  g.lineWidth = 1
-  g.strokeRect(4.5, 4.5, c.width - 9, c.height - 9)
-  const cols = wide ? 6 : 3
-  const w = (c.width - 16) / cols
-  for (let i = 0; i < cols; i++) {
-    const x = 8 + i * w
-    const kind = Math.floor(rnd() * 3)
-    g.strokeStyle = 'rgba(95, 211, 230, 0.25)'
-    g.strokeRect(x + 2.5, 12.5, w - 6, 104)
-    if (kind === 0) {
-      // 横棒の目盛り
-      for (let k = 0; k < 7; k++) {
-        g.fillStyle = rnd() < 0.25 ? '#f2b45a' : '#5fd3e6'
-        g.fillRect(x + 8, 20 + k * 13, (w - 20) * (0.2 + rnd() * 0.8), 5)
-      }
-    } else if (kind === 1) {
-      // 波形
-      g.strokeStyle = '#5fd3e6'
-      g.beginPath()
-      for (let k = 0; k <= 40; k++) {
-        const px = x + 6 + ((w - 14) * k) / 40
-        const py = 64 + Math.sin(k * 0.5 + seed) * 18 * rnd()
-        if (k === 0) g.moveTo(px, py)
-        else g.lineTo(px, py)
-      }
-      g.stroke()
-      g.fillStyle = '#f2b45a'
-      g.font = '12px monospace'
-      g.fillText((rnd() * 1000).toFixed(1), x + 8, 104)
-    } else {
-      // 数字の列
-      g.font = '11px monospace'
-      for (let k = 0; k < 7; k++) {
-        g.fillStyle = k === 2 ? '#f2b45a' : 'rgba(170, 230, 240, 0.8)'
-        g.fillText(`${(rnd() * 100).toFixed(0).padStart(2, '0')}.${(rnd() * 1000).toFixed(0).padStart(3, '0')}`, x + 8, 26 + k * 13)
-      }
-    }
-  }
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 4
-  return tex
-}
-
 /** 入口の銘板 */
 function plaqueTexture() {
   const c = document.createElement('canvas')
@@ -229,9 +199,6 @@ function plaqueTexture() {
 const MODEL_URL = `${import.meta.env.BASE_URL}models/bridge.glb`
 const LIGHT_URL = `${import.meta.env.BASE_URL}models/bridge-light.jpg`
 
-/** 画面の種類ごとに、どの絵を貼るか（横長の画面には横長の絵） */
-const WIDE_SCREENS = ['screen_front', 'screen_tactical', 'screen_station']
-
 /**
  * Blender で作った部屋（tools/blender/build_bridge.py）。照明は 1 枚の絵に焼き込んであるので、
  * 光の計算をせずに絵を貼るだけで描ける。画面と銘板には、ここで描いた絵を貼る
@@ -248,12 +215,20 @@ function Room({ viewscreen }: { viewscreen: THREE.Texture | null }) {
     const plaque = new THREE.MeshBasicMaterial({ map: plaqueTexture(), toneMapped: false, color: new THREE.Color(0.85, 0.8, 0.72) })
     const screens: THREE.MeshBasicMaterial[] = []
     const scene = gltf.scene.clone(true)
-    let n = 0
+    scene.updateMatrixWorld(true)
+    const meshes: THREE.Mesh[] = []
     scene.traverse((o) => {
-      if (!(o instanceof THREE.Mesh)) return
-      if (o.name.startsWith('screen')) {
-        const wide = WIDE_SCREENS.some((w) => o.name.startsWith(w))
-        const m = new THREE.MeshBasicMaterial({ map: panelTexture(++n, wide), toneMapped: false, side: THREE.DoubleSide })
+      if (o instanceof THREE.Mesh) meshes.push(o)
+    })
+    // 画面には、いまの飛行のようすを描いた絵（consoles.ts）
+    const consoles = new Consoles()
+    const roles = screenRoles(meshes.filter((m) => m.name.startsWith('screen')))
+    meshes.forEach((o, i) => {
+      const role = roles.get(o)
+      if (role) {
+        const map = consoles.make(role, i)
+        orientScreen(o, map, role)
+        const m = new THREE.MeshBasicMaterial({ map, toneMapped: false, side: THREE.DoubleSide })
         screens.push(m)
         o.material = m
       } else if (o.name.startsWith('plaque')) o.material = plaque
@@ -265,6 +240,7 @@ function Room({ viewscreen }: { viewscreen: THREE.Texture | null }) {
       scene,
       materials: [room, plaque, glass, screen, ...screens],
       screen,
+      consoles,
       glass,
       glassPane: wallBand(FRONT - ROOM.windowHalf, FRONT + ROOM.windowHalf, ROOM.windowBottom, ROOM.windowTop, 0.01),
     }
@@ -272,6 +248,7 @@ function Room({ viewscreen }: { viewscreen: THREE.Texture | null }) {
 
   useEffect(
     () => () => {
+      parts.consoles.dispose()
       parts.materials.forEach((m) => {
         if (m !== parts.materials[0]) (m as THREE.MeshBasicMaterial).map?.dispose()
         m.dispose()
@@ -280,6 +257,8 @@ function Room({ viewscreen }: { viewscreen: THREE.Texture | null }) {
     },
     [parts],
   )
+
+  useFrame((_, dt) => parts.consoles.update(dt))
 
   return (
     <>

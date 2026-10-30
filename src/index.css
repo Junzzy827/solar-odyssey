@@ -2311,6 +2311,43 @@ canvas {
   color: #ffe2b5;
 }
 
+.bridge-info {
+  position: relative;
+  max-width: 460px;
+  padding: 8px 30px 8px 12px;
+  border: 1px solid rgba(95, 211, 230, 0.45);
+  border-radius: 4px;
+  background: rgba(8, 14, 20, 0.88);
+  color: #d8eef2;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.bridge-info b {
+  color: #f2b45a;
+}
+
+.bridge-info p {
+  margin: 4px 0 0;
+}
+
+.bridge-info button {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  border: none;
+  background: none;
+  color: #bfeaf2;
+  font-size: 16px;
+}
+
+.bridge-labels .gallery-anchor button {
+  --accent: #f2b45a;
+  border-color: rgba(95, 211, 230, 0.6);
+  background: rgba(8, 14, 20, 0.75);
+  color: #d8f3f8;
+}
+
 .bridge-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2364,6 +2401,14 @@ canvas {
   .bridge-hint {
     display: none;
   }
+
+  .bridge-info {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 210px;
+    max-width: none;
+  }
 }
 
 /* スマホ（横）：左側に、たてに並べる */
@@ -2391,6 +2436,15 @@ canvas {
 
   .bridge-hint {
     display: none;
+  }
+
+  .bridge-info {
+    position: fixed;
+    left: 160px;
+    right: 240px;
+    top: 8px;
+    max-width: none;
+    font-size: 12px;
   }
 }
 

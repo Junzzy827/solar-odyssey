@@ -41,6 +41,7 @@ import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
 import { BridgePanel } from './ui/BridgePanel'
+import { BridgeLabels } from './ui/BridgeLabels'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -88,6 +89,7 @@ export default function App() {
         {bridge && <BridgeInterior />}
       </Canvas>
       <GalleryLabels />
+      <BridgeLabels />
       <Hud />
       <NavPanel />
       <GalleryPanel />

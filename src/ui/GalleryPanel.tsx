@@ -1,10 +1,18 @@
 import { COMPARE, SHIP_LENGTH_M, SHIP_PARTS } from '../data/shipParts'
+import { useBridge } from '../state/bridge'
 import { closeGallery, selectPart, toggleAuto, toggleCompare, useGallery } from '../state/gallery'
 import { useStore } from '../state/store'
 import { isTouchDevice } from '../state/input'
 import { named, t, useLang } from '../i18n/lang'
 
 /** 鑑賞モードの画面：見方の切り替え、各部の一覧と説明、大きさくらべ */
+/** 鑑賞モードから、艦橋の中（ブリッジ視点の艦長席）へ */
+function enterBridge() {
+  useBridge.getState().setViewpoint('captain')
+  useStore.getState().setCameraMode('bridge')
+  closeGallery()
+}
+
 export function GalleryPanel() {
   const mode = useStore((s) => s.mode)
   const { part, auto, compare, labels } = useGallery()
@@ -49,6 +57,11 @@ export function GalleryPanel() {
           <>
             <div className="nav-target-name">{named(selected)}</div>
             <p>{t(selected.text, selected.textEn)}</p>
+            {selected.id === 'bridge' && (
+              <button className="nav-auto" onClick={enterBridge}>
+                {t('艦橋の中に入る', 'Go inside the bridge')}
+              </button>
+            )}
           </>
         ) : auto ? (
           <p className="muted">{t('いくつかの角度から、ゆっくり順に見せます。ドラッグすると自分で動かせます。', 'Shows the ship slowly from several angles. Drag to take over.')}</p>
