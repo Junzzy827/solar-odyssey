@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { COLONY_LENGTH as L, COLONY_PORT as PORT, COLONY_RADIUS as R } from '../../data/sf'
 import { cloudTexture, hullTexture, landTexture } from './colonyTextures'
+import { colonyDetail } from './colonyDetail'
 
 // 回転円筒型のスペースコロニー（オニールの「島3号」の構想をもとにした、オリジナルのデザイン）。
 // 回転軸は +Y で、+Y の端を太陽へ向ける。円周を6つに分け、大地の帯3本と窓の帯3本が交互に並ぶ。
@@ -40,7 +41,7 @@ export function ColonyModel({ interior = true }: { interior?: boolean }) {
     return {
       env,
       hullMap,
-      hullMat: new THREE.MeshStandardMaterial({ map: hullMap, metalness: 0.45, roughness: 0.55, envMap: env, envMapIntensity: 0.4 }),
+      hullMat: new THREE.MeshStandardMaterial({ map: hullMap, metalness: 0.45, roughness: 0.55, envMap: env, envMapIntensity: 0.4, emissive: '#16181d' }),
       capMat: new THREE.MeshStandardMaterial({ map: hullMap, metalness: 0.45, roughness: 0.55, envMap: env, envMapIntensity: 0.4, side: THREE.DoubleSide }),
       frameMat: new THREE.MeshStandardMaterial({ color: '#70757e', metalness: 0.6, roughness: 0.45, envMap: env, envMapIntensity: 0.5 }),
       glassMat: new THREE.MeshStandardMaterial({
@@ -73,16 +74,15 @@ export function ColonyModel({ interior = true }: { interior?: boolean }) {
       })),
       portTube: new THREE.CylinderGeometry(PORT, PORT, 0.1, 48, 1, true),
       ring: new THREE.TorusGeometry(R * 1.01, 0.0018, 6, 128),
-      mullion: new THREE.BoxGeometry(0.0022, L, 0.0022),
       mirror: new THREE.PlaneGeometry(R * 1.05, L),
       strut: new THREE.CylinderGeometry(0.0012, 0.0012, 1, 6),
-      pod: new THREE.CylinderGeometry(0.011, 0.011, 0.05, 16),
       farmRing: new THREE.TorusGeometry(0.26, 0.004, 8, 128),
       spoke: new THREE.BoxGeometry(0.004, 0.26 - PORT, 0.004),
       light: new THREE.SphereGeometry(0.0016, 8, 8),
       lightMat: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.1, 1.4), toneMapped: false }),
       portLightMat: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 1.8, 2.4), toneMapped: false }),
-      podMat: new THREE.MeshStandardMaterial({ color: '#b9c2b0', metalness: 0.3, roughness: 0.5, emissive: '#2f4a22', emissiveIntensity: 0.4 }),
+      equipMat: new THREE.MeshStandardMaterial({ color: '#9ca3ad', metalness: 0.5, roughness: 0.45, envMap: env, envMapIntensity: 0.5, emissive: '#1a1d22' }),
+      greenhouseMat: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.75, 1.5, 0.7), toneMapped: false }),
       cloud: new THREE.SpriteMaterial({ map: cloudTexture(), transparent: true, opacity: 0.85, depthWrite: false }),
     }
   }, [gl])
@@ -110,8 +110,8 @@ export function ColonyModel({ interior = true }: { interior?: boolean }) {
   }, [])
 
   const rings = Array.from({ length: 13 }, (_, k) => -L / 2 + (k / 12) * L)
-  // 窓の帯の中の、長さに沿った桟（窓1本につき3本）
-  const mullions = [1, 3, 5].flatMap((i) => [-20, 0, 20].map((d) => stripAngle(i) + d * DEG))
+  // 窓の格子・外板の機器・丸屋根の骨・温室・鏡の枠（colonyDetail.ts。材質ごとにまとめた形）
+  const detail = colonyDetail(MIRROR_ANGLE)
 
   return (
     <group>
@@ -126,9 +126,10 @@ export function ColonyModel({ interior = true }: { interior?: boolean }) {
       {rings.map((y) => (
         <mesh key={`r${y}`} geometry={parts.ring} material={parts.frameMat} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} />
       ))}
-      {mullions.map((a) => (
-        <mesh key={`m${a}`} geometry={parts.mullion} material={parts.frameMat} position={[Math.sin(a) * R, 0, Math.cos(a) * R]} />
-      ))}
+      <mesh geometry={detail.frame} material={parts.frameMat} />
+      <mesh geometry={detail.equip} material={parts.equipMat} />
+      <mesh geometry={detail.lights} material={parts.lightMat} />
+      <mesh geometry={detail.greenhouse} material={parts.greenhouseMat} />
       <mesh geometry={parts.sunCap} material={parts.capMat} />
       <mesh geometry={parts.portCap} material={parts.capMat} />
 
@@ -146,10 +147,6 @@ export function ColonyModel({ interior = true }: { interior?: boolean }) {
           const a = (k / 6) * Math.PI * 2 + 30 * DEG
           const mid = (0.26 + PORT) / 2
           return <mesh key={`s${k}`} geometry={parts.spoke} material={parts.frameMat} position={[Math.sin(a) * mid, 0, Math.cos(a) * mid]} rotation={[0, a, Math.PI / 2]} />
-        })}
-        {Array.from({ length: 24 }, (_, k) => {
-          const a = (k / 24) * Math.PI * 2
-          return <mesh key={`f${k}`} geometry={parts.pod} material={parts.podMat} position={[Math.sin(a) * 0.26, 0.012, Math.cos(a) * 0.26]} />
         })}
       </group>
 
