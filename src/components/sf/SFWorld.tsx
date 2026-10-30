@@ -19,6 +19,7 @@ import { GenerationShip } from './GenerationShip'
 import { EuropaBeacon } from './EuropaBeacon'
 import { DebrisCollector } from './DebrisCollector'
 import { DesertPlanet, IcePlanet } from './Exoplanet'
+import { HourglassColonies } from './HourglassColonies'
 import { GalacticRailway } from './GalacticRailway'
 import { MoonCity } from './MoonCity'
 
@@ -33,6 +34,7 @@ export function SFWorld() {
       <SolarPlant />
       <SailLauncher />
       <ColonyCluster />
+      <HourglassColonies />
       <Shipyard />
       <SpaceElevator />
       <AsteroidBase id={CROSS_ID} shape="cross" point="L4" />

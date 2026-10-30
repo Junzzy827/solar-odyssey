@@ -4,6 +4,7 @@ import { useStore } from '../state/store'
 import { CUBE_ID, cubeName } from './cube'
 import { CARRIER_ID, FREIGHTER_ID, RADIO_MOON_ID, carrierName, freighterName, radioMoonName } from './sfSpace'
 import { MOON_CITY_ID, RAILWAY_ID, moonCityName, railwayName } from './sfJapan'
+import { HOURGLASS_ID, hourglassName } from './sfHourglass'
 
 // SF モード：本物の太陽系に、架空の船や構造物を重ねて出す。
 // どれも実在の研究や構想をもとにしたオリジナルのデザインで、作品の名前・ロゴ・設定画の形は使わない。
@@ -86,6 +87,7 @@ export type SFEntry = {
 export const SF_OBJECTS: SFEntry[] = [
   { id: COLONY_ID, name: colonyName, spoken: 'the L5 colonies', color: '#9fc6e8' },
   { id: TORUS_ID, name: torusName, spoken: 'the torus colony', color: '#c8d6a0' },
+  { id: HOURGLASS_ID, name: hourglassName, spoken: 'the hourglass colonies', color: '#d8c7a0' },
   { id: YARD_ID, name: yardName, spoken: 'the lunar shipyard', color: '#d0b070' },
   { id: ELEVATOR_ID, name: elevatorName, spoken: 'the space elevator', color: '#a0c8f0' },
   { id: CROSS_ID, name: crossName, spoken: 'the cross asteroid port', color: '#b59a7a' },

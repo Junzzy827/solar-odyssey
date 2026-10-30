@@ -1,12 +1,14 @@
 import type { Facts } from './facts'
 import { SPACE_FACTS_EN } from './sfSpace'
 import { JAPAN_FACTS_EN } from './sfJapan'
+import { HOURGLASS_FACTS_EN } from './sfHourglass'
 
 // FACTS の英語版。キーと並びは facts.ts と同じ（数値も同じ概数）
 
 export const FACTS_EN: Record<string, Facts> = {
   ...SPACE_FACTS_EN,
   ...JAPAN_FACTS_EN,
+  ...HOURGLASS_FACTS_EN,
   hubble: {
     rows: [
       ['Launched', '1990 (by Space Shuttle)'],
