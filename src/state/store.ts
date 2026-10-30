@@ -102,6 +102,9 @@ function loadSettings(): Settings {
   } catch {
     // 読めなければ初めの設定で
   }
+  // 距離と大きさは、ひとつのスケールでいっしょに動かす（前に別々に保存した値は距離にそろえる）
+  if (typeof saved.distance === 'number') saved.size = saved.distance
+  else delete saved.size
   return { ...DEFAULT_SETTINGS, ...saved, ...(worldFromUrl ? { world: worldFromUrl } : {}), ...(shipFromUrl ? { ship: shipFromUrl } : {}), ...(lookFromUrl ? { look: lookFromUrl } : {}) }
 }
 
