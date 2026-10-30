@@ -19,7 +19,23 @@ export function setWorld(world: 'real' | 'sf') {
 
 /** スペースコロニー（地球と月の L5 点。オニールの「島3号」の構想がもと） */
 export const COLONY_ID = 'colony'
-export const colonyName = () => t('L5スペースコロニー', 'L5 Space Colony')
+export const colonyName = () => t('L5コロニー群', 'L5 Colony Cluster')
+/** 群の中の、ほかの円筒コロニー（入れるのは代表の1号基だけ） */
+export const colonyMemberName = (n: number) => t(`L5コロニー群 ${n}号基`, `L5 Colony ${n}`)
+/** ドーナツ型のコロニー（スタンフォード・トーラスの構想がもと） */
+export const TORUS_ID = 'torus'
+export const torusName = () => t('ドーナツ型コロニー', 'Torus Colony')
+/** くりぬいた小惑星の宇宙港（十字形は地球と月の L4、傘形は L3） */
+export const CROSS_ID = 'rock-port'
+export const crossName = () => t('十字の小惑星港', 'Cross Asteroid Port')
+export const UMBRELLA_ID = 'rock-base'
+export const umbrellaName = () => t('傘の小惑星基地', 'Umbrella Asteroid Base')
+/** 月の軌道の造船所（自機 SV-01 の母港） */
+export const YARD_ID = 'shipyard'
+export const yardName = () => t('月軌道の造船所', 'Lunar Shipyard')
+/** 軌道エレベーター（目標は静止軌道の駅） */
+export const ELEVATOR_ID = 'elevator'
+export const elevatorName = () => t('軌道エレベーター', 'Space Elevator')
 
 /** 太陽光ミラー発電所（太陽と地球の L1 点。宇宙太陽光発電の研究がもと） */
 export const SOLAR_PLANT_ID = 'solar-plant'
@@ -45,7 +61,12 @@ export type SFEntry = {
 
 /** SF モードだけに出るもの。航法コンピュータの一覧・スタンプ帳はこの順に並ぶ */
 export const SF_OBJECTS: SFEntry[] = [
-  { id: COLONY_ID, name: colonyName, spoken: 'the L5 colony', color: '#9fc6e8' },
+  { id: COLONY_ID, name: colonyName, spoken: 'the L5 colonies', color: '#9fc6e8' },
+  { id: TORUS_ID, name: torusName, spoken: 'the torus colony', color: '#c8d6a0' },
+  { id: YARD_ID, name: yardName, spoken: 'the lunar shipyard', color: '#d0b070' },
+  { id: ELEVATOR_ID, name: elevatorName, spoken: 'the space elevator', color: '#a0c8f0' },
+  { id: CROSS_ID, name: crossName, spoken: 'the cross asteroid port', color: '#b59a7a' },
+  { id: UMBRELLA_ID, name: umbrellaName, spoken: 'the umbrella asteroid base', color: '#9c8f86' },
   { id: SOLAR_PLANT_ID, name: solarPlantName, spoken: 'the solar power station', color: '#f2cf6a' },
   { id: SAIL_LAUNCHER_ID, name: sailLauncherName, spoken: 'the light-sail launcher', color: '#b49cff' },
   { id: CUBE_ID, name: cubeName, spoken: 'the unknown vessel', color: '#6fd0b8' },
@@ -73,8 +94,33 @@ export const COLONY_PORT = COLONY_RADIUS * 0.3
 export const SF_TEXT = {
   colonyFound: () =>
     t(
-      'スペースコロニーが見えてきた。太陽と反対側の端にある港から、中へ入れます。\n（I で航海日誌）',
-      'A space colony comes into view. You can fly inside through the port at the end facing away from the Sun.\n(I for the ship’s log)',
+      'コロニー群が見えてきた。1号基には、太陽と反対側の端にある港から入れます。\n（I で航海日誌）',
+      'A cluster of space colonies comes into view. In Colony 1 you can fly inside through the port at the end facing away from the Sun.\n(I for the ship’s log)',
+    ),
+  torusFound: () =>
+    t(
+      'ドーナツ型のコロニーです。直径約1.8kmの輪が1分に1回転して、輪の中に1万人が暮らす設計です。\n（I で航海日誌）',
+      'This is a torus colony. Its 1.8 km ring turns once a minute, and it is designed for 10,000 people to live inside the ring.\n(I for the ship’s log)',
+    ),
+  crossFound: () =>
+    t(
+      '十字の形をした小惑星の宇宙港です。運んできた小惑星をくりぬいて、港と住まいにしています。光っている四角は船の出入り口です。\n（I で航海日誌）',
+      'A cross-shaped asteroid port. Asteroids were brought here and hollowed out for docks and homes. The glowing squares are the ship entrances.\n(I for the ship’s log)',
+    ),
+  umbrellaFound: () =>
+    t(
+      '傘の形をした小惑星の基地です。広い傘の裏と柱の先に、船の出入り口があります。\n（I で航海日誌）',
+      'An umbrella-shaped asteroid base. Ships come and go through entrances under the wide cap and at the tip of the stem.\n(I for the ship’s log)',
+    ),
+  yardFound: () =>
+    t(
+      '月軌道の造船所です。左のドックでは姉妹艦 SV-03 を建造中。右の空いたドックが、この船 SV-01 の母港の係留場所です。\n（I で航海日誌）',
+      'This is the lunar shipyard. In the left dock, the sister ship SV-03 is being built. The empty dock on the right is the home berth of this ship, SV-01.\n(I for the ship’s log)',
+    ),
+  elevatorFound: () =>
+    t(
+      '軌道エレベーターの駅です。赤道の海の基地からケーブルが伸びていて、昇降機がゆっくり上り下りしています。\n（I で航海日誌）',
+      'This is the space elevator station. A cable rises from a base on the ocean at the equator, and climbers slowly ride up and down.\n(I for the ship’s log)',
     ),
   colonyInside: () =>
     t(

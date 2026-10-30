@@ -41,7 +41,7 @@ function wanted(position: THREE.Vector3) {
 
 /** 縮めたい場所（スペースコロニーなど）のそばにいるか */
 export function inZoomZone(position: THREE.Vector3) {
-  for (const zone of zoomZones) if (zoneFactor(zone, position) > 1.5) return true
+  for (const zone of zoomZones) if (zoneFactor(zone, position) > 1.1) return true
   return false
 }
 

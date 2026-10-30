@@ -70,12 +70,14 @@ export const FACTS_EN: Record<string, Facts> = {
       ['Size', 'About 32 km long and 8 km across (about 50 times the length of your ship)'],
       ['Spin', 'One turn about every 2 minutes (fast enough to feel Earth’s gravity on the inner ground)'],
       ['Where', 'The Earth–Moon L5 point (on the Moon’s orbit, 60° behind the Moon)'],
+      ['The cluster', 'Three cylinders, one torus, and Colony 4 under construction'],
     ],
     fiction: true,
     notes: [
+      'Several colonies are gathered at the same Lagrange point as a cluster. You can fly inside Colony 1.',
       'The cylinder is split into six strips around: three strips of land and three of windows. Big mirrors outside bounce sunlight in through the windows.',
       'The port is on the spin axis at the end facing away from the Sun. Fly in there and you will see land above your head too.',
-      'Next door, a second colony is being built. Humanoid work machines fit the hull plates one by one (they are drawn about 10 times larger than planned so you can see them).',
+      'Next to Colony 1, Colony 4 is being built. Humanoid work machines fit the hull plates one by one (they are drawn about 10 times larger than planned so you can see them).',
       'As you come close, your ship shrinks so the colony is shown at its real size compared with the ship.',
     ],
     real: [
@@ -214,6 +216,123 @@ export const FACTS_EN: Record<string, Facts> = {
       choices: ['The push of light hitting it (radiation pressure)', 'Gas from the sail burning', 'The stars pulling on the sail'],
       answer: 0,
       explanation: 'Particles of light carry momentum even though they have no mass, so they push a little on whatever they hit. The push is weak, but a light sail can slowly build up a lot of speed.',
+    },
+  },
+  torus: {
+    rows: [
+      ['Size', 'Ring about 1.8 km across, tube about 130 m thick'],
+      ['Spin', 'Once a minute (1 g on the floor inside the ring)'],
+      ['People', 'Designed for about 10,000'],
+    ],
+    fiction: true,
+    notes: [
+      'One of the L5 cluster. It is far smaller than the cylinders, about 1/18 of their length.',
+      'A big mirror on the Sun side catches sunlight and sends it to a ring of mirrors above the torus, which shine it in through the windows.',
+    ],
+    real: [
+      'It is based on the “Stanford torus”, studied by NASA and Stanford University in the summer of 1975.',
+      'Inside, the ring was planned as a long valley with farms and homes. To block cosmic rays, the ring would be wrapped in thick soil made from crushed Moon rock.',
+      'The spinning ring pushes everything outward, so the floor of the ring is “down”. With a radius of about 900 m, one turn a minute gives 1 g.',
+    ],
+    quiz: {
+      question: 'How would a torus colony protect people from cosmic rays?',
+      choices: ['Wrap it in soil made from crushed Moon rock', 'Add lots of mirrors', 'Spin faster'],
+      answer: 0,
+      explanation: 'Thick soil and rock soak up the radiation that streams in from space (cosmic rays). On Earth, the air and the magnetic field do that job.',
+    },
+  },
+  shipyard: {
+    rows: [
+      ['Docks', 'Two frames about 1.2 km long'],
+      ['Where', 'In a low orbit just above the Moon'],
+      ['Work now', 'Building the sister ship SV-03; the other dock is SV-01’s berth'],
+    ],
+    fiction: true,
+    notes: [
+      'In this story, your ship SV-01 was put together here too. The green lights on the empty dock guide SV-01 home.',
+      'In the left dock, work machines are fitting SV-03’s hull plates in a shower of welding sparks (the machines are drawn about 3 times larger than planned).',
+    ],
+    real: [
+      'Big spacecraft cannot be launched in one piece. The International Space Station took more than 40 launches of parts and was put together in space (1998–2011).',
+      'The Moon’s gravity is about one sixth of Earth’s, so launching materials made on the Moon is much easier than launching from Earth. People are studying how to use lunar water and metals.',
+      'NASA’s Artemis program plans to build Gateway, a space station that orbits the Moon.',
+    ],
+    quiz: {
+      question: 'How was the International Space Station built?',
+      choices: ['Parts were launched dozens of times and joined in space', 'It was built on the ground and launched at once', 'It was built on the Moon'],
+      answer: 0,
+      explanation: 'The ISS is about the size of a football field, too big for one launch. Japan’s Kibo laboratory alone came up in three trips.',
+    },
+  },
+  elevator: {
+    rows: [
+      ['Cable', 'From an ocean base on the equator, through the geostationary station, out to a counterweight'],
+      ['Station height', 'About 36,000 km in the real idea (drawn closer here)'],
+      ['Climbers', 'A few days to about a week up to the station in the real idea'],
+    ],
+    fiction: true,
+    notes: [
+      'It turns with the Earth, so the geostationary station seems to stand still when seen from the ground.',
+      'The counterweight (an asteroid) at the end pulls outward and keeps the cable tight.',
+    ],
+    real: [
+      'In 1895 the Russian scientist Tsiolkovsky wrote about a tower reaching into space. In 1960 Artsutanov proposed hanging a cable down from geostationary orbit.',
+      'The cable needs a material that is extremely strong and light. Carbon nanotubes are a candidate, but nobody can make them tens of thousands of km long yet.',
+      'In geostationary orbit (about 36,000 km up), one trip around takes exactly one day. Weather satellites such as Japan’s Himawari are there.',
+    ],
+    quiz: {
+      question: 'Why does a geostationary satellite seem to stand still from the ground?',
+      choices: ['It goes around once a day, as fast as Earth spins', 'It has stopped in space', 'It hangs from the Moon’s gravity'],
+      answer: 0,
+      explanation: 'About 36,000 km up, one orbit takes exactly one day. It keeps pace with Earth’s spin, so from the ground it stays in the same spot.',
+    },
+  },
+  'rock-port': {
+    rows: [
+      ['Size', 'About 8 km from tip to tip'],
+      ['Where', 'The Earth–Moon L4 point (on the Moon’s orbit, 60° ahead of the Moon)'],
+      ['Job', 'A port for ships and homes for asteroid miners'],
+    ],
+    fiction: true,
+    notes: [
+      'Several asteroids were brought here and joined into a cross. They were hollowed out for docks and homes.',
+      'The glowing squares near the base of the arms are the ship entrances. Shuttles slowly come and go.',
+    ],
+    real: [
+      'People are studying how to use asteroids as resources. Hayabusa2 brought back samples from Ryugu, and NASA’s OSIRIS-REx from Bennu.',
+      'In 2022 NASA’s DART spacecraft hit the asteroid Dimorphos and changed its orbit. People really can change how an asteroid moves.',
+      'Living inside thick rock protects against cosmic rays and tiny meteoroids. There are also ideas for homes in lava tubes on the Moon and Mars.',
+      'Lagrange points are where the pulls of Earth and the Moon and the orbiting motion balance, so they work like parking spots for things in space.',
+    ],
+    quiz: {
+      question: 'Which spacecraft changed an asteroid’s orbit in 2022?',
+      choices: ['DART', 'Voyager 1', 'Hubble'],
+      answer: 0,
+      explanation: 'DART hit the asteroid Dimorphos at about 6 km per second and made its trip around its larger partner about 32 minutes shorter. A big step for protecting Earth.',
+    },
+  },
+  'rock-base': {
+    rows: [
+      ['Size', 'Cap about 6 km across, stem about 4 km long'],
+      ['Where', 'The Earth–Moon L3 point (on the far side of Earth from the Moon)'],
+      ['Job', 'A base for supplies and ship repairs'],
+    ],
+    fiction: true,
+    notes: [
+      'Flat asteroids are laid out like an umbrella, with a pillar of asteroids joined underneath.',
+      'Ship entrances are under the cap and at the tip of the stem. The red lights on the rim guide ships coming in.',
+    ],
+    real: [
+      'People are studying how to use asteroids as resources. Hayabusa2 brought back samples from Ryugu, and NASA’s OSIRIS-REx from Bennu.',
+      'In 2022 NASA’s DART spacecraft hit the asteroid Dimorphos and changed its orbit. People really can change how an asteroid moves.',
+      'Living inside thick rock protects against cosmic rays and tiny meteoroids. There are also ideas for homes in lava tubes on the Moon and Mars.',
+      'Lagrange points are where the pulls of Earth and the Moon and the orbiting motion balance, so they work like parking spots for things in space.',
+    ],
+    quiz: {
+      question: 'Which Japanese spacecraft brought asteroid samples back to Earth?',
+      choices: ['Hayabusa2', 'Kaguya', 'Akatsuki'],
+      answer: 0,
+      explanation: 'Hayabusa2 delivered samples from the asteroid Ryugu in 2020. Scientists have even found amino acids, building blocks of life, in them.',
     },
   },
   sun: {

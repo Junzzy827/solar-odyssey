@@ -4,10 +4,10 @@ import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { ColonyModel } from './ColonyModel'
 import { ConstructionSite } from './ConstructionSite'
-import { bodies, colliders, passThrough, registerBody, zoomZones, type ZoomZone } from '../../state/registry'
+import { colliders, passThrough, registerBody, zoomZones, type ZoomZone } from '../../state/registry'
 import { flightControl, ship } from '../../state/flight'
 import { useStore } from '../../state/store'
-import { COLONY_ID, COLONY_LENGTH as L, COLONY_PORT as PORT, COLONY_RADIUS as R, COLONY_SPIN_SECONDS, COLONY_ZOOM, SF_TEXT, colonyName } from '../../data/sf'
+import { COLONY_LENGTH as L, COLONY_PORT as PORT, COLONY_RADIUS as R, COLONY_SPIN_SECONDS, COLONY_ZOOM, SF_TEXT } from '../../data/sf'
 import { useLang } from '../../i18n/lang'
 import { LABEL_Z, useHideBehindSun } from '../labels'
 
@@ -23,56 +23,58 @@ const SITE_OFFSET = 0.85
 const NOTICE = 2.4
 const DRAW_SITE = 4
 
-const Y = new THREE.Vector3(0, 1, 0)
-const earth = new THREE.Vector3()
-const moon = new THREE.Vector3()
-const rel = new THREE.Vector3()
-const prevRel = new THREE.Vector3()
-const normal = new THREE.Vector3(0, 1, 0)
-const cross = new THREE.Vector3()
-const toSun = new THREE.Vector3()
 const local = new THREE.Vector3()
 const inverse = new THREE.Matrix4()
 const push = new THREE.Vector3()
-const lastPos = new THREE.Vector3()
-const delta = new THREE.Vector3()
+const now = new THREE.Vector3()
+
+type ColonyProps = {
+  id: string
+  name: () => string
+  /** コロニー群の中での置き場所（群の座標。回転軸は +Y で太陽向き） */
+  position?: [number, number, number]
+  /** 群の代表（ラベル・案内・となりの建設現場を出す） */
+  primary?: boolean
+  /** 回転の向きをそろえないよう、最初の角度をずらす */
+  phase?: number
+}
 
 /**
- * 地球と月の L5 点（月の軌道の上で、月より60度うしろ）に浮かぶスペースコロニー。
- * 回転軸を太陽へ向け、1Gになる速さ（約2分に1回転）で回る。港から中へ入って飛べる。
+ * 回転円筒型のスペースコロニー1基。回転軸（+Y）は群ごと太陽へ向いていて、
+ * 1Gになる速さ（約2分に1回転）で回る。港から中へ入って飛べる。
  */
-export function Colony() {
+export function Colony({ id, name, position = [0, 0, 0], primary = false, phase = 0 }: ColonyProps) {
   useLang()
   const group = useRef<THREE.Group>(null!)
   const spin = useRef<THREE.Group>(null!)
-  const site = useRef<THREE.Group>(null!)
+  const site = useRef<THREE.Group>(null)
   const label = useRef<HTMLSpanElement>(null)
-  const state = useRef({ inside: false, noticed: false, ready: false, hasPrev: false })
+  const state = useRef({ inside: false, noticed: false, ready: false, last: new THREE.Vector3(), delta: new THREE.Vector3() })
   useHideBehindSun(label, group)
 
   useEffect(() => {
     const zone: ZoomZone = { object: group.current, start: 2.6, full: 0.9, factor: COLONY_ZOOM }
-    const unregister = registerBody({ id: COLONY_ID, get name() { return colonyName() }, radius: H * 1.1, object: group.current })
-    passThrough.add(COLONY_ID)
+    const unregister = registerBody({ id, get name() { return name() }, radius: H * 1.1, object: group.current })
+    passThrough.add(id)
     zoomZones.add(zone)
     colliders.add(collide)
     return () => {
       unregister()
-      passThrough.delete(COLONY_ID)
+      passThrough.delete(id)
       zoomZones.delete(zone)
       colliders.delete(collide)
     }
     // collide は state の ref だけを読む
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [id])
 
   /** 壁に当たる判定。外からは港の穴だけを通れ、中では地面と両端の壁の内側を飛ぶ */
   function collide() {
     const s = state.current
     if (!s.ready) return
     // 中にいるあいだは、コロニーと一緒に動く（地球のまわりを回っても、壁が迫ってこないように）
-    if (s.inside && !flightControl.holding) ship.position.add(delta)
-    delta.set(0, 0, 0)
+    if (s.inside && !flightControl.holding) ship.position.add(s.delta)
+    s.delta.set(0, 0, 0)
     inverse.copy(group.current.matrixWorld).invert()
     local.copy(ship.position).applyMatrix4(inverse)
     const r = Math.hypot(local.x, local.z)
@@ -134,37 +136,21 @@ export function Colony() {
 
   useFrame((_, rawDelta) => {
     const dt = Math.min(rawDelta, 0.05)
-    const e = bodies.get('earth')
-    const m = bodies.get('moon')
-    if (!e || !m) return
-    e.object.getWorldPosition(earth)
-    m.object.getWorldPosition(moon)
-    rel.copy(moon).sub(earth)
-    // 月の回る向き（軌道の面の法線）。月が動いたときだけ更新する
-    if (state.current.hasPrev) {
-      cross.crossVectors(prevRel, rel)
-      if (cross.lengthSq() > 1e-12 * rel.lengthSq() ** 2) normal.copy(cross).normalize()
-    }
-    prevRel.copy(rel)
-    state.current.hasPrev = true
-    // L5：月の軌道の上で、月より60度うしろ
-    rel.applyAxisAngle(normal, -Math.PI / 3)
+    const s = state.current
     const g = group.current
-    if (state.current.ready) lastPos.copy(g.position)
-    g.position.copy(earth).add(rel)
-    // 回転軸（+Y）を太陽へ向ける
-    toSun.copy(g.position).negate().normalize()
-    g.quaternion.setFromUnitVectors(Y, toSun)
-    g.updateMatrixWorld()
-    if (state.current.ready) delta.add(lastPos.sub(g.position).negate())
-    state.current.ready = true
+    // 群（ColonyCluster）が先に位置を決めている。前のフレームから動いた分を、中にいる自機にも足す
+    g.updateWorldMatrix(true, false)
+    g.getWorldPosition(now)
+    if (s.ready) s.delta.add(now).sub(s.last)
+    s.last.copy(now)
+    s.ready = true
 
     const st = useStore.getState()
     if (st.timeScale > 0) spin.current.rotation.y += (dt * Math.PI * 2) / COLONY_SPIN_SECONDS
 
-    const d = ship.position.distanceTo(g.position)
-    site.current.visible = d < DRAW_SITE
-    if (st.mode === 'flight' && st.warpPhase === 'idle') {
+    const d = ship.position.distanceTo(now)
+    if (site.current) site.current.visible = d < DRAW_SITE
+    if (primary && st.mode === 'flight' && st.warpPhase === 'idle') {
       if (d < NOTICE && !state.current.noticed) {
         state.current.noticed = true
         if (!state.current.inside) st.showToast(SF_TEXT.colonyFound())
@@ -174,18 +160,22 @@ export function Colony() {
   })
 
   return (
-    <group ref={group}>
-      <group ref={spin}>
+    <group ref={group} position={position}>
+      <group ref={spin} rotation={[0, phase, 0]}>
         <ColonyModel />
       </group>
-      <group ref={site} position={[SITE_OFFSET, 0, 0]} visible={false}>
-        <ConstructionSite />
-      </group>
-      <Html position={[0, 0, R * 3]} center className="label" zIndexRange={LABEL_Z}>
-        <span ref={label} onClick={() => useStore.getState().setTarget(COLONY_ID)}>
-          {colonyName()}
-        </span>
-      </Html>
+      {primary && (
+        <>
+          <group ref={site} position={[SITE_OFFSET, 0, 0]} visible={false}>
+            <ConstructionSite />
+          </group>
+          <Html position={[0, 0, R * 3]} center className="label" zIndexRange={LABEL_Z}>
+            <span ref={label} onClick={() => useStore.getState().setTarget(id)}>
+              {name()}
+            </span>
+          </Html>
+        </>
+      )}
     </group>
   )
 }
