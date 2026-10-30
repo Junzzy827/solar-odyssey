@@ -417,9 +417,12 @@ export function FloodLights({ unitScale, lights }: { unitScale: number | (() => 
   const scaleNow = () => (typeof unitScale === 'function' ? unitScale() : unitScale)
   useFrame(() => {
     const k = scaleNow()
-    spots.current.forEach((s, i) => {
+    // 船を替えると投光器の数が変わるので、今の lights の数だけ回す
+    lights.forEach((l, i) => {
+      const s = spots.current[i]
+      if (!s) return
       s.distance = 0.7 * k
-      s.intensity = lights[i].intensity * k
+      s.intensity = l.intensity * k
     })
   })
   return (
