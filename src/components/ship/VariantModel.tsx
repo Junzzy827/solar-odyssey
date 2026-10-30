@@ -6,6 +6,12 @@ import { warpFx } from '../../state/flight'
 import type { ShipId, ShipSpec } from '../../data/ships'
 import { hullTextures } from './hullTextures'
 import { useSpaceEnvOn } from '../SpaceLighting'
+import { applyBaked, findBaked, setBakedLevel, type BakedMaps } from './bakedMaps'
+import { useLevel } from '../../state/quality'
+
+// 焼いたテクスチャを使う材質（bake_ship.py の PAINTED / BARE と同じ分け方）。光の帆と放熱板は今までどおり
+const BAKED_PAINTED = new Set(['Hull', 'Hull2', 'Accent', 'CargoA', 'CargoB', 'CargoC', 'CargoD'])
+const BAKED_BARE = new Set(['Dark', 'Metal', 'Gold'])
 import { FloodLights, STROBE_FLASH, STROBE_GAP, STROBE_PERIOD, ShipModel, haloTexture } from './ShipModel'
 
 // SV-01 以外の自機。形は Blender で組み立てたモデル（tools/blender/build_fleet.py）で、
@@ -76,17 +82,18 @@ function decalTexture(text: string, color = 'rgba(40,44,52,0.88)') {
   return t
 }
 
-function materials(spec: ShipSpec) {
+function materials(spec: ShipSpec, baked: BakedMaps | null) {
   const pal = PALETTES[spec.id as Exclude<ShipId, 'sv01'>]
-  const tex = hullTextures({ width: 1024, height: 1024, seed: pal.seed, panelScale: pal.panelScale, windows: [] })
+  // Blender で焼いたテクスチャがあれば、外板の模様はそちらを使う（無ければ今までどおり、描いた模様を繰り返し貼る）
+  const tex = baked ? null : hullTextures({ width: 1024, height: 1024, seed: pal.seed, panelScale: pal.panelScale, windows: [] })
   // モデルの UV は 1 単位 = 6。模様 1 枚を 1/2 単位に広げて、外板のパネルが SV-01 と同じくらいの大きさに見えるように
-  for (const t of [tex.map, tex.bumpMap]) t.repeat.set(1 / 3, 1 / 3)
+  if (tex) for (const t of [tex.map, tex.bumpMap]) t.repeat.set(1 / 3, 1 / 3)
   const painted = (color: string, opts: Partial<THREE.MeshPhysicalMaterialParameters> = {}) =>
     new THREE.MeshPhysicalMaterial({
       color,
       vertexColors: true,
-      map: tex.map,
-      bumpMap: tex.bumpMap,
+      map: tex?.map,
+      bumpMap: tex?.bumpMap,
       bumpScale: 1.1,
       metalness: 0.2,
       roughness: 0.66,
@@ -128,6 +135,15 @@ function materials(spec: ShipSpec) {
   ;['CargoA', 'CargoB', 'CargoC', 'CargoD'].forEach((name, i) => {
     mats[name] = painted(pal.cargo[i] ?? pal.hull2, { roughness: 0.72, iridescence: 0 })
   })
+  if (baked) {
+    for (const [name, m] of Object.entries(mats)) {
+      if (!BAKED_PAINTED.has(name) && !BAKED_BARE.has(name)) continue
+      const std = m as THREE.MeshStandardMaterial
+      // ラフネスの絵は平均で 0.9 倍くらいなので、元の値を少し上げてつやの量をそろえる
+      if (BAKED_PAINTED.has(name)) std.roughness = Math.min(1, std.roughness * 1.1)
+      applyBaked(std, baked, { windows: name === 'Hull' || name === 'Hull2' })
+    }
+  }
   return { mats, glow, blue, radiator: mats.Radiator as THREE.MeshPhysicalMaterial }
 }
 
@@ -135,8 +151,9 @@ function materials(spec: ShipSpec) {
 export function VariantModel({ spec, unitScale = 1 }: { spec: ShipSpec; unitScale?: number | (() => number) }) {
   const { scene } = useGLTF(url(spec.model!))
 
+  const level = useLevel()
   const built = useMemo(() => {
-    const { mats, glow, blue, radiator } = materials(spec)
+    const { mats, glow, blue, radiator } = materials(spec, findBaked(scene))
     const model = scene.clone(true)
     let rotor: THREE.Object3D | null = null
     model.traverse((o) => {
@@ -153,6 +170,9 @@ export function VariantModel({ spec, unitScale = 1 }: { spec: ShipSpec; unitScal
     return { model, rotor: rotor as THREE.Object3D | null, mats, glow, blue, radiator, decals }
   }, [scene, spec])
   useSpaceEnvOn(useMemo(() => Object.values(built.mats), [built]))
+  useEffect(() => {
+    for (const m of Object.values(built.mats)) setBakedLevel(m as THREE.MeshStandardMaterial, level)
+  }, [built, level])
 
   useEffect(
     () => () => {
