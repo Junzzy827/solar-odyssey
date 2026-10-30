@@ -52,7 +52,7 @@ export function starGeometry() {
   const tips = STAR_TIPS.map(u)
   // 角の星形に、ふくらんだ芯（半径 STAR_CORE の球）をなめらかに足す
   const core = u(STAR_CORE)
-  const star = pointedRock(tips, STAR_P, 60)
+  const star = pointedRock(tips, STAR_P, 48)
   const pos = star.attributes.position
   const v = new THREE.Vector3()
   for (let i = 0; i < pos.count; i++) {
@@ -93,13 +93,13 @@ function topRim(az: number) {
 export const TOP_PEAK = new THREE.Vector3(-1100, TOP_UP, -700)
 export const TOP_SIZE = 5200
 
-/** 下側：縁から下の先へ、反りながら細くなる（ρ = R·((y+深さ)/(深さ-縁))^1.7）。光線に沿って境目を二分探索で探す */
+/** 下側：縁から下の先へ、反りながら細くなる（ρ = R·((y+深さ)/(深さ-縁))^1.4）。光線に沿って境目を二分探索で探す */
 function underside(d: THREE.Vector3, horiz: number, R: number) {
   const H = u(TOP_DEPTH), a = u(TOP_RIM)
   const inside = (r: number) => {
     const y = r * d.y
     if (y <= -H) return false
-    return r * horiz <= R * Math.min(1, (y + H) / (H - a)) ** 1.7
+    return r * horiz <= R * Math.min(1, (y + H) / (H - a)) ** 1.4
   }
   let lo = 0, hi = H * 1.5
   for (let i = 0; i < 24; i++) {
@@ -119,7 +119,7 @@ export function topGeometry() {
     if (d.y < 0) r = Math.min(r, underside(d, horiz, R))
     if (d.z > 0) r = Math.min(r, u(TOP_ENGINE_FACE) / d.z)
     return r
-  }, 56)
+  }, 44)
   roughen(body, 0.6, 0.2, 2)
   const peak = roughen(pointedRock([u(1300), u(1100), u(2800), u(500), u(1000), u(1200)], 1.05, 24), 0.3, 0.1, 3, u(2800))
   peak.rotateY(0.6)
@@ -158,7 +158,7 @@ function shelfGeometry({ y, radius, up, down, wave, seed, off }: (typeof SHELVES
     const R = u(radius * (1 + 0.1 * Math.sin(3 * az + ph) + 0.07 * Math.sin(5 * az + 2 * ph)))
     const b = u(d.y > 0 ? up : down)
     return 1 / Math.sqrt((d.x * d.x + d.z * d.z) / (R * R) + (d.y * d.y) / (b * b))
-  }, 40)
+  }, 32)
   // 縁を波打たせる（ところどころ反り上がる）
   const pos = g.attributes.position
   const v = new THREE.Vector3()
@@ -174,7 +174,7 @@ function shelfGeometry({ y, radius, up, down, wave, seed, off }: (typeof SHELVES
 }
 
 function stemGeometry() {
-  const cyl = new THREE.CylinderGeometry(1, 1, 1, 24, 48, false)
+  const cyl = new THREE.CylinderGeometry(1, 1, 1, 20, 40, false)
   cyl.deleteAttribute('normal')
   cyl.deleteAttribute('uv')
   const g = mergeVertices(cyl)
@@ -202,22 +202,22 @@ export function mushroomGeometry() {
   return g
 }
 
-/** 岩の表面に散らばる灯の位置（m）。外から中心の軸に向けて光線を当てる */
-export function scatterLights(geometry: THREE.BufferGeometry, count: number, seed: number, yRange: [number, number], reach: number) {
-  const probe = surfaceProbe(geometry)
+/** 岩の表面に散らばる灯の位置（m）。頂点をくじで選び、少し外へ浮かせる（光線を使わないので速い） */
+export function scatterLights(geometry: THREE.BufferGeometry, count: number, seed: number, yRange: [number, number]) {
+  const pos = geometry.attributes.position
+  const nrm = geometry.attributes.normal
   let s = seed
   const rand = () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646
   const lights: THREE.Vector3[] = []
-  for (let i = 0; i < count * 3 && lights.length < count; i++) {
-    const a = rand() * Math.PI * 2
-    const y = yRange[0] + (yRange[1] - yRange[0]) * rand()
-    // 上から下ろす光線と横からの光線をまぜる（傘の上面にも、側面にも灯を置く）
-    const fromAbove = rand() < 0.4
-    const rho = reach * Math.sqrt(rand())
-    const hit = fromAbove
-      ? probe({ x: Math.cos(a) * rho, y: 20000, z: Math.sin(a) * rho }, { x: Math.cos(a) * rho, y: -20000, z: Math.sin(a) * rho })
-      : probe({ x: Math.cos(a) * 20000, y, z: Math.sin(a) * 20000 }, { x: 0, y, z: 0 })
-    if (hit) lights.push(hit.pos.addScaledVector(hit.normal, 25))
+  const n = new THREE.Vector3()
+  for (let i = 0; i < count * 4 && lights.length < count; i++) {
+    const k = Math.floor(rand() * pos.count)
+    const p = new THREE.Vector3().fromBufferAttribute(pos, k).multiplyScalar(ROCK_UNIT)
+    if (p.y < yRange[0] || p.y > yRange[1]) continue
+    n.fromBufferAttribute(nrm, k)
+    // 真下を向いた面（傘の裏）は港の口があるので避ける
+    if (n.y < -0.8) continue
+    lights.push(p.addScaledVector(n, 25))
   }
   return lights
 }

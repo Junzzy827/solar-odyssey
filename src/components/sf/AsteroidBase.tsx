@@ -66,7 +66,7 @@ function mushroomLayout(geometry: THREE.BufferGeometry) {
     if (p) beacons.push(p)
   }
   const ant = probe({ x: 600, y: FAR, z: 400 }, { x: 600, y: -FAR, z: 400 })
-  return { bays, beacons, antenna: ant, lights: scatterLights(geometry, 90, 77, [-5200, 600], 3200) }
+  return { bays, beacons, antenna: ant, lights: scatterLights(geometry, 90, 77, [-5200, 1200]) }
 }
 
 const Y = new THREE.Vector3(0, 1, 0)
