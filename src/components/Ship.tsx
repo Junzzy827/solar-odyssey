@@ -260,6 +260,8 @@ export function Ship() {
 
     // 天体に近づくほど船とカメラを縮める（鑑賞モードでは今の大きさのまま）
     updateZoom(ship.position, dt, st.mode === 'gallery')
+    // 周回待機中は、構造物の側で自機を一緒に動かさない（二重に動くので）
+    flightControl.holding = hold.current !== null
     const zoomIn = st.mode === 'map' ? 1 : 1 / shipZoom.factor
     group.current.position.copy(ship.position)
     group.current.quaternion.copy(ship.quaternion)

@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { ColonyModel } from './ColonyModel'
 import { ConstructionSite } from './ConstructionSite'
 import { bodies, colliders, passThrough, registerBody, zoomZones, type ZoomZone } from '../../state/registry'
-import { ship } from '../../state/flight'
+import { flightControl, ship } from '../../state/flight'
 import { useStore } from '../../state/store'
 import { COLONY_ID, COLONY_LENGTH as L, COLONY_PORT as PORT, COLONY_RADIUS as R, COLONY_SPIN_SECONDS, COLONY_ZOOM, SF_TEXT, colonyName } from '../../data/sf'
 import { useLang } from '../../i18n/lang'
@@ -71,7 +71,7 @@ export function Colony() {
     const s = state.current
     if (!s.ready) return
     // 中にいるあいだは、コロニーと一緒に動く（地球のまわりを回っても、壁が迫ってこないように）
-    if (s.inside) ship.position.add(delta)
+    if (s.inside && !flightControl.holding) ship.position.add(delta)
     delta.set(0, 0, 0)
     inverse.copy(group.current.matrixWorld).invert()
     local.copy(ship.position).applyMatrix4(inverse)

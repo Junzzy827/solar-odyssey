@@ -4,8 +4,7 @@ import { computeLayout } from '../data/layout'
 import { bodyRadius, TIME_RATES } from '../data/scale'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
-import { CUBE_ID, cubeName } from '../data/cube'
-import { COLONY_ID, colonyName, setWorld } from '../data/sf'
+import { SF_OBJECTS, setWorld } from '../data/sf'
 import { HUBBLE_ID, scopeName, WEBB_ID } from '../data/telescopes'
 import { useRace } from '../state/race'
 import { QUIZ_LENGTH, startQuiz, useQuiz } from '../state/quiz'
@@ -239,8 +238,9 @@ export function NavPanel() {
         {sf && (
           <>
             <div className="nav-heading">{t('SF（架空）', 'SF (imaginary)')}</div>
-            <TargetButton id={COLONY_ID} name={colonyName()} onPick={pick} />
-            <TargetButton id={CUBE_ID} name={cubeName()} onPick={pick} />
+            {SF_OBJECTS.map((e) => (
+              <TargetButton key={e.id} id={e.id} name={e.name()} onPick={pick} />
+            ))}
           </>
         )}
       </div>

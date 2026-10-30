@@ -1,6 +1,6 @@
 import { PLANETS, SUN } from './bodies'
 import { CUBE_ID } from './cube'
-import { COLONY_ID } from './sf'
+import { COLONY_ID, SF_OBJECTS, sfEntry } from './sf'
 import { HUBBLE_ID, WEBB_ID } from './telescopes'
 
 // 訪問スタンプ帳：天体のそばまで行くとスタンプがもらえる。決まった組をそろえたり、たくさん集めたりすると称号がもらえる
@@ -16,7 +16,7 @@ export const STAMP_GROUPS: StampGroup[] = [
   { id: 'dwarf', name: '準惑星とその衛星', nameEn: 'Dwarf planet and its moon', ids: PLANETS.filter((p) => p.dwarf).flatMap((p) => [p.id, ...moonsOf(p.id)]) },
   { id: 'scopes', name: '宇宙望遠鏡', nameEn: 'Space telescopes', ids: [HUBBLE_ID, WEBB_ID] },
   // SF モードだけのページ（本物の太陽系のスタンプとは別に数える）
-  { id: 'sf', name: 'SF（架空）', nameEn: 'SF (imaginary)', ids: [COLONY_ID, CUBE_ID] },
+  { id: 'sf', name: 'SF（架空）', nameEn: 'SF (imaginary)', ids: SF_OBJECTS.map((e) => e.id) },
 ]
 
 /** 太陽・惑星・衛星（数を数える称号はこれだけで数える） */
@@ -27,8 +27,8 @@ export const STAMP_IDS = new Set(STAMP_GROUPS.flatMap((g) => g.ids))
 export function stampColor(id: string) {
   if (id === 'sun') return SUN.color
   if (id === HUBBLE_ID || id === WEBB_ID) return id === WEBB_ID ? '#e8b04a' : '#c9ced8'
-  if (id === CUBE_ID) return '#6fd0b8'
-  if (id === COLONY_ID) return '#9fc6e8'
+  const sf = sfEntry(id)
+  if (sf) return sf.color
   for (const p of PLANETS) {
     if (p.id === id) return p.color
     const m = p.moons.find((m) => m.id === id)

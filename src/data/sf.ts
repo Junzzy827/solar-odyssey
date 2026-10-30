@@ -1,6 +1,6 @@
 import { t } from '../i18n/lang'
 import { useStore } from '../state/store'
-import { CUBE_ID } from './cube'
+import { CUBE_ID, cubeName } from './cube'
 
 // SF モード：本物の太陽系に、架空の船や構造物を重ねて出す。
 // どれも実在の研究や構想をもとにしたオリジナルのデザインで、作品の名前・ロゴ・設定画の形は使わない。
@@ -21,9 +21,27 @@ export function setWorld(world: 'real' | 'sf') {
 export const COLONY_ID = 'colony'
 export const colonyName = () => t('L5スペースコロニー', 'L5 Space Colony')
 
-/** SF モードだけに出るもの */
-export const SF_IDS = [CUBE_ID, COLONY_ID]
-export const isSFObject = (id: string | null) => id !== null && SF_IDS.includes(id)
+/** 構造物のそばで自機を縮める割合の目安（近くの構造物は、この倍率で本物の大きさの比率になるよう作る） */
+export const SITE_ZOOM = 20
+/** SITE_ZOOM のとき、1m が何表示単位か（自機は表示 0.3 で 640m） */
+export const UNITS_PER_METER = 0.3 / SITE_ZOOM / 640
+
+export type SFEntry = {
+  id: string
+  name: () => string
+  /** ワープの掛け声（英語）で呼ぶ名前 */
+  spoken: string
+  /** スタンプの色 */
+  color: string
+}
+
+/** SF モードだけに出るもの。航法コンピュータの一覧・スタンプ帳はこの順に並ぶ */
+export const SF_OBJECTS: SFEntry[] = [
+  { id: COLONY_ID, name: colonyName, spoken: 'the L5 colony', color: '#9fc6e8' },
+  { id: CUBE_ID, name: cubeName, spoken: 'the unknown vessel', color: '#6fd0b8' },
+]
+export const sfEntry = (id: string | null) => SF_OBJECTS.find((e) => e.id === id)
+export const isSFObject = (id: string | null) => sfEntry(id) !== undefined
 
 /**
  * コロニーの寸法（表示単位）。本物の構想は長さ約32km・直径約8km。

@@ -14,8 +14,7 @@ import { AsteroidBelt } from './components/AsteroidBelt'
 import { WarpStreaks } from './components/WarpStreaks'
 import { TargetMarker } from './components/TargetMarker'
 import { Phaser } from './components/Phaser'
-import { CubeShip } from './components/cube/CubeShip'
-import { Colony } from './components/sf/Colony'
+import { SFWorld } from './components/sf/SFWorld'
 import { useSF } from './data/sf'
 import { SFBadge } from './ui/SFBadge'
 import { Telescopes } from './components/telescope/Telescopes'
@@ -69,8 +68,7 @@ export default function App() {
           <PlanetBody key={planet.id} planet={planet} />
         ))}
         <AsteroidBelt />
-        {sf && <CubeShip />}
-        {sf && <Colony />}
+        {sf && <SFWorld />}
         <Telescopes />
         <Race />
         <MissionRunner />
