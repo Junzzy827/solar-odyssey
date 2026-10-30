@@ -5,6 +5,7 @@ import { useQuiz } from '../state/quiz'
 import { t, useLang } from '../i18n/lang'
 import { useTouchUI } from '../state/touchUI'
 import { bodyInfo, engage } from '../state/flight'
+import { TouchThrottle } from './Throttle'
 import { raceActive } from '../state/race'
 
 /** スティックを倒しきったときの、つまみの動く半径（ピクセル） */
@@ -107,7 +108,7 @@ function useLookDrag(enabled: boolean) {
   }, [enabled])
 }
 
-/** 目標を選んでいるときだけ出す、目標の名前とワープ・自動航行（全体マップでも出す） */
+/** 操縦席では推進の段階（−／＋）、目標を選んでいるときは目標の名前とワープ・自動航行（全体マップでも出す） */
 export function TouchWarp() {
   useLang()
   const mode = useStore((s) => s.mode)
@@ -119,23 +120,30 @@ export function TouchWarp() {
   const distance = useStore((s) => s.telemetry.distance)
   const quizOpen = useQuiz((q) => q.open)
   const sheet = useTouchUI((u) => u.sheet)
-  if (!isTouchDevice() || mode === 'gallery' || scope || quizOpen || sheet || !targetId || raceActive()) return null
-  const info = bodyInfo(targetId)
+  // 操縦席では、目標がなくても推進の段階（−／＋）だけは出す
+  const throttle = mode === 'flight'
+  if (!isTouchDevice() || mode === 'gallery' || scope || quizOpen || sheet || raceActive() || (!targetId && !throttle)) return null
+  const info = targetId ? bodyInfo(targetId) : null
   const busy = warpPhase !== 'idle'
   return (
     <div className={`touch-warp ${mode}`}>
-      <div className="touch-warp-name">
-        {info?.name}
-        {distance !== null && <span>{distance < 10 ? distance.toFixed(1) : Math.round(distance)}</span>}
-      </div>
-      <div className="touch-row">
-        <button className="touch-button wide warp" onClick={engage} disabled={busy}>
-          {t('ワープ', 'Warp')}
-        </button>
-        <button className={`touch-button wide auto${autopilot ? ' on' : ''}`} onClick={() => setAutopilot(!autopilot)} disabled={busy}>
-          {t('自動', 'Auto')}
-        </button>
-      </div>
+      {throttle && <TouchThrottle />}
+      {targetId && (
+        <>
+          <div className="touch-warp-name">
+            {info?.name}
+            {distance !== null && <span>{distance < 10 ? distance.toFixed(1) : Math.round(distance)}</span>}
+          </div>
+          <div className="touch-row">
+            <button className="touch-button wide warp" onClick={engage} disabled={busy}>
+              {t('ワープ', 'Warp')}
+            </button>
+            <button className={`touch-button wide auto${autopilot ? ' on' : ''}`} onClick={() => setAutopilot(!autopilot)} disabled={busy}>
+              {t('自動', 'Auto')}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

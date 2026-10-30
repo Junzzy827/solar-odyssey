@@ -39,6 +39,7 @@ import { GalleryCamera } from './components/ship/GalleryCamera'
 import { GalleryPanel } from './ui/GalleryPanel'
 import { GalleryLabels } from './ui/GalleryLabels'
 import { TouchControls, TouchWarp } from './ui/TouchControls'
+import { useThrottleWheel } from './ui/Throttle'
 import { TouchBar } from './ui/TouchBar'
 import { BootFrames, BootScreen } from './ui/Boot'
 import { QuizPanel } from './ui/QuizPanel'
@@ -70,6 +71,7 @@ export default function App() {
   // 日食・月食を見ているあいだは、EclipseScene のカメラ操作を使う
   const eclipseView = useEclipse((e) => e.open && e.eclipseId !== null)
   useGlobalKeys()
+  useThrottleWheel()
   const level = useLevel()
 
   return (
