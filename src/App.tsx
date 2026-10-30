@@ -9,6 +9,7 @@ import { Sky } from './components/Sky'
 import { SimClock } from './components/SimClock'
 import { Ship } from './components/Ship'
 import { SpaceDust } from './components/SpaceDust'
+import { SizeCompare } from './components/SizeCompare'
 import { CloudWake } from './components/CloudWake'
 import { AsteroidBelt } from './components/AsteroidBelt'
 import { WarpStreaks } from './components/WarpStreaks'
@@ -77,6 +78,7 @@ export default function App() {
         {mode === 'gallery' && <GalleryCamera />}
         <CloudWake />
         <SpaceDust />
+        <SizeCompare />
         <WarpStreaks />
         <TargetMarker />
         <ProbeScene />

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { nextCameraMode, useStore } from '../state/store'
 import { useBridge } from '../state/bridge'
+import { useCompare } from '../state/compare'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { RACE_TEXT, raceActive } from '../state/race'
 import type { Near } from '../state/proximity'
@@ -38,6 +39,7 @@ export function useGlobalKeys() {
       if (e.code === 'KeyM') s.setMode(s.mode === 'map' ? 'flight' : 'map')
       else if (e.code === 'Enter') engage()
       else if (e.code === 'KeyC') s.setCameraMode(nextCameraMode(s.cameraMode))
+      else if (e.code === 'KeyB' && s.mode === 'flight') useCompare.getState().toggle()
       else if (e.code === 'KeyZ' && s.cameraMode === 'bridge') useBridge.getState().setViewscreen(!useBridge.getState().viewscreen)
       else if (e.code === 'KeyG' && raceActive()) s.showToast(RACE_TEXT.noWarp)
       else if (e.code === 'KeyG' && s.targetId && s.warpPhase === 'idle') s.setAutopilot(!s.autopilot)
@@ -119,11 +121,26 @@ function NearReadout({ near }: { near: Near }) {
           `Diameter: ${big ? `about ${roughly(near.timesEarth)} × Earth, ` : ''}about ${roughly(near.timesShip)} × this ship`,
         )}
       </div>
+      <CompareButton far={near.zoom >= 3} />
       {near.zoom >= 1.5 && (
         <div className="muted near-zoom">
           {t(`接近ズーム：船を1/${Math.round(near.zoom)}に縮めて、${near.name}の大きさを本物に近づけています`, `Close-up zoom: the ship is shown at 1/${Math.round(near.zoom)} so ${near.name} looks closer to its real size`)}
         </div>
       )}
+    </div>
+  )
+}
+
+/** 大きさくらべの切り替え。低い軌道からは横に並べた天体が見えにくいので、離れるよう案内する */
+function CompareButton({ far }: { far: boolean }) {
+  const on = useCompare((s) => s.on)
+  const toggle = useCompare((s) => s.toggle)
+  return (
+    <div className="compare-row">
+      <button className={`compare-button${on ? ' on' : ''}`} onClick={toggle}>
+        {on ? t('大きさくらべをやめる', 'Hide size comparison') : t('大きさくらべ', 'Compare sizes')} {!isTouchDevice() && <kbd>B</kbd>}
+      </button>
+      {on && far && <span className="muted">{t('少し離れると並べた天体が見えます', 'Back off a little to see them side by side')}</span>}
     </div>
   )
 }

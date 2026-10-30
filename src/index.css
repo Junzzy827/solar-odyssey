@@ -953,6 +953,35 @@ button:disabled {
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.compare-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.compare-button {
+  pointer-events: auto;
+  padding: 4px 10px;
+  border: 1px solid rgba(159, 212, 255, 0.5);
+  border-radius: 8px;
+  background: rgba(40, 60, 90, 0.6);
+  color: #dff0ff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.compare-button.on {
+  background: rgba(90, 150, 220, 0.55);
+}
+
+.compare-label span {
+  color: #cfe8ff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .near-dive {
   color: #ffcf8a;
 }
