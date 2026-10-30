@@ -1,0 +1,186 @@
+import { useEffect, useMemo } from 'react'
+import { useThree } from '@react-three/fiber'
+import * as THREE from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { COLONY_LENGTH as L, COLONY_PORT as PORT, COLONY_RADIUS as R } from '../../data/sf'
+import { cloudTexture, hullTexture, landTexture } from './colonyTextures'
+
+// 回転円筒型のスペースコロニー（オニールの「島3号」の構想をもとにした、オリジナルのデザイン）。
+// 回転軸は +Y で、+Y の端を太陽へ向ける。円周を6つに分け、大地の帯3本と窓の帯3本が交互に並ぶ。
+// 窓の外の3枚の鏡は、太陽と反対側の端（-Y）を支点に開き、太陽の光を窓から中へ送りこむ。
+// 太陽と反対側の端には、回転軸の上に港があり、まわりを農業用の区画の輪が囲む。
+
+const DEG = Math.PI / 180
+/** 鏡を開く角度（回転軸から） */
+export const MIRROR_ANGLE = 25 * DEG
+const CAP = 0.03
+
+/** 帯 i（0〜5）の中心の角度。偶数が大地、奇数が窓 */
+const stripAngle = (i: number) => i * 60 * DEG
+
+function envMapFor(gl: THREE.WebGLRenderer) {
+  const pmrem = new THREE.PMREMGenerator(gl)
+  const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+  pmrem.dispose()
+  return env
+}
+
+/** 円筒の一部（角度は CylinderGeometry と同じく +Z から +X へ） */
+const sector = (radius: number, center: number, width: number, segments = 24) =>
+  new THREE.CylinderGeometry(radius, radius, L, segments, 1, true, center - width / 2, width)
+
+export function ColonyModel({ interior = true }: { interior?: boolean }) {
+  const { gl } = useThree()
+  const parts = useMemo(() => {
+    const env = envMapFor(gl)
+    const hullMap = hullTexture(3)
+    hullMap.wrapS = hullMap.wrapT = THREE.RepeatWrapping
+    hullMap.repeat.set(1, 6)
+    const capProfile = (from: [number, number][]) => new THREE.LatheGeometry(from.map(([r, y]) => new THREE.Vector2(r, y)), 96)
+    return {
+      env,
+      hullMap,
+      hullMat: new THREE.MeshStandardMaterial({ map: hullMap, metalness: 0.45, roughness: 0.55, envMap: env, envMapIntensity: 0.4 }),
+      capMat: new THREE.MeshStandardMaterial({ map: hullMap, metalness: 0.45, roughness: 0.55, envMap: env, envMapIntensity: 0.4, side: THREE.DoubleSide }),
+      frameMat: new THREE.MeshStandardMaterial({ color: '#70757e', metalness: 0.6, roughness: 0.45, envMap: env, envMapIntensity: 0.5 }),
+      glassMat: new THREE.MeshStandardMaterial({
+        color: '#2a3d58',
+        metalness: 0.9,
+        roughness: 0.06,
+        transparent: true,
+        opacity: 0.3,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        envMap: env,
+        envMapIntensity: 1.2,
+      }),
+      mirrorMat: new THREE.MeshStandardMaterial({ color: '#7f8ca2', metalness: 1, roughness: 0.12, envMap: env, envMapIntensity: 0.7, side: THREE.DoubleSide }),
+      lands: [0, 2, 4].map((i) => ({
+        geometry: sector(R * 0.999, stripAngle(i), 60 * DEG),
+        material: new THREE.MeshBasicMaterial({ map: landTexture(17 + i * 13), side: THREE.BackSide, color: '#d8dcd0' }),
+      })),
+      hulls: [0, 2, 4].map((i) => sector(R * 1.004, stripAngle(i), 60 * DEG)),
+      windows: [1, 3, 5].map((i) => sector(R, stripAngle(i), 60 * DEG)),
+      // 中の空気のかすみ（向こう側の大地が少し青く遠く見える）
+      haze: new THREE.MeshBasicMaterial({ color: '#a9cdf5', transparent: true, opacity: 0.16, depthWrite: false, side: THREE.BackSide }),
+      hazeGeometry: new THREE.CylinderGeometry(R * 0.96, R * 0.96, L, 48, 1, true),
+      // 太陽側の端：ゆるい丸屋根
+      sunCap: capProfile(Array.from({ length: 13 }, (_, k) => [R * Math.cos((k / 12) * Math.PI * 0.5), L / 2 + CAP * Math.sin((k / 12) * Math.PI * 0.5)] as [number, number]).reverse()),
+      // 港側の端：真ん中に港の穴
+      portCap: capProfile(Array.from({ length: 13 }, (_, k) => {
+        const a = (k / 12) * Math.PI * 0.5
+        return [PORT + (R - PORT) * Math.cos(a), -L / 2 - CAP * Math.sin(a)] as [number, number]
+      })),
+      portTube: new THREE.CylinderGeometry(PORT, PORT, 0.1, 48, 1, true),
+      ring: new THREE.TorusGeometry(R * 1.01, 0.0018, 6, 128),
+      mullion: new THREE.BoxGeometry(0.0022, L, 0.0022),
+      mirror: new THREE.PlaneGeometry(R * 1.05, L),
+      strut: new THREE.CylinderGeometry(0.0012, 0.0012, 1, 6),
+      pod: new THREE.CylinderGeometry(0.011, 0.011, 0.05, 16),
+      farmRing: new THREE.TorusGeometry(0.26, 0.004, 8, 128),
+      spoke: new THREE.BoxGeometry(0.004, 0.26 - PORT, 0.004),
+      light: new THREE.SphereGeometry(0.0016, 8, 8),
+      lightMat: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.1, 1.4), toneMapped: false }),
+      portLightMat: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 1.8, 2.4), toneMapped: false }),
+      podMat: new THREE.MeshStandardMaterial({ color: '#b9c2b0', metalness: 0.3, roughness: 0.5, emissive: '#2f4a22', emissiveIntensity: 0.4 }),
+      cloud: new THREE.SpriteMaterial({ map: cloudTexture(), transparent: true, opacity: 0.85, depthWrite: false }),
+    }
+  }, [gl])
+
+  useEffect(
+    () => () => {
+      for (const value of Object.values(parts)) {
+        const list = Array.isArray(value) ? value.flatMap((v) => (v instanceof THREE.BufferGeometry ? [v] : [v.geometry, v.material])) : [value]
+        for (const v of list) if (v instanceof THREE.BufferGeometry || v instanceof THREE.Material || v instanceof THREE.Texture) v.dispose()
+      }
+      parts.lands.forEach((l) => l.material.map?.dispose())
+      parts.cloud.map?.dispose()
+    },
+    [parts],
+  )
+
+  const clouds = useMemo(() => {
+    let s = 9
+    const rand = () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646
+    return Array.from({ length: 36 }, () => {
+      const a = rand() * Math.PI * 2
+      const r = R * (0.78 + rand() * 0.1)
+      return { pos: [Math.sin(a) * r, (rand() - 0.5) * L * 0.85, Math.cos(a) * r] as [number, number, number], size: 0.012 + rand() * 0.018 }
+    })
+  }, [])
+
+  const rings = Array.from({ length: 13 }, (_, k) => -L / 2 + (k / 12) * L)
+  // 窓の帯の中の、長さに沿った桟（窓1本につき3本）
+  const mullions = [1, 3, 5].flatMap((i) => [-20, 0, 20].map((d) => stripAngle(i) + d * DEG))
+
+  return (
+    <group>
+      {/* 大地の帯：外は外板、内は大地 */}
+      {parts.hulls.map((g, i) => (
+        <mesh key={`h${i}`} geometry={g} material={parts.hullMat} castShadow receiveShadow />
+      ))}
+      {interior && parts.lands.map((l, i) => <mesh key={`l${i}`} geometry={l.geometry} material={l.material} />)}
+      {parts.windows.map((g, i) => (
+        <mesh key={`w${i}`} geometry={g} material={parts.glassMat} renderOrder={2} />
+      ))}
+      {rings.map((y) => (
+        <mesh key={`r${y}`} geometry={parts.ring} material={parts.frameMat} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} />
+      ))}
+      {mullions.map((a) => (
+        <mesh key={`m${a}`} geometry={parts.mullion} material={parts.frameMat} position={[Math.sin(a) * R, 0, Math.cos(a) * R]} />
+      ))}
+      <mesh geometry={parts.sunCap} material={parts.capMat} />
+      <mesh geometry={parts.portCap} material={parts.capMat} />
+
+      {/* 港：回転軸の上の筒と、入口の誘導灯 */}
+      <mesh geometry={parts.portTube} material={parts.capMat} position={[0, -L / 2 - CAP - 0.05, 0]} />
+      {Array.from({ length: 16 }, (_, k) => {
+        const a = (k / 16) * Math.PI * 2
+        return <mesh key={`p${k}`} geometry={parts.light} material={parts.portLightMat} position={[Math.sin(a) * PORT * 1.08, -L / 2 - CAP - 0.1, Math.cos(a) * PORT * 1.08]} />
+      })}
+
+      {/* 農業区画の輪 */}
+      <group position={[0, -L / 2 - CAP - 0.07, 0]}>
+        <mesh geometry={parts.farmRing} material={parts.frameMat} rotation={[Math.PI / 2, 0, 0]} />
+        {Array.from({ length: 6 }, (_, k) => {
+          const a = (k / 6) * Math.PI * 2 + 30 * DEG
+          const mid = (0.26 + PORT) / 2
+          return <mesh key={`s${k}`} geometry={parts.spoke} material={parts.frameMat} position={[Math.sin(a) * mid, 0, Math.cos(a) * mid]} rotation={[0, a, Math.PI / 2]} />
+        })}
+        {Array.from({ length: 24 }, (_, k) => {
+          const a = (k / 24) * Math.PI * 2
+          return <mesh key={`f${k}`} geometry={parts.pod} material={parts.podMat} position={[Math.sin(a) * 0.26, 0.012, Math.cos(a) * 0.26]} />
+        })}
+      </group>
+
+      {/* 鏡：窓の帯の外側。港側の端を支点に、太陽のほうへ開く */}
+      {[1, 3, 5].map((i) => {
+        const a = stripAngle(i)
+        return (
+          <group key={`mir${i}`} rotation={[0, a, 0]}>
+            <group position={[0, -L / 2, R * 1.04]} rotation={[MIRROR_ANGLE, 0, 0]}>
+              <mesh geometry={parts.mirror} material={parts.mirrorMat} position={[0, L / 2, 0]} />
+            </group>
+            {/* 鏡を支える支柱（鏡の途中から、円筒の外板へまっすぐ） */}
+            {[0.45, 0.8].map((f) => {
+              const y = -L / 2 + Math.cos(MIRROR_ANGLE) * L * f
+              const z = R * 1.04 + Math.sin(MIRROR_ANGLE) * L * f
+              return <mesh key={f} geometry={parts.strut} material={parts.frameMat} position={[0, y, (z + R) / 2]} rotation={[Math.PI / 2, 0, 0]} scale={[1, z - R, 1]} />
+            })}
+            {/* 鏡の先の航行灯 */}
+            <mesh geometry={parts.light} material={parts.lightMat} position={[0, -L / 2 + Math.cos(MIRROR_ANGLE) * L, R * 1.04 + Math.sin(MIRROR_ANGLE) * L]} scale={2} />
+          </group>
+        )
+      })}
+
+      {interior && (
+        <>
+          <mesh geometry={parts.hazeGeometry} material={parts.haze} renderOrder={1} />
+          {clouds.map((c, i) => (
+            <sprite key={`c${i}`} position={c.pos} scale={c.size} material={parts.cloud} />
+          ))}
+        </>
+      )}
+    </group>
+  )
+}

@@ -15,6 +15,9 @@ import { WarpStreaks } from './components/WarpStreaks'
 import { TargetMarker } from './components/TargetMarker'
 import { Phaser } from './components/Phaser'
 import { CubeShip } from './components/cube/CubeShip'
+import { Colony } from './components/sf/Colony'
+import { useSF } from './data/sf'
+import { SFBadge } from './ui/SFBadge'
 import { Telescopes } from './components/telescope/Telescopes'
 import { Race } from './components/race/Race'
 import { RacePanel } from './ui/RacePanel'
@@ -48,6 +51,8 @@ function MapControls() {
 
 export default function App() {
   const mode = useStore((s) => s.mode)
+  // SF モードのときだけ、架空の船や構造物を出す
+  const sf = useSF()
   const bridge = useStore((s) => s.mode === 'flight' && s.cameraMode === 'bridge')
   // 日食・月食を見ているあいだは、EclipseScene のカメラ操作を使う
   const eclipseView = useEclipse((e) => e.open && e.eclipseId !== null)
@@ -64,7 +69,8 @@ export default function App() {
           <PlanetBody key={planet.id} planet={planet} />
         ))}
         <AsteroidBelt />
-        <CubeShip />
+        {sf && <CubeShip />}
+        {sf && <Colony />}
         <Telescopes />
         <Race />
         <MissionRunner />
@@ -98,6 +104,7 @@ export default function App() {
       <StampBook />
       <TelescopeView />
       <LanguagePicker />
+      <SFBadge />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}
         <a href="https://science.nasa.gov/resource/hubble-space-telescope-3d-model/" target="_blank" rel="noreferrer">NASA VTAD</a>

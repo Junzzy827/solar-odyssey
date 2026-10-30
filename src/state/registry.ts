@@ -35,3 +35,16 @@ export const beamTargets: { object: THREE.Object3D; onHit: () => void }[] = []
 
 /** 天体以外を目標マーカーで指すとき（レースの次のゲートなど） */
 export const markerOverride = { object: null as THREE.Object3D | null }
+
+/**
+ * 天体ではないが、そばで船を縮めたい場所（SFモードのスペースコロニーなど）。
+ * 中心から start より近いと縮め始め、full より近いと factor 倍まで縮める。
+ * 縮めた分、速さの上限も下げる（大きな構造物の横を、ゆっくり流れるように）
+ */
+export type ZoomZone = { object: THREE.Object3D; start: number; full: number; factor: number }
+export const zoomZones = new Set<ZoomZone>()
+
+/** 中を飛べる構造物：天体のような「近づける限界」の代わりに、自分で壁に当たる判定をする（毎フレーム、自機を動かしたあとに呼ぶ） */
+export const colliders = new Set<() => void>()
+/** 天体の近づける限界を使わない id（colliders で自分で判定するもの） */
+export const passThrough = new Set<string>()

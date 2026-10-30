@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { approachKind } from '../data/approach'
-import { bodies } from './registry'
+import { bodies, zoomZones, type ZoomZone } from './registry'
 import { raceActive } from './race'
 import { SHIP_SCALE } from './flight'
 
@@ -35,7 +35,21 @@ function wanted(position: THREE.Vector3) {
     const k = 1 - THREE.MathUtils.smoothstep(rel, FULL, START)
     best = Math.max(best, maxFactor(body.radius) ** k)
   }
+  for (const zone of zoomZones) best = Math.max(best, zoneFactor(zone, position))
   return best
+}
+
+/** 縮めたい場所（スペースコロニーなど）のそばにいるか */
+export function inZoomZone(position: THREE.Vector3) {
+  for (const zone of zoomZones) if (zoneFactor(zone, position) > 1.5) return true
+  return false
+}
+
+/** 縮めたい場所の中での割合（遠くでは 1） */
+export function zoneFactor(zone: ZoomZone, position: THREE.Vector3) {
+  zone.object.getWorldPosition(p)
+  const k = 1 - THREE.MathUtils.smoothstep(position.distanceTo(p), zone.full, zone.start)
+  return zone.factor ** k
 }
 
 /** 毎フレーム呼ぶ。急に変わらないよう、対数の上でなめらかに追いかける */

@@ -65,17 +65,24 @@ export type Settings = {
   music: boolean
   /** 画面の言語。まだ選んでいなければ null（初めて開いたときに選んでもらう） */
   lang: 'ja' | 'en' | null
+  /** 世界：本物の太陽系だけ（real）か、架空の船や構造物も出す SF モード（sf） */
+  world: 'real' | 'sf'
 }
 
 const SETTINGS_KEY = 'solar-voyager:settings'
-const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null }
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real' }
+
+// リンクで世界を決めて開ける（#sf や #real）
+const worldFromUrl = /[?&#](sf|real)\b/.exec(location.search + location.hash)?.[1] as Settings['world'] | undefined
 
 function loadSettings(): Settings {
+  let saved: Partial<Settings> = {}
   try {
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') }
+    saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}')
   } catch {
-    return DEFAULT_SETTINGS
+    // 読めなければ初めの設定で
   }
+  return { ...DEFAULT_SETTINGS, ...saved, ...(worldFromUrl ? { world: worldFromUrl } : {}) }
 }
 
 const VISITED_KEY = 'solar-voyager:visited'

@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { BRIDGE_BASE, METERS_PER_UNIT, ShipModel } from './ship/ShipModel'
 import { GalleryScene } from './ship/GalleryScene'
-import { bodies } from '../state/registry'
+import { bodies, colliders, passThrough } from '../state/registry'
 import { useStore } from '../state/store'
 import { CHARGE_SECONDS, EXIT_SECONDS, SHIP_SCALE, flightControl, ship, standoff, warpFx } from '../state/flight'
 import { APPROACH_TEXT, approachKind, limitDistance } from '../data/approach'
@@ -248,6 +248,7 @@ export function Ship() {
       }
       ship.position.addScaledVector(ship.velocity, dt)
       avoidBodies()
+      colliders.forEach((collide) => collide())
       updateProximity(ship.position)
 
       // 待機中に操縦したら相対位置を更新、離れたら待機を解除
@@ -398,6 +399,7 @@ let insideGas: string | null = null
 
 function avoidBodies() {
   for (const body of bodies.values()) {
+    if (passThrough.has(body.id)) continue
     body.object.getWorldPosition(v)
     const min = limitDistance(body.id, body.radius)
     const d = ship.position.distanceTo(v)

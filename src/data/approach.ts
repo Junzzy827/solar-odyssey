@@ -1,5 +1,5 @@
 import { PLANETS, SUN } from './bodies'
-import { CUBE_ID } from './cube'
+import { isSFObject } from './sf'
 import { isTelescope } from './telescopes'
 import { t } from '../i18n/lang'
 
@@ -29,7 +29,7 @@ const GAS: Record<string, { t0: number; lapse: number }> = {
 export type ApproachKind = 'star' | 'gas' | 'rock' | 'object'
 
 export const approachKind = (id: string): ApproachKind =>
-  id === 'sun' ? 'star' : id === CUBE_ID || isTelescope(id) || id.startsWith('mission-') ? 'object' : GAS[id] ? 'gas' : 'rock'
+  id === 'sun' ? 'star' : isSFObject(id) || isTelescope(id) || id.startsWith('mission-') ? 'object' : GAS[id] ? 'gas' : 'rock'
 
 /** 天体の本当の半径（km） */
 export function radiusKm(id: string) {

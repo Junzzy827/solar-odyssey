@@ -50,8 +50,10 @@ export const FACTS_EN: Record<string, Facts> = {
       ['What it is', 'An imaginary ship (from a story)'],
       ['Where', 'Between the asteroid belt and Jupiter'],
     ],
-    notes: [
-      'This ship only exists in a story. In the real universe, no ships or objects made by other civilizations have been found yet.',
+    fiction: true,
+    notes: ['A cube-shaped ship, apparently built by a machine civilization. It just drifts quietly and does nothing when you come close.'],
+    real: [
+      'In the real universe, no ships or objects made by other civilizations have been found yet.',
       'Scientists have been listening for radio signals from civilizations beyond Earth (SETI) since 1960, and they still are.',
       'In 2017, ‘Oumuamua, an object that came from outside the solar system, was discovered. Its long, thin shape caused a stir, but it is thought to be natural.',
       'The farthest thing people have ever made is the Voyager 1 probe. It is still flying, nearly 25 billion km from the Sun.',
@@ -61,6 +63,33 @@ export const FACTS_EN: Record<string, Facts> = {
       choices: ['Halley’s Comet', '‘Oumuamua', 'Pluto'],
       answer: 1,
       explanation: 'It was found in 2017 by a telescope in Hawaii. Its name means “a messenger from afar arriving first” in Hawaiian.',
+    },
+  },
+  colony: {
+    rows: [
+      ['Size', 'About 32 km long and 8 km across (about 50 times the length of your ship)'],
+      ['Spin', 'One turn about every 2 minutes (fast enough to feel Earth’s gravity on the inner ground)'],
+      ['Where', 'The Earth–Moon L5 point (on the Moon’s orbit, 60° behind the Moon)'],
+    ],
+    fiction: true,
+    notes: [
+      'The cylinder is split into six strips around: three strips of land and three of windows. Big mirrors outside bounce sunlight in through the windows.',
+      'The port is on the spin axis at the end facing away from the Sun. Fly in there and you will see land above your head too.',
+      'Next door, a second colony is being built. Humanoid work machines fit the hull plates one by one (they are drawn about 10 times larger than planned so you can see them).',
+      'As you come close, your ship shrinks so the colony is shown at its real size compared with the ship.',
+    ],
+    real: [
+      'It is based on “Island Three”, designed by physicist Gerard K. O’Neill in the 1970s. A 1975 NASA study also looked at a doughnut-shaped “Stanford torus”.',
+      'The push from spinning takes the place of gravity. With a 4 km radius, one turn about every 2 minutes gives the same weight as on Earth (1 g).',
+      'O’Neill’s plan pairs two cylinders spinning in opposite directions, so their gyroscope-like pull on each other cancels out.',
+      'L5 is one of the places where the pulls of Earth and the Moon and the orbiting motion balance (a Lagrange point). Nobody is planning to build one yet.',
+      'Today people live in space on the International Space Station, which is about 100 m long and usually home to 6 or 7 people.',
+    ],
+    quiz: {
+      question: 'Inside a space colony, what takes the place of gravity?',
+      choices: ['The outward push from spinning', 'Magnetism', 'The weight of the air'],
+      answer: 0,
+      explanation: 'When the cylinder spins, everything inside is pressed outward against the floor. That is the “weight” you feel standing on the inner ground, like the push on a spinning fairground ride.',
     },
   },
   sun: {

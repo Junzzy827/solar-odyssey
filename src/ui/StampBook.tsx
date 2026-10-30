@@ -2,6 +2,7 @@ import { useEffect, type CSSProperties } from 'react'
 import * as THREE from 'three'
 import { NATURAL, STAMP_GROUPS, STAMP_IDS, TITLES, stampColor, titleProgress } from '../data/stamps'
 import { CUBE_ID } from '../data/cube'
+import { useSF } from '../data/sf'
 import { closeStamps, collectStamp, useStamps } from '../state/stamps'
 import { nearRange } from '../state/proximity'
 import { ship } from '../state/flight'
@@ -47,6 +48,10 @@ function Stamp({ id, at, star }: { id: string; at: number | undefined; star: boo
 export function StampBook() {
   const { stamps, titles, open } = useStamps()
   const explored = useStore((s) => s.visited)
+  // SF のページと称号は、SF モードのときだけ見せる
+  const sf = useSF()
+  const groups = STAMP_GROUPS.filter((g) => sf || g.id !== 'sf')
+  const shownTitles = TITLES.filter((title) => sf || !title.sf)
   useLang()
 
   // 操縦しているあいだ、天体のそばまで来たらスタンプを押す（ワープで通り過ぎるところは数えない）
@@ -92,7 +97,7 @@ export function StampBook() {
           <strong>{current ? t(current.name, current.nameEn) : t('まだありません', 'None yet')}</strong>
         </div>
         <div className="muted">
-          {t('スタンプ', 'Stamps')} {count}/{NATURAL.length} · {t('クイズ正解', 'Quizzes')} {answered}/{NATURAL.length} · {t('称号', 'Titles')} {titles.length}/{TITLES.length}
+          {t('スタンプ', 'Stamps')} {count}/{NATURAL.length} · {t('クイズ正解', 'Quizzes')} {answered}/{NATURAL.length} · {t('称号', 'Titles')} {shownTitles.filter((title) => titles.includes(title.id)).length}/{shownTitles.length}
         </div>
       </div>
       <p className="muted small">
@@ -101,7 +106,7 @@ export function StampBook() {
           'Fly close to a body to collect its stamp. Answer its ship’s log quiz to add a ★. Tap a stamp to set that body as your target.',
         )}
       </p>
-      {STAMP_GROUPS.map((g) => (
+      {groups.map((g) => (
         <div key={g.id} className="stamp-group">
           <h3>{t(g.name, g.nameEn)}</h3>
           <div className="stamp-grid">
@@ -113,7 +118,7 @@ export function StampBook() {
       ))}
       <h3>{t('称号', 'Titles')}</h3>
       <ul className="title-list">
-        {TITLES.map((title) => {
+        {shownTitles.map((title) => {
           const got = titles.includes(title.id)
           const { have, need } = titleProgress(title, stamps, explored)
           return (

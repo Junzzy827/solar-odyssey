@@ -78,8 +78,21 @@ function hullMaterial(tex: ReturnType<typeof hullTextures>, envMap: THREE.Textur
   })
 }
 
-/** unitScale は自機に掛かっている拡大率（投光の届く距離を合わせるため）。変わるときは毎フレーム読む関数で渡す */
-export function ShipModel({ unitScale = 1 }: { unitScale?: number | (() => number) }) {
+/**
+ * unitScale は自機に掛かっている拡大率（投光の届く距離を合わせるため）。変わるときは毎フレーム読む関数で渡す。
+ * registry・shipName・tint を変えると、同じ形の姉妹艦になる（レースの相手の SV-02 など）
+ */
+export function ShipModel({
+  unitScale = 1,
+  registry = 'SV-01',
+  shipName = 'SOLAR VOYAGER',
+  tint,
+}: {
+  unitScale?: number | (() => number)
+  registry?: string
+  shipName?: string
+  tint?: string
+}) {
   const { gl } = useThree()
   const root = useRef<THREE.Group>(null!)
 
@@ -126,7 +139,7 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number | (() => numbe
       ],
       texts: [
         // 下面の前寄りに、架空の型式番号（円周に沿って弧を描く）
-        { text: 'SV-01', u: 0.5, v: saucer.vAt(0.6, 'bottom'), height: 44, stretch: 1.9 },
+        { text: registry, u: 0.5, v: saucer.vAt(0.6, 'bottom'), height: 44, stretch: 1.9 },
       ],
       details: [
         { v: saucer.vAt(0.86, 'top'), kind: 'phaser' },
@@ -154,18 +167,19 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number | (() => numbe
       ],
       texts: [
         // 副船体の左右に、型式と船の種類（調査船）
-        { text: 'SV-01  SURVEY VESSEL', u: 0.75, v: 0.5, height: 34, stretch: 0.55, rotate: Math.PI / 2, mirror: true },
-        { text: 'SV-01  SURVEY VESSEL', u: 0.25, v: 0.5, height: 34, stretch: 0.55, rotate: -Math.PI / 2, mirror: true },
+        { text: `${registry}  SURVEY VESSEL`, u: 0.75, v: 0.5, height: 34, stretch: 0.55, rotate: Math.PI / 2, mirror: true },
+        { text: `${registry}  SURVEY VESSEL`, u: 0.25, v: 0.5, height: 34, stretch: 0.55, rotate: -Math.PI / 2, mirror: true },
       ],
     })
     const nacelleTex = hullTextures({ width: 512, height: 512, seed: 37, panelScale: 0.6, windows: [] })
+    const tinted = (m: THREE.MeshPhysicalMaterial) => (tint ? (m.color.set(tint), m) : m)
 
     return {
       saucer: saucer.geometry,
-      saucerMat: hullMaterial(saucerTex, envMap),
+      saucerMat: tinted(hullMaterial(saucerTex, envMap)),
       // 一体成形モデルは頂点カラーに焼き込んだ環境遮蔽（AO）を持つ
-      secondaryMat: hullMaterial(secondaryTex, envMap, true),
-      nacelleMat: hullMaterial(nacelleTex, envMap, true),
+      secondaryMat: tinted(hullMaterial(secondaryTex, envMap, true)),
+      nacelleMat: tinted(hullMaterial(nacelleTex, envMap, true)),
       bridge: lathe(BRIDGE, 64, 64).geometry,
       bridgeMat: new THREE.MeshPhysicalMaterial({ color: '#c3c7ce', metalness: 0.15, roughness: 0.55, envMap, envMapIntensity: 0.3 }),
       bridgeWindows: windowBandTexture(),
@@ -192,9 +206,9 @@ export function ShipModel({ unitScale = 1 }: { unitScale?: number | (() => numbe
       coilSpillTex: coilSpillTexture(),
       coilPlate: coilBand(0.0006, 0),
       coilSpill: coilBand(COIL_BAND.depth + 0.0007, 0.007),
-      name: nameTexture('SV-01  SOLAR VOYAGER'),
+      name: nameTexture(`${registry}  ${shipName}`),
     }
-  }, [envMap])
+  }, [envMap, registry, shipName, tint])
 
   // 発光部（ワープ時に強める・明滅させる）
   const bussards = useRef<THREE.MeshBasicMaterial[]>([])

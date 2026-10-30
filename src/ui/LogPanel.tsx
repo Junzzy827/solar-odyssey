@@ -3,7 +3,7 @@ import { factsFor } from '../data/facts'
 import { PLANETS } from '../data/bodies'
 import { useStore } from '../state/store'
 import { bodyInfo } from '../state/flight'
-import { CUBE_ID } from '../data/cube'
+import { isSFObject } from '../data/sf'
 import { isTelescope } from '../data/telescopes'
 import { raceActive } from '../state/race'
 import { openScope } from './Hud'
@@ -73,6 +73,7 @@ export function LogPanel() {
         <h2>
           {t('航海日誌：', 'Ship’s log: ')}
           {info.name}
+          {facts.fiction && <span className="log-fiction">{t('SF・フィクション', 'SF · fiction')}</span>}
           {done && <span className="badge">{t('探査済み', 'Explored')}</span>}
         </h2>
         <button className="close" onClick={() => setLogOpen(false)} aria-label={t('閉じる', 'Close')}>
@@ -94,6 +95,16 @@ export function LogPanel() {
           <li key={n}>{n}</li>
         ))}
       </ul>
+      {facts.real && (
+        <div className="log-real">
+          <h3>{t('現実の科学では', 'In real science')}</h3>
+          <ul>
+            {facts.real.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {isTelescope(targetId) && (
         <button className="secondary scope-open" onClick={() => openScope(targetId)} disabled={scopeNear !== targetId}>
           {scopeNear === targetId ? t('望遠鏡でのぞく', 'Look through the telescope') : t('そばまで行くと、望遠鏡でのぞけます', 'Fly close to look through the telescope')} <kbd>T</kbd>
@@ -128,7 +139,7 @@ export function LogPanel() {
         )}
       </div>
       <footer className="muted">
-        {t('探査済み', 'Explored')} {visited.filter((id) => id !== CUBE_ID && !isTelescope(id)).length} / {TOTAL}
+        {t('探査済み', 'Explored')} {visited.filter((id) => !isSFObject(id) && !isTelescope(id)).length} / {TOTAL}
         {t('（', ' (')}
         <kbd>I</kbd>
         {t(' で開閉）', ' to open/close)')}

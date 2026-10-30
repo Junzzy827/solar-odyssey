@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { FACTS, type Quiz } from '../data/facts'
 import { FACTS_EN } from '../data/facts.en'
 import { PLANETS, type Planet } from '../data/bodies'
-import { CUBE_ID } from '../data/cube'
+import { isSFObject } from '../data/sf'
 import { bodyInfo, engage } from './flight'
 import { useStore } from './store'
 import { closeProbes } from './probes'
@@ -208,7 +208,7 @@ function makeQuestions(): QuizQuestion[] {
       break
     }
   }
-  const fromLog = shuffle(Object.entries(FACTS).filter(([id]) => id !== CUBE_ID && !used.has(id)))
+  const fromLog = shuffle(Object.entries(FACTS).filter(([id]) => !isSFObject(id) && !used.has(id)))
     .slice(0, QUIZ_LENGTH - made.length)
     .map(([id, f]) => ({ ...f.quiz, bodyId: id, en: FACTS_EN[id]?.quiz ?? f.quiz }))
   return shuffle([...fromLog, ...made]).map(shuffleChoices)

@@ -9,6 +9,8 @@ import { asteroidGeometry, asteroidMaterial } from './components/asteroidShape'
 import { HubbleModel } from './components/telescope/HubbleModel'
 import { HubbleTelescope } from './components/telescope/HubbleNasa'
 import { WebbModel } from './components/telescope/WebbModel'
+import { ColonyModel } from './components/sf/ColonyModel'
+import { WorkMech } from './components/sf/WorkMech'
 
 /** 小惑星の見本：大きな岩の形を3つ並べる */
 function AsteroidSamples() {
@@ -92,6 +94,16 @@ export default function Hangar() {
           <HubbleModel />
         ) : MODEL === 'webb' ? (
           <WebbModel />
+        ) : MODEL === 'sv02' ? (
+          <ShipModel registry="SV-02" shipName="SOLAR WIND" tint="#e3cfa4" />
+        ) : MODEL === 'colony' ? (
+          <group rotation={[0, 0, Math.PI / 2]}>
+            <ColonyModel />
+          </group>
+        ) : MODEL === 'mech' ? (
+          <group position={[0, -0.5, 0]}>
+            <WorkMech pose={(params.get('pose') as 'weld' | 'carry' | 'float') ?? 'weld'} />
+          </group>
         ) : (
           <ShipModel />
         )}

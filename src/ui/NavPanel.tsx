@@ -5,6 +5,7 @@ import { bodyRadius, TIME_RATES } from '../data/scale'
 import { useStore } from '../state/store'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { CUBE_ID, cubeName } from '../data/cube'
+import { COLONY_ID, colonyName, setWorld } from '../data/sf'
 import { HUBBLE_ID, scopeName, WEBB_ID } from '../data/telescopes'
 import { useRace } from '../state/race'
 import { QUIZ_LENGTH, startQuiz, useQuiz } from '../state/quiz'
@@ -182,10 +183,22 @@ export function NavPanel() {
   const onMission = missionPhase === 'active'
   const lang = useLang()
   if (s.mode === 'gallery') return null
+  const sf = s.settings.world === 'sf'
   const other = (
-    <button className="nav-lang" onClick={() => setLang(lang === 'en' ? 'ja' : 'en')} lang={lang === 'en' ? 'ja' : 'en'} title={t('Switch to English', '日本語にする')}>
-      {lang === 'en' ? '日本語' : 'English'}
-    </button>
+    <>
+      <button className="nav-lang" onClick={() => setLang(lang === 'en' ? 'ja' : 'en')} lang={lang === 'en' ? 'ja' : 'en'} title={t('Switch to English', '日本語にする')}>
+        {lang === 'en' ? '日本語' : 'English'}
+      </button>
+      {/* 本物の太陽系だけか、架空の船や構造物も出す SF モードか */}
+      <span className="nav-world" role="group" aria-label={t('世界', 'World')}>
+        <button className={sf ? '' : 'on'} onClick={() => setWorld('real')} disabled={racing} title={t('本物の太陽系だけ', 'Only the real solar system')}>
+          {t('現実', 'Real')}
+        </button>
+        <button className={sf ? 'on sf' : 'sf'} onClick={() => setWorld('sf')} disabled={racing} title={t('架空の船や構造物も出す', 'Show imaginary ships and structures too')}>
+          SF
+        </button>
+      </span>
+    </>
   )
 
   return (
@@ -223,8 +236,13 @@ export function NavPanel() {
         <div className="nav-heading">{t('宇宙望遠鏡', 'Space telescopes')}</div>
         <TargetButton id={HUBBLE_ID} name={scopeName(HUBBLE_ID)} onPick={pick} />
         <TargetButton id={WEBB_ID} name={scopeName(WEBB_ID)} onPick={pick} />
-        <div className="nav-heading">{t('未確認', 'Unidentified')}</div>
-        <TargetButton id={CUBE_ID} name={cubeName()} onPick={pick} />
+        {sf && (
+          <>
+            <div className="nav-heading">{t('SF（架空）', 'SF (imaginary)')}</div>
+            <TargetButton id={COLONY_ID} name={colonyName()} onPick={pick} />
+            <TargetButton id={CUBE_ID} name={cubeName()} onPick={pick} />
+          </>
+        )}
       </div>
 
       <div className="nav-target">

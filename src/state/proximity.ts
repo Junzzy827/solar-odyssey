@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import { approachKind, atmosphereAt, DIVE_DEPTH, limitDepthKm, radiusKm, SHIP_LENGTH_KM, type ApproachKind } from '../data/approach'
-import { bodies } from './registry'
+import { bodies, zoomZones } from './registry'
 import { raceActive } from './race'
-import { shipZoom } from './zoom'
+import { shipZoom, zoneFactor } from './zoom'
 
 /** いちばん近い天体（高さは雲の上・地表からの距離。ガス惑星の中では負） */
 export const proximity = {
@@ -55,6 +55,8 @@ export function updateProximity(position: THREE.Vector3) {
       proximity.altitude = altitude
     }
   }
+  // 縮める場所（スペースコロニーなど）では、縮めた分だけゆっくり（全部縮めると、1秒に船の約5隻分）
+  for (const zone of zoomZones) speedFactor = Math.min(speedFactor, zoneFactor(zone, position) ** -1.6)
 }
 
 /**

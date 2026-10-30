@@ -3,6 +3,7 @@ import { PLANETS } from '../data/bodies'
 import { CUBE_ID, cubeName } from '../data/cube'
 import { named, t } from '../i18n/lang'
 import { isTelescope, scopeName } from '../data/telescopes'
+import { COLONY_ID, colonyName } from '../data/sf'
 import { RACE_TEXT, raceActive } from './race'
 import { bodies } from './registry'
 import { useStore } from './store'
@@ -71,7 +72,7 @@ export function engage() {
 }
 
 /** 英語の掛け声で呼ぶ行き先の名前 */
-const SPOKEN: Record<string, string> = { sun: 'the Sun', moon: 'the Moon', hubble: 'the Hubble Space Telescope', webb: 'the Webb Space Telescope', [CUBE_ID]: 'the unknown vessel' }
+const SPOKEN: Record<string, string> = { sun: 'the Sun', moon: 'the Moon', hubble: 'the Hubble Space Telescope', webb: 'the Webb Space Telescope', [CUBE_ID]: 'the unknown vessel', [COLONY_ID]: 'the L5 colony' }
 const spokenName = (id: string) => SPOKEN[id] ?? id[0].toUpperCase() + id.slice(1)
 
 /** ワープの掛け声（艦長の号令。英語。セリフはこのアプリのオリジナル） */
@@ -89,6 +90,7 @@ function warpCall(id: string, factor: number) {
 export function bodyInfo(id: string) {
   if (id === 'sun') return { name: t('太陽', 'Sun'), au: 0, parent: null as string | null }
   if (id === CUBE_ID) return { name: cubeName(), au: 0, parent: null }
+  if (id === COLONY_ID) return { name: colonyName(), au: 0, parent: null }
   if (isTelescope(id)) return { name: scopeName(id), au: 0, parent: null }
   for (const p of PLANETS) {
     if (p.id === id) return { name: named(p), au: p.distanceAu, parent: null }

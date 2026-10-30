@@ -6,6 +6,7 @@ import { HubbleTelescope } from './HubbleNasa'
 import { WebbModel } from './WebbModel'
 import { bodies, registerBody } from '../../state/registry'
 import { ship } from '../../state/flight'
+import { inZoomZone } from '../../state/zoom'
 import { useStore } from '../../state/store'
 import {
   HUBBLE_ID,
@@ -95,7 +96,8 @@ export function Telescopes() {
       if (d < SCOPE_NEAR * keep) near = id
       if (noticed.current === id && d > SCOPE_NEAR * 3) noticed.current = null
     }
-    const flying = st.mode === 'flight' && st.warpPhase === 'idle'
+    // スペースコロニーのそばでは、近くを回る望遠鏡の案内は出さない（コロニーを見に来ているので）
+    const flying = st.mode === 'flight' && st.warpPhase === 'idle' && !inZoomZone(ship.position)
     if (!flying) near = null
     if (near !== st.scopeNear) st.setScopeNear(near)
     if (near && noticed.current !== near && !st.scope) {

@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CubeModel } from '../cube/CubeModel'
+import { ShipModel } from '../ship/ShipModel'
+import { useSF } from '../../data/sf'
 import { markerOverride } from '../../state/registry'
-import { flightControl, ship } from '../../state/flight'
+import { SHIP_SCALE, flightControl, ship } from '../../state/flight'
 import { useStore } from '../../state/store'
 import { RACE_TEXT, useRace } from '../../state/race'
 import { playBeep } from '../../audio/sfx'
@@ -21,6 +23,8 @@ const UP = new THREE.Vector3(0, 1, 0)
 /** コース上の輪（ゲート）、薄い道すじ、ライバルの立方体船、進行の判定 */
 export function Race() {
   const phase = useRace((s) => s.phase)
+  // ライバル：SF モードでは謎の立方体船、現実モードでは姉妹艦の SV-02
+  const sf = useSF()
   const course = useRef<Course | null>(null)
   const gateMeshes = useRef<THREE.Mesh[]>([])
   const rival = useRef<THREE.Group>(null!)
@@ -147,7 +151,8 @@ export function Race() {
     const ru = Math.min(1, r.rivalS / c.length)
     const side = new THREE.Vector3().crossVectors(UP, c.curve.getTangentAt(ru)).normalize()
     rival.current.position.copy(c.curve.getPointAt(ru)).addScaledVector(side, 3.2).addScaledVector(UP, 1.2)
-    rival.current.rotation.y += dt * 0.3
+    if (sf) rival.current.rotation.y += dt * 0.3
+    else rival.current.lookAt(rival.current.position.clone().sub(c.curve.getTangentAt(ru))) // 船首（-Z）を進む向きへ
     const rivalGate = c.gates.filter((g) => g.u * c.length <= r.rivalS).length
 
     if (race.phase === 'countdown') {
@@ -222,8 +227,8 @@ export function Race() {
           frustumCulled={false}
         />
       ))}
-      <group ref={rival} visible={false} scale={0.7}>
-        <CubeModel />
+      <group ref={rival} visible={false} scale={sf ? 0.7 : SHIP_SCALE}>
+        {phase !== 'idle' && (sf ? <CubeModel /> : <ShipModel registry="SV-02" shipName="SOLAR WIND" tint="#e3cfa4" />)}
       </group>
     </>
   )
