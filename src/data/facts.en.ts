@@ -92,6 +92,78 @@ export const FACTS_EN: Record<string, Facts> = {
       explanation: 'When the cylinder spins, everything inside is pressed outward against the floor. That is the “weight” you feel standing on the inner ground, like the push on a spinning fairground ride.',
     },
   },
+  gate: {
+    rows: [
+      ['Size', 'Ring about 7 km across (about 10 times your ship)'],
+      ['Where', 'Beyond Neptune'],
+      ['Leads to', 'A spinning black hole far beyond the solar system'],
+    ],
+    fiction: true,
+    notes: [
+      'The entrance to a “shortcut” joining two places in space. Fly straight into the ring and you come out on the other side.',
+      'In the ball at its middle you can see the sky on the other side, bent out of shape.',
+    ],
+    real: [
+      'A tunnel joining two points in space, a “wormhole”, is allowed by the equations of Einstein’s general relativity, but nobody knows whether any exist.',
+      'Keeping a wormhole open for people to pass through is thought to need something ordinary matter does not have (negative energy).',
+      'Voyager 1, the real spacecraft that has gone farthest, is only about one light-day away. The nearest star is about 4.2 light-years away.',
+    ],
+    quiz: {
+      question: 'What do we know about wormholes today?',
+      choices: ['Theory allows them, but none have been found', 'Several have been found in the solar system', 'You can see one from Earth with a telescope every night'],
+      answer: 0,
+      explanation: 'The equations of general relativity allow them, but no real one has been found. They are a favourite science-fiction shortcut.',
+    },
+  },
+  blackhole: {
+    rows: [
+      ['Event horizon', 'About 4 km in radius (past it, not even light can get out)'],
+      ['Accretion disk', 'Hot gas circling from 3 to 14 times the horizon radius'],
+      ['Where', 'Far beyond the solar system (an imaginary place)'],
+    ],
+    fiction: true,
+    notes: [
+      'The black hole’s gravity bends the path of light. Light from the far side of the disk wraps over the top and under the bottom, like a ring around the black shadow.',
+      'The gas in the disk moves at nearly the speed of light. The side coming toward you looks brighter and the side going away looks dimmer.',
+      'Go as close as you can and you will learn how time slows down. To go home, use the nearby gate or warp to any target in the solar system.',
+    ],
+    real: [
+      'In 2019 the Event Horizon Telescope, which links radio telescopes all over the world, took the first picture of a black hole’s shadow, in the galaxy M87. In 2022 it pictured Sagittarius A* at the centre of our Milky Way.',
+      'Time runs slower where gravity is strong. It even happens a little on Earth: GPS satellite clocks have to be corrected for it.',
+      'In 2015 LIGO in the USA detected gravitational waves for the first time, from two black holes crashing together.',
+      'The bending of light here is worked out with a simplified form of the equations of general relativity.',
+    ],
+    quiz: {
+      question: 'What took the first picture of a black hole’s shadow in 2019?',
+      choices: ['The Hubble Space Telescope on its own', 'Radio telescopes all over the world working together', 'The Voyager probe'],
+      answer: 1,
+      explanation: 'To see as sharply as a telescope the size of Earth, radio telescopes around the world observed at the same time (the Event Horizon Telescope).',
+    },
+  },
+  swarm: {
+    rows: [
+      ['Size', 'About 6 km across; each piece about 100 m'],
+      ['Count', 'About 700 pieces'],
+      ['Where', 'On Jupiter’s orbit, 60° ahead of Jupiter (where the Trojan asteroids are)'],
+    ],
+    fiction: true,
+    notes: [
+      'Silver pieces fly together and change shape like liquid metal: a ball, a ring, a wave, a spiral.',
+      'Come close and it copies the shape of your ship. It is a calm swarm and does nothing to you.',
+    ],
+    real: [
+      'Starlings fly in flocks of tens of thousands that change shape like one living thing. Each bird only follows about seven of its nearest neighbours.',
+      'In “swarm robotics”, researchers get many small robots to work together like a flock.',
+      'No life has been found beyond Earth so far. Scientists are searching places where life could exist, such as Mars, Europa and Enceladus.',
+      'There really are asteroids on Jupiter’s orbit, 60° ahead of and behind Jupiter: the Trojans. The Lucy probe will visit them from 2027.',
+    ],
+    quiz: {
+      question: 'How can a huge flock of starlings change shape like one living thing?',
+      choices: ['A leader bird gives orders to the whole flock', 'Each bird follows the few birds nearest to it', 'Earth’s magnetism holds them in a set shape'],
+      answer: 1,
+      explanation: 'Each bird only matches its few nearest neighbours, but that spreads through the flock and makes the big shape.',
+    },
+  },
   sun: {
     diameter: 'About 1.39 million km (about 109 times Earth)',
     temperature: 'Surface about 5,500 °C, core about 15 million °C',
