@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import * as THREE from 'three'
 import type { ViewpointId } from '../data/bridge'
+import { useStore } from './store'
 
 /** ブリッジ視点：どこに立って（座って）いるか、見回しているか */
 export const useBridge = create<{
@@ -29,6 +30,20 @@ export const useBridge = create<{
   setViewpoint: (viewpoint) => set({ viewpoint, looking: false }),
   setLooking: (looking) => set({ looking }),
 }))
+
+/** ブリッジの中（艦長席）へ。どの画面からでも同じ入り方にする */
+export function enterBridge() {
+  useBridge.setState({ viewpoint: 'captain', looking: false, viewscreen: false, part: null })
+  const s = useStore.getState()
+  if (s.mode !== 'flight') s.setMode('flight')
+  s.setCameraMode('bridge')
+}
+
+/** ブリッジから出て、ふだんの（船のうしろからの）視点にもどる */
+export function leaveBridge() {
+  useBridge.setState({ viewpoint: 'captain', looking: false, viewscreen: false, labels: false, part: null })
+  useStore.getState().setCameraMode('chase')
+}
 
 /** 部屋の中の目の位置（m）と向き。Ship が毎フレーム決め、BridgeInterior がその通りに部屋を描く */
 export const bridgeEye = {
