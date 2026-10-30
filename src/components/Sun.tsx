@@ -91,7 +91,7 @@ const fragmentShader = /* glsl */ `
       limb *= pow(vec3(max(mu, 0.001)), vec3(0.0, 0.08, 0.2));
       vec3 white = vec3(1.0, 0.95, 0.86) * (0.9 + 0.1 * heat) - spots * 0.06;
       // トーンマッピングで白が灰色に沈まないよう、そのときは少し明るく
-      gl_FragColor = vec4(white * limb * (uToned > 0.5 ? 2.0 : 1.3), 1.0);
+      gl_FragColor = vec4(white * limb * (uToned > 0.5 ? 1.45 : 1.3), 1.0);
     }
     #include <logdepthbuf_fragment>
   }
