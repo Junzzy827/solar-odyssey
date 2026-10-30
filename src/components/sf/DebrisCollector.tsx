@@ -8,6 +8,7 @@ import { DEBRIS_ID, SF_TEXT, debrisName } from '../../data/sf'
 import { useLang } from '../../i18n/lang'
 import { LABEL_Z, useHideBehindSun } from '../labels'
 import { useSite } from './useSite'
+import { useLayout } from '../../state/useLayout'
 
 // 宇宙ごみの回収船（オリジナルのデザイン）。地球の低い軌道を回りながら、前から近づくごみを
 // 腕の先の網で1つずつつかまえる。まわりの低い軌道には、たくさんのごみが点で散らばっている。
@@ -30,6 +31,9 @@ const CATCH_SECONDS = 14
 const CLOUD = 1800
 /** 壊したごみが軌道に戻るまでの秒数 */
 const JUNK_RESPAWN = 40
+/** ごみの点が見えはじめる・はっきり見えるカメラの距離（地球の中心から）。本物のごみは数cm〜数mなので、遠くからは見えない */
+const CLOUD_FADE_FAR = 9
+const CLOUD_FADE_NEAR = 3.5
 
 const rng = (seed: number) => {
   let s = seed
@@ -93,6 +97,8 @@ function Tug({ parts }: { parts: ReturnType<typeof makeParts> }) {
 
 /** 宇宙ごみの回収船と、低い軌道に散らばるごみ */
 export function DebrisCollector() {
+  // 軌道やごみの広がりは、地球の半径 1.2 のときの値。大きさの切替で地球が変わったら、そのぶん伸び縮みさせる
+  const spread = (useLayout().radius.get('earth') ?? 1.2) / 1.2
   useLang()
   const group = useRef<THREE.Group>(null!)
   const label = useRef<HTMLSpanElement>(null)
@@ -155,7 +161,7 @@ export function DebrisCollector() {
   )
 
   const clock = useRef(0)
-  useFrame((_, rawDelta) => {
+  useFrame(({ camera }, rawDelta) => {
     const e = bodies.get('earth')
     if (!e) return
     // 時間を止めたら回収船とごみも止まる
@@ -165,8 +171,8 @@ export function DebrisCollector() {
 
     // 回収船：傾いた円軌道。進む向きを前（-Z）にする
     const a = (t / PERIOD) * Math.PI * 2
-    pos.set(Math.cos(a) * ORBIT, 0, -Math.sin(a) * ORBIT).applyAxisAngle(X, INCLINATION)
-    ahead.set(Math.cos(a + 0.01) * ORBIT, 0, -Math.sin(a + 0.01) * ORBIT).applyAxisAngle(X, INCLINATION)
+    pos.set(Math.cos(a) * ORBIT * spread, 0, -Math.sin(a) * ORBIT * spread).applyAxisAngle(X, INCLINATION)
+    ahead.set(Math.cos(a + 0.01) * ORBIT * spread, 0, -Math.sin(a + 0.01) * ORBIT * spread).applyAxisAngle(X, INCLINATION)
     const g = group.current
     g.position.copy(earth).add(pos)
     ahead.add(earth)
@@ -185,7 +191,15 @@ export function DebrisCollector() {
     target.current.scale.setScalar(shrink)
     target.current.rotation.set(t * 0.4, t * 0.25, t * 0.15)
 
-    // 散らばるごみ（遠くからは地球のまわりのかすみに見える）。低いものほど速く回る
+    // 散らばるごみ：近づくほど見えてきて、遠くでは消える。低いものほど速く回る
+    const d = camera.position.distanceTo(earth) / spread
+    const fade = THREE.MathUtils.clamp((CLOUD_FADE_FAR - d) / (CLOUD_FADE_FAR - CLOUD_FADE_NEAR), 0, 1)
+    const mat = cloud.points.material as THREE.PointsMaterial
+    cloud.points.visible = fade > 0
+    mat.opacity = 0.8 * fade
+    // 点の大きさ（画面のピクセル）も、地球から離れるほど小さく。すぐそばでも大きくしすぎない
+    mat.size = THREE.MathUtils.clamp(1.8 * (CLOUD_FADE_NEAR / d), 0.8, 2)
+    if (!fade) return
     const attr = cloud.points.geometry.getAttribute('position') as THREE.BufferAttribute
     const arr = attr.array as Float32Array
     cloud.elements.forEach((el, i) => {
@@ -200,8 +214,8 @@ export function DebrisCollector() {
         cloud.dead[i] = -1
       }
       const b = el.phase + (t / PERIOD) * Math.PI * 2 * (ORBIT / el.r) ** 1.5
-      const x = Math.cos(b) * el.r
-      const zz = -Math.sin(b) * el.r
+      const x = Math.cos(b) * el.r * spread
+      const zz = -Math.sin(b) * el.r * spread
       // 傾き（x 軸まわり）と、昇交点の向き（y 軸まわり）
       const y1 = -zz * Math.sin(el.incl)
       const z1 = zz * Math.cos(el.incl)
