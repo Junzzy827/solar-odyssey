@@ -16,6 +16,7 @@ import { isTouchDevice, touchInput } from '../state/input'
 import { bridgeEye, useBridge } from '../state/bridge'
 import { FLOOR_ABOVE_BASE, lookAngles, viewpoint } from '../data/bridge'
 import { shipScale, shipZoom, updateZoom } from '../state/zoom'
+import { beamFx, hitStopped, shakeCamera } from '../state/beam'
 import { QUALITY, useLevel } from '../state/quality'
 
 const THRUST = 10
@@ -188,7 +189,8 @@ export function Ship() {
   }
 
   useFrame((_, rawDelta) => {
-    const dt = Math.min(rawDelta, 0.05)
+    // チャージビームを撃った瞬間は、ほんの少し時間を止める（ヒットストップ）
+    const dt = hitStopped() ? 0 : Math.min(rawDelta, 0.05)
     const st = useStore.getState()
     const target = st.targetId ? bodies.get(st.targetId) : undefined
     if (target) target.object.getWorldPosition(tp)
@@ -320,6 +322,8 @@ export function Ship() {
     flightControl.holding = hold.current !== null
     const zoomIn = st.mode === 'map' ? 1 : 1 / shipZoom.factor
     group.current.position.copy(ship.position)
+    // チャージビームを溜めているあいだ、船体を小刻みに震わせる
+    if (beamFx.tremble > 0) group.current.position.add(v.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(beamFx.tremble * shipScale() * 0.025))
     group.current.quaternion.copy(ship.quaternion)
     group.current.scale.setScalar(shipScale())
     // 船体の傾き：機首の左右の回りの速さ（ヨー）に合わせて、ゆっくり傾けて戻す
@@ -362,6 +366,8 @@ export function Ship() {
         hero.active = false
         followCamera(camera as THREE.PerspectiveCamera, dt, st.warpPhase, zoomIn)
       }
+      if (st.settings.beamFx.shake) shakeCamera(cam, rawDelta, shipScale())
+      else beamFx.shake = 0
     }
 
     // 逆光はカメラの反対側の少し上から。ブリッジの中からは船体の前が不自然に光るので消す
@@ -630,15 +636,21 @@ function bridgeCamera(camera: THREE.PerspectiveCamera, dt: number, bankQuat: THR
 }
 
 /** 自機の後ろ上から追いかけるカメラ。ワープ中は視野角を広げる */
+/** 追いかけカメラが見る点を、船の前方からどれだけ上げるか */
+const CHASE_AIM_LIFT = 0.16
+
 function followCamera(camera: THREE.PerspectiveCamera, dt: number, phase: string, zoomIn: number) {
   // 自機からの相対位置で追従させる（天体と一緒に動いても遅れない）。接近ズーム中は船と一緒に近寄る
-  v.set(0, 0.095, 0.6).multiplyScalar(zoomIn).applyQuaternion(ship.quaternion)
+  // チャージビームを溜めて撃つあいだは、少し上・後ろへ引いて、ビームの長さが見えるようにする
+  const pose = beamFx.pose
+  v.set(0, 0.095 + 0.085 * pose, 0.6 + 0.12 * pose).multiplyScalar(zoomIn).applyQuaternion(ship.quaternion)
   camOffset.lerp(v, 1 - Math.exp(-8 * dt))
   camera.position.copy(ship.position).add(camOffset)
   fwd.set(0, 0, -1).applyQuaternion(ship.quaternion)
   up.set(0, 1, 0).applyQuaternion(ship.quaternion)
   camera.up.lerp(up, 1 - Math.exp(-6 * dt))
-  camera.lookAt(v.copy(ship.position).addScaledVector(fwd, 2 * zoomIn))
+  // 船を画面の中央より少し下に置き、真ん中（ビームの照準）は船の上を通す。船の真後ろを狙うと、ビームが円盤の陰に隠れてしまう
+  camera.lookAt(v.copy(ship.position).addScaledVector(fwd, 2 * zoomIn).addScaledVector(up, CHASE_AIM_LIFT * zoomIn))
   const fov = phase === 'warp' ? 58 + 35 * warpFx.intensity : phase === 'charge' ? 50 : 52
   camera.fov += (fov - camera.fov) * (1 - Math.exp(-5 * dt))
   camera.updateProjectionMatrix()

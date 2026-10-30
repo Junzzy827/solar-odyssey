@@ -623,3 +623,9 @@ body.touch .stamp-book {
 body.touch[data-sheet='scale'] .sheet-backdrop {
   background: transparent;
 }
+
+/* チャージビームのゲージは、下の真ん中（スティックと右のボタンのあいだ） */
+body.touch .beam-gauge {
+  bottom: calc(var(--pad-b) + 14px);
+  width: min(200px, 34vw);
+}
