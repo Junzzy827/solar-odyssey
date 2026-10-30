@@ -28,6 +28,8 @@ import { NavPanel } from './ui/NavPanel'
 import { LogPanel } from './ui/LogPanel'
 import { TelescopeView } from './ui/TelescopeView'
 import { useLayout } from './state/useLayout'
+import { QUALITY, dprFor, useLevel } from './state/quality'
+import { QualityGovernor } from './components/QualityGovernor'
 import { GalleryCamera } from './components/ship/GalleryCamera'
 import { GalleryPanel } from './ui/GalleryPanel'
 import { GalleryLabels } from './ui/GalleryLabels'
@@ -60,11 +62,14 @@ export default function App() {
   // 日食・月食を見ているあいだは、EclipseScene のカメラ操作を使う
   const eclipseView = useEclipse((e) => e.open && e.eclipseId !== null)
   useGlobalKeys()
+  const level = useLevel()
+  const quality = QUALITY[level]
 
   return (
     <>
-      <Canvas shadows camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
+      <Canvas shadows dpr={dprFor(level)} camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
         <SimClock />
+        <QualityGovernor />
         <ambientLight intensity={0.08} />
         <Sky />
         <Sun />
@@ -91,9 +96,12 @@ export default function App() {
         <EclipseScene />
         <Phaser />
         {mode === 'map' && !eclipseView && <MapControls />}
-        <EffectComposer>
-          <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />
-        </EffectComposer>
+        {/* 軽い画質では後処理を使わない（明るい光のにじみは無くなるが、描く回数と GPU のメモリが大きく減る） */}
+        {quality.bloom && (
+          <EffectComposer key={quality.msaa} multisampling={quality.msaa}>
+            <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur />
+          </EffectComposer>
+        )}
         {bridge && <BridgeInterior />}
       </Canvas>
       <GalleryLabels />

@@ -3,6 +3,7 @@ import type { Near } from './proximity'
 import type { ScopeId } from '../data/telescopes'
 import { DEFAULT_RATE } from '../data/scale'
 import type { ShipId } from '../data/ships'
+import type { QualitySetting } from './quality'
 
 /** 全体マップ・操縦席・鑑賞モード（止まった自機のまわりを回って眺める） */
 export type Mode = 'map' | 'flight' | 'gallery'
@@ -70,10 +71,12 @@ export type Settings = {
   world: 'real' | 'sf'
   /** 乗る船（data/ships.ts） */
   ship: ShipId
+  /** 画質（state/quality.ts）。auto は FPS を見て自動で選ぶ */
+  quality: QualitySetting
 }
 
 const SETTINGS_KEY = 'solar-voyager:settings'
-const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real', ship: 'sv01' }
+const DEFAULT_SETTINGS: Settings = { banking: true, distance: 0, size: 0, volume: 0.3, muted: false, music: true, lang: null, world: 'real', ship: 'sv01', quality: 'auto' }
 
 // リンクで世界を決めて開ける（#sf や #real）
 const worldFromUrl = /[?&#](sf|real)\b/.exec(location.search + location.hash)?.[1] as Settings['world'] | undefined

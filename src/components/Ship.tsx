@@ -15,6 +15,7 @@ import { isTouchDevice, touchInput } from '../state/input'
 import { bridgeEye, useBridge } from '../state/bridge'
 import { FLOOR_ABOVE_BASE, lookAngles, viewpoint } from '../data/bridge'
 import { shipScale, shipZoom, updateZoom } from '../state/zoom'
+import { QUALITY, useLevel } from '../state/quality'
 
 const THRUST = 10
 const MAX_SPEED = 8
@@ -76,6 +77,7 @@ export function Ship() {
   const { gl, camera } = useThree()
   const mode = useStore((s) => s.mode)
   const spec = useShip()
+  const shadowSize = QUALITY[useLevel()].shadow
 
   // 周回待機：天体と一緒に動く（ワープ到着や自動航行の後）
   const hold = useRef<{ id: string; offset: THREE.Vector3 } | null>(null)
@@ -327,7 +329,9 @@ export function Ship() {
         </group>
         {mode === 'gallery' && <GalleryScene />}
       </group>
+      {/* 影の細かさが変わったら作り直す（影の地図は最初の大きさのまま使い回されるので） */}
       <spotLight
+        key={shadowSize}
         ref={sunSpot}
         angle={0.12}
         penumbra={0.3}
@@ -335,8 +339,8 @@ export function Ship() {
         decay={0}
         intensity={3}
         color="#fff4e6"
-        castShadow
-        shadow-mapSize={[2048, 2048]}
+        castShadow={shadowSize > 0}
+        shadow-mapSize={[shadowSize || 512, shadowSize || 512]}
         shadow-bias={-0.0003}
         shadow-normalBias={0.002}
         shadow-camera-near={1}

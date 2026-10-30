@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { QUALITY, currentLevel } from '../state/quality'
 
 const loader = new THREE.TextureLoader()
 const center = new THREE.Vector3()
@@ -24,7 +25,9 @@ export function useCloseTexture(url: string | undefined, target: RefObject<THREE
     if (!url || !target.current) return
     target.current.getWorldPosition(center)
     const d = camera.position.distanceTo(center) / radius
-    const near = want.current ? d < DROP_BEYOND : d < LOAD_WITHIN
+    // 軽い画質では 4K を使わない（使っていたら捨てる）
+    const allowed = QUALITY[currentLevel()].closeTextures
+    const near = allowed && (want.current ? d < DROP_BEYOND : d < LOAD_WITHIN)
     if (near === want.current) return
     want.current = near
     const id = ++job.current

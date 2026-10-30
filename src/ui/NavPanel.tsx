@@ -17,6 +17,7 @@ import { openStamps, useStamps } from '../state/stamps'
 import { NATURAL } from '../data/stamps'
 import { ui } from '../i18n'
 import { ShipSection } from './ShipPicker'
+import { useLevel, useQuality, type QualitySetting } from '../state/quality'
 import { named, setLang, t, useLang } from '../i18n/lang'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
@@ -80,6 +81,7 @@ function Settings({ racing }: { racing: boolean }) {
           </button>
         </span>
       </div>
+      <QualityPick />
       <label className="nav-slider">
         <span>
           {t('距離', 'Distance')}{' '}
@@ -131,6 +133,45 @@ function Settings({ racing }: { racing: boolean }) {
         )}
       </div>
     </details>
+  )
+}
+
+const LEVEL_NAME: Record<QualitySetting, () => string> = {
+  auto: () => t('自動', 'Auto'),
+  high: () => t('高', 'High'),
+  medium: () => t('標準', 'Medium'),
+  low: () => t('軽量', 'Light'),
+}
+
+/** 画質。自動のときは、いま選んでいる画質と FPS も見せる */
+function QualityPick() {
+  useLang()
+  const setting = useStore((s) => s.settings.quality)
+  const update = useStore((s) => s.updateSettings)
+  const level = useLevel()
+  const fps = useQuality((q) => q.fps)
+  return (
+    <>
+      <div className="nav-check">
+        {t('画質', 'Quality')}
+        <span className="nav-lang-pick">
+          {(['auto', 'high', 'medium', 'low'] as const).map((q) => (
+            <button key={q} className={setting === q ? 'on' : ''} onClick={() => update({ quality: q })}>
+              {LEVEL_NAME[q]()}
+            </button>
+          ))}
+        </span>
+      </div>
+      <div className="muted small">
+        {t('いま', 'Now')}: {LEVEL_NAME[level]()}
+        {fps > 0 && ` · ${fps} fps`}
+        {' '}
+        {t(
+          '— 惑星がちらついたり動きがカクカクするときは「軽量」に。自動では、描画が追いつかないと自動で下げます。',
+          '— If planets flicker or motion stutters, pick Light. Auto lowers the quality when drawing falls behind.',
+        )}
+      </div>
+    </>
   )
 }
 
