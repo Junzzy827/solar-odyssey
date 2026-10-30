@@ -2504,16 +2504,49 @@ body.sf .nav-panel {
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 3px 12px;
-  border: 1.5px solid #c79bff;
-  border-radius: 10px;
-  background: rgba(40, 18, 60, 0.8);
-  color: #e6d4ff;
-  font-weight: bold;
-  font-size: 13px;
-  letter-spacing: 0.12em;
+  display: inline-flex;
+  border: 1.5px solid #6c6688;
+  border-radius: 12px;
+  background: rgba(16, 18, 34, 0.82);
+  overflow: hidden;
   pointer-events: auto;
   z-index: 5;
+}
+
+.sf-badge.on {
+  border-color: #c79bff;
+  background: rgba(40, 18, 60, 0.82);
+}
+
+.sf-badge button {
+  padding: 5px 14px;
+  border: none;
+  background: transparent;
+  color: #a9a4c0;
+  font: inherit;
+  font-weight: bold;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.sf-badge button:hover:not(:disabled):not(.on) {
+  color: #fff;
+}
+
+.sf-badge button.on {
+  background: #3b5a86;
+  color: #fff;
+}
+
+.sf-badge.on button.on {
+  background: #7a4bc0;
+  color: #f2e8ff;
+}
+
+.sf-badge button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .sf-badge span {
@@ -2521,7 +2554,31 @@ body.sf .nav-panel {
   font-weight: normal;
   font-size: 10px;
   letter-spacing: 0.08em;
-  opacity: 0.8;
+  opacity: 0.85;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .sf-badge button {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+}
+
+/* 縦長のスマホでは上が名札と航法コンピュータでいっぱいなので、左の空いたところへ */
+@media (max-width: 560px) and (orientation: portrait) {
+  .sf-badge {
+    top: 200px;
+    left: 12px;
+    transform: none;
+  }
+
+  .sf-badge button {
+    padding: 8px 12px;
+  }
+
+  .sf-badge span {
+    display: none;
+  }
 }
 
 .nav-world {
