@@ -1539,7 +1539,7 @@ canvas {
     overflow: visible;
   }
 
-  /* たたんだときは、目標とエンゲージ・自動航行だけ（ボタンは横に並べる） */
+  /* たたんだときは、目標とワープ・自動航行だけ（ボタンは横に並べる） */
   .nav-panel.collapsed {
     bottom: auto;
     width: 210px;

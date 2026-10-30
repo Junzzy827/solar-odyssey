@@ -22,7 +22,7 @@ function choose(i: number) {
   chime(i === q.questions[q.index].answer)
 }
 
-/** クイズのあいだは 1〜3 で答え、Enter で次へ、Esc で閉じる（ワープ速度やエンゲージのキーより先に受け取る） */
+/** クイズのあいだは 1〜3 で答え、Enter で次へ、Esc で閉じる（ワープ速度やワープのキーより先に受け取る） */
 function useQuizKeys(active: boolean) {
   useEffect(() => {
     if (!active) return

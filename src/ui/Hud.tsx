@@ -10,7 +10,7 @@ import { canOpenGallery, closeGallery, openGallery } from '../state/gallery'
 import { isTouchDevice } from '../state/input'
 import { getLang, t, useLang } from '../i18n/lang'
 
-/** 全体のキー操作：M 全体マップ／V 鑑賞モード／Enter エンゲージ／G 自動航行／C カメラ／1〜9 ワープ速度 */
+/** 全体のキー操作：M 全体マップ／V 鑑賞モード／Enter ワープ／G 自動航行／C カメラ／1〜9 ワープ速度 */
 export function useGlobalKeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

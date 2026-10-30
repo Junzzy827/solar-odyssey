@@ -13,7 +13,7 @@ export const missionsEn: Record<string, MissionText> = {
     steps: [
       {
         goal: 'Head to the Moon',
-        start: 'I have set the Moon as our target. Press Engage (Enter) to warp, or use autopilot (G). You can also fly there yourself.',
+        start: 'I have set the Moon as our target. Press Warp (Enter) to jump there, or use autopilot (G). You can also fly there yourself.',
         done: 'We have reached the Moon. The Moon always shows the same face to Earth, because it takes the same 27 days to spin once and to circle Earth once.',
       },
       {
@@ -129,7 +129,7 @@ export const missionsEn: Record<string, MissionText> = {
     steps: [
       {
         goal: 'Head to Jupiter',
-        start: 'I have set Jupiter as our target. Engage when ready.',
+        start: 'I have set Jupiter as our target. Warp when ready.',
         done: 'We have reached Jupiter, the largest planet in the solar system. More than 1,300 Earths would fit inside it.',
       },
       {

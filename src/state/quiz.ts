@@ -267,7 +267,7 @@ export function quizTitle(score: number) {
   return en ? 'Navigator in Training' : '見習い航海士'
 }
 
-/** まちがえた天体へワープする（クイズを閉じて目標に設定し、エンゲージ） */
+/** まちがえた天体へワープする（クイズを閉じて目標に設定し、ワープを始める） */
 export function warpToMissed(id: string) {
   closeQuiz()
   const s = useStore.getState()

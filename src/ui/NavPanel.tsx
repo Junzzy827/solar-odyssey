@@ -161,7 +161,7 @@ function SimDate() {
 
 export function NavPanel() {
   const [open, setOpen] = useState<string | null>('saturn')
-  // スマホでは、ふだんは目標とエンゲージだけの小さな形にたたんでおく
+  // スマホでは、ふだんは目標とワープのボタンだけの小さな形にたたんでおく
   const small = useSmallScreen()
   const [expanded, setExpanded] = useState(false)
   const collapsed = small && !expanded
@@ -269,11 +269,11 @@ export function NavPanel() {
       </div>
 
       <label className="nav-warp">
-        {t('ワープ', 'Warp')} {s.warpFactor}
+        {t('ワープの速さ', 'Warp speed')} {s.warpFactor}
         <input type="range" min={1} max={9} step={1} value={s.warpFactor} onChange={(e) => s.setWarpFactor(Number(e.target.value))} disabled={busy} />
       </label>
       <button className="engage" onClick={engage} disabled={!s.targetId || busy}>
-        {t('エンゲージ', 'Engage')} <kbd>Enter</kbd>
+        {t('ワープ', 'Warp')} <kbd>Enter</kbd>
       </button>
       <button className={`secondary nav-auto${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
         {t('自動航行', 'Autopilot')} <kbd>G</kbd>
