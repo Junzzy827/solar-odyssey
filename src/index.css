@@ -3045,3 +3045,50 @@ body.sf .nav-panel {
     filter: brightness(1.6);
   }
 }
+
+/* 推進の段階（ワープのボタンの上。ホイールで切り替え） */
+.nav-throttle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-throttle-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nav-throttle-head b {
+  color: #ffd27a;
+}
+
+.nav-throttle-speed b {
+  display: inline-block;
+  min-width: 2.6em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.nav-throttle-bar {
+  display: flex;
+  gap: 3px;
+}
+
+.nav-throttle-bar button {
+  flex: 1 1 0;
+  height: 10px;
+  padding: 0;
+  border: 1px solid rgba(255, 210, 122, 0.35);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.nav-throttle-bar button.on {
+  border-color: #ffd27a;
+  background: linear-gradient(90deg, #f2a65a, #ffd27a);
+}
+
+.nav-throttle-hint {
+  font-size: 11px;
+}

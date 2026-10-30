@@ -213,6 +213,8 @@ export function Hud() {
             {t('W/S 前後・A/D 左右・Space/Shift 上下・Q/E 回転・マウスで向き', 'W/S forward/back · A/D left/right · Space/Shift up/down · Q/E roll · mouse to steer')}
             <br />
             {t('F またはクリックでビーム（長押しでチャージ）・I で航海日誌・C でカメラ切り替え', 'F or click to fire the beam (hold to charge) · I for the ship’s log · C to switch camera')}
+            <br />
+            {t('ホイールで推進の段階（速さ）を切り替え', 'Mouse wheel to change thrust (speed)')}
           </div>
         )}
         {mode !== 'gallery' && (

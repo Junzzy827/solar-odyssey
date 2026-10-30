@@ -4,6 +4,7 @@ import type { ScopeId } from '../data/telescopes'
 import { DEFAULT_RATE } from '../data/scale'
 import type { ShipId } from '../data/ships'
 import type { QualitySetting } from './quality'
+import { THROTTLE_DEFAULT, THROTTLE_STEPS } from './throttle'
 
 /** 全体マップ・操縦席・鑑賞モード（止まった自機のまわりを回って眺める） */
 export type Mode = 'map' | 'flight' | 'gallery'
@@ -20,6 +21,8 @@ type State = {
   mode: Mode
   targetId: string | null
   warpFactor: number
+  /** 推進の段階（flight.ts の THROTTLE_STEPS の番号） */
+  throttle: number
   warpPhase: WarpPhase
   autopilot: boolean
   /** 時間の速さ：1秒に何時間進むか（data/scale.ts の TIME_RATES） */
@@ -39,6 +42,7 @@ type State = {
   setMode: (mode: Mode) => void
   setTarget: (id: string | null) => void
   setWarpFactor: (factor: number) => void
+  setThrottle: (step: number) => void
   setWarpPhase: (phase: WarpPhase) => void
   setAutopilot: (on: boolean) => void
   setTimeScale: (scale: number) => void
@@ -126,6 +130,7 @@ export const useStore = create<State>((set) => ({
   mode: 'map',
   targetId: null,
   warpFactor: 6,
+  throttle: THROTTLE_DEFAULT,
   warpPhase: 'idle',
   autopilot: false,
   timeScale: DEFAULT_RATE,
@@ -140,6 +145,7 @@ export const useStore = create<State>((set) => ({
   setMode: (mode) => set({ mode }),
   setTarget: (targetId) => set({ targetId, autopilot: false, logOpen: false }),
   setWarpFactor: (warpFactor) => set({ warpFactor }),
+  setThrottle: (step) => set({ throttle: Math.max(0, Math.min(THROTTLE_STEPS.length - 1, Math.round(step))) }),
   setWarpPhase: (warpPhase) => set({ warpPhase }),
   setAutopilot: (autopilot) => set({ autopilot }),
   setTimeScale: (timeScale) => set({ timeScale }),

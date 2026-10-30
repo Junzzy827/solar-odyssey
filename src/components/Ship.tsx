@@ -18,9 +18,10 @@ import { FLOOR_ABOVE_BASE, lookAngles, viewpoint } from '../data/bridge'
 import { shipScale, shipZoom, updateZoom } from '../state/zoom'
 import { beamFx, hitStopped, shakeCamera } from '../state/beam'
 import { QUALITY, useLevel } from '../state/quality'
+import { MAX_SPEED, THROTTLE_STEPS } from '../state/throttle'
+import { raceActive } from '../state/race'
 
 const THRUST = 10
-const MAX_SPEED = 8
 const AUTO_SPEED = 12
 const MOUSE_SENSITIVITY = 0.0016
 // 巨大な船なので、旋回はマウスに少し遅れてゆっくり追いつく
@@ -475,15 +476,18 @@ function steer(dt: number, enabled: boolean) {
   thrustFx.move.copy(v).clampScalar(-1, 1)
   thrustFx.throttle = Math.max(0, -thrustFx.move.z)
   const before = ship.velocity.length()
+  // 推進の段階（ホイールで切り替え）。レースではみな同じ条件で走る
+  const throttle = raceActive() ? 1 : THROTTLE_STEPS[useStore.getState().throttle] ?? 1
   if (thrusting) {
     if (v.lengthSq() > 1) v.normalize()
     v.applyQuaternion(ship.quaternion)
-    ship.velocity.addScaledVector(v, THRUST * dt)
+    // 速い段階では、そのぶん早く加速する（最高速まで数秒で届くように）
+    ship.velocity.addScaledVector(v, THRUST * Math.max(1, throttle) * dt)
   } else {
     ship.velocity.multiplyScalar(Math.exp(-0.8 * dt))
   }
   // 天体のそばでは上限が下がる。急ブレーキにならないよう、なめらかに落とす
-  const cap = MAX_SPEED * flightControl.speedScale * approachSpeedFactor()
+  const cap = MAX_SPEED * throttle * flightControl.speedScale * approachSpeedFactor()
   const speed = ship.velocity.length()
   if (speed > cap) ship.velocity.setLength(Math.max(cap, Math.min(speed, before * Math.exp(-2.5 * dt))))
   return thrusting || turned

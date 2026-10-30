@@ -22,6 +22,7 @@ import { setLook } from '../state/look'
 import { named, setLang, t, useLang } from '../i18n/lang'
 import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
+import { ThrottleMeter } from './Throttle'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -405,6 +406,7 @@ export function NavPanel() {
         )}
       </div>
 
+      {!touch && <ThrottleMeter />}
       <label className="nav-warp">
         {t('ワープの速さ', 'Warp speed')} {s.warpFactor}
         <input type="range" min={1} max={9} step={1} value={s.warpFactor} onChange={(e) => s.setWarpFactor(Number(e.target.value))} disabled={busy} />

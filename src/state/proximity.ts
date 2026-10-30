@@ -3,6 +3,7 @@ import { approachKind, atmosphereAt, DIVE_DEPTH, limitDepthKm, radiusKm, SHIP_LE
 import { bodies, zoomZones } from './registry'
 import { raceActive } from './race'
 import { shipZoom, zoneFactor } from './zoom'
+import { MAX_SPEED } from './throttle'
 
 /** いちばん近い天体（高さは雲の上・地表からの距離。ガス惑星の中では負） */
 export const proximity = {
@@ -16,12 +17,21 @@ export const proximity = {
 const p = new THREE.Vector3()
 let speedFactor = 1
 
+/**
+ * 離れるときの速さの下限：1秒に今の高さの何倍まで進めるか。
+ * 大きな天体（実物大の木星や太陽）のそばでも、数秒で抜け出せるようにする（ないと、遅すぎて抜け出せない）
+ */
+const CLIMB_RATE = 0.8
+/** 雲の中：1秒に半径の何倍まで進めるか（大きなガス惑星でも、潜った深さから数秒で出られる） */
+const DIVE_RATE = 0.04
+
 /** 天体ひとつ分の速さの上限（割合）。近づくほど下がり、ガス惑星の雲の中ではさらに遅い */
 function factorFor(kind: ApproachKind, radius: number, altitude: number) {
   if (kind === 'object') return 1
-  if (altitude < 0) return 0.012
+  if (altitude < 0) return Math.max(0.012, (radius * DIVE_RATE) / MAX_SPEED)
   // 高さとともに遅くなる（大きな天体ほど遠くから）。低い軌道では地面がゆっくり流れるよう、最高速の0.6%まで落とす
-  return THREE.MathUtils.clamp((altitude / (radius * 2.5 + 1.5)) ** 1.5, 0.006, 1)
+  const slow = (altitude / (radius * 2.5 + 1.5)) ** 1.5
+  return THREE.MathUtils.clamp(Math.max(slow, (altitude * CLIMB_RATE) / MAX_SPEED), 0.006, 1)
 }
 
 /** 天体の「そば」：半径の3倍まで（小さな衛星でも、ワープで着いた位置が入るよう少し足す） */

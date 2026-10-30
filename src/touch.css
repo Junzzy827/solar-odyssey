@@ -637,3 +637,45 @@ body.touch .beam-gauge {
     top: calc(var(--bar-h) + var(--safe-t) + 14px);
   }
 }
+
+/* 推進の段階：ワープのボタンの上に −／＋ */
+body.touch .touch-throttle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px;
+  border-radius: 22px;
+  background: rgba(20, 16, 30, 0.7);
+}
+
+body.touch .touch-throttle button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(255, 210, 122, 0.6);
+  border-radius: 50%;
+  background: rgba(40, 32, 56, 0.85);
+  color: #ffd27a;
+  font-size: 18px;
+  line-height: 1;
+}
+
+body.touch .touch-throttle button:disabled {
+  opacity: 0.35;
+}
+
+body.touch .touch-throttle-read {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 64px;
+  font-size: 11px;
+  color: #9aa0b4;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+body.touch .touch-throttle-read b {
+  color: #ffd27a;
+  font-size: 13px;
+}
