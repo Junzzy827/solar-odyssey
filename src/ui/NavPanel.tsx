@@ -211,6 +211,11 @@ function FxPick() {
     ['ao', t('陰影', 'Shading')],
     ['film', t('フィルム調', 'Film look')],
   ]
+  const beamFx = useStore((s) => s.settings.beamFx)
+  const beamItems: [keyof typeof beamFx, string][] = [
+    ['flash', t('フラッシュ', 'Flash')],
+    ['shake', t('揺れ', 'Shake')],
+  ]
   return (
     <>
       <div className="nav-check">
@@ -230,6 +235,19 @@ function FxPick() {
               '光のにじみ：エンジンや窓の光がにじむ。陰影：部品のすき間が暗く締まる。フィルム調：薄い粒子と周辺減光。重いときは切ってください。',
               'Glow: engines and windows bleed light. Shading: gaps between parts darken. Film look: light grain and vignette. Turn them off if things feel slow.',
             )}
+      </div>
+      <div className="nav-check">
+        {t('チャージビーム', 'Charge beam')}
+        <span className="nav-lang-pick" role="group" aria-label={t('チャージビームの演出', 'Charge beam effects')}>
+          {beamItems.map(([key, label]) => (
+            <button key={key} className={beamFx[key] ? 'on' : ''} aria-pressed={beamFx[key]} onClick={() => update({ beamFx: { ...beamFx, [key]: !beamFx[key] } })}>
+              {label}
+            </button>
+          ))}
+        </span>
+      </div>
+      <div className="muted small">
+        {t('ビームを長押しで溜めて、離すと太いビーム。光の点滅や画面の揺れが苦手なら、フラッシュや揺れを切れます。', 'Hold the beam to charge, release to fire a heavy beam. Turn off the flash or the shake if flashing light or screen shake bothers you.')}
       </div>
     </>
   )

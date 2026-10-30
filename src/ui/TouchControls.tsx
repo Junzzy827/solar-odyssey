@@ -56,10 +56,10 @@ function Stick() {
 }
 
 /** 押しているあいだだけ効くボタン（上昇・下降・回転） */
-function HoldButton({ label, title, onHold }: { label: string; title: string; onHold: (on: boolean) => void }) {
+function HoldButton({ label, title, onHold, className = '' }: { label: string; title: string; onHold: (on: boolean) => void; className?: string }) {
   return (
     <button
-      className="touch-button"
+      className={`touch-button ${className}`}
       aria-label={title}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId)
@@ -156,7 +156,7 @@ export function TouchControls() {
   // 操縦席を離れたら、押しっぱなしの入力を残さない
   useEffect(() => {
     if (show) return
-    Object.assign(touchInput, { x: 0, y: 0, lift: 0, roll: 0, lookX: 0, lookY: 0, fire: false })
+    Object.assign(touchInput, { x: 0, y: 0, lift: 0, roll: 0, lookX: 0, lookY: 0, beam: false, beamPressed: false })
   }, [show])
 
   if (!show) return null
@@ -176,9 +176,10 @@ export function TouchControls() {
           <button className="touch-button wide" onClick={() => setCameraMode(nextCameraMode(cameraMode))}>
             {t('カメラ', 'Camera')}
           </button>
-          <button className="touch-button wide beam" onPointerDown={() => (touchInput.fire = true)}>
-            {t('ビーム', 'Beam')}
-          </button>
+          <HoldButton className="wide beam" label={t('ビーム', 'Beam')} title={t('ビーム（長押しでチャージ）', 'Beam (hold to charge)')} onHold={(on) => {
+              touchInput.beam = on
+              if (on) touchInput.beamPressed = true
+            }} />
         </div>
       </div>
     </>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
-import { bodies } from '../../state/registry'
+import { beamSweeps, bodies, type BeamSweep } from '../../state/registry'
 import { useStore } from '../../state/store'
 import { DEBRIS_ID, SF_TEXT, debrisName } from '../../data/sf'
 import { useLang } from '../../i18n/lang'
@@ -28,6 +28,8 @@ const PERIOD = 240
 const CATCH_SECONDS = 14
 /** 軌道のまわりに散らばるごみの点の数 */
 const CLOUD = 1800
+/** 壊したごみが軌道に戻るまでの秒数 */
+const JUNK_RESPAWN = 40
 
 const rng = (seed: number) => {
   let s = seed
@@ -120,8 +122,30 @@ export function DebrisCollector() {
     const material = new THREE.PointsMaterial({ color: '#b9b4aa', size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.8, depthWrite: false })
     const points = new THREE.Points(geometry, material)
     points.frustumCulled = false
-    return { elements, points }
+    // チャージビームで壊したごみ：壊した時刻（しばらくすると、また軌道に戻る）
+    const dead = new Float32Array(CLOUD).fill(-1)
+    return { elements, points, dead }
   }, [])
+
+  // チャージビームで、ビームの通り道のごみを壊す
+  useEffect(() => {
+    const p = new THREE.Vector3()
+    const sweep: BeamSweep = (from, dir, length, radius, spread, hit) => {
+      const arr = cloud.points.geometry.getAttribute('position').array as Float32Array
+      for (let i = 0; i < CLOUD; i++) {
+        if (cloud.dead[i] >= 0) continue
+        p.fromArray(arr, i * 3).sub(from)
+        const along = p.dot(dir)
+        if (along < 0 || along > length) continue
+        const reach = radius * 3 + along * spread
+        if (p.lengthSq() - along * along > reach * reach) continue
+        cloud.dead[i] = clock.current
+        hit(p.fromArray(arr, i * 3), radius * 1.5)
+      }
+    }
+    beamSweeps.add(sweep)
+    return () => void beamSweeps.delete(sweep)
+  }, [cloud])
   useEffect(
     () => () => {
       cloud.points.geometry.dispose()
@@ -165,6 +189,16 @@ export function DebrisCollector() {
     const attr = cloud.points.geometry.getAttribute('position') as THREE.BufferAttribute
     const arr = attr.array as Float32Array
     cloud.elements.forEach((el, i) => {
+      // 壊れたごみは地球の中に隠しておき、時間がたったら戻す
+      if (cloud.dead[i] >= 0) {
+        if (t - cloud.dead[i] < JUNK_RESPAWN && t >= cloud.dead[i]) {
+          arr[i * 3] = earth.x
+          arr[i * 3 + 1] = earth.y
+          arr[i * 3 + 2] = earth.z
+          return
+        }
+        cloud.dead[i] = -1
+      }
       const b = el.phase + (t / PERIOD) * Math.PI * 2 * (ORBIT / el.r) ** 1.5
       const x = Math.cos(b) * el.r
       const zz = -Math.sin(b) * el.r

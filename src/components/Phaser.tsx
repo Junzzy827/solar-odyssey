@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { asteroids, beamTargets, type RockType } from '../state/registry'
-import { ship } from '../state/flight'
-import { shipZoom } from '../state/zoom'
 import { useStore } from '../state/store'
 import { playBeam, playBlast } from '../audio/sfx'
 import { touchInput } from '../state/input'
+import { beamCharge, chargeReady, fireCharge, levelFor, muzzle, now } from '../state/beam'
+import { shipScale } from '../state/zoom'
 import { t } from '../i18n/lang'
 
 const RANGE = 40
@@ -35,9 +35,6 @@ const SPARSE_FACT: [string, string] = [
   'The real asteroid belt is very sparse: big rocks are hundreds of thousands to a million km apart. Probes fly through without hitting anything.',
 ]
 
-// 円盤の下面前方にある発射口（自機の座標、スケール0.3を掛けた値）
-const EMITTER = new THREE.Vector3(0, 0.03 * 0.3, -0.3 * 0.3)
-
 const tmpM = new THREE.Matrix4()
 const zero = new THREE.Matrix4().makeScale(0, 0, 0)
 const from = new THREE.Vector3()
@@ -46,13 +43,13 @@ const mid = new THREE.Vector3()
 const up = new THREE.Vector3(0, 1, 0)
 const center = new THREE.Vector2(0, 0)
 
-/** ビームで小惑星を撃つ（F キー、または操縦中のクリック） */
+/** ビームで小惑星を撃つ（F キー、または操縦中のクリック）。短く押すと細いビーム、長押しで溜めてチャージビーム（ChargeBeam） */
 export function Phaser() {
   const { camera, gl } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const beam = useRef<THREE.Mesh>(null!)
   const beamMat = useRef<THREE.MeshBasicMaterial>(null!)
-  const fire = useRef(false)
+  const held = useRef({ key: false, mouse: false, was: false, pressed: false })
   const beamState = useRef({ t: BEAM_SECONDS, target: new THREE.Vector3() })
   const destroyedCount = useRef(0)
 
@@ -65,27 +62,64 @@ export function Phaser() {
   const debrisMat = useRef<THREE.PointsMaterial>(null!)
 
   useEffect(() => {
+    const h = held.current
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'KeyF' && !e.repeat) fire.current = true
+      if (e.code !== 'KeyF') return
+      h.key = e.type === 'keydown'
+      if (h.key && !e.repeat) h.pressed = true
     }
     const onDown = (e: MouseEvent) => {
-      if (e.button === 0 && document.pointerLockElement === gl.domElement) fire.current = true
+      if (e.button === 0 && document.pointerLockElement === gl.domElement) h.mouse = h.pressed = true
+    }
+    const onUp = (e: MouseEvent) => {
+      if (e.button === 0) h.mouse = false
+    }
+    const onBlur = () => {
+      h.key = false
+      h.mouse = false
     }
     window.addEventListener('keydown', onKey)
+    window.addEventListener('keyup', onKey)
     window.addEventListener('mousedown', onDown)
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('blur', onBlur)
     return () => {
       window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKey)
       window.removeEventListener('mousedown', onDown)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('blur', onBlur)
     }
   }, [gl])
 
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock }, rawDelta) => {
+    const delta = Math.min(rawDelta, 0.05)
     const st = useStore.getState()
-    if (fire.current || touchInput.fire) {
-      fire.current = false
-      touchInput.fire = false
-      if (st.mode === 'flight' && st.warpPhase === 'idle') shoot(clock.getElapsedTime())
+    const canFire = st.mode === 'flight' && st.warpPhase === 'idle'
+    const h = held.current
+    const down = h.key || h.mouse || touchInput.beam
+    // フレームのあいだに押して離した（とても短い押し）も、1回の押しとして数える
+    const tapped = (h.pressed || touchInput.beamPressed) && !down && !h.was
+    h.pressed = touchInput.beamPressed = false
+    const c = beamCharge
+    // 押した：溜められるなら溜め始める（クールダウン中やビームを撃っている最中は、短いビームだけ）
+    if (down && !h.was && canFire && chargeReady() && !c.firing) {
+      c.charging = true
+      c.start = now()
+      c.level = 0
     }
+    if (c.charging) {
+      if (canFire) c.level = levelFor(now() - c.start)
+      else c.charging = false
+    }
+    // 離した：1段以上溜まっていればチャージビーム、そうでなければ従来の細いビーム
+    if ((!down && h.was) || tapped) {
+      if (c.charging && c.level > 0) fireCharge(c.level)
+      else if (canFire) shoot(clock.getElapsedTime())
+      c.charging = false
+      c.level = 0
+    }
+    h.was = down
 
     // ビーム：発射口から命中点へ。短時間で細く消える
     const b = beamState.current
@@ -93,12 +127,13 @@ export function Phaser() {
     const k = Math.max(0, 1 - b.t / BEAM_SECONDS)
     beam.current.visible = k > 0
     if (k > 0) {
-      from.copy(EMITTER).divideScalar(shipZoom.factor).applyQuaternion(ship.quaternion).add(ship.position)
+      muzzle(from)
       const length = from.distanceTo(b.target)
       mid.copy(from).add(b.target).multiplyScalar(0.5)
       beam.current.position.copy(mid)
       beam.current.quaternion.setFromUnitVectors(up, to.copy(b.target).sub(from).normalize())
-      beam.current.scale.set(k, length, k)
+      const r = k * (shipScale() / 0.3)
+      beam.current.scale.set(r, length, r)
       beamMat.current.opacity = k
     }
 

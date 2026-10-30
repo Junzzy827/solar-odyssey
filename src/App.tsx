@@ -16,6 +16,8 @@ import { AsteroidBelt } from './components/AsteroidBelt'
 import { WarpStreaks } from './components/WarpStreaks'
 import { TargetMarker } from './components/TargetMarker'
 import { Phaser } from './components/Phaser'
+import { ChargeBeam } from './components/ChargeBeam'
+import { BeamGauge } from './ui/BeamGauge'
 import { SFWorld } from './components/sf/SFWorld'
 import { SFBoundary } from './components/sf/SFBoundary'
 import { useSF } from './data/sf'
@@ -102,6 +104,7 @@ export default function App() {
         <ProbeScene />
         <EclipseScene />
         <Phaser />
+        <ChargeBeam />
         {mode === 'map' && !eclipseView && <MapControls />}
         <PostFx />
         {bridge && <BridgeInterior />}
@@ -113,6 +116,7 @@ export default function App() {
       <Hud />
       <NavPanel />
       <GalleryPanel />
+      <BeamGauge />
       <TouchControls />
       <TouchWarp />
       <TouchBar />
