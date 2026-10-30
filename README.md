@@ -2,6 +2,42 @@
 
 宇宙船で太陽系を旅しながら学べる、教育用の3Dウェブアプリです。
 
+**▶ ブラウザですぐ遊べます： https://junzzy827.github.io/solar-odyssey/**
+（インストール不要・無料。PC とスマホ・タブレットに対応）
+
+[![Solar Odyssey](docs/images/hero.jpg)](https://junzzy827.github.io/solar-odyssey/)
+
+## スクリーンショット
+
+### 太陽系を旅する
+
+| | |
+| --- | --- |
+| ![土星の環のそばを飛ぶ](docs/images/saturn.jpg) | ![木星で航海日誌とクイズ](docs/images/jupiter-quiz.jpg) |
+| 惑星や衛星へワープして、自由に飛び回れます | 着いた天体の航海日誌を読んで、クイズに挑戦 |
+| ![地球と航海日誌](docs/images/earth-logbook.jpg) | ![ハッブル宇宙望遠鏡の画像](docs/images/hubble.jpg) |
+| 実際のデータをもとにした天体の解説 | 望遠鏡モードでハッブルの画像を見られます |
+
+### 宇宙船と艦橋
+
+| | |
+| --- | --- |
+| ![選べる宇宙船](docs/images/fleet.jpg) | ![艦橋からの眺め](docs/images/bridge.jpg) |
+| 6隻のオリジナル宇宙船から選べます | 艦橋に入って窓から景色を眺められます |
+
+### SFモード
+
+| | |
+| --- | --- |
+| ![スペースコロニーの内部](docs/images/sf-colony.jpg) | ![ブラックホール](docs/images/sf-blackhole.jpg) |
+| 回転する円筒型スペースコロニー | 太陽系の外にあるブラックホール |
+| ![2つの太陽の惑星](docs/images/sf-two-suns.jpg) | ![宇宙を走る列車](docs/images/sf-railway.jpg) |
+| 2つの太陽が沈む砂の惑星 | 宇宙空間を走る銀河鉄道 |
+
+### スマホでも
+
+<img src="docs/images/mobile.jpg" alt="スマホでの操縦画面" width="300">
+
 ## 開発
 
 ```bash
