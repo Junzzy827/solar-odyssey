@@ -20,6 +20,9 @@ export function LabelDeclutter() {
       last = now
       const id = useStore.getState().targetId
       const target = id ? (bodyInfo(id)?.name ?? null) : null
+      // 目標の印（紫の丸と名前）が画面に出ているなら、その天体のふつうの名札は出さない（同じ名前が2つ並ぶので）
+      const marker = document.getElementById('target-marker')
+      const markerShown = !!marker && marker.style.display === 'block' && marker.dataset.offscreen !== 'true'
       const items: { el: HTMLElement; rect: DOMRect; rank: number; more: number }[] = []
       document.querySelectorAll<HTMLElement>('.label').forEach((el) => {
         const span = el.querySelector('span')
@@ -30,6 +33,11 @@ export function LabelDeclutter() {
           return
         }
         const name = span.textContent ?? ''
+        if (markerShown && name === target) {
+          el.classList.add('label-hidden')
+          el.removeAttribute('data-more')
+          return
+        }
         const rank = name === target ? 0 : el.classList.contains('home-label') ? 0.5 : el.classList.contains('planet-label') ? 1 : el.classList.contains('moon-label') ? 3 : 2
         items.push({ el, rect, rank, more: 0 })
       })
