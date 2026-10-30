@@ -90,9 +90,9 @@ const spokenName = (id: string) => SPOKEN[id] ?? id[0].toUpperCase() + id.slice(
 function warpCall(id: string, factor: number) {
   const name = spokenName(id)
   const lines = [
-    `Warp ${factor}. Set course for ${name}... Full speed ahead!`,
-    `Course: ${name}. Warp ${factor}... Full speed ahead!`,
-    `${name}, warp ${factor}. All hands... full speed ahead!`,
+    `Warp ${factor}. Set course for ${name}... Engage!`,
+    `Course: ${name}. Warp ${factor}... Engage!`,
+    `${name}, warp ${factor}. All hands... Engage!`,
   ]
   return lines[Math.floor(Math.random() * lines.length)]
 }
