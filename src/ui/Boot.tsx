@@ -33,7 +33,8 @@ export function BootScreen() {
       el.classList.add('measured')
       bar.style.width = `${Math.max(4, Math.round(progress))}%`
     }
-    if (text) text.textContent = total > 0 ? `読み込み中… / Loading… ${Math.round(progress)}%` : '読み込み中… / Loading…'
+    // 届いた分が100%でも、まだ次の読み込みや最初の描画の準備があるので「準備中」
+    if (text) text.textContent = total > 0 && progress < 100 ? `読み込み中… / Loading… ${Math.round(progress)}%` : '準備中… / Getting ready…'
     if (ready) {
       el.classList.add('done')
       const timer = setTimeout(() => el.remove(), 700)
