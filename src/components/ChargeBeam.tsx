@@ -7,6 +7,7 @@ import { ship } from '../state/flight'
 import { shipScale } from '../state/zoom'
 import { useStore } from '../state/store'
 import { useLevel } from '../state/quality'
+import { usePostFxActive } from './SpaceLighting'
 import { t } from '../i18n/lang'
 import { beamHum, playChargeFire, playChargeStep, startChargeHum, type ChargeHum } from '../audio/sfx'
 
@@ -24,6 +25,8 @@ const CHARGE_COLORS = [new THREE.Color(0.25, 0.4, 2.0), ...CHARGE_LEVELS.slice(1
 const HIT_FLASH = 0.08
 /** 破片が冷えて消えるまで */
 const SHARD_LIFE = 1.8
+/** 光のにじみ（Bloom）を使うときの明るさの割合 */
+const BLOOM_GAIN = 0.45
 /** 湯気が消えるまで */
 const STEAM_LIFE = 1.6
 
@@ -76,6 +79,7 @@ const ribbonFragment = /* glsl */ `
   uniform vec3 uColor;
   uniform float uAlpha;
   uniform float uTime;
+  uniform float uGain;
   uniform sampler2D uFlow;
   varying vec2 vUv;
   varying float vDist;
@@ -101,7 +105,7 @@ const ribbonFragment = /* glsl */ `
       c = uColor * e;
       a = shell * (0.45 + 0.55 * e) * (1.0 - smoothstep(0.75, 1.0, d));
     #endif
-    gl_FragColor = vec4(c, a * ends * uAlpha);
+    gl_FragColor = vec4(c * uGain, a * ends * uAlpha);
     #include <logdepthbuf_fragment>
   }
 `
@@ -177,6 +181,7 @@ const shardVertex = /* glsl */ `
 
 const shardFragment = /* glsl */ `
   #include <logdepthbuf_pars_fragment>
+  uniform float uGain;
   varying float vAge;
   varying float vKind;
   void main() {
@@ -193,7 +198,7 @@ const shardFragment = /* glsl */ `
       c = mix(hot, vec3(0.45, 0.06, 0.02), smoothstep(0.18, 0.75, vAge));
       a = (1.0 - smoothstep(0.6, 1.0, vAge)) * smoothstep(1.0, 0.35, d);
     }
-    gl_FragColor = vec4(c, a);
+    gl_FragColor = vec4(c * uGain, a);
     #include <logdepthbuf_fragment>
   }
 `
@@ -318,6 +323,7 @@ function ribbonMaterial(kind: 'CORE' | 'OUTER' | 'SPIRAL', flow: THREE.Texture, 
       uColor: { value: new THREE.Color() },
       uAlpha: { value: 0 },
       uFlow: { value: flow },
+      uGain: { value: 1 },
     },
     transparent: true,
     depthWrite: false,
@@ -349,6 +355,9 @@ type Pending = { mesh: THREE.InstancedMesh; index: number; matrix: THREE.Matrix4
 export function ChargeBeam() {
   const { camera, gl } = useThree()
   const level = useLevel()
+  const postFx = usePostFxActive()
+  const bloomOn = useStore((s) => s.settings.fx.bloom)
+  const bloom = postFx && bloomOn
   const pool = POOLS[level]
   const flow = useMemo(flowTexture, [])
   const glowTex = useMemo(glowTexture, [])
@@ -404,7 +413,7 @@ export function ChargeBeam() {
     const material = new THREE.ShaderMaterial({
       vertexShader: shardVertex,
       fragmentShader: shardFragment,
-      uniforms: { uTime: { value: 0 }, uScale: { value: 500 } },
+      uniforms: { uTime: { value: 0 }, uScale: { value: 500 }, uGain: { value: 1 } },
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -571,7 +580,12 @@ export function ChargeBeam() {
     }
   }
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, rawDelta) => {
+    // 毎フレームの追いかけを、フレームの速さ（60fps と 144fps など）によらず同じ速さにする
+    const steps = Math.min(rawDelta, 0.1) * 60
+    const ease = (k: number) => 1 - (1 - k) ** steps
+    // 光のにじみ（Bloom）があると、明るい部分がにじんで白く飛ぶので、そのぶん明るさを抑える（にじみのないスマホの「軽量」と見た目をそろえる）
+    const gain = bloom ? BLOOM_GAIN : 1
     const time = now()
     const s = state.current
     const c = beamCharge
@@ -613,8 +627,8 @@ export function ChargeBeam() {
     gm.uRate.value = 1.1 + chargeK * 1.6
     gm.uSize.value = unit * 0.006
     gm.uScale.value = scaleUniform
-    gm.uOn.value = c.charging ? Math.min(1, (time - c.start) * 4) : Math.max(0, gm.uOn.value - 0.15)
-    gm.uColor.value.copy(color)
+    gm.uOn.value = c.charging ? Math.min(1, (time - c.start) * 4) : Math.max(0, gm.uOn.value - 0.15 * steps)
+    gm.uColor.value.copy(color).multiplyScalar(gain)
 
     // 光の球：溜めるほど大きく明るく、ちらつく。撃っているあいだは発射口の光
     let glowSize = 0
@@ -625,11 +639,11 @@ export function ChargeBeam() {
     }
 
     // 溜めているあいだは船を震わせ、周りを暗くする
-    beamFx.tremble = c.charging ? 0.15 + 0.85 * chargeK : Math.max(0, beamFx.tremble - 0.08)
+    beamFx.tremble = c.charging ? 0.15 + 0.85 * chargeK : Math.max(0, beamFx.tremble - 0.08 * steps)
     const dimTo = c.charging ? 0.12 + 0.28 * chargeK : 0
     const poseTo = (c.charging && time - c.start > CHARGE_STEPS[0] * 0.6) || c.firing ? 1 : 0
-    beamFx.pose += (poseTo - beamFx.pose) * (poseTo ? 0.06 : 0.04)
-    beamFx.dim += (dimTo - beamFx.dim) * (c.charging ? 0.08 : 0.15)
+    beamFx.pose += (poseTo - beamFx.pose) * ease(poseTo ? 0.06 : 0.04)
+    beamFx.dim += (dimTo - beamFx.dim) * ease(c.charging ? 0.08 : 0.15)
 
     // ---------- 発射 ----------
     const spec = c.firing ? CHARGE_LEVELS[c.firing] : null
@@ -705,6 +719,7 @@ export function ChargeBeam() {
           u.uTime.value = age
           u.uAlpha.value = alpha * (i >= 2 ? 0.9 : 1)
           u.uColor.value.copy(spec.color)
+          u.uGain.value = gain
         })
         glowSize = r0 * 1.8
         glowAlpha = alpha
@@ -761,7 +776,7 @@ export function ChargeBeam() {
     glow.current.visible = glowAlpha > 0.01
     glow.current.position.copy(m)
     glow.current.scale.setScalar(Math.max(1e-6, glowSize))
-    glowMat.current.color.copy(color).multiplyScalar(1.4)
+    glowMat.current.color.copy(color).multiplyScalar(1.4 * gain)
     glowMat.current.opacity = glowAlpha
 
     // ビームの色の光で、船体や岩を照らす（いつも置いておき、明るさだけ変える。光の数が変わるとシェーダーを作り直すので）
@@ -770,7 +785,7 @@ export function ChargeBeam() {
     l.color.copy(color).multiplyScalar(0.5)
     l.distance = unit * (beamOn ? 2.4 : 0.8)
     const lightTo = beamOn ? 1.5 + c.firing * 0.8 : c.charging ? 0.4 + 1.6 * chargeK : 0
-    l.intensity += (lightTo - l.intensity) * 0.35
+    l.intensity += (lightTo - l.intensity) * ease(0.35)
 
     // 光の輪
     for (const r of rings) {
@@ -792,6 +807,7 @@ export function ChargeBeam() {
     su.uUnit.value = unit * 0.05
     su.uScale.value = scaleUniform
     shards.material.uniforms.uTime.value = time
+    shards.material.uniforms.uGain.value = gain
     shards.material.uniforms.uScale.value = scaleUniform
     group.current.visible = st.mode !== 'map'
   })
