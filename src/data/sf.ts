@@ -165,13 +165,13 @@ export const SF_TEXT = {
     ),
   crossFound: () =>
     t(
-      '十字の形をした小惑星の宇宙港です。運んできた小惑星をくりぬいて、港と住まいにしています。光っている四角は船の出入り口です。\n（I で航海日誌）',
-      'A cross-shaped asteroid port. Asteroids were brought here and hollowed out for docks and homes. The glowing squares are the ship entrances.\n(I for the ship’s log)',
+      '金平糖のような形の小惑星の宇宙港です。運んできた小惑星をくりぬいて、港と住まいにしています。光っている四角は船の出入り口です。\n（I で航海日誌）',
+      'An asteroid port shaped like a spiky konpeito candy. Asteroids were brought here and hollowed out for docks and homes. The glowing squares are the ship entrances.\n(I for the ship’s log)',
     ),
   umbrellaFound: () =>
     t(
-      '傘の形をした小惑星の基地です。広い傘の裏と柱の先に、船の出入り口があります。\n（I で航海日誌）',
-      'An umbrella-shaped asteroid base. Ships come and go through entrances under the wide cap and at the tip of the stem.\n(I for the ship’s log)',
+      'キノコの形をした小惑星の基地です。厚い傘の裏と柄の先に、船の出入り口があります。\n（I で航海日誌）',
+      'A mushroom-shaped asteroid base. Ships come and go through entrances under the wide cap and at the tip of the stem.\n(I for the ship’s log)',
     ),
   yardFound: () =>
     t(

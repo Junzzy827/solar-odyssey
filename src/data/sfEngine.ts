@@ -2,7 +2,7 @@ import { t } from '../i18n/lang'
 import type { Facts } from './facts'
 
 // SF モードの推進小惑星（オリジナルのデザイン）。採掘のために、小惑星帯から地球の近くへ
-// エンジンでゆっくり運ばれてくる大きな岩。採掘基地・居住リング・エンジン群を取りつけている。
+// エンジンでゆっくり運ばれてくる、コマのような形の大きな岩。採掘基地・ドームの居住区・横一列のエンジンを取りつけている。
 
 export const ENGINE_ROCK_ID = 'engine-rock'
 export const engineRockName = () => t('推進小惑星', 'Engine Asteroid')
@@ -18,15 +18,15 @@ export const ENGINE_ROCK_TEXT = {
 export const ENGINE_FACTS: Record<string, Facts> = {
   [ENGINE_ROCK_ID]: {
     rows: [
-      ['大きさ', '長さ約9km の岩のかたまり'],
+      ['大きさ', '幅約8km、高さ約8km のコマのような形の岩'],
       ['場所', '火星と地球の軌道のあいだ。何年もかけて地球へ近づく'],
-      ['設備', '採掘基地、回る居住リング、6基のプラズマエンジン'],
+      ['設備', '採掘基地、ドームの居住区、横一列に並んだ4基のプラズマエンジン'],
     ],
     fiction: true,
     notes: [
       '小惑星をまるごと運んできて、金属や水を採ろうという未来の計画を描いたものです。',
       'エンジンは青白いプラズマを吹き出し、とても小さな力で長い時間押しつづけます。',
-      '居住リングは回転して、働く人のために重力の代わりの力をつくっています。',
+      '上は平たく広がり、下は細くすぼまっています。上には尖った岩山と、働く人が暮らすドームがあります。エンジンはうしろの平らな面に横一列に並んでいます。',
     ],
     real: [
       'NASA は2010年代に、小惑星の岩を捕まえて月のまわりまで運ぶ「小惑星捕獲計画（ARM）」を考えましたが、2017年に中止になりました。',
@@ -46,15 +46,15 @@ export const ENGINE_FACTS: Record<string, Facts> = {
 export const ENGINE_FACTS_EN: Record<string, Facts> = {
   [ENGINE_ROCK_ID]: {
     rows: [
-      ['Size', 'A lump of rock about 9 km long'],
+      ['Size', 'A spinning-top-shaped rock about 8 km wide and 8 km tall'],
       ['Where', 'Between the orbits of Mars and Earth, creeping toward Earth over many years'],
-      ['Equipment', 'A mining base, a spinning habitat ring and six plasma engines'],
+      ['Equipment', 'A mining base, a domed living area and four plasma engines in a row'],
     ],
     fiction: true,
     notes: [
       'It shows a future plan to bring a whole asteroid home and mine it for metal and water.',
       'The engines blow out bluish-white plasma, pushing very gently for a very long time.',
-      'The habitat ring spins to make a push that works like gravity for the people working there.',
+      'It is wide and flat on top and narrows to a point underneath, like a spinning top. On top are a sharp rocky peak and a dome where the workers live. The engines sit in a row on the flat back face.',
     ],
     real: [
       'In the 2010s NASA studied the Asteroid Redirect Mission (ARM), which would have grabbed a boulder from an asteroid and moved it into orbit around the Moon. It was cancelled in 2017.',

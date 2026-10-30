@@ -323,14 +323,14 @@ export const FACTS_EN: Record<string, Facts> = {
   },
   'rock-port': {
     rows: [
-      ['Size', 'About 8 km from tip to tip'],
+      ['Size', 'About 9 km from tip to tip'],
       ['Where', 'The Earth–Moon L4 point (on the Moon’s orbit, 60° ahead of the Moon)'],
       ['Job', 'A port for ships and homes for asteroid miners'],
     ],
     fiction: true,
     notes: [
-      'Several asteroids were brought here and joined into a cross. They were hollowed out for docks and homes.',
-      'The glowing squares near the base of the arms are the ship entrances. Shuttles slowly come and go.',
+      'An asteroid brought here and hollowed out for docks and homes. Sharp points stick out on four sides and from the top and bottom, like a konpeito sugar candy.',
+      'The glowing squares in the hollows between the points are the ship entrances. Shuttles slowly come and go, and red lights mark the tips.',
     ],
     real: [
       'People are studying how to use asteroids as resources. Hayabusa2 brought back samples from Ryugu, and NASA’s OSIRIS-REx from Bennu.',
@@ -347,13 +347,13 @@ export const FACTS_EN: Record<string, Facts> = {
   },
   'rock-base': {
     rows: [
-      ['Size', 'Cap about 6 km across, stem about 4 km long'],
+      ['Size', 'Cap about 6 km across, stem about 5 km long'],
       ['Where', 'The Earth–Moon L2 point (beyond the Moon, seen from Earth)'],
       ['Job', 'A base for supplies and ship repairs'],
     ],
     fiction: true,
     notes: [
-      'Flat asteroids are laid out like an umbrella, with a pillar of asteroids joined underneath.',
+      'An asteroid base shaped like a mushroom: a big, thick cap, smaller ledges below it and a twisted rocky stem. The warm lights on the surface are windows of rooms where people live.',
       'Ship entrances are under the cap and at the tip of the stem. The red lights on the rim guide ships coming in.',
     ],
     real: [
