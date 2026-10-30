@@ -73,7 +73,7 @@ export function PhotoNote() {
           <input type="checkbox" checked={never} onChange={(e) => setNever(e.target.checked)} />
           {t('次回から表示しない', 'Don’t show this again')}
         </label>
-        <button onClick={close}>{t('閉じる', 'Close')}</button>
+        <button className="secondary" onClick={close}>{t('閉じる', 'Close')}</button>
       </div>
     </div>
   )
