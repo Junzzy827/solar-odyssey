@@ -4,6 +4,7 @@ import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { warpFx } from '../../state/flight'
 import { useSpaceEnvOn } from '../SpaceLighting'
+import { findBaked, multiplyDetail } from './bakedMaps'
 import type { Flood } from '../../data/ships'
 import { bussardTexture, coilSpillTexture, coilTexture, deflectorTexture, hullTextures, nameTexture, shuttleBayTexture, windowBandTexture } from './hullTextures'
 
@@ -582,6 +583,15 @@ useGLTF.preload(HULL_URL)
 /** Blender で生成した機関部。マテリアル名（Hull / Nacelle）で船体の質感を割り当てる */
 function EngineeringHull({ hullMat, nacelleMat }: { hullMat: THREE.Material; nacelleMat: THREE.Material }) {
   const { scene } = useGLTF(HULL_URL)
+  // Blender で焼いた色ムラ・角の明るさ・つやを、外板の絵の上に掛ける（同じ材質に 1 度だけ）
+  useMemo(() => {
+    const baked = findBaked(scene)
+    if (!baked) return
+    for (const m of [hullMat, nacelleMat] as THREE.MeshStandardMaterial[]) if (!m.userData.detail) {
+      m.userData.detail = true
+      multiplyDetail(m, baked)
+    }
+  }, [scene, hullMat, nacelleMat])
   const meshes = useMemo(() => {
     const list: { geometry: THREE.BufferGeometry; material: THREE.Material }[] = []
     scene.traverse((o) => {
