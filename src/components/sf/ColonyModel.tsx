@@ -1,10 +1,12 @@
-import { useEffect, useMemo } from 'react'
-import { useThree } from '@react-three/fiber'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { COLONY_LENGTH as L, COLONY_PORT as PORT, COLONY_RADIUS as R } from '../../data/sf'
-import { cloudTexture, hullTexture, landTexture } from './colonyTextures'
+import { cloudTexture, hullTexture, landTexture, lightsTexture } from './colonyTextures'
 import { colonyDetail } from './colonyDetail'
+import { ColonyInterior } from './ColonyInterior'
+import { colonyDay } from './colonyCity'
 
 // 回転円筒型のスペースコロニー（オニールの「島3号」の構想をもとにした、オリジナルのデザイン）。
 // 回転軸は +Y で、+Y の端を太陽へ向ける。円周を6つに分け、大地の帯3本と窓の帯3本が交互に並ぶ。
@@ -21,11 +23,20 @@ const stripAngle = (i: number) => i * 60 * DEG
 
 /** 内側の大地の絵（大きいので、どのコロニーでも同じものを使い回して捨てない） */
 const lands = new Map<number, THREE.Texture>()
-function sharedLand(seed: number) {
+function sharedLand(seed: number, k: number) {
   let tex = lands.get(seed)
-  if (!tex) lands.set(seed, (tex = landTexture(seed)))
+  if (!tex) lands.set(seed, (tex = landTexture(seed, k)))
   return tex
 }
+const nightLights: THREE.Texture[] = []
+const sharedLights = (k: number) => (nightLights[k] ??= lightsTexture(k))
+
+const LAND_DAY = new THREE.Color('#d8dcd0')
+const LAND_NIGHT = new THREE.Color('#1d2434')
+const HAZE_DAY = new THREE.Color('#a9cdf5')
+const HAZE_NIGHT = new THREE.Color('#0a0f1c')
+const CLOUD_NIGHT = new THREE.Color('#3a4250')
+const WHITE = new THREE.Color('#ffffff')
 
 function envMapFor(gl: THREE.WebGLRenderer) {
   const pmrem = new THREE.PMREMGenerator(gl)
@@ -66,7 +77,21 @@ export function ColonyModel({ interior = true }: { interior?: boolean }) {
       mirrorMat: new THREE.MeshStandardMaterial({ color: '#7f8ca2', metalness: 1, roughness: 0.12, envMap: env, envMapIntensity: 0.7, side: THREE.DoubleSide }),
       lands: [0, 2, 4].map((i) => ({
         geometry: sector(R * 0.999, stripAngle(i), 60 * DEG),
-        material: new THREE.MeshBasicMaterial({ map: sharedLand(17 + i * 13), side: THREE.BackSide, color: '#d8dcd0' }),
+        material: new THREE.MeshBasicMaterial({ map: sharedLand(17 + i * 13, i / 2), side: THREE.BackSide, color: '#d8dcd0' }),
+      })),
+      // 夜の街の灯り：大地の少し上に、加算で重ねる（昼は見えない）
+      nightLights: [0, 2, 4].map((i) => ({
+        geometry: sector(R * 0.997, stripAngle(i), 60 * DEG, 48),
+        material: new THREE.MeshBasicMaterial({
+          map: sharedLights(i / 2),
+          side: THREE.BackSide,
+          color: new THREE.Color(1.8, 1.8, 1.8),
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          toneMapped: false,
+        }),
       })),
       hulls: [0, 2, 4].map((i) => sector(R * 1.004, stripAngle(i), 60 * DEG)),
       windows: [1, 3, 5].map((i) => sector(R, stripAngle(i), 60 * DEG)),
@@ -116,6 +141,21 @@ export function ColonyModel({ interior = true }: { interior?: boolean }) {
     })
   }, [])
 
+  // 昼と夜：大地・かすみ・雲を暗くし、街の灯りをともす（建物と木の材質は ColonyInterior が共有の値で変える）
+  const lastNight = useRef(-1)
+  useFrame(() => {
+    if (!interior) return
+    const n = colonyDay.night
+    if (n === lastNight.current) return
+    lastNight.current = n
+    for (const l of parts.lands) l.material.color.lerpColors(LAND_DAY, LAND_NIGHT, n)
+    for (const l of parts.nightLights) l.material.opacity = n
+    parts.haze.color.lerpColors(HAZE_DAY, HAZE_NIGHT, n)
+    parts.haze.opacity = 0.16 - 0.06 * n
+    parts.cloud.color.lerpColors(WHITE, CLOUD_NIGHT, n)
+    parts.cloud.opacity = 0.85 - 0.5 * n
+  })
+
   const rings = Array.from({ length: 13 }, (_, k) => -L / 2 + (k / 12) * L)
   // 窓の格子・外板の機器・丸屋根の骨・温室・鏡の枠（colonyDetail.ts。材質ごとにまとめた形）
   const detail = colonyDetail(MIRROR_ANGLE)
@@ -127,6 +167,8 @@ export function ColonyModel({ interior = true }: { interior?: boolean }) {
         <mesh key={`h${i}`} geometry={g} material={parts.hullMat} castShadow receiveShadow />
       ))}
       {interior && parts.lands.map((l, i) => <mesh key={`l${i}`} geometry={l.geometry} material={l.material} />)}
+      {interior && parts.nightLights.map((l, i) => <mesh key={`n${i}`} geometry={l.geometry} material={l.material} renderOrder={1} />)}
+      {interior && <ColonyInterior />}
       {parts.windows.map((g, i) => (
         <mesh key={`w${i}`} geometry={g} material={parts.glassMat} renderOrder={2} />
       ))}
