@@ -66,8 +66,9 @@ export function SurfaceLab() {
       <Slider label="太陽の方位" value={lab.sunAz ?? def?.sunAz ?? 150} min={0} max={360} step={1} onChange={(v) => lab.set({ sunAz: v })} fmt={(v) => `${v}°`} />
       <Slider label="霞" value={lab.haze} min={0} max={4} step={0.05} onChange={(v) => lab.set({ haze: v })} fmt={(v) => `×${v.toFixed(2)}`} />
       <Slider label="露出" value={lab.ev} min={-3} max={3} step={0.1} onChange={(v) => lab.set({ ev: v })} fmt={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}`} />
+      <Slider label="脚" value={lab.legs ?? 1} min={0} max={1} step={0.01} onChange={(v) => lab.set({ legs: v })} fmt={(v) => (lab.legs === null ? '自動' : `${Math.round(v * 100)}%`)} />
       <div className="lab-foot muted">露出 ×{lab.exposure.toPrecision(3)}</div>
-      <button className="secondary" onClick={() => lab.set({ sunEl: null, sunAz: null, haze: 1, ev: 0 })}>
+      <button className="secondary" onClick={() => lab.set({ sunEl: null, sunAz: null, haze: 1, ev: 0, legs: null })}>
         元に戻す
       </button>
     </div>

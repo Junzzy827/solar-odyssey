@@ -11,6 +11,8 @@ type LabState = {
   haze: number
   /** 露出の補正（段。+1 で 2 倍明るい） */
   ev: number
+  /** 脚の出し具合（0〜1）を手で決める。null なら降下・離陸の動きのまま */
+  legs: number | null
   /** 計算した露出（表示用） */
   exposure: number
   set: (p: Partial<Omit<LabState, 'set'>>) => void
@@ -21,6 +23,7 @@ export const useSurfaceLab = create<LabState>((set) => ({
   sunAz: null,
   haze: 1,
   ev: 0,
+  legs: null,
   exposure: 1,
   set: (p) => set(p),
 }))

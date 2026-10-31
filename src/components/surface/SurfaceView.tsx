@@ -14,6 +14,7 @@ import { named, t, useLang } from '../../i18n/lang'
 import { AirParams, ApUniforms, SkyLut, airFor, airUniforms, apUniforms, autoExposure, luminance, skyLookupGlsl, sunTransmittance, withAir } from './atmosphere'
 import { SurfacePost } from './SurfacePost'
 import { SurfaceLab } from './SurfaceLab'
+import { Dust, LegRig, TOUCHDOWN, legsDuringDescent, setLegs, splitLegs, descentAltitude, descentThrust, plumeGeometry, plumeMaterial, splashMaterial, suspension, windFor } from './landerFx'
 import { QualityGovernor } from '../QualityGovernor'
 import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 
@@ -318,7 +319,7 @@ function shrinkTexture(tex: THREE.Texture, max: number): THREE.Texture | null {
   return out
 }
 
-function Lander({ terrain, dustColor, ap }: { terrain: Terrain; dustColor: string; ap: ApUniforms }) {
+function Lander({ terrain, dustColor, ap, sunDir }: { terrain: Terrain; dustColor: string; ap: ApUniforms; sunDir: THREE.Vector3 }) {
   const { scene } = useGLTF(url('ship-lander.glb'))
   const group = useRef<THREE.Group>(null)
   const ground = useMemo(() => terrain.height(LANDER_POS.x, LANDER_POS.y), [terrain])
@@ -365,100 +366,146 @@ function Lander({ terrain, dustColor, ap }: { terrain: Terrain; dustColor: strin
         mesh.material = m
       }
     })
-    // 腹の噴射：下へ伸びる光の粒の列
-    const flameMat = new THREE.SpriteMaterial({ map: haloTexture(), color: new THREE.Color(0.8, 1.1, 2.4), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })
-    owned.push(flameMat)
-    const flames: THREE.Sprite[] = []
-    for (const p of BELLY) {
-      for (let k = 0; k < 4; k++) {
-        const sp = new THREE.Sprite(flameMat)
-        sp.position.set(p[0], p[1] - 0.02 - k * 0.035, p[2])
-        sp.userData.k = k
-        model.add(sp)
-        flames.push(sp)
-      }
+    // 脚（サスペンション）と、それより上の船体を分けて動かす。噴射口は船体と一緒に沈む
+    const legsObj = model.getObjectByName('Legs') as THREE.Mesh | undefined
+    // 脚を 4 本に分けて、付け根で畳めるようにする（模型の Legs は隠す）
+    let legs: LegRig | null = null
+    if (legsObj?.isMesh) {
+      legs = splitLegs(legsObj)
+      legsObj.visible = false
+      legsObj.parent?.add(legs.rig)
+      legs.rig.traverse((o) => {
+        const g = (o as THREE.Mesh).geometry
+        if (g) owned.push(g)
+      })
     }
-    return { model, owned, flames, flameMat }
+    const body = ['Hull', 'Wings', 'Engine'].map((n) => model.getObjectByName(n)).filter((o): o is THREE.Object3D => !!o)
+    const hull = body[0] ?? model
+    // 腹の噴射：噴射口ごとに円すいの噴流
+    const plumeGeo = plumeGeometry()
+    const plumeMat = plumeMaterial()
+    owned.push(plumeGeo, plumeMat)
+    const plumes: THREE.Mesh[] = []
+    for (const p of BELLY) {
+      const m = new THREE.Mesh(plumeGeo, plumeMat)
+      m.position.set(p[0], p[1] - 0.004, p[2])
+      m.renderOrder = 3
+      m.frustumCulled = false
+      hull.add(m)
+      plumes.push(m)
+    }
+    return { model, owned, plumes, plumeMat, legs, body }
   }, [scene, ap])
   useEffect(() => () => built.owned.forEach((m) => m.dispose()), [built])
 
-  // 砂ぼこり：降りる・飛び立つときに、着陸船の下から外へ広がる
-  const DUST = 260
-  const dust = useMemo(() => {
-    const geo = new THREE.BufferGeometry()
-    const pos = new Float32Array(DUST * 3)
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    const mat = withAir(new THREE.PointsMaterial({ map: haloTexture(), color: dustColor, size: 6, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true }), ap)
-    const vel = Array.from({ length: DUST }, () => new THREE.Vector3())
-    const life = new Float32Array(DUST).fill(99)
-    return { geo, mat, vel, life, next: 0 }
-  }, [dustColor, ap])
+  // 地面に当たった噴流の光（平たい円）と、地面を照らす光
+  const splash = useMemo(() => {
+    const mat = splashMaterial()
+    const geo = new THREE.PlaneGeometry(1, 1)
+    geo.rotateX(-Math.PI / 2)
+    return { mat, geo }
+  }, [])
   useEffect(() => () => {
-    dust.geo.dispose()
-    dust.mat.dispose()
-  }, [dust])
+    splash.mat.dispose()
+    splash.geo.dispose()
+  }, [splash])
+  const splashMesh = useRef<THREE.Mesh>(null)
+  const light = useRef<THREE.PointLight>(null)
 
-  useFrame((_, dt) => {
+  // 砂ぼこり：降りる・飛び立つときに、着陸船の下から外へ広がり、風に流されていく
+  const level = useLevel()
+  const hasAir = !!terrain.def.sky
+  const dust = useMemo(() => {
+    const count = level === 'high' ? 2400 : level === 'medium' ? 1400 : 600
+    const c = new THREE.Color(dustColor)
+    return new Dust(count, c, hasAir ? 0.55 : 0, terrain.def.gravity, windFor(terrain.def.id, hasAir))
+  }, [dustColor, level, hasAir, terrain])
+  useEffect(() => () => dust.dispose(), [dust])
+  const dustBase = useMemo(() => new THREE.Color(dustColor), [dustColor])
+  const camDir = useMemo(() => new THREE.Vector3(), [])
+
+  useFrame((state, dt) => {
     const g = group.current
     if (!g) return
+    dt = Math.min(dt, 0.1)
     const { phase, since } = useLanding.getState()
     const T = landingNow() - since
     let alt = 0
     let thrust = 0
     let wobble = 0
+    let squash = 0
     if (phase === 'descent') {
-      const u = Math.min(1, T / DESCENT)
-      // はじめは速く、最後はゆっくり降りる
-      alt = DESCENT_FROM * (1 - u) ** 2.6
-      thrust = u < 0.97 ? 0.5 + 0.5 * u : Math.max(0, 1 - (u - 0.97) / 0.03)
-      wobble = (1 - u) * 0.06
+      alt = descentAltitude(T, DESCENT, DESCENT_FROM)
+      thrust = descentThrust(T, DESCENT)
+      wobble = Math.max(0, 1 - T / (DESCENT * TOUCHDOWN)) * 0.06
+      squash = suspension(T - DESCENT * TOUCHDOWN, terrain.def.gravity)
+    } else if (phase === 'surface') {
+      // 降下を飛ばしたときも、落ち着いた縮みにする
+      squash = suspension(T + DESCENT * (1 - TOUCHDOWN), terrain.def.gravity)
     } else if (phase === 'ascent' || phase === 'fadeOut') {
       const s = phase === 'ascent' ? T : ASCENT
-      alt = s < 1 ? 0.6 * s * s : 0.6 + 5 * (s - 1) ** 2.2
+      // エンジンを吹かすと、まず脚が伸びて、それから浮く
+      alt = s < 0.6 ? 0 : s < 1.6 ? 0.6 * (s - 0.6) ** 2 : 0.6 + 5 * (s - 1.6) ** 2.2
       thrust = s < 0.4 ? s / 0.4 : 1
       wobble = Math.min(1, s / 3) * 0.05
+      squash = suspension(99, terrain.def.gravity) * Math.max(0, 1 - s / 0.6)
     }
     g.position.set(LANDER_POS.x, ground + alt, LANDER_POS.y)
     const tm = landingNow()
-    g.rotation.set(Math.sin(tm * 0.9) * wobble, LANDER_YAW + Math.sin(tm * 0.5) * wobble * 0.5, Math.sin(tm * 1.3) * wobble)
-    const flick = 0.85 + 0.15 * Math.sin(tm * 41)
-    built.flameMat.opacity = Math.min(1, thrust * 1.2)
-    built.flames.forEach((sp) => {
-      const k = sp.userData.k as number
-      sp.scale.setScalar(thrust * (0.07 - k * 0.012) * flick)
-      sp.visible = thrust > 0.02
-    })
+    // 接地の瞬間、片側の脚から着いて、少し揺れる
+    const tdT = phase === 'descent' ? T - DESCENT * TOUCHDOWN : -1
+    const rock = tdT > 0 ? Math.exp(-tdT * 3) * Math.sin(tdT * 9) * 0.012 : 0
+    g.rotation.set(Math.sin(tm * 0.9) * wobble + rock, LANDER_YAW + Math.sin(tm * 0.5) * wobble * 0.5, Math.sin(tm * 1.3) * wobble + rock * 0.6)
+
+    // サスペンション：船体を下げ、脚を縮める（脚の高さは模型で 0.117 = 2.8 m）
+    const sq = squash / LANDER_M
+    for (const o of built.body) o.position.y = -sq
+    if (built.legs) {
+      built.legs.rig.scale.y = Math.max(0.6, 1 - sq / 0.117)
+      // 脚の出し入れ：降下の途中で出し、離陸して浮いたら畳む
+      let deploy = 1
+      if (phase === 'descent') deploy = legsDuringDescent(T, DESCENT, DESCENT_FROM)
+      else if (phase === 'ascent') deploy = 1 - (T - 2.0) / 2.2
+      else if (phase === 'fadeOut') deploy = 0
+      setLegs(built.legs, useSurfaceLab.getState().legs ?? deploy)
+    }
+
+    // 噴射：地面が近いほど噴流は短く、地面で平たく広がる
+    const flick = 0.9 + 0.1 * Math.sin(tm * 37)
+    const lenM = Math.min(14, 3 + alt * 0.9) * thrust
+    built.plumeMat.uniforms.uPower.value = thrust * 0.55 * flick
+    built.plumeMat.uniforms.uTime.value = tm
+    for (const m of built.plumes) {
+      m.visible = thrust > 0.02
+      const L = lenM / LANDER_M
+      m.scale.set(0.045 + L * 0.12, Math.max(L, 0.002), 0.045 + L * 0.12)
+    }
+    const nearGround = thrust > 0.02 ? Math.max(0, 1 - alt / 30) : 0
+    if (splashMesh.current) {
+      splashMesh.current.position.set(LANDER_POS.x, ground + 0.08, LANDER_POS.y)
+      const r = 10 + alt * 0.4
+      splashMesh.current.scale.set(r, 1, r)
+      splashMesh.current.visible = nearGround > 0.01
+      splash.mat.uniforms.uPower.value = nearGround * thrust * 0.5 * flick
+    }
+    if (light.current) {
+      light.current.position.set(LANDER_POS.x, ground + alt + 1.2 - squash, LANDER_POS.y)
+      light.current.intensity = thrust * flick * 900 * (0.4 + 0.6 * nearGround)
+    }
+
     // 砂ぼこり
-    const near = thrust > 0.1 && alt < 35
-    const pos = dust.geo.attributes.position as THREE.BufferAttribute
-    if (near && terrain.def.dust) {
-      const spawn = Math.ceil(dt * 160 * (1 - alt / 35))
-      for (let i = 0; i < spawn; i++) {
-        const j = dust.next++ % DUST
-        const a = Math.random() * Math.PI * 2
-        const sp = 8 + Math.random() * 18
-        pos.setXYZ(j, LANDER_POS.x + Math.cos(a) * 3, ground + 0.5, LANDER_POS.y + Math.sin(a) * 3)
-        dust.vel[j].set(Math.cos(a) * sp, 0.5 + Math.random() * 2.5, Math.sin(a) * sp)
-        dust.life[j] = 0
-      }
+    if (thrust > 0.05 && alt < 28 && terrain.def.dust) {
+      const k = thrust * (1 - alt / 28) ** 1.5
+      dust.emit(dt, LANDER_POS.x, ground, LANDER_POS.y, k, level === 'low' ? 110 : 260)
     }
-    let alive = 0
-    for (let j = 0; j < DUST; j++) {
-      if (dust.life[j] > 3) {
-        pos.setXYZ(j, 0, -1000, 0)
-        continue
-      }
-      alive++
-      dust.life[j] += dt
-      // 大気が無いと、ほこりは弧を描いてすぐ落ちる。大気があると、ゆっくりただよう
-      const drag = terrain.def.sky ? 1.2 : 0.1
-      const v = dust.vel[j]
-      v.multiplyScalar(Math.max(0, 1 - drag * dt))
-      v.y -= 9.8 * terrain.def.gravity * dt
-      pos.setXYZ(j, pos.getX(j) + v.x * dt, Math.max(ground + 0.1, pos.getY(j) + v.y * dt), pos.getZ(j) + v.z * dt)
-    }
-    pos.needsUpdate = true
-    dust.mat.opacity = alive ? 0.35 : 0
+    const cam = state.camera as THREE.PerspectiveCamera
+    dust.material.uniforms.uScale.value = state.size.height * state.viewport.dpr / (2 * Math.tan((cam.fov * Math.PI) / 360))
+    dust.update(dt, ground)
+    // 太陽を背にすると暗く、太陽の方を向くと光る（細かい粒は光を前へ散らす）
+    cam.getWorldDirection(camDir)
+    const fwd = Math.max(0, camDir.dot(sunDir)) ** 3
+    const lit = Math.max(0.15, Math.min(1, sunDir.y * 3 + 0.2))
+    dust.material.uniforms.uColor.value.copy(dustBase).multiplyScalar(lit * (0.75 + 1.6 * fwd))
   })
 
   return (
@@ -466,7 +513,9 @@ function Lander({ terrain, dustColor, ap }: { terrain: Terrain; dustColor: strin
       <group ref={group} scale={LANDER_M} name="surface-lander">
         <primitive object={built.model} />
       </group>
-      <points geometry={dust.geo} material={dust.mat} frustumCulled={false} />
+      <mesh ref={splashMesh} geometry={splash.geo} material={splash.mat} renderOrder={1} frustumCulled={false} />
+      <pointLight ref={light} color="#9fb8ff" distance={60} decay={2} intensity={0} />
+      <primitive object={dust.points} />
     </>
   )
 }
@@ -718,7 +767,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       {/* 空と地面の照り返しの光は、まわりの景色の光（scene.environment）が受け持つ */}
       <Ground terrain={terrain} ap={A.ap} />
       <Suspense fallback={null}>
-        <Lander terrain={terrain} dustColor={def.sky ? def.hazeColor : def.ground} ap={A.ap} />
+        <Lander terrain={terrain} dustColor={def.sky ? def.hazeColor : def.ground} ap={A.ap} sunDir={sunDir} />
       </Suspense>
       <Look terrain={terrain} />
     </>
