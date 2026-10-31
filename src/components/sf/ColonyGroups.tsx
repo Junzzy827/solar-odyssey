@@ -13,6 +13,7 @@ import { LABEL_Z, useHideBehindSun } from '../labels'
 import { earthMoonNormal, earthMoonPoint } from './lagrange'
 import { useSite } from './useSite'
 import { ColonyModel } from './ColonyModel'
+import { Colony } from './Colony'
 
 // 地球と月のラグランジュ点の、第2〜第7コロニー群（第1コロニー群は ColonyCluster）。
 // 円筒は第1コロニー群の半分の長さ（約16km）で、同じ縮尺。中へは入れない（光源も足さない）。
@@ -34,6 +35,12 @@ const SLOTS: [number, number, number][] = [
 const Y = new THREE.Vector3(0, 1, 0)
 /** この距離（群の中心から）より近いと、第1コロニーと同じ細かい形で描く */
 const DETAIL_DISTANCE = 6
+/**
+ * 自機がこの距離まで来たら、群の円筒を第1コロニーと同じ Colony（中へ入れる・中に大地と雲・同じ当たり判定と操作感）に
+ * 差し替える。離れたら（OPEN_OFF）元に戻す（行き来の境目でちらつかないよう、戻す距離は少し遠く）
+ */
+const OPEN_ON = 2.2
+const OPEN_OFF = 3.2
 
 type Baked = { geometry: THREE.BufferGeometry; material: THREE.Material; renderOrder: number }[]
 
@@ -158,6 +165,9 @@ function Group({ g, shared, baked }: { g: ColonyGroup; shared: Shared; baked: Ba
   const detail = useRef<THREE.Group>(null!)
   const label = useRef<HTMLSpanElement>(null)
   const spin = useRef(g.n * 0.7)
+  const [open, setOpen] = useState(false)
+  const openRef = useRef(false)
+  openRef.current = open
   useHideBehindSun(label, group)
   const moved = useSite(group, {
     id: g.id,
@@ -170,7 +180,8 @@ function Group({ g, shared, baked }: { g: ColonyGroup; shared: Shared; baked: Ba
   useEffect(() => {
     const collide = () => {
       const grp = group.current
-      if (!grp) return
+      // 中へ入れる Colony に差し替えているあいだは、それぞれが自分で判定する
+      if (!grp || openRef.current) return
       inverse.copy(grp.matrixWorld).invert()
       local.copy(ship.position).applyMatrix4(inverse)
       for (let i = 0; i < g.count; i++) {
@@ -206,12 +217,15 @@ function Group({ g, shared, baked }: { g: ColonyGroup; shared: Shared; baked: Ba
     toSun.copy(grp.position).negate().normalize()
     grp.quaternion.setFromUnitVectors(Y, toSun)
     if (useStore.getState().timeScale > 0) spin.current += (Math.min(rawDelta, 0.05) * Math.PI * 2) / SPIN_SECONDS
-    // 近ければ細かい形、遠ければ軽い形
+    // 自機がすぐ近くなら中へ入れる Colony に、近ければ細かい形、遠ければ軽い形
     grp.updateMatrixWorld()
+    const shipDist = ship.position.distanceTo(grp.getWorldPosition(camLocal))
+    if (!open && shipDist < OPEN_ON) setOpen(true)
+    else if (open && shipDist > OPEN_OFF) setOpen(false)
     camLocal.copy(camera.position).applyMatrix4(inverse.copy(grp.matrixWorld).invert())
     const near = !!baked && camLocal.length() < DETAIL_DISTANCE
-    mesh.current.visible = !near
-    if (detail.current) detail.current.visible = near
+    mesh.current.visible = !near && !open
+    if (detail.current) detail.current.visible = near && !open
     const targets = near ? (detail.current.children as THREE.InstancedMesh[]) : [mesh.current]
     for (let i = 0; i < g.count; i++) {
       spinQ.setFromAxisAngle(Y, spin.current + i * 1.3)
@@ -232,6 +246,18 @@ function Group({ g, shared, baked }: { g: ColonyGroup; shared: Shared; baked: Ba
           ))}
         </group>
       )}
+      {open &&
+        SLOTS.slice(0, g.count).map((p, i) => (
+          <Colony
+            key={i}
+            id={`${g.id}-${i + 1}`}
+            name={() => colonyGroupName(g.n, g.point)}
+            position={p}
+            phase={spin.current + i * 1.3}
+            scale={0.5}
+            body={false}
+          />
+        ))}
       {g.building && <lineSegments geometry={shared.frame} material={shared.frameMat} position={SLOTS[g.count]} />}
       <Html position={[0, L * 0.9, 0]} center className="label" zIndexRange={LABEL_Z}>
         <span ref={label} onClick={() => useStore.getState().setTarget(g.id)}>
