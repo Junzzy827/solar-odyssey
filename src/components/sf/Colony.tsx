@@ -1,11 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { ColonyModel, MIRROR_ANGLE } from './ColonyModel'
 import { ApproachLights } from './ApproachLights'
 import { ConstructionSite } from './ConstructionSite'
-import { colliders, passThrough, ports, registerBody, zoomZones, type Port, type ZoomZone } from '../../state/registry'
+import { colliders, passThrough, ports, registerBody, slowZones, zoomZones, type Port, type SlowZone, type ZoomZone } from '../../state/registry'
+import { MAX_SPEED } from '../../state/throttle'
 import { flightControl, ship } from '../../state/flight'
 import { useStore } from '../../state/store'
 import { COLONY_LENGTH as L, COLONY_PORT as PORT, COLONY_RADIUS as R, COLONY_SPIN_SECONDS, COLONY_ZOOM, SF_TEXT } from '../../data/sf'
@@ -18,6 +19,8 @@ const CAP = 0.03
 const OUTER = R * 1.06
 /** 中で飛べる範囲：地面から少し上まで */
 const INNER = R * 0.9
+/** 中での最高速（1秒に長さの何分の一か）。約20秒で端から端まで。速すぎると景色を見る前に通り過ぎる */
+const INSIDE_SPEED = L / 20
 /** 2号基を置く、横の距離（1号基の鏡が回ってきても届かない） */
 const SITE_OFFSET = 0.85
 /** この距離まで近づくと案内を出す・2号基を描く */
@@ -55,6 +58,8 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
   const site = useRef<THREE.Group>(null)
   const label = useRef<HTMLSpanElement>(null)
   const state = useRef({ inside: false, noticed: false, ready: false, last: new THREE.Vector3(), delta: new THREE.Vector3() })
+  // 中にいるあいだだけ、操縦の最高速を落とす（factor は collide が毎フレーム切りかえる）
+  const slow = useMemo<SlowZone>(() => ({ object: new THREE.Object3D(), near: Infinity, far: Infinity, factor: 1 }), [])
   useHideBehindSun(label, group)
 
   useEffect(() => {
@@ -63,6 +68,8 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
     if (body) passThrough.add(id)
     zoomZones.add(zone)
     colliders.add(collide)
+    slow.object = group.current
+    slowZones.add(slow)
     const port: Port = { object: group.current, next: portPath }
     ports.add(port)
     return () => {
@@ -70,6 +77,7 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
       if (body) passThrough.delete(id)
       zoomZones.delete(zone)
       colliders.delete(collide)
+      slowZones.delete(slow)
       ports.delete(port)
     }
     // collide は state の ref だけを読む
@@ -108,6 +116,7 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
     const s = state.current
     // 片づけの途中（group がもう外れている）なら何もしない
     if (!s.ready || !group.current) return
+    slow.factor = s.inside ? Math.min(1, (INSIDE_SPEED * scale) / MAX_SPEED) : 1
     // 中にいるあいだは、コロニーと一緒に動く（地球のまわりを回っても、壁が迫ってこないように）
     if (s.inside && !flightControl.holding) ship.position.add(s.delta)
     s.delta.set(0, 0, 0)
@@ -135,6 +144,10 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
         local.y = -H + 0.02
         moved = true
       }
+      // 中はゆっくり（ワープ中は縛らない）
+      const max = INSIDE_SPEED * scale
+      const speed = ship.velocity.length()
+      if (speed > max && useStore.getState().warpPhase === 'idle') ship.velocity.multiplyScalar(max / speed)
     } else {
       const bottom = -H - CAP - 0.005
       const top = H + CAP + 0.005

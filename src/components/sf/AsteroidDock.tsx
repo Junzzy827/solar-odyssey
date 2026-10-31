@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { ports, type Port } from '../../state/registry'
+import { colliders, ports, slowZones, type Port, type SlowZone } from '../../state/registry'
+import { MAX_SPEED } from '../../state/throttle'
+import { ship } from '../../state/flight'
+import { useStore } from '../../state/store'
 
 // 小惑星基地に取りつけた宇宙船ドック（オリジナルのデザイン）。岩の表面から外へ張り出した骨組みの箱で、
 // 外を向いた口から船がまっすぐ入る。中には照明の帯と、整備中の船が1隻。口の前には誘導灯が並ぶ。
@@ -19,8 +22,21 @@ const LEAD_GAP = 450
 const APPROACH = 7000
 const ENTRANCE = 700
 
+/** 壁から船の中心までの余白（m）。いちばん大きい船でも壁にめりこまない */
+const MARGIN = 300
+/** 奥の壁の手前で止まる位置（m） */
+const BACK = 120 + MARGIN
+/** ドックの中と口の前での最高速（m/s）。奥行きを約3秒で進む */
+const DOCK_SPEED = DOCK_D / 3
+/** 口の前の、速さを落とし始める距離（m） */
+const SLOW_AHEAD = 3000
+
 const Z = new THREE.Vector3(0, 0, 1)
 const local = new THREE.Vector3()
+const prev = new THREE.Vector3()
+const inverse = new THREE.Matrix4()
+const push = new THREE.Vector3()
+const scaleV = new THREE.Vector3()
 
 type Props = {
   /** この基地の id（周辺観察の「入港」で、この基地のドックを選ぶ） */
@@ -97,8 +113,63 @@ export function AsteroidDock({ owner, at, normal, scale, roll = 0 }: Props) {
       },
     }
     ports.add(port)
+
+    // 壁の当たり判定：中に入ったら床・天井・横の壁・奥の壁で止まる。口からは出られる。
+    // 前のフレームの位置（ドックの座標）から線で調べ、速くても壁をすり抜けない
+    const last = { ok: false, at: new THREE.Vector3() }
+    const hw = DOCK_W / 2 - MARGIN
+    const hh = DOCK_H / 2 - MARGIN
+    const within = (v: THREE.Vector3) => Math.abs(v.x) < DOCK_W / 2 && Math.abs(v.y) < DOCK_H / 2 && v.z > 0 && v.z < DOCK_D
+    const collide = () => {
+      if (!g.parent) return
+      inverse.copy(g.matrixWorld).invert()
+      local.copy(ship.position).applyMatrix4(inverse)
+      prev.copy(last.ok ? last.at : local)
+      let inside = within(prev)
+      // 口の面を外から中へ横切ったか
+      if (!inside && prev.z >= DOCK_D && local.z < DOCK_D) {
+        const t = (prev.z - DOCK_D) / (prev.z - local.z)
+        const x = prev.x + (local.x - prev.x) * t
+        const y = prev.y + (local.y - prev.y) * t
+        inside = Math.abs(x) < DOCK_W / 2 && Math.abs(y) < DOCK_H / 2
+      }
+      const warping = useStore.getState().warpPhase !== 'idle'
+      if (inside && !warping) {
+        const before = push.copy(local)
+        local.x = THREE.MathUtils.clamp(local.x, -hw, hw)
+        local.y = THREE.MathUtils.clamp(local.y, -hh, hh)
+        if (local.z < BACK) local.z = BACK
+        if (!before.equals(local)) {
+          push.copy(local).applyMatrix4(g.matrixWorld).sub(ship.position)
+          ship.position.add(push)
+          // 壁へ向かう速さを消す
+          if (push.lengthSq() > 0) {
+            push.normalize()
+            const into = ship.velocity.dot(push)
+            if (into < 0) ship.velocity.addScaledVector(push, -into)
+          }
+        }
+      }
+      // 中と口の前では、ゆっくり
+      const ahead = Math.abs(local.x) < DOCK_W && Math.abs(local.y) < DOCK_H && local.z > 0 && local.z < DOCK_D + SLOW_AHEAD
+      if ((inside || ahead) && !warping) {
+        const max = DOCK_SPEED * g.getWorldScale(scaleV).x
+        const speed = ship.velocity.length()
+        if (speed > max) ship.velocity.multiplyScalar(max / speed)
+      }
+      last.at.copy(local)
+      last.ok = !warping
+    }
+    colliders.add(collide)
+    // 近づくと操縦の最高速そのものを落とす（速さを後から縛るだけでは、1フレームで奥まで進んでしまう）
+    g.updateWorldMatrix(true, false)
+    const s = g.getWorldScale(scaleV).x
+    const slow: SlowZone = { object: g, near: (DOCK_D + 500) * s, far: (DOCK_D + SLOW_AHEAD + 3000) * s, factor: Math.min(1, (DOCK_SPEED * s) / MAX_SPEED) }
+    slowZones.add(slow)
     return () => {
       ports.delete(port)
+      colliders.delete(collide)
+      slowZones.delete(slow)
     }
   }, [owner])
 
