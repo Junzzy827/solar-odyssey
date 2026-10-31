@@ -8,7 +8,6 @@ import { EngineFx } from './ship/EngineFx'
 import { LanderLaunch } from './ship/LanderLaunch'
 import { launchFx } from '../state/launch'
 import { currentShip, useShip } from '../data/ships'
-import { bodies, colliders, passThrough, type BodyEntry } from '../state/registry'
 import { useStore } from '../state/store'
 import { CHARGE_SECONDS, EXIT_SECONDS, SHIP_SCALE, flightControl, ship, standoff, thrustFx, warpFx } from '../state/flight'
 import { APPROACH_TEXT, approachKind, limitDistance } from '../data/approach'
@@ -22,6 +21,8 @@ import { beamFx, hitStopped, shakeCamera } from '../state/beam'
 import { QUALITY, useLevel } from '../state/quality'
 import { MAX_SPEED, THROTTLE_STEPS } from '../state/throttle'
 import { raceActive } from '../state/race'
+import { observeMin, observeRange, observeRun, OBSERVE_TEXT, ORBIT_RATE_MAX, stopObserve, useObserve } from '../state/observe'
+import { bodies, colliders, passThrough, ports, type BodyEntry, type Port } from '../state/registry'
 
 const THRUST = 10
 const AUTO_SPEED = 12
@@ -252,6 +253,7 @@ export function Ship() {
       ship.position.copy(hp).add(hold.current.offset)
     }
 
+    if (st.warpPhase !== 'idle' && useObserve.getState().id) stopObserve()
     if (st.warpPhase !== 'idle' && target) {
       const w = warp.current
       // 音声と合わせるため、ワープの進行は実時間で数える
@@ -299,10 +301,21 @@ export function Ship() {
       const inBridge = st.mode === 'flight' && st.cameraMode === 'bridge'
       const atSeat = useBridge.getState().viewpoint === 'captain'
       if (inBridge && (!atSeat || useBridge.getState().looking)) lookAround()
-      const manual = steer(dt, st.mode === 'flight' && !flightControl.locked && !st.scope && !(inBridge && !atSeat))
+      // 周辺観察：自動航行やレースが始まったり、天体が消えたりしたら終える
+      const observing = useObserve.getState().id
+      const observed = observing ? bodies.get(observing) : undefined
+      if (observing && (!observed || st.autopilot || raceActive())) stopObserve()
+      const manual = observed && useObserve.getState().id ? false : steer(dt, st.mode === 'flight' && !flightControl.locked && !st.scope && !(inBridge && !atSeat))
       if (manual && st.autopilot) st.setAutopilot(false)
 
-      if (st.autopilot && target && !manual) {
+      if (observed && useObserve.getState().id) {
+        if (!hold.current || hold.current.id !== observed.id) {
+          observed.object.getWorldPosition(hp)
+          hold.current = { id: observed.id, offset: ship.position.clone().sub(hp) }
+        }
+        observeOrbit(dt, observed, hp, hold.current.offset, st.mode === 'flight' && !st.scope && !flightControl.locked)
+        ship.position.copy(hp).add(hold.current.offset)
+      } else if (st.autopilot && target && !manual) {
         if (!hold.current || hold.current.id !== target.id) hold.current = null
         v.copy(ship.position).sub(tp)
         if (v.lengthSq() < 1e-6) v.set(0, 0.2, 1)
@@ -318,7 +331,7 @@ export function Ship() {
           st.setAutopilot(false)
         }
       }
-      ship.position.addScaledVector(ship.velocity, dt)
+      if (!useObserve.getState().id) ship.position.addScaledVector(ship.velocity, dt)
       avoidBodies()
       colliders.forEach((collide) => collide())
       updateProximity(ship.position)
@@ -499,6 +512,143 @@ function steer(dt: number, enabled: boolean) {
   const speed = ship.velocity.length()
   if (speed > cap) ship.velocity.setLength(Math.max(cap, Math.min(speed, before * Math.exp(-2.5 * dt))))
   return thrusting || turned
+}
+
+/** 周辺観察で、マウス・指でなぞった 1 ピクセルあたりに回す角度（rad） */
+const OBSERVE_DRAG = 0.002
+/** A／D で回る速さを変える速さ（rad/s²）、W／S で距離を変える速さ（1秒に e の何乗倍）、上昇・下降で面を傾ける速さ（rad/s） */
+const OBSERVE_RATE_STEP = 0.2
+const OBSERVE_ZOOM = 0.6
+const OBSERVE_TILT = 0.35
+const obsPrev = { id: '', pos: new THREE.Vector3(), ready: false }
+const obsVel = new THREE.Vector3()
+const tang = new THREE.Vector3()
+const portAt = new THREE.Vector3()
+const portIn = new THREE.Vector3()
+const portPos = new THREE.Vector3()
+let lapClock = 0
+
+/** 観察中の天体の港（中心にある構造物のものを優先。群なら、自機にいちばん近い港） */
+function portFor(center: THREE.Vector3) {
+  let own: Port | null = null
+  let best: Port | null = null
+  let bestD = Infinity
+  for (const port of ports) {
+    port.object.getWorldPosition(portPos)
+    if (portPos.distanceTo(center) < 0.05) own = port
+    const d = portPos.distanceTo(ship.position)
+    if (portPos.distanceTo(center) < 2.5 && d < bestD) {
+      bestD = d
+      best = port
+    }
+  }
+  return own ?? best
+}
+
+/**
+ * 周辺観察の 1 フレーム：目標のまわりを公転の向きに回り、船首はずっと目標を向く。
+ * offset は目標の中心からの自機の位置（周回待機の値をそのまま書き換える）。
+ * W／S（スティックの上下）で近づく・離れる、A／D（左右）で回る速さと向き、
+ * 上昇・下降のキーやマウス・指で、回る面を傾けたり、回る位置をずらしたりする
+ */
+function observeOrbit(dt: number, body: BodyEntry, center: THREE.Vector3, offset: THREE.Vector3, enabled: boolean) {
+  const o = observeRun
+  const minR = observeMin(body.id, body.radius, limitDistance(body.id, body.radius))
+  const maxR = observeRange(body.radius)
+  if (obsPrev.ready && obsPrev.id === body.id && dt > 0) obsVel.copy(center).sub(obsPrev.pos).divideScalar(dt)
+  else obsVel.set(0, 0, 0)
+  obsPrev.id = body.id
+  obsPrev.pos.copy(center)
+  obsPrev.ready = true
+  turn.pitch = turn.yaw = turn.roll = 0
+  thrustFx.throttle = 0
+
+  if (o.fresh) {
+    o.fresh = false
+    if (offset.lengthSq() < 1e-10) offset.set(0, 0, 1)
+    o.r = THREE.MathUtils.clamp(offset.length(), minR, maxR)
+    // 回る面は、ふつうの公転と同じ黄道に近い面。真上や真下にいるときは、船の上の向きを使う
+    fwd.copy(offset).normalize()
+    o.axis.set(0, 1, 0)
+    if (Math.abs(o.axis.dot(fwd)) > 0.9) o.axis.set(0, 1, 0).applyQuaternion(ship.quaternion)
+    if (Math.abs(o.axis.dot(fwd)) > 0.99) o.axis.set(1, 0, 0)
+    o.axis.addScaledVector(fwd, -o.axis.dot(fwd)).normalize()
+  }
+  // 回る向きを、目標が公転している向きにそろえる（止まっている目標なら、そのまま右回り）
+  if (o.alignPending > 0) {
+    o.alignPending--
+    if (obsVel.lengthSq() > 1e-12) {
+      o.alignPending = 0
+      tang.crossVectors(o.axis, offset)
+      o.rate = Math.sign(tang.dot(obsVel) || 1) * Math.abs(o.rate)
+    }
+  }
+
+  // 港の入口へ：道順の点を順にたどり、最後は入口の手前で中を向いて止まる
+  if (useObserve.getState().docking) {
+    if (!enabled) return
+    const port = portFor(center)
+    let last = false
+    if (port) last = port.next(ship.position, portAt, portIn)
+    else {
+      // 群の中の港がまだ出ていない（遠い）ときは、まず群へ近づく
+      portAt.copy(offset).setLength(Math.min(offset.length(), 1.6)).add(center)
+      portIn.copy(offset).negate().normalize()
+    }
+    tang.copy(portAt).sub(ship.position)
+    const d = tang.length()
+    const step = Math.min(d, Math.max(d * 1.2, 0.04) * dt)
+    if (d > 1e-6) offset.addScaledVector(tang, step / d)
+    ship.velocity.copy(tang).setLength(dt > 0 && d > 1e-6 ? step / dt : 0)
+    up.set(0, 1, 0).applyQuaternion(ship.quaternion)
+    const dir = last || d < 1e-3 ? portIn : tang
+    ship.quaternion.slerp(facing(ship.position, v.copy(ship.position).add(dir), up), 1 - Math.exp(-2.5 * dt))
+    thrustFx.move.set(0, 0, 0)
+    thrustFx.throttle = d > 1e-3 ? 0.35 : 0
+    fwd.set(0, 0, -1).applyQuaternion(ship.quaternion)
+    if (last && d < 0.004 && fwd.dot(portIn) > 0.995) {
+      ship.velocity.set(0, 0, 0)
+      stopObserve()
+      useStore.getState().showToast(OBSERVE_TEXT.docked())
+    }
+    return
+  }
+
+  const key = (code: string) => (keys.has(code) ? 1 : 0)
+  const clamp1 = (x: number) => THREE.MathUtils.clamp(x, -1, 1)
+  const distIn = enabled ? clamp1(key('KeyS') - key('KeyW') + touchInput.y) : 0
+  const sideIn = enabled ? clamp1(key('KeyD') - key('KeyA') + touchInput.x) : 0
+  const liftIn = enabled ? clamp1(key('Space') - key('ShiftLeft') - key('ShiftRight') + touchInput.lift) : 0
+  const scrub = enabled ? (mouse.dx + touchInput.lookX) * OBSERVE_DRAG : 0
+  const tilt = enabled ? -(mouse.dy + touchInput.lookY) * OBSERVE_DRAG : 0
+  mouse.dx = mouse.dy = 0
+  touchInput.lookX = touchInput.lookY = 0
+  thrustFx.move.set(sideIn, liftIn, distIn)
+
+  o.rate = THREE.MathUtils.clamp(o.rate + sideIn * OBSERVE_RATE_STEP * dt, -ORBIT_RATE_MAX, ORBIT_RATE_MAX)
+  o.r = THREE.MathUtils.clamp(o.r * Math.exp(distIn * OBSERVE_ZOOM * dt), minR, maxR)
+  // 回る（鑑賞モードや望遠鏡を見ているあいだは止まる）
+  offset.applyAxisAngle(o.axis, (enabled ? o.rate * dt : 0) + scrub)
+  // 上下：進む向きを軸に、回る面ごと傾ける（+ で船の上の側へ）
+  const phi = liftIn * OBSERVE_TILT * dt + tilt
+  if (phi !== 0) {
+    tang.crossVectors(o.axis, offset).normalize()
+    offset.applyAxisAngle(tang, -phi)
+    o.axis.applyAxisAngle(tang, -phi)
+  }
+  fwd.copy(offset).normalize()
+  o.axis.addScaledVector(fwd, -o.axis.dot(fwd)).normalize()
+  offset.setLength(o.r)
+  ship.velocity.crossVectors(o.axis, offset).multiplyScalar(enabled ? o.rate : 0)
+  // 船首は目標の中心へ、船の上は回る面の軸へ（追いかけカメラもブリッジも、目標を見る）
+  ship.quaternion.slerp(facing(v.copy(center).add(offset), center, o.axis), 1 - Math.exp(-2 * dt))
+
+  lapClock += dt
+  if (lapClock > 0.25) {
+    lapClock = 0
+    const lap = Math.abs(o.rate) < 1e-3 ? 0 : (Math.PI * 2) / o.rate
+    if (Math.abs(lap - useObserve.getState().lap) > 0.5) useObserve.setState({ lap })
+  }
 }
 
 /** 天体ごとの接近限界で止める。止まったときと雲に入ったときに説明を出す */
