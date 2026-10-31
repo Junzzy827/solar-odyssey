@@ -3452,3 +3452,59 @@ body.sf .nav-panel {
 .surface-buttons button {
   white-space: nowrap;
 }
+
+/* 周辺観察：下のまんなか、全体マップのボタンの上の札 */
+.observe-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 8px 14px;
+  border-left: 6px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  background: rgba(20, 16, 30, 0.8);
+  font-size: 13px;
+  z-index: 6;
+}
+
+.observe-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.observe-tag {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #10101a;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.observe-hint {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.observe-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.observe-buttons button {
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  background: none;
+  font-size: 12px;
+}
+
+.observe-buttons button.on,
+.observe-buttons button:hover {
+  background: rgba(155, 140, 217, 0.35);
+}

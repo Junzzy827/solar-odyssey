@@ -51,6 +51,7 @@ import { MissionPanel } from './ui/MissionPanel'
 import { LanguagePicker } from './ui/LanguagePicker'
 import { EclipseScene } from './components/EclipseScene'
 import { EclipsePanel } from './ui/EclipsePanel'
+import { ObservePanel } from './ui/ObservePanel'
 import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
@@ -130,6 +131,7 @@ export default function App() {
       <BeamGauge />
       <TouchControls />
       <TouchWarp />
+      <ObservePanel />
       <TouchBar />
       <BridgePanel />
       <RacePanel />

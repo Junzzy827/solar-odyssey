@@ -705,3 +705,15 @@ body.touch .surface-hint {
 body.touch .surface-buttons {
   bottom: calc(env(safe-area-inset-bottom) + 18px);
 }
+
+/* 周辺観察の札：アイコン列のすぐ下に、小さめに */
+body.touch .observe-panel {
+  top: calc(var(--bar-h) + var(--safe-t) + 6px);
+  bottom: auto;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+body.touch .observe-buttons button {
+  min-height: 34px;
+}

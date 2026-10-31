@@ -11,6 +11,7 @@ import { isTouchDevice } from '../state/input'
 import { launchLander, useLaunchBusy } from '../state/launch'
 import { getLang, t, useLang } from '../i18n/lang'
 import { landableBody, landed, startLanding } from '../state/landing'
+import { toggleObserve } from '../state/observe'
 
 /** 全体のキー操作：M 全体マップ／V 鑑賞モード／Enter ワープ／G 自動航行／C カメラ／1〜9 ワープ速度 */
 export function useGlobalKeys() {
@@ -54,6 +55,7 @@ export function useGlobalKeys() {
       else if (e.code === 'KeyC') s.setCameraMode(nextCameraMode(s.cameraMode))
       else if (e.code === 'KeyB' && s.mode === 'flight') useCompare.getState().toggle()
       else if (e.code === 'KeyZ' && s.cameraMode === 'bridge') useBridge.getState().setViewscreen(!useBridge.getState().viewscreen)
+      else if (e.code === 'KeyO' && s.mode === 'flight') toggleObserve()
       else if (e.code === 'KeyG' && raceActive()) s.showToast(RACE_TEXT.noWarp)
       else if (e.code === 'KeyG' && s.targetId && s.warpPhase === 'idle') s.setAutopilot(!s.autopilot)
       else if (/^Digit[1-9]$/.test(e.code) && s.warpPhase === 'idle') s.setWarpFactor(Number(e.code.slice(5)))
@@ -245,7 +247,7 @@ export function Hud() {
             <br />
             {t('F またはクリックでビーム（長押しでチャージ）・I で航海日誌・C でカメラ切り替え', 'F or click to fire the beam (hold to charge) · I for the ship’s log · C to switch camera')}
             <br />
-            {t('ホイールで推進の段階（速さ）を切り替え', 'Mouse wheel to change thrust (speed)')}
+            {t('ホイールで推進の段階（速さ）を切り替え・O で目標の周辺観察', 'Mouse wheel to change thrust (speed) · O to observe the target up close')}
           </div>
         )}
         {mode !== 'gallery' && (

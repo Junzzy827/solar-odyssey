@@ -8,6 +8,7 @@ import { bodyInfo, engage } from '../state/flight'
 import { TouchThrottle } from './Throttle'
 import { raceActive } from '../state/race'
 import { launchLander, useLaunchBusy } from '../state/launch'
+import { toggleObserve, useObserve } from '../state/observe'
 
 /** スティックを倒しきったときの、つまみの動く半径（ピクセル） */
 const STICK_RADIUS = 48
@@ -119,6 +120,7 @@ export function TouchWarp() {
   const autopilot = useStore((s) => s.autopilot)
   const setAutopilot = useStore((s) => s.setAutopilot)
   const distance = useStore((s) => s.telemetry.distance)
+  const observing = useObserve((o) => o.id !== null)
   const quizOpen = useQuiz((q) => q.open)
   const sheet = useTouchUI((u) => u.sheet)
   // 操縦席では、目標がなくても推進の段階（−／＋）だけは出す
@@ -142,6 +144,11 @@ export function TouchWarp() {
             <button className={`touch-button wide auto${autopilot ? ' on' : ''}`} onClick={() => setAutopilot(!autopilot)} disabled={busy}>
               {t('自動', 'Auto')}
             </button>
+            {mode === 'flight' && (
+              <button className={`touch-button wide observe${observing ? ' on' : ''}`} onClick={toggleObserve} disabled={busy}>
+                {t('観察', 'Observe')}
+              </button>
+            )}
           </div>
         </>
       )}

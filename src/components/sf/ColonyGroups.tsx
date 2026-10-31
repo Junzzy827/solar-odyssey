@@ -14,6 +14,7 @@ import { earthMoonNormal, earthMoonPoint } from './lagrange'
 import { useSite } from './useSite'
 import { ColonyModel } from './ColonyModel'
 import { Colony } from './Colony'
+import { ApproachLights } from './ApproachLights'
 
 // 地球と月のラグランジュ点の、第2〜第7コロニー群（第1コロニー群は ColonyCluster）。
 // 円筒は第1コロニー群の半分の長さ（約16km）で、同じ縮尺。中へは入れない（光源も足さない）。
@@ -246,6 +247,13 @@ function Group({ g, shared, baked }: { g: ColonyGroup; shared: Shared; baked: Ba
           ))}
         </group>
       )}
+      {/* 港の誘導灯（中へ入れるコロニーに差し替えたら、そちらが自分で持つ） */}
+      {!open &&
+        SLOTS.slice(0, g.count).map((p, i) => (
+          <group key={`a${i}`} position={p} scale={0.5}>
+            <ApproachLights />
+          </group>
+        ))}
       {open &&
         SLOTS.slice(0, g.count).map((p, i) => (
           <Colony
