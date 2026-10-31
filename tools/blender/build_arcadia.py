@@ -286,7 +286,7 @@ def build_tower(P):
         ], chamfer=0.3, mid=0.4, seg=2).build(t)
         # 横へ張り出す薄い羽根と、その先の前後に長い筒（センサーの腕）
         both(lambda sx: wing(t, [(0, y0 + 10), (0, y1 - 20), (px, y1 - 30), (px, y0 + 25)], 2.5, (w * 0.8, 0, z + h * 0.45), 0, 'Hull', sx=sx))
-        both(lambda sx: pod(t, y0 + 10, py1, (sx * px, z + h * 0.45), 3.6, 'Hull', nose=0.25, tail=0.1, tip_mat='Metal'))
+        both(lambda sx: pod(t, y0 + 10, py1, (sx * px, z + h * 0.45), 3.6, 'Hull2', nose=0.25, tail=0.1, tip_mat='Metal'))
     # 頂上のセンサーの玉と、前へ傾いたマスト
     cone(t, (0, -195, 135), (0, -195, 142), 8, 6, 'Hull', n=20)
     cone(t, (0, -195, 142), (0, -150, 175), 2.5, 0.3, 'Metal', n=8)
@@ -512,15 +512,16 @@ def greebles(part):
     for sx, lamp in ((-1, 'NavRed'), (1, 'NavGreen')):
         bf.box(part, (sx * 69, 230, 12), (2, 4, 2), lamp)
         bf.box(part, (sx * 131, -400, 36), (2, 4, 2), lamp)
-    # 船底の発艦口の扉（少し浮いた板と、ふちの誘導灯）
+    # 船底の発艦口の扉（赤い船底の下に少し浮いた板と、ふちの誘導灯）
     for sx in (1, -1):
-        cx = sx * 38
-        for k, y in enumerate(np.arange(-120, 300, 70)):
+        for y in np.arange(-170, 140, 64):
+            bf.box(part, (sx * 30, y, -70.8), (40, 52, 1.6), 'Hull2')
+            for dx in (-22, 22):
+                bf.box(part, (sx * 30 + dx, y, -71.2), (1.2, 48, 0.8), 'Window')
+        for y in (210, 280):
             sc = prong_lower(sx).at_sec(y)
             zb = sc[2] - sc[7]
-            bf.box(part, (cx, y, zb - 0.6), (sc[5] * 1.4, 50, 1.5), 'Hull2')
-            for dx in (-1, 1):
-                bf.box(part, (cx + dx * sc[5] * 0.75, y, zb - 1), (1, 46, 0.8), 'Window')
+            bf.box(part, (sx * 38, y, zb - 0.6), (sc[5] * 1.3, 50, 1.5), 'Hull2')
 
 
 def build_stage2(P):
@@ -534,6 +535,226 @@ def build_stage2(P):
     tower_details(P['Tower'])
     wing_details(P['Wings'])
     greebles(hull)
+
+
+
+# ---- ステージ 3：テクスチャの焼き込み（アマツカゼと同じ流れ） -------------------------------------
+
+TEX = int(os.environ.get('TEX', '4096'))
+LIVE = {'Glow', 'Blue', 'NavRed', 'NavGreen'}
+PALETTE = {  # 色, ラフネス, メタリック
+    'Hull': ('#c3c6d2', 0.5, 0.25), 'Hull2': ('#a9adbc', 0.55, 0.25), 'Red': ('#8a1b27', 0.5, 0.15),
+    'Dark': ('#232835', 0.55, 0.45), 'Mech': ('#3a4050', 0.5, 0.6), 'Metal': ('#8d929e', 0.3, 0.9),
+    'Glass': ('#0b121c', 0.1, 0.3), 'Window': ('#1a2029', 0.15, 0.3),
+}
+
+
+def amatsu():
+    """アマツカゼの焼き込みの道具を、この船の設定で使えるようにする"""
+    import build_amatsukaze as ba
+    ba.MATS = MATS
+    ba.TEX = TEX
+    ba.PARTS = PARTS
+    return ba
+
+
+def node_edge_small(nt, m):
+    ba = amatsu()
+    out = ba.node_edge(nt, m)
+    for n in nt.nodes:
+        if n.bl_idname == 'ShaderNodeBevel':
+            n.inputs['Radius'].default_value = 0.0008
+    return out
+
+
+def compose(P, N, ID, AO, EDGE):
+    ba = amatsu()
+    from scipy import ndimage
+    valid = ID[..., 3] > 0.5
+    mid = np.clip((ID[..., 0] * 32).astype(int), 0, 31)
+    part = np.clip((ID[..., 1] * 32).astype(int), 0, 31)
+    pos = P[..., :3] - 1
+    nrm = N[..., :3] * 2 - 1
+    x, y, z = pos[..., 0] / S, pos[..., 1] / S, pos[..., 2] / S  # メートル
+    nx, nz = nrm[..., 0], nrm[..., 2]
+    ao = np.clip(ba.soft_blur(AO[..., 0], valid, 1.2), 0, 1)
+    edge = np.clip(ba.soft_blur(EDGE[..., 0], valid, 0.8) * 6, 0, 1)
+    is_m = lambda n: mid == MATS.index(n)  # noqa: E731
+    is_p = lambda n: part == PARTS.index(n) + 1  # noqa: E731
+
+    base = np.zeros((TEX, TEX, 3), dtype=np.float32)
+    rough = np.zeros((TEX, TEX), dtype=np.float32)
+    metal = np.zeros((TEX, TEX), dtype=np.float32)
+    for m, (col, r, mt) in PALETTE.items():
+        sel = is_m(m)
+        base[sel] = ba.srgb(col)
+        rough[sel] = r
+        metal[sel] = mt
+    emit = np.zeros((TEX, TEX, 3), dtype=np.float32)
+    height = np.zeros((TEX, TEX), dtype=np.float32)
+
+    # 1. 窓：暗い帯や暗い壁の横向きの面に、デッキの高さごとの列（窓 1 つ 3 m、点灯は 3〜4 割）
+    warm, cool = np.array([1.0, 0.72, 0.42]), np.array([0.75, 0.88, 1.0])
+
+    def windows(mask, pitch_y, pitch_z, ww, wh, lit_rate, seed, every=7):
+        u, v = y / pitch_y, z / pitch_z
+        cu, cv = np.floor(u), np.floor(v)
+        fu, fv = u - cu, v - cv
+        win = mask & (np.abs(fu - 0.5) < ww / pitch_y / 2) & (np.abs(fv - 0.5) < wh / pitch_z / 2) & (np.mod(cu, every) != every - 1)
+        side = np.sign(x) + seed
+        block = ba.hash2(np.floor(cu / 6), cv, side + 9)
+        lit = win & (ba.hash2(cu, cv + 3, side) < lit_rate * (0.35 + 1.3 * block))
+        colr = np.where((ba.hash2(cu + 0.37, cv * 1.7, side + 5) < 0.3)[..., None], cool, warm)
+        inten = (0.5 + 0.45 * ba.hash2(cu * 0.61, cv + 11, side * 3))[..., None]
+        base[win] = ba.srgb('#10161f')
+        rough[win] = 0.12
+        metal[win] = 0.3
+        emit[lit] = (colr * inten)[lit]
+        height[win] = -0.5
+    dark_side = valid & (is_m('Dark') | is_m('Mech')) & (np.abs(nx) > 0.75) & (y > -480) & (y < 520)
+    windows(dark_side, 5.0, 4.2, 3.0, 1.6, 0.4, 0)
+    pod_side = valid & is_m('Hull') & (np.abs(nx) > 0.85) & (((np.abs(x) > 120) & (y > -262) & (y < -95)) | ((np.abs(x) > 85) & (y < -255) & (y > -495)))
+    band = (np.abs(z - 6) < 9) | (np.abs(z + 16) < 3)
+    windows(pod_side & band, 6.0, 4.5, 3.2, 1.5, 0.3, 4, every=9)
+    tower_side = valid & is_p('Tower') & is_m('Hull') & (np.abs(nx) > 0.7)
+    windows(tower_side, 4.0, 3.6, 2.6, 1.4, 0.45, 7, every=6)
+    # 窓の箱（Window）は窓ガラスとして点灯
+    wb = valid & is_m('Window')
+    emit[wb] = np.array([1.0, 0.85, 0.6]) * 0.9
+    base[wb] = ba.srgb('#151b24')
+    gl = valid & is_m('Glass')
+    emit[gl & (ba.hash2(np.floor(x / 3), np.floor(y / 3), 2.0) < 0.35)] = np.array([0.7, 0.85, 1.0]) * 0.35
+
+    # 2. パネル割り：大小の板、継ぎ目の溝、板ごとの色とラフネスのむら
+    pm = pos  # 模型の単位（パネルの寸法はアマツカゼと同じ数字で、ちょうど 8〜100 m の板になる）
+    ax = np.argmax(np.abs(nrm), axis=-1)
+    a = np.where(ax == 1, np.abs(pm[..., 0]), pm[..., 1])
+    b = np.where(ax == 0, pm[..., 2], np.where(ax == 1, pm[..., 2], np.abs(pm[..., 0])))
+    panels = ba.Panels(31)
+    dist, pidx = panels.sample(a, b + ax * 0.0371)
+    # 細かい板（大きな板の中に、さらに半分の大きさの割り）
+    fine = ba.Panels(57)
+    dist2, pidx2 = fine.sample(a * 2.0 + 0.3, b * 2.0 + ax * 0.051)
+    dist2 = dist2 / 2.0
+    paint = valid & (is_m('Hull') | is_m('Hull2') | is_m('Red'))
+    gw = 0.55 * S
+    g1 = np.clip(1 - dist / (gw * 2.2), 0, 1)
+    g2 = np.clip(1 - dist2 / (gw * 1.6), 0, 1) * 0.55
+    g = np.maximum(g1, g2) * paint
+    height -= g * 0.6
+    hp = ba.hash2(pidx, ax * 1.0, 2.0)
+    hp2 = ba.hash2(pidx2, ax * 1.0, 5.0)
+    bright = 1 + (hp - 0.5) * 0.07 + (hp2 - 0.5) * 0.035
+    base[paint] *= bright[paint][..., None]
+    rough[paint] += ((ba.hash2(pidx, 7.0, 1.0) - 0.5) * 0.14)[paint]
+    base *= (1 - 0.38 * g)[..., None]
+    # 板の一部に、少し色の違う点検口のふた（四角い枠）
+    hatch = paint & (ba.hash2(pidx2, 3.0, 9.0) < 0.07) & (dist2 > 1.2 * S) & (dist2 < 1.8 * S)
+    base[hatch] *= 0.75
+    height[hatch] -= 0.4
+    # 灰色の機械部分にも細かい縞（配管や継ぎ目）
+    mech = valid & (is_m('Mech') | is_m('Dark')) & ~wb
+    stripes = (np.mod((np.where(ax == 1, x, y)) / 2.4, 1) < 0.18) & mech & (ba.hash2(np.floor(y / 30), np.floor(z / 12), 4.0) < 0.5)
+    base[stripes] *= 0.7
+    height[stripes] -= 0.3
+
+    # 3. 汚れ：噴射口のまわりのすす、前縁の小さな傷、上面の淡い焼け
+    noise = ba.value_noise(pm, 70.0, 3)
+    soot = np.clip((-470 - y) / 90, 0, 1) * (0.35 + 0.65 * noise)
+    soot = soot * valid * ~gl
+    base *= (1 - 0.4 * soot)[..., None]
+    rough += soot * 0.15
+    grime = (noise - 0.5) * 0.06 * paint
+    base *= (1 + grime)[..., None]
+    base *= (1 + 0.12 * edge * paint)[..., None]
+    base *= (0.42 + 0.58 * ao)[..., None]
+
+    nrm_map = np.zeros((TEX, TEX, 3), dtype=np.float32)
+    nrm_map[..., 2] = 1
+    hs = ndimage.gaussian_filter(height, 0.6)
+    texel = ba.estimate_texel(pos, valid)
+    cont_x = valid & np.roll(valid, -1, 1) & (np.linalg.norm(np.roll(pos, -1, 1) - pos, axis=-1) < texel * 3)
+    cont_y = valid & np.roll(valid, -1, 0) & (np.linalg.norm(np.roll(pos, -1, 0) - pos, axis=-1) < texel * 3)
+    nrm_map[..., 0] = -np.where(cont_x, np.roll(hs, -1, 1) - hs, 0) * 0.9
+    nrm_map[..., 1] = -np.where(cont_y, np.roll(hs, -1, 0) - hs, 0) * 0.9
+    nrm_map /= np.linalg.norm(nrm_map, axis=-1, keepdims=True)
+    return base, np.clip(rough, 0.05, 1), np.clip(metal, 0, 1), emit, nrm_map, valid
+
+
+LIVE_COLORS = {'Glow': (0.55, 0.78, 1.0), 'Blue': (0.25, 0.6, 1.0), 'NavRed': (1, 0.05, 0.03), 'NavGreen': (0.05, 1, 0.2)}
+
+
+def live_material(name):
+    mat = bpy.data.materials.new(name + '_live')
+    mat.name = name
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get('Principled BSDF')
+    col = LIVE_COLORS[name]
+    bsdf.inputs['Base Color'].default_value = (*col, 1)
+    bsdf.inputs['Emission Color'].default_value = (*col, 1)
+    bsdf.inputs['Emission Strength'].default_value = 4
+    return mat
+
+
+def bake_and_export(objs):
+    ba = amatsu()
+    t0 = time.time()
+    scene = bpy.context.scene
+    scene.render.engine = 'CYCLES'
+    scene.cycles.device = 'CPU'
+    scene.world = bpy.data.worlds.new('bakeworld')
+    scene.world.use_nodes = True
+    scene.world.light_settings.distance = 0.02
+    for i, obj in enumerate(objs):
+        obj.pass_index = PARTS.index(obj.name) + 1
+    ba.unwrap(objs)
+    print(f'  unwrap {time.time() - t0:.0f}s', flush=True)
+    Pp = ba.bake_pass(objs, 'P', 'EMIT', ba.node_position)
+    Np = ba.bake_pass(objs, 'N', 'EMIT', ba.node_normal)
+    IDp = ba.bake_pass(objs, 'ID', 'EMIT', ba.node_ids)
+    Ep = ba.bake_pass(objs, 'EDGE', 'EMIT', node_edge_small, samples=8)
+    AOp = ba.bake_pass(objs, 'AO', 'AO', None, samples=int(os.environ.get('AO_SAMPLES', '64')))
+    texel = ba.estimate_texel(Pp[..., :3] - 1, IDp[..., 3] > 0.5)
+    print(f'  texel ≈ {texel / S * 100:.0f} cm', flush=True)
+    base, rough, metal, emit, nrm, valid = compose(Pp, Np, IDp, AOp, Ep)
+    orm = np.stack([np.ones_like(rough), rough, metal], -1)
+    base, orm, emit = ba.dilate(base, valid), ba.dilate(orm, valid), ba.dilate(emit, valid)
+    nrm_rgb = ba.dilate(nrm * 0.5 + 0.5, valid)
+    tex_dir = os.environ.get('TEX_DIR', '/tmp/claude-0/arcadia-tex')
+    os.makedirs(tex_dir, exist_ok=True)
+    images = {
+        'base': ba.save_image('arcadia_base', ba.to_srgb(base), 'sRGB', os.path.join(tex_dir, 'base.png')),
+        'orm': ba.save_image('arcadia_orm', orm, 'Non-Color', os.path.join(tex_dir, 'orm.png')),
+        'normal': ba.save_image('arcadia_normal', nrm_rgb, 'Non-Color', os.path.join(tex_dir, 'normal.png')),
+        'emit': ba.save_image('arcadia_emit', ba.to_srgb(emit), 'sRGB', os.path.join(tex_dir, 'emit.png')),
+    }
+    baked = ba.final_material(images)
+    lives = {}
+    for obj in objs:
+        mesh = obj.data
+        old = [m.name for m in mesh.materials]
+        new_slots = ['Baked'] + sorted({n for n in old if n in LIVE})
+        remap = np.array([new_slots.index(n) if n in LIVE else 0 for n in old], dtype=np.int32)
+        idx = np.empty(len(mesh.polygons), dtype=np.int32)
+        mesh.polygons.foreach_get('material_index', idx)
+        mesh.materials.clear()
+        for n in new_slots:
+            if n == 'Baked':
+                mesh.materials.append(baked)
+            else:
+                if n not in lives:
+                    bpy.data.materials[n].name = n + '_bake'
+                    lives[n] = live_material(n)
+                mesh.materials.append(lives[n])
+        mesh.polygons.foreach_set('material_index', remap[idx])
+    print(f'  bake done {time.time() - t0:.0f}s', flush=True)
+    if not os.environ.get('NOEXPORT'):
+        ba.select_only(objs)
+        bpy.ops.export_scene.gltf(
+            filepath=OUT, export_format='GLB', use_selection=True, export_vertex_color='NONE', export_normals=True,
+            export_texcoords=True, export_tangents=False, export_materials='EXPORT', export_image_format='JPEG',
+            export_jpeg_quality=90, export_yup=True)
+        print('wrote', OUT, os.path.getsize(OUT) // 1024, 'KB', flush=True)
 
 
 # ---- Blender -----------------------------------------------------------------------
@@ -684,8 +905,11 @@ def main():
         co = np.array([v.co[:] for v in obj.data.vertices])
         lo, hi = co.min(0), co.max(0)
         print(f'  {obj.name:7s} x {lo[0]:.3f}..{hi[0]:.3f} y {lo[1]:.3f}..{hi[1]:.3f} z {lo[2]:.3f}..{hi[2]:.3f}')
+    if STAGE >= 3:
+        bake_and_export(objs)
     if os.environ.get('PREVIEW'):
-        preview_materials()
+        if STAGE < 3:
+            preview_materials()
         preview(f's{STAGE}')
 
 
