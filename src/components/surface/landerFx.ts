@@ -123,6 +123,166 @@ export function splashMaterial() {
   })
 }
 
+// ---- 噴射のガス（粒子） ----------------------------------------------------------------------
+// 噴射口から「プシュー」と吹き出す高温のガス。細かい光る粒を高速で撃ち出し、広がりながら薄れる。
+// 地面に当たったガスは、地面に沿って外へ流れる。大気の無い星では、ガスはすぐ横へ大きく広がる。
+
+const exhaustVertex = /* glsl */ `
+  attribute float aAlpha;
+  attribute float aSize;
+  attribute float aHeat;
+  uniform float uScale;
+  varying float vAlpha;
+  varying float vHeat;
+  void main() {
+    vAlpha = aAlpha;
+    vHeat = aHeat;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = min(aSize * uScale / max(-mv.z, 0.5), 256.0);
+    gl_Position = projectionMatrix * mv;
+  }
+`
+const exhaustFragment = /* glsl */ `
+  uniform sampler2D uMap;
+  uniform vec3 uHot;
+  uniform vec3 uCool;
+  varying float vAlpha;
+  varying float vHeat;
+  void main() {
+    float a = texture2D(uMap, gl_PointCoord).a * vAlpha;
+    if (a < 0.002) discard;
+    // 噴射口の近くは白っぽく熱く、離れると淡い青に
+    gl_FragColor = vec4(mix(uCool, uHot, vHeat) * a, 1.0);
+  }
+`
+
+export class Exhaust {
+  readonly points: THREE.Points
+  readonly material: THREE.ShaderMaterial
+  private geo = new THREE.BufferGeometry()
+  private pos: Float32Array
+  private vel: Float32Array
+  private alpha: Float32Array
+  private size: Float32Array
+  private heat: Float32Array
+  private age: Float32Array
+  private life: Float32Array
+  private next = 0
+
+  constructor(
+    readonly count: number,
+    /** 大気がある（ガスがまっすぐ伸びる）か、真空（すぐ横へ広がる）か */
+    private hasAir: boolean,
+  ) {
+    this.pos = new Float32Array(count * 3)
+    this.vel = new Float32Array(count * 3)
+    this.alpha = new Float32Array(count)
+    this.size = new Float32Array(count)
+    this.heat = new Float32Array(count)
+    this.age = new Float32Array(count).fill(99)
+    this.life = new Float32Array(count).fill(1)
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3))
+    this.geo.setAttribute('aAlpha', new THREE.BufferAttribute(this.alpha, 1))
+    this.geo.setAttribute('aSize', new THREE.BufferAttribute(this.size, 1))
+    this.geo.setAttribute('aHeat', new THREE.BufferAttribute(this.heat, 1))
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: exhaustVertex,
+      fragmentShader: exhaustFragment,
+      uniforms: {
+        uMap: { value: haloTexture() },
+        uScale: { value: 500 },
+        uHot: { value: new THREE.Color(2.2, 2.3, 2.8) },
+        uCool: { value: new THREE.Color(0.35, 0.55, 1.4) },
+      },
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    })
+    this.points = new THREE.Points(this.geo, this.material)
+    this.points.frustumCulled = false
+    this.points.renderOrder = 3
+  }
+
+  /** 噴射口 (x, y, z) から真下へ、強さ k（0〜1）で吹き出す */
+  emit(dt: number, x: number, y: number, z: number, k: number, rate: number) {
+    const n = Math.min(this.count / 8, Math.floor(dt * rate * k + Math.random()))
+    const spread = this.hasAir ? 0.13 : 0.32
+    for (let i = 0; i < n; i++) {
+      const j = this.next++ % this.count
+      const sp = (38 + Math.random() * 22) * (0.6 + 0.4 * k)
+      // 噴射口の円の中から、少しずつ違う向きへ
+      const a = Math.random() * Math.PI * 2
+      const r = Math.sqrt(Math.random()) * 0.35
+      const sx = (Math.random() - 0.5 + (Math.random() - 0.5)) * spread
+      const sz = (Math.random() - 0.5 + (Math.random() - 0.5)) * spread
+      // 1 フレームの中で出した時刻をばらして、すじにならないように
+      const t0 = Math.random() * dt
+      this.pos[j * 3] = x + Math.cos(a) * r + sx * sp * t0
+      this.pos[j * 3 + 1] = y - sp * t0
+      this.pos[j * 3 + 2] = z + Math.sin(a) * r + sz * sp * t0
+      this.vel[j * 3] = sx * sp
+      this.vel[j * 3 + 1] = -sp
+      this.vel[j * 3 + 2] = sz * sp
+      this.age[j] = t0
+      this.life[j] = (this.hasAir ? 0.45 : 0.25) + Math.random() * 0.3
+      this.size[j] = 0.35 + Math.random() * 0.3
+    }
+  }
+
+  update(dt: number, groundY: number, power: number) {
+    for (let j = 0; j < this.count; j++) {
+      if (this.age[j] >= this.life[j]) {
+        this.alpha[j] = 0
+        continue
+      }
+      this.age[j] += dt
+      const u = Math.min(1, this.age[j] / this.life[j])
+      const i = j * 3
+      this.pos[i] += this.vel[i] * dt
+      this.pos[i + 1] += this.vel[i + 1] * dt
+      this.pos[i + 2] += this.vel[i + 2] * dt
+      // 地面に当たったら、地面に沿って外へ流れる
+      if (this.pos[i + 1] < groundY + 0.25 && this.vel[i + 1] < 0) {
+        const down = -this.vel[i + 1]
+        let hx = this.vel[i]
+        let hz = this.vel[i + 2]
+        const hl = Math.hypot(hx, hz) || 1
+        if (hl < 1e-3) {
+          const a = Math.random() * Math.PI * 2
+          hx = Math.cos(a)
+          hz = Math.sin(a)
+        }
+        const out = down * 0.55
+        this.vel[i] = (hx / hl) * out + hx * 0.3
+        this.vel[i + 2] = (hz / hl) * out + hz * 0.3
+        this.vel[i + 1] = down * 0.04
+        this.pos[i + 1] = groundY + 0.25
+      }
+      // 空気があると速さが落ちる（真空ではそのまま飛び去る）
+      if (this.hasAir) {
+        const f = Math.exp(-dt * 2.2)
+        this.vel[i] *= f
+        this.vel[i + 1] *= f
+        this.vel[i + 2] *= f
+      }
+      // 広がりながら薄くなる
+      this.size[j] += dt * (this.hasAir ? 9 : 14)
+      this.heat[j] = (1 - u) ** 3
+      this.alpha[j] = Math.min(1, this.age[j] / 0.03) * (1 - u) ** 1.6 * 0.16 * power
+    }
+    this.geo.attributes.position.needsUpdate = true
+    this.geo.attributes.aAlpha.needsUpdate = true
+    this.geo.attributes.aSize.needsUpdate = true
+    this.geo.attributes.aHeat.needsUpdate = true
+  }
+
+  dispose() {
+    this.geo.dispose()
+    this.material.dispose()
+  }
+}
+
 // ---- 砂ぼこり -----------------------------------------------------------------------------
 
 const dustVertex = /* glsl */ `
@@ -272,9 +432,9 @@ const gritVertex = /* glsl */ `
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     float px = aSize * uScale / max(-mv.z, 0.5);
-    // 1 画素より小さい粒は、大きさの代わりに薄さで表す（ちらつかない）
-    vAlpha = aAlpha * min(1.0, px / 1.6);
-    gl_PointSize = max(px, 1.6);
+    // 1 画素より小さい粒は、大きさの代わりに薄さで表す（ちらつかない）。カメラのすぐ前を横切る粒は消す
+    vAlpha = aAlpha * min(1.0, px / 1.6) * smoothstep(16.0, 7.0, px);
+    gl_PointSize = clamp(px, 1.6, 16.0);
     gl_Position = projectionMatrix * mv;
   }
 `

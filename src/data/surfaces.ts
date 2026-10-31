@@ -196,7 +196,7 @@ const SKY_NOTES: Record<string, [string, string]> = {
   venus: ['雲が厚くて、太陽はどこにあるのかわかりません。', 'The clouds are so thick you cannot tell where the Sun is.'],
   pluto: ['空にはカロンが、いつも同じ場所に浮かんでいます。', 'Charon hangs in the same place in the sky, always.'],
   charon: ['冥王星が空のいつも同じ場所に浮かんでいます。', 'Pluto hangs in the same place in Charon’s sky, always.'],
-  earth: ['昼間の空に、うっすらと月が見えています。', 'The Moon is faintly visible in the daytime sky.'],
+  earth: ['お昼すぎに東の空から月が昇り、夜には明るく輝きます。', 'The Moon rises in the east in the afternoon and shines brightly at night.'],
 }
 
 const SATURN_MOON_TILT: Record<string, number> = { iapetus: 15 }

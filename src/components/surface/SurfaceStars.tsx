@@ -22,10 +22,10 @@ const vertex = /* glsl */ `
     // 大気を斜めに通るほど暗く（地平線の近くの星は見えにくい）
     float airmass = 1.0 / max(d.y + 0.06, 0.03);
     float ext = exp(-uAir * 0.12 * airmass);
-    float flux = pow(10.0, -0.4 * (mag - 1.5) * 0.8) * uVis * ext;
-    float size = clamp(1.4 + 1.7 * sqrt(flux), 1.4, 6.5);
+    float flux = pow(10.0, -0.4 * (mag - 1.5) * 0.6) * uVis * ext;
+    float size = clamp(1.5 + 1.8 * sqrt(flux), 1.5, 7.0);
     vSize = size * max(uPx, 1.0);
-    vColor = color * vec3(1.0, 0.95 + 0.05 * ext, 0.85 + 0.15 * ext) * min(flux * 2.0, 3.0);
+    vColor = color * vec3(1.0, 0.95 + 0.05 * ext, 0.85 + 0.15 * ext) * min(flux * 2.4, 3.4);
     if (d.y < -0.02) vColor = vec3(0.0);
     gl_Position = projectionMatrix * viewMatrix * world;
     gl_PointSize = vSize + 2.0;
