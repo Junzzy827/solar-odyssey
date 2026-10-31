@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { ColonyModel } from './ColonyModel'
+import { ApproachLights } from './ApproachLights'
 import { ConstructionSite } from './ConstructionSite'
 import { colliders, passThrough, registerBody, zoomZones, type ZoomZone } from '../../state/registry'
 import { flightControl, ship } from '../../state/flight'
@@ -168,6 +169,8 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
       <group ref={spin} rotation={[0, phase, 0]}>
         <ColonyModel />
       </group>
+      {/* 港へ入る船の誘導灯（回さない） */}
+      <ApproachLights />
       {primary && (
         <>
           <group ref={site} position={[SITE_OFFSET, 0, 0]} visible={false}>
