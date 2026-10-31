@@ -233,6 +233,7 @@ body.touch .sf-badge,
 body.touch .mode-button,
 body.touch .gallery-button,
 body.touch .bridge-button,
+body.touch .launch-button,
 body.touch .toast {
   display: none;
 }

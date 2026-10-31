@@ -31,10 +31,10 @@ from build_fleet import FacetLoft, Part  # noqa: E402
 import bpy  # noqa: E402
 import numpy as np  # noqa: E402
 
-STAGE = int(os.environ.get('STAGE', '1'))
+STAGE = int(os.environ.get('STAGE', '4'))
 OUT = os.environ.get('OUT', os.path.join(bf.OUT_DIR, 'ship-arcadia.glb'))
 PREVIEW_DIR = os.environ.get('PREVIEW_DIR', '/tmp')
-S = 0.001  # 1 m の長さ（模型の単位）
+S = float(os.environ.get('S_UNIT', str(1.04 / 1252)))  # 1 m の長さ（模型の単位）。全長（噴射口まで 1,252 m）が 1.04 になるように。確認用は S_UNIT=0.001
 
 MATS = ['Hull', 'Hull2', 'Red', 'Dark', 'Mech', 'Metal', 'Glass', 'Window', 'Glow', 'Blue', 'NavRed', 'NavGreen']
 PARTS = ['Hull', 'Tower', 'Wings', 'Engine']
@@ -169,10 +169,9 @@ def center_body():
         sec(-260, 0, 0, 70, 92, 66, 56, 60, 'Hull'),
         sec(-120, 0, 0, 66, 88, 62, 56, 60, 'Hull'),
         sec(20, 0, 0, 44, 62, 44, 52, 58, 'Hull'),
-        sec(160, 0, -2, 12, 16, 12, 30, 32, 'Dark'),
-        sec(320, 0, -4, 6, 8, 6, 14, 16, 'Dark'),
-        sec(380, 0, -5, 2, 3, 2, 4, 5, 'Dark'),
-    ], chamfer=0.2, mid=0.1, seg=2)
+        # 前は発進路の奥（y = 150 m）で終わる。そこから前は 2 本の舳先のあいだが空いた発進路
+        sec(150, 0, -2, 14, 18, 14, 32, 34, 'Dark'),
+    ], chamfer=0.2, mid=0.1, seg=2, cap_front='Dark')
 
 
 def aft_body():

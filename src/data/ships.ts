@@ -5,7 +5,7 @@ import { COMPARE_VIEW, DEFAULT_VIEW, METERS_PER_UNIT, SHIP_LENGTH_M, SHIP_PARTS,
 // どれもこのアプリのオリジナルの空想の船で、本物の科学や乗り物と結びつく話をそえる。
 // 位置はどれも船の模型の座標（Y が上、前方が -Z、全長およそ 1）
 
-export type ShipId = 'sv01' | 'heron' | 'sorakaze' | 'hakobune' | 'meguri' | 'amatsu'
+export type ShipId = 'sv01' | 'heron' | 'sorakaze' | 'hakobune' | 'meguri' | 'amatsu' | 'arcadia'
 
 /** 灯火：strobe は白い衝突防止灯（3秒おきに2回光る）、port は左舷の赤、starboard は右舷の緑、beacon は赤い回転灯風 */
 export type ShipLight = { pos: [number, number, number]; kind: 'strobe' | 'port' | 'starboard' | 'beacon'; size: number }
@@ -692,7 +692,118 @@ const AMATSU: ShipSpec = {
   swatch: ['#c3c7cc', '#2d3a50', '#b8904c'],
 }
 
-export const SHIPS: ShipSpec[] = [SV01, HERON, SORAKAZE, HAKOBUNE, MEGURI, AMATSU]
+/** アルカディアの模型の座標：Blender のメートル (x, y, z) を three.js の模型の座標へ（tools/blender/build_arcadia.py の S） */
+const AS = 1.04 / 1252
+const am = (x: number, y: number, z: number): Vec3 => [x * AS, z * AS, -y * AS]
+
+const ARCADIA: ShipSpec = {
+  id: 'arcadia',
+  registry: 'MC-09',
+  name: 'アルカディア',
+  nameEn: 'Arcadia',
+  kind: '機動母艦',
+  kindEn: 'Mobile carrier',
+  blurb: '全長1,200mの大きな母艦。前に突き出た2本の舳先のあいだが発進路で、着陸船を送り出せます（L キーか「発進」ボタン）。白い装甲に赤い船底、多段の艦橋。',
+  blurbEn: 'A 1,200 m carrier. The launch deck runs between its two forward prongs and can send out a lander (L key or the Launch button). White armour, red keel, a tall stepped bridge.',
+  lengthM: 1200,
+  metersPerUnit: 1 / AS,
+  turn: 0.6,
+  model: 'ship-arcadia.glb',
+  bridgeBase: am(0, -160, 98),
+  parts: [
+    {
+      id: 'prongs',
+      name: '2本の舳先と発進路',
+      nameEn: 'Twin prongs and launch deck',
+      text: '前へ長く突き出た2本の舳先のあいだが、着陸船や小型艇の発進路です。床のレールで加速して、青い誘導灯に沿って前へ飛び出します。本物の空母も、カタパルトで飛行機を短い距離で加速させます。',
+      textEn: 'The launch deck runs between the two long forward prongs. Landers and small craft are pushed along rails and fly out past the blue guide lights. Real aircraft carriers also use catapults to get planes up to speed on a short deck.',
+      pos: am(0, 420, 10),
+      side: [0, 1, 0],
+      view: { yaw: PI + 0.5, pitch: 0.35, dist: 0.55, target: am(0, 380, 0) },
+    },
+    {
+      id: 'bridge',
+      name: '艦橋',
+      nameEn: 'Bridge tower',
+      text: '段を重ねた塔のいちばん上で船を指揮します。左右に張り出した細長い筒はセンサーの腕で、まわりの船や小惑星を見張ります。',
+      textEn: 'The ship is commanded from the top of the stepped tower. The long tubes reaching forward on each side are sensor arms that watch for other ships and asteroids.',
+      pos: am(0, -190, 140),
+      side: null,
+      view: { yaw: PI - 0.7, pitch: 0.3, dist: 0.45, target: am(0, -190, 100) },
+    },
+    {
+      id: 'pods',
+      name: '格納庫のポッド',
+      nameEn: 'Hangar pods',
+      text: '脇腹の六角形の筒が格納庫。前の暗い円すいの先から、小型艇が射出されます。設定上は1,800機を積めます。',
+      textEn: 'The hexagonal tubes on each flank are hangars. Small craft are shot out through the tip of the dark cone at the front. In the story it carries 1,800 craft.',
+      pos: am(130, -170, 0),
+      side: [1, 0, 0],
+      view: { yaw: PI / 2 + 0.4, pitch: 0.15, dist: 0.6, target: am(98, -150, 0) },
+    },
+    {
+      id: 'wings',
+      name: '赤い縁の翼',
+      nameEn: 'Red-edged wings',
+      text: '上へ反った翼は、宇宙で空気を受けるためではなく、熱を逃がす放熱板とアンテナの台を兼ねています。宇宙では熱を光（赤外線）にして捨てるしかないので、広い面が役に立ちます。',
+      textEn: 'The upswept wings do not catch air in space. They are radiators and antenna mounts: in space heat can only be thrown away as light (infrared), so wide surfaces help.',
+      pos: am(150, -380, 75),
+      side: null,
+      view: { yaw: 0.9, pitch: 0.45, dist: 0.8, target: am(80, -350, 30) },
+    },
+    {
+      id: 'engine',
+      name: '主機関',
+      nameEn: 'Main engines',
+      text: '船尾の暗い覆いの中に大きな噴射口が4つ、下に補助の噴射口が2つ。大きな船ほど重いので、たくさんの噴射口でいっしょに押します。',
+      textEn: 'Inside the dark shroud at the stern are four big nozzles, with two helper nozzles below. A heavy ship needs many nozzles pushing together.',
+      pos: am(0, -600, 40),
+      side: [0, 0, 1],
+      view: { yaw: 0.45, pitch: 0.2, dist: 0.55, target: am(0, -560, 0) },
+    },
+  ],
+  defaultView: { yaw: PI - 0.85, pitch: 0.3, dist: 1.6, target: [0, 0.02, 0] },
+  compareView: { yaw: -1.2, pitch: 0.42, dist: 3.4, target: [-1.0, -0.08, 0.05] },
+  shots: [
+    { from: { yaw: PI - 1.0, pitch: 0.2, dist: 1.6, target: [0, 0.02, -0.05] }, to: { yaw: PI - 0.4, pitch: 0.3, dist: 1.3, target: [0, 0.02, -0.1] } },
+    { from: { yaw: PI / 2 + 0.1, pitch: 0.05, dist: 1.4, target: [0, 0.02, 0] }, to: { yaw: PI / 2 - 0.2, pitch: 0.12, dist: 1.3, target: [0, 0.02, 0.05] } },
+    { from: { yaw: PI + 0.4, pitch: 0.35, dist: 0.6, target: am(0, 380, 0) }, to: { yaw: PI - 0.2, pitch: 0.25, dist: 0.5, target: am(0, 300, 0) } },
+    { from: { yaw: 0.7, pitch: 0.25, dist: 1.0, target: [0, 0, 0.35] }, to: { yaw: -0.5, pitch: 0.3, dist: 1.1, target: [0, 0, 0.3] } },
+  ],
+  lights: [
+    { pos: am(0, -150, 176), kind: 'strobe', size: 0.0011 },
+    { pos: am(0, -500, 66), kind: 'strobe', size: 0.0011 },
+    { pos: am(-133, -400, 36), kind: 'port', size: 0.003 },
+    { pos: am(133, -400, 36), kind: 'starboard', size: 0.003 },
+    { pos: am(0, -100, -73), kind: 'beacon', size: 0.0026 },
+  ],
+  floods: [
+    { from: am(0, 300, 40), to: am(0, -150, 90), angle: 0.45, intensity: 0.7 },
+    { from: am(260, -100, 120), to: am(0, 150, 0), angle: 0.5, intensity: 0.5 },
+    { from: am(-260, -100, 120), to: am(0, 150, 0), angle: 0.5, intensity: 0.5 },
+  ],
+  decals: [
+    { text: 'MC-09  ARCADIA', pos: am(132.7, -175, 4), rot: [0, PI / 2, 0], size: [0.085, 0.0065] },
+    { text: 'MC-09  ARCADIA', pos: am(-132.7, -175, 4), rot: [0, -PI / 2, 0], size: [0.085, 0.0065] },
+  ],
+  engine: {
+    kind: 'nozzle',
+    // 主噴射口 4 つ（2 × 2）と、下の補助噴射口 2 つ
+    nozzles: [
+      ...[-1, 1].flatMap((sx) => [-1, 1].map((sz) => ({ pos: am(sx * 36, -614, sz * 25), r: 23 * AS }))),
+      { pos: am(-70, -625, -48), r: 13 * AS },
+      { pos: am(70, -625, -48), r: 13 * AS },
+    ],
+    rcs: [...rcsPair(60 * AS, 0, -360 * AS, true), ...rcsPair(100 * AS, 40 * AS, 500 * AS)],
+    core: [1.6, 1.9, 2.6],
+    outer: [0.35, 0.6, 1.5],
+    length: 8,
+  },
+  glow: { idle: [0.6, 0.8, 2.0], warp: [1.4, 1.9, 3.3] },
+  swatch: ['#c3c6d2', '#8a1b27', '#232835'],
+}
+
+export const SHIPS: ShipSpec[] = [SV01, HERON, SORAKAZE, HAKOBUNE, MEGURI, AMATSU, ARCADIA]
 export const SHIP_IDS = SHIPS.map((s) => s.id)
 
 export const shipSpec = (id: ShipId) => SHIPS.find((s) => s.id === id) ?? SV01
