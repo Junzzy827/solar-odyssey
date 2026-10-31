@@ -275,6 +275,30 @@ export const FACTS_EN: Record<string, Facts> = {
       explanation: 'The ISS is about the size of a football field, too big for one launch. Japan’s Kibo laboratory alone came up in three trips.',
     },
   },
+  spacedock: {
+    rows: [
+      ['Size', 'About 5 km across, 2 km tall (to the tower antennas)'],
+      ['Where', 'A high orbit around Earth'],
+      ['Layout', 'Outer docking ring, cross-shaped arms, central control tower'],
+      ['Work', 'Servicing and supplying large ships, and building new ones'],
+    ],
+    fiction: true,
+    notes: [
+      'Amano-Minato means “harbor of the heavens”. The front arm is the covered main dock, about 1.9 km long. Even a large ship fits inside whole for servicing.',
+      'The back arm is an open slipway where a new ship is being built frame by frame. Eight moving maintenance arms reach out from the ring, and mooring towers stand at the ends of the side arms.',
+    ],
+    real: [
+      'The International Space Station is about 109 m from end to end, about the size of a soccer field. It is the largest thing people have built in space.',
+      'The ISS robot arm, Canadarm2, is about 17 m long. It catches cargo ships and connects them to the station.',
+      'People are also studying how to build big things in space. Experiments are planned where robots join parts in orbit to make telescopes and antennas.',
+    ],
+    quiz: {
+      question: 'On the ISS, what catches cargo ships and connects them?',
+      choices: ['A robot arm', 'A big net', 'A magnetic floor'],
+      answer: 0,
+      explanation: 'The ISS robot arm (Canadarm2) grabs a cargo ship once it comes close and connects it to one of the station’s ports.',
+    },
+  },
   elevator: {
     rows: [
       ['Cable', 'From an ocean base on the equator, through the geostationary station, out to a counterweight'],
@@ -323,7 +347,7 @@ export const FACTS_EN: Record<string, Facts> = {
   },
   'rock-port': {
     rows: [
-      ['Size', 'About 9 km from tip to tip'],
+      ['Size', 'About 36 km from tip to tip (bigger than a space colony)'],
       ['Where', 'The Earth–Moon L4 point (on the Moon’s orbit, 60° ahead of the Moon)'],
       ['Job', 'A port for ships and homes for asteroid miners'],
     ],
@@ -331,6 +355,7 @@ export const FACTS_EN: Record<string, Facts> = {
     notes: [
       'An asteroid brought here and hollowed out for docks and homes. Sharp points stick out on four sides and from the top and bottom, like a konpeito sugar candy.',
       'The glowing squares in the hollows between the points are the ship entrances. Shuttles slowly come and go, and red lights mark the tips.',
+      'In the hollow facing Earth: It has a ship dock. In observe mode (O), use Dock to fly to its mouth automatically. A ship is resting inside for repairs.',
     ],
     real: [
       'People are studying how to use asteroids as resources. Hayabusa2 brought back samples from Ryugu, and NASA’s OSIRIS-REx from Bennu.',
@@ -347,7 +372,7 @@ export const FACTS_EN: Record<string, Facts> = {
   },
   'rock-base': {
     rows: [
-      ['Size', 'Cap about 6 km across, stem about 5 km long'],
+      ['Size', 'Cap about 31 km across, about 33 km tall'],
       ['Where', 'The Earth–Moon L2 point (beyond the Moon, seen from Earth)'],
       ['Job', 'A base for supplies and ship repairs'],
     ],
@@ -355,6 +380,7 @@ export const FACTS_EN: Record<string, Facts> = {
     notes: [
       'An asteroid base shaped like a mushroom: a big, thick cap, smaller ledges below it and a twisted rocky stem. The warm lights on the surface are windows of rooms where people live.',
       'Ship entrances are under the cap and at the tip of the stem. The red lights on the rim guide ships coming in.',
+      'Under the cap, on the Earth side, facing down: It has a ship dock. In observe mode (O), use Dock to fly to its mouth automatically. A ship is resting inside for repairs.',
     ],
     real: [
       'People are studying how to use asteroids as resources. Hayabusa2 brought back samples from Ryugu, and NASA’s OSIRIS-REx from Bennu.',

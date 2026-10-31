@@ -529,11 +529,12 @@ const portPos = new THREE.Vector3()
 let lapClock = 0
 
 /** 観察中の天体の港（中心にある構造物のものを優先。群なら、自機にいちばん近い港） */
-function portFor(center: THREE.Vector3) {
+function portFor(center: THREE.Vector3, id: string) {
   let own: Port | null = null
   let best: Port | null = null
   let bestD = Infinity
   for (const port of ports) {
+    if (port.owner === id) return port
     port.object.getWorldPosition(portPos)
     if (portPos.distanceTo(center) < 0.05) own = port
     const d = portPos.distanceTo(ship.position)
@@ -587,7 +588,7 @@ function observeOrbit(dt: number, body: BodyEntry, center: THREE.Vector3, offset
   // 港の入口へ：道順の点を順にたどり、最後は入口の手前で中を向いて止まる
   if (useObserve.getState().docking) {
     if (!enabled) return
-    const port = portFor(center)
+    const port = portFor(center, body.id)
     let last = false
     if (port) last = port.next(ship.position, portAt, portIn)
     else {

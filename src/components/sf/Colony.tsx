@@ -106,7 +106,8 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
   /** 壁に当たる判定。外からは港の穴だけを通れ、中では地面と両端の壁の内側を飛ぶ */
   function collide() {
     const s = state.current
-    if (!s.ready) return
+    // 片づけの途中（group がもう外れている）なら何もしない
+    if (!s.ready || !group.current) return
     // 中にいるあいだは、コロニーと一緒に動く（地球のまわりを回っても、壁が迫ってこないように）
     if (s.inside && !flightControl.holding) ship.position.add(s.delta)
     s.delta.set(0, 0, 0)

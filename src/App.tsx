@@ -56,6 +56,7 @@ import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
 import { SurfaceView } from './components/surface/SurfaceView'
+import { SurfaceMemory } from './components/SurfaceMemory'
 import { useLanding } from './state/landing'
 import { BridgePanel } from './ui/BridgePanel'
 import { BridgeLabels } from './ui/BridgeLabels'
@@ -121,6 +122,7 @@ export default function App() {
         <PostFx />
         {bridge && <BridgeInterior />}
         <BootFrames />
+        <SurfaceMemory />
       </Canvas>
       <BootScreen />
       <GalleryLabels />

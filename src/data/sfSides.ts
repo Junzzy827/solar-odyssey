@@ -19,12 +19,12 @@ export type ColonyGroup = {
 }
 
 export const COLONY_GROUPS: ColonyGroup[] = [
-  { n: 2, id: 'colony-group-2', point: 'L4', offset: { along: 1.0, up: 0.15 }, count: 3 },
-  { n: 3, id: 'colony-group-3', point: 'L2', offset: { radial: 1.1, up: 0.2 }, count: 3 },
-  { n: 4, id: 'colony-group-4', point: 'L5', offset: { radial: 2.2, up: -0.2 }, count: 4 },
+  { n: 2, id: 'colony-group-2', point: 'L4', offset: { along: 1.6, up: 0.15 }, count: 3 },
+  { n: 3, id: 'colony-group-3', point: 'L2', offset: { radial: 1.8, up: 0.2 }, count: 3 },
+  { n: 4, id: 'colony-group-4', point: 'L5', offset: { radial: 3.4, up: -0.2 }, count: 4 },
   { n: 5, id: 'colony-group-5', point: 'L1', offset: { up: 0.15 }, count: 3 },
-  { n: 6, id: 'colony-group-6', point: 'L4', offset: { along: -1.0, up: -0.2 }, count: 4 },
-  { n: 7, id: 'colony-group-7', point: 'L3', offset: { along: 1.0 }, count: 2, building: true },
+  { n: 6, id: 'colony-group-6', point: 'L4', offset: { along: -1.6, up: -0.2 }, count: 4 },
+  { n: 7, id: 'colony-group-7', point: 'L3', offset: { along: 1.6 }, count: 2, building: true },
 ]
 
 export const colonyGroupName = (n: number, point: LagrangePoint) => t(`第${n}コロニー群（${point}）`, `Colony Group ${n} (${point})`)

@@ -9,13 +9,27 @@ import { useStore } from '../../state/store'
 import { SF_TEXT, UNITS_PER_METER, sfEntry } from '../../data/sf'
 import { useLang } from '../../i18n/lang'
 import { LABEL_Z, useHideBehindSun } from '../labels'
-import { earthMoonPoint, type LagrangePoint } from './lagrange'
+import { earthMoonNormal, earthMoonPoint, type LagrangePoint } from './lagrange'
+import { AsteroidDock } from './AsteroidDock'
 import { useSite } from './useSite'
 
 // 小惑星を運んできて、中をくりぬいた宇宙港（オリジナルのデザイン）。戦いの場面はなく、船が出入りする港として描く。
 // cross：四方と上下に尖った角が出た、金平糖のような形。umbrella：厚い傘の下に段が重なり、ねじれた柄が伸びるキノコ形。
 // 岩の形は rockShapes.ts。
-// 形は m（メートル）で決め、UNITS_PER_METER で表示単位にする（そばでは自機が本物の比率になる）
+// 形は m（メートル）で決め、UNITS_PER_METER で表示単位にする（そばでは自機が本物の比率になる）。
+// 基地なので、スペースコロニー（長さ約32km）に負けない大きさにする：岩の形を GROW 倍にして置き、
+// 連絡船と宇宙船ドックは倍率を打ち消して本物の大きさのまま描く。
+
+/** 形ごとの拡大（rockShapes の寸法の何倍か）。十字は差し渡し約38km、キノコは高さ約33km */
+const GROW: Record<BaseShape, number> = { cross: 4, umbrella: 5 }
+/**
+ * ラグランジュ点からずらす量（表示単位。地球から外向き radial・月の進む向き along・月の軌道面の上 up）。
+ * 同じ点のコロニー群（sfSides.ts の COLONY_GROUPS）とぶつからないように
+ */
+const OFFSET: Record<BaseShape, { radial?: number; along?: number; up?: number }> = {
+  cross: { up: 0.9 },
+  umbrella: { along: -1.2, up: -0.3 },
+}
 
 export type BaseShape = 'cross' | 'umbrella'
 
@@ -35,28 +49,33 @@ function starLayout(geometry: THREE.BufferGeometry) {
     return probe(dir, { x: 0, y: 0, z: 0 })
   }
   const bays: Bay[] = []
-  // 地球に向いたくぼみ（k = 0）に大きな口
-  for (let k = 0; k < 4; k++) {
+  // 地球に向いたくぼみ（k = 0）に宇宙船ドック、ほかのくぼみに小さな口
+  const dock = hitAt(Math.cos(Math.PI / 4), -0.05, Math.sin(Math.PI / 4))
+  for (let k = 1; k < 4; k++) {
     const a = Math.PI / 4 + (k * Math.PI) / 2
-    bays.push(...bay(hitAt(Math.cos(a), k === 0 ? -0.05 : 0.3, Math.sin(a)), k === 0 ? 420 : 260))
+    bays.push(...bay(hitAt(Math.cos(a), 0.3, Math.sin(a)), 260))
   }
   bays.push(...bay(hitAt(Math.cos(Math.PI / 4), -0.45, Math.sin(Math.PI / 4)), 260))
   const axes: [number, number, number][] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
   const beacons = axes.map((a) => lift(hitAt(...a), 60)).filter((p) => p !== null)
   const ant = hitAt(Math.cos(Math.PI / 4), 0.75, Math.sin(Math.PI / 4))
-  return { bays, beacons, antenna: ant, lights: [] as THREE.Vector3[] }
+  return { bays, beacons, antenna: ant, dock, lights: [] as THREE.Vector3[] }
 }
 
 /** キノコ形：傘の裏と柄の先に港の口、傘の縁に灯、表面に暖色の窓明かり */
 function mushroomLayout(geometry: THREE.BufferGeometry) {
   const probe = surfaceProbe(geometry)
   const bays: Bay[] = []
-  for (let k = 0; k < 4; k++) {
+  for (let k = 1; k < 4; k++) {
     const a = (k / 4) * Math.PI * 2 + 0.4
     const x = Math.cos(a) * 2500
     const z = Math.sin(a) * 2500
     bays.push(...bay(probe({ x, y: -FAR, z }, { x, y: FAR, z }), 260))
   }
+  // 傘の裏（地球の側）に、下へ口を向けた宇宙船ドック
+  const dx = Math.cos(0.4) * 2700
+  const dz = Math.sin(0.4) * 2700
+  const dock = probe({ x: dx, y: -FAR, z: dz }, { x: dx, y: FAR, z: dz })
   const tip = MUSHROOM_STEM_TIP
   bays.push(...bay(probe({ x: tip.x, y: -FAR, z: tip.z }, { x: tip.x, y: 0, z: tip.z }), 380))
   const beacons: [number, number, number][] = []
@@ -66,7 +85,7 @@ function mushroomLayout(geometry: THREE.BufferGeometry) {
     if (p) beacons.push(p)
   }
   const ant = probe({ x: 600, y: FAR, z: 400 }, { x: 600, y: -FAR, z: 400 })
-  return { bays, beacons, antenna: ant, lights: scatterLights(geometry, 90, 77, [-5200, 1200]) }
+  return { bays, beacons, antenna: ant, dock, lights: scatterLights(geometry, 90, 77, [-5200, 1200]) }
 }
 
 const Y = new THREE.Vector3(0, 1, 0)
@@ -74,6 +93,9 @@ const Z = new THREE.Vector3(0, 0, 1)
 const normal = new THREE.Vector3()
 const toEarth = new THREE.Vector3()
 const shuttlePos = new THREE.Vector3()
+const radial = new THREE.Vector3()
+const along = new THREE.Vector3()
+const up = new THREE.Vector3()
 
 /** 地球と月のラグランジュ点に置く、くりぬいた小惑星の宇宙港 */
 export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShape; point: LagrangePoint }) {
@@ -81,7 +103,8 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
   const group = useRef<THREE.Group>(null!)
   const label = useRef<HTMLSpanElement>(null)
   useHideBehindSun(label, group)
-  const size = (shape === 'cross' ? STAR_SIZE : MUSHROOM_SIZE) * UNITS_PER_METER
+  const grow = GROW[shape]
+  const size = (shape === 'cross' ? STAR_SIZE : MUSHROOM_SIZE) * grow * UNITS_PER_METER
   const moved = useSite(group, {
     id,
     radius: size,
@@ -89,7 +112,7 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
     notice: { distance: size * 4, text: shape === 'cross' ? SF_TEXT.crossFound : SF_TEXT.umbrellaFound },
   })
 
-  const { mesh, bays, beacons, antenna, glow } = useMemo(() => {
+  const { mesh, bays, beacons, antenna, glow, dock } = useMemo(() => {
     const geometry = shape === 'cross' ? starGeometry() : mushroomGeometry()
     const mesh = rockMesh(geometry, asteroidMaterial(), shape === 'cross' ? '#857b72' : '#8a8279')
     const { antenna: ant, lights, ...rest } = shape === 'cross' ? starLayout(geometry) : mushroomLayout(geometry)
@@ -135,6 +158,12 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
     // 港の口（+Z または -Y）がおおよそ地球のほうを向くように
     const e = bodies.get('earth')
     if (e) {
+      const o = OFFSET[shape]
+      e.object.getWorldPosition(radial)
+      radial.subVectors(g.position, radial).normalize()
+      earthMoonNormal(up)
+      along.crossVectors(up, radial).normalize()
+      g.position.addScaledVector(radial, o.radial ?? 0).addScaledVector(along, o.along ?? 0).addScaledVector(up, o.up ?? 0)
       e.object.getWorldPosition(toEarth).sub(g.position).normalize()
       if (shape === 'cross') g.lookAt(e.object.getWorldPosition(shuttlePos))
       else g.quaternion.setFromUnitVectors(Y, toEarth.negate())
@@ -157,7 +186,7 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
   const entry = sfEntry(id)
   return (
     <group ref={group}>
-      <group scale={UNITS_PER_METER}>
+      <group scale={UNITS_PER_METER * grow}>
         <primitive object={mesh} />
         <primitive object={glow} />
         {bays.map((b, i) => {
@@ -177,6 +206,7 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
           <mesh geometry={parts.mast} material={parts.metal} position={[0, 350, 0]} />
           <mesh geometry={parts.dish} material={parts.metal} position={[0, 700, 0]} rotation={[0.5, 0, 0]} />
         </group>
+        {dock && <AsteroidDock owner={id} at={dock.pos.toArray()} normal={dock.normal} scale={1 / grow} />}
         {Array.from({ length: 4 }, (_, i) => (
           <mesh
             key={i}
@@ -185,6 +215,7 @@ export function AsteroidBase({ id, shape, point }: { id: string; shape: BaseShap
             }}
             geometry={parts.shuttle}
             material={parts.metal}
+            scale={1 / grow}
           >
             <mesh geometry={parts.beacon} material={parts.shuttleLight} position={[0, 0, -90]} scale={0.6} />
           </mesh>

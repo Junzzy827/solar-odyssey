@@ -22,6 +22,15 @@ export const QUALITY: Record<Level, { dpr: number; msaa: number; bloom: boolean;
 
 export const dprFor = (level: Level) => Math.min(window.devicePixelRatio || 1, QUALITY[level].dpr)
 
+/**
+ * メモリの少ない端末（スマホ）か。iPhone の Safari は、ページが使うメモリが上限を超えると、
+ * 警告なしにページごと落として読み込み直す（「問題が繰り返し起きました」）。
+ * そうした端末では、4K テクスチャや大きなテクスチャを使わない。#phone を付けると、パソコンでも試せる
+ */
+export const lowMemory = () =>
+  typeof window !== 'undefined' &&
+  ((window.matchMedia('(hover: none) and (pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600) || location.hash.includes('phone'))
+
 type QualityState = {
   /** 自動のときに選んでいる画質 */
   auto: Level
