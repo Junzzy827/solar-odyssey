@@ -19,7 +19,7 @@ import { TimeBar } from './TimeBar'
 import { SkyFrame, hoursPerSecond, litFraction, useSkyClock } from './skyClock'
 import type { SkyNow } from './skyNow'
 import { SKY_FROM_APP } from '../../data/skyFrame'
-import { Dust, Exhaust, Grit, LegRig, TOUCHDOWN, legsDuringDescent, setLegs, splitLegs, descentAltitude, descentThrust, plumeGeometry, plumeMaterial, splashMaterial, suspension, windFor } from './landerFx'
+import { Dust, Exhaust, Grit, LegRig, blastMark, TOUCHDOWN, legsDuringDescent, setLegs, splitLegs, descentAltitude, descentThrust, plumeGeometry, plumeMaterial, splashMaterial, suspension, windFor } from './landerFx'
 import { QualityGovernor } from '../QualityGovernor'
 import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 
@@ -517,6 +517,16 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
     splash.geo.dispose()
   }, [splash])
   const splashMesh = useRef<THREE.Mesh>(null)
+  const blast = useMemo(() => blastMark(new THREE.Color(terrain.def.ground), !!terrain.def.sky), [terrain])
+  useEffect(
+    () => () => {
+      blast.geo.dispose()
+      blast.mat.dispose()
+    },
+    [blast],
+  )
+  const blastMesh = useRef<THREE.Mesh>(null)
+  const blastAmt = useRef(0)
   const light = useRef<THREE.PointLight>(null)
   // 夜の足元の照明（着陸船の腹の作業灯）
   const work = useRef<THREE.PointLight>(null)
@@ -525,7 +535,7 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
   const level = useLevel()
   const hasAir = !!terrain.def.sky
   const dust = useMemo(() => {
-    const count = level === 'high' ? 2400 : level === 'medium' ? 1400 : 600
+    const count = level === 'high' ? 800 : level === 'medium' ? 520 : 240
     const c = new THREE.Color(dustColor)
     return new Dust(count, c, hasAir ? 0.55 : 0, terrain.def.gravity, windFor(terrain.def.id, hasAir))
   }, [dustColor, level, hasAir, terrain])
@@ -536,7 +546,7 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
   const nozzle = useMemo(() => new THREE.Vector3(), [])
   // ひとつぶずつ見える砂つぶ
   const grit = useMemo(() => {
-    const count = level === 'high' ? 6000 : level === 'medium' ? 3500 : 1500
+    const count = level === 'high' ? 9000 : level === 'medium' ? 5500 : 2200
     return new Grit(count, new THREE.Color(dustColor), hasAir, terrain.def.gravity, windFor(terrain.def.id, hasAir))
   }, [dustColor, level, hasAir, terrain])
   useEffect(() => () => grit.dispose(), [grit])
@@ -626,8 +636,8 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
     // 砂ぼこり
     if (thrust > 0.05 && alt < 28 && terrain.def.dust) {
       const k = thrust * (1 - alt / 28) ** 1.5
-      dust.emit(dt, LANDER_POS.x, ground, LANDER_POS.y, k, level === 'low' ? 110 : 260)
-      grit.emit(dt, LANDER_POS.x, ground, LANDER_POS.y, k, level === 'low' ? 1200 : 3500)
+      dust.emit(dt, LANDER_POS.x, ground, LANDER_POS.y, k, hasAir ? (level === 'low' ? 30 : 70) : level === 'low' ? 160 : 320)
+      grit.emit(dt, LANDER_POS.x, ground, LANDER_POS.y, k, level === 'low' ? 2200 : 6000)
     }
     const cam = state.camera as THREE.PerspectiveCamera
     dust.material.uniforms.uScale.value = state.size.height * state.viewport.dpr / (2 * Math.tan((cam.fov * Math.PI) / 360))
@@ -640,7 +650,14 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
     cam.getWorldDirection(camDir)
     const fwd = Math.max(0, camDir.dot(sunDir)) ** 3
     const lit = Math.max(0.15, Math.min(1, sunDir.y * 3 + 0.2))
-    dust.material.uniforms.uColor.value.copy(dustBase).multiplyScalar(lit * (0.75 + 1.6 * fwd))
+    dust.material.uniforms.uColor.value.copy(dustBase).multiplyScalar(lit * (0.85 + 1.2 * fwd))
+    dust.material.uniforms.uShadow.value.copy(dustBase).multiplyScalar(lit * (0.3 + 0.5 * fwd) + 0.04)
+    dust.material.uniforms.uSunView.value.copy(sunDir).transformDirection(cam.matrixWorldInverse)
+    // 着陸の跡：地面の近くで噴かしたぶんだけ濃くなる（降下を飛ばしたときは、はじめから付いている）
+    if (phase === 'surface' && blastAmt.current === 0) blastAmt.current = 1
+    blastAmt.current = Math.min(1, blastAmt.current + dt * thrust * Math.max(0, 1 - alt / 12) * 0.35)
+    blast.mat.opacity = blastAmt.current * 0.85
+    if (blastMesh.current) blastMesh.current.position.set(LANDER_POS.x, ground + 0.06, LANDER_POS.y)
     grit.material.uniforms.uColor.value.copy(dustBase).multiplyScalar(lit * (0.55 + 0.5 * fwd))
   })
 
@@ -649,6 +666,7 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
       <group ref={group} scale={LANDER_M} name="surface-lander">
         <primitive object={built.model} />
       </group>
+      <mesh ref={blastMesh} geometry={blast.geo} material={blast.mat} scale={[16, 1, 16]} receiveShadow renderOrder={0} frustumCulled={false} />
       <mesh ref={splashMesh} geometry={splash.geo} material={splash.mat} renderOrder={1} frustumCulled={false} />
       <pointLight ref={light} color="#9fb8ff" distance={60} decay={2} intensity={0} />
       <pointLight ref={work} color="#ffd9a8" distance={45} decay={2} intensity={0} />
