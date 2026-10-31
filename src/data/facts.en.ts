@@ -275,6 +275,30 @@ export const FACTS_EN: Record<string, Facts> = {
       explanation: 'The ISS is about the size of a football field, too big for one launch. Japan’s Kibo laboratory alone came up in three trips.',
     },
   },
+  spacedock: {
+    rows: [
+      ['Size', 'About 5 km across, 2 km tall (to the tower antennas)'],
+      ['Where', 'A high orbit around Earth'],
+      ['Layout', 'Outer docking ring, cross-shaped arms, central control tower'],
+      ['Work', 'Servicing and supplying large ships, and building new ones'],
+    ],
+    fiction: true,
+    notes: [
+      'Amano-Minato means “harbor of the heavens”. The front arm is the covered main dock, about 1.9 km long. Even a large ship fits inside whole for servicing.',
+      'The back arm is an open slipway where a new ship is being built frame by frame. Eight moving maintenance arms reach out from the ring, and mooring towers stand at the ends of the side arms.',
+    ],
+    real: [
+      'The International Space Station is about 109 m from end to end, about the size of a soccer field. It is the largest thing people have built in space.',
+      'The ISS robot arm, Canadarm2, is about 17 m long. It catches cargo ships and connects them to the station.',
+      'People are also studying how to build big things in space. Experiments are planned where robots join parts in orbit to make telescopes and antennas.',
+    ],
+    quiz: {
+      question: 'On the ISS, what catches cargo ships and connects them?',
+      choices: ['A robot arm', 'A big net', 'A magnetic floor'],
+      answer: 0,
+      explanation: 'The ISS robot arm (Canadarm2) grabs a cargo ship once it comes close and connects it to one of the station’s ports.',
+    },
+  },
   elevator: {
     rows: [
       ['Cable', 'From an ocean base on the equator, through the geostationary station, out to a counterweight'],
