@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "textures": "node scripts/fetch-textures.mjs"
+    "textures": "node scripts/fetch-textures.mjs",
+    "stars": "node scripts/build-stars.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
