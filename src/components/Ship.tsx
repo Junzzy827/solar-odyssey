@@ -602,6 +602,7 @@ function observeOrbit(dt: number, body: BodyEntry, center: THREE.Vector3, offset
     if (d > 1e-6) offset.addScaledVector(tang, step / d)
     ship.velocity.copy(tang).setLength(dt > 0 && d > 1e-6 ? step / dt : 0)
     up.set(0, 1, 0).applyQuaternion(ship.quaternion)
+    port?.up?.(up)
     const dir = last || d < 1e-3 ? portIn : tang
     ship.quaternion.slerp(facing(ship.position, v.copy(ship.position).add(dir), up), 1 - Math.exp(-2.5 * dt))
     thrustFx.move.set(0, 0, 0)
@@ -610,7 +611,7 @@ function observeOrbit(dt: number, body: BodyEntry, center: THREE.Vector3, offset
     if (last && d < 0.004 && fwd.dot(portIn) > 0.995) {
       ship.velocity.set(0, 0, 0)
       stopObserve()
-      useStore.getState().showToast(OBSERVE_TEXT.docked())
+      useStore.getState().showToast(port?.done?.() ?? OBSERVE_TEXT.docked())
     }
     return
   }

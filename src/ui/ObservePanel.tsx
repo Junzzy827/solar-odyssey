@@ -1,6 +1,6 @@
 import { useStore } from '../state/store'
 import { bodies } from '../state/registry'
-import { canDock, dockAtPort, stopObserve, useObserve } from '../state/observe'
+import { canDock, dockAtPort, isBerth, stopObserve, useObserve } from '../state/observe'
 import { isTouchDevice } from '../state/input'
 import { t, useLang } from '../i18n/lang'
 
@@ -24,7 +24,7 @@ export function ObservePanel() {
       <div className="observe-head">
         <span className="observe-tag">{t('周辺観察', 'Observing')}</span>
         <b>{name}</b>
-        <span className="muted">{docking ? t('港の入口へ移動中…', 'Heading to the port…') : lapText}</span>
+        <span className="muted">{docking ? (isBerth(id) ? t('着艦の位置へ移動中…', 'Heading to the berth…') : t('港の入口へ移動中…', 'Heading to the port…')) : lapText}</span>
       </div>
       {!docking && (
         <div className="observe-hint muted">
@@ -36,7 +36,7 @@ export function ObservePanel() {
       <div className="observe-buttons">
         {canDock(id) && (
           <button className={docking ? 'on' : ''} onClick={dockAtPort}>
-            {docking ? t('入港をやめる', 'Cancel') : t('入港（港の入口へ）', 'Dock (go to the port)')}
+            {docking ? (isBerth(id) ? t('着艦をやめる', 'Cancel') : t('入港をやめる', 'Cancel')) : isBerth(id) ? t('着艦（ドックへ）', 'Berth (into the dock)') : t('入港（港の入口へ）', 'Dock (go to the port)')}
           </button>
         )}
         <button onClick={stopObserve}>

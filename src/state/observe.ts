@@ -4,7 +4,7 @@ import { bodies, passThrough } from './registry'
 import { useStore } from './store'
 import { raceActive } from './race'
 import { ship } from './flight'
-import { COLONY_ID, CROSS_ID, UMBRELLA_ID } from '../data/sf'
+import { COLONY_ID, CROSS_ID, DOCK_ID, UMBRELLA_ID } from '../data/sf'
 import { ENGINE_ROCK_ID } from '../data/sfEngine'
 import { COLONY_GROUPS } from '../data/sfSides'
 import { t } from '../i18n/lang'
@@ -50,7 +50,9 @@ type ObserveUI = {
 export const useObserve = create<ObserveUI>(() => ({ id: null, docking: false, lap: 0 }))
 
 /** 港から中へ入れる構造物（スペースコロニーと、宇宙船ドックのある小惑星基地） */
-const ENTERABLE = new Set([COLONY_ID, 'colony-2', 'colony-3', ...COLONY_GROUPS.map((g) => g.id), CROSS_ID, UMBRELLA_ID, ENGINE_ROCK_ID])
+const ENTERABLE = new Set([COLONY_ID, 'colony-2', 'colony-3', ...COLONY_GROUPS.map((g) => g.id), CROSS_ID, UMBRELLA_ID, ENGINE_ROCK_ID, DOCK_ID])
+/** 入港の代わりに「着艦」（宇宙船ドックの中の決まった場所で止まる） */
+export const isBerth = (id: string | null) => id === DOCK_ID
 export const canDock = (id: string | null) => !!id && ENTERABLE.has(id)
 
 export const OBSERVE_TEXT = {

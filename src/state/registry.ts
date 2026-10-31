@@ -61,5 +61,21 @@ export const beamSweeps = new Set<BeamSweep>()
  * next は from（自機の位置）から次に向かう点を out に、入口から中へ向かう向きを inward に入れ、
  * 入口の手前（最後の点）なら true を返す。壁を突き抜けないよう、途中の点を順に返す
  */
-export type Port = { /** この港を持つ天体の id（中心から離れた港でも、その天体の港として選ぶ） */ owner?: string; object: THREE.Object3D; next: (from: THREE.Vector3, out: THREE.Vector3, inward: THREE.Vector3) => boolean }
+export type Port = {
+  /** この港を持つ天体の id（中心から離れた港でも、その天体の港として選ぶ） */
+  owner?: string
+  object: THREE.Object3D
+  next: (from: THREE.Vector3, out: THREE.Vector3, inward: THREE.Vector3) => boolean
+  /** 着いたときの案内（ないときは「港の入口に着きました」） */
+  done?: () => string
+  /** 船の上の向き（ドックの床に水平に止めるとき。ないときは今の船の上） */
+  up?: (out: THREE.Vector3) => void
+}
 export const ports = new Set<Port>()
+
+/**
+ * 速さだけを落とす場所（自機は縮めない）。中心から near より近いと最高速の factor 倍まで、far より遠いと落とさない。
+ * 縮める場所（zoomZones）の速さの落とし方では、小さな構造物（宇宙船ドックなど）を通り越してしまうときに使う
+ */
+export type SlowZone = { object: THREE.Object3D; near: number; far: number; factor: number }
+export const slowZones = new Set<SlowZone>()

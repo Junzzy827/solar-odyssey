@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { Html, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { ShipModel, METERS_PER_UNIT } from '../ship/ShipModel'
-import { bodies } from '../../state/registry'
+import { bodies, ports, slowZones, type Port, type SlowZone } from '../../state/registry'
 import { ship } from '../../state/flight'
 import { useStore } from '../../state/store'
 import { useLevel } from '../../state/quality'
@@ -12,6 +12,9 @@ import { useLang } from '../../i18n/lang'
 import { LABEL_Z, useHideBehindSun } from '../labels'
 import { useSpaceEnvOn } from '../SpaceLighting'
 import { useSite } from './useSite'
+import { ApproachLights } from './ApproachLights'
+import { startObserve, useObserve } from '../../state/observe'
+import { t } from '../../i18n/lang'
 
 // 地球の軌道の宇宙船ドック「天の湊（あまのみなと）」（オリジナルのデザイン。junji さんの設定画がもと）。
 // 差し渡し約 5 km の輪と十字の基地。前の腕は大型艦の入るメインドック、後ろの腕は船を組み立てる船台。
@@ -37,8 +40,32 @@ const DETAIL = 1.2
 /** これより地球の近くに来たら読み込む（表示単位） */
 const LOAD_DIST = 14
 
-/** メインドックの中の真ん中（m。three の向き：口は -Z） */
-const BAY: [number, number, number] = [0, -10, -1500]
+/** メインドックで整備中の船の位置（m。three の向き：口は -Z。左に寄せて、右を自機の着艦の場所に空ける） */
+const BAY: [number, number, number] = [-165, -10, -1500]
+/** メインドックの口（z）と、中の広さ（半幅・床と天井の y） */
+const MOUTH_Z = -2420
+const BAY_HALF = 330
+const BAY_FLOOR = -130
+const BAY_CEIL = 105
+/** 自機の着艦の場所（メインドックの中の右側） */
+const BERTH = new THREE.Vector3(165, -15, -1300)
+/** 大きな船（アルカディア・ハコブネ）は中に入らないので、右の腕の先の係留塔の外に横づけする */
+const OUTER = new THREE.Vector3(3000, -20, 0)
+const BIG_SHIPS = new Set(['arcadia', 'hakobune'])
+const isBig = () => BIG_SHIPS.has(useStore.getState().settings.ship)
+/** 誘導灯の回廊の長さ（m）と、着艦のための、口の前の待機点の距離 */
+const LANE = 6000
+
+const DOCK_TEXT = {
+  enter: () => t('メインドックに進入します。誘導灯に沿って、着艦の位置まで自動で進みます', 'Entering the main dock. Following the guide lights to the berth'),
+  berthed: () => t('メインドックに着艦しました。前進（W）で出航できます', 'Berthed in the main dock. Thrust forward (W) to depart'),
+  outer: () =>
+    t('この船はメインドックに入らない大きさなので、係留塔の外に横づけしました。前進（W）で離れられます', 'This ship is too big for the main dock, so it is moored alongside the outer tower. Thrust (W) to depart'),
+  arrive: () => t('天の湊に到着。周辺観察に切り替えました。「着艦」でドックへ入れます', 'Arrived at Amano-Minato. Observing now; press Berth to go into the dock'),
+}
+
+/** 着艦の様子（ドックの中の照明を明るくする） */
+const dockFx = { inside: 0 }
 /** 船台の溶接の火花（m） */
 const SPARKS: [number, number, number][] = [
   [140, 60, 1200],
@@ -53,6 +80,9 @@ const toSun = new THREE.Vector3()
 const dir = new THREE.Vector3()
 const at = new THREE.Vector3()
 const look = new THREE.Vector3()
+const loc = new THREE.Vector3()
+const qUp = new THREE.Quaternion()
+const invM = new THREE.Matrix4()
 const Y = new THREE.Vector3(0, 1, 0)
 
 type Lod = { near: boolean }
@@ -135,6 +165,9 @@ function DockModel({ lod, detail }: { lod: { current: Lod }; detail: boolean }) 
     built.nav.red.color.setRGB(1.6 * beacon, 0.06 * beacon, 0.04 * beacon)
     const g = Math.sin(t * Math.PI) > 0 ? 1.4 : 0.5
     built.nav.green.color.setRGB(0.05 * g, g, 0.15 * g)
+    // 着艦の船がドックに入ると、天井の照明を明るく
+    const lit = 1 + 0.6 * dockFx.inside
+    ;(built.live.Glow as THREE.MeshBasicMaterial).color.setRGB(2.2 * lit, 1.95 * lit, 1.55 * lit)
     sparks.current.forEach((s, i) => s.scale.setScalar(Math.sin(t * (7 + i) + i * 2) + Math.sin(t * 19 + i) > 0.5 ? 1 + Math.random() : 0.01))
   })
 
@@ -181,8 +214,69 @@ export function SpaceDock() {
   const [load, setLoad] = useState(false)
   const [detail, setDetail] = useState(false)
   const lod = useRef<Lod>({ near: false })
+  const meters = useRef<THREE.Group>(null!)
+  const big = useStore((st) => BIG_SHIPS.has(st.settings.ship))
 
-  useFrame(({ camera }) => {
+  // 着艦の道順（m の座標で決める）：口の正面の線に乗る → 口から中へ → 着艦の場所。大きな船は外の係留塔へ
+  useEffect(() => {
+    const inv = new THREE.Matrix4()
+    const local = new THREE.Vector3()
+    const m = meters.current
+    let entered = false
+    const world = (v: THREE.Vector3, out: THREE.Vector3) => out.copy(v).applyMatrix4(m.matrixWorld)
+    const port: Port = {
+      owner: DOCK_ID,
+      object: m,
+      next(from, out, inward) {
+        m.updateWorldMatrix(true, false)
+        local.copy(from).applyMatrix4(inv.copy(m.matrixWorld).invert())
+        // 中へ向かう向き（+Z）
+        world(new THREE.Vector3(0, 0, 0), inward)
+        inward.negate().add(world(new THREE.Vector3(0, 0, 1000), out)).normalize()
+        const end = isBig() ? OUTER : BERTH
+        const mouth = isBig() ? end.z - 600 : MOUTH_Z
+        const inside = !isBig() && local.z > MOUTH_Z && Math.abs(local.x) < BAY_HALF && local.y > BAY_FLOOR && local.y < BAY_CEIL
+        // 大きな船は口の先（外側の係留位置）まで同じ線の上を進むので、そこまでを「並んでいる」とみなす
+        const lined = Math.hypot(local.x - end.x, local.y - end.y) < 140 && local.z <= (isBig() ? end.z : mouth) + 50
+        if (inside || (isBig() && lined && local.z > mouth - 50)) {
+          if (inside && !entered) {
+            entered = true
+            useStore.getState().showToast(DOCK_TEXT.enter())
+          }
+          world(end, out)
+          return true
+        }
+        entered = false
+        if (lined) {
+          world(local.set(end.x, end.y, mouth + 250), out)
+          return false
+        }
+        // 後ろや横にいるときは、まず上へ出てから正面へ回る（ドックの中を突き抜けないように）
+        if (local.z > mouth - 600 && local.y < 1700) {
+          world(local.set(local.x, 1900, local.z), out)
+          return false
+        }
+        world(local.set(end.x, end.y, Math.min(local.z, mouth - 1500)), out)
+        return false
+      },
+      done: () => (isBig() ? DOCK_TEXT.outer() : DOCK_TEXT.berthed()),
+      // 床と平行に（傾いたままだと、追いかけカメラが屋根の外に出る）
+      up: (o) => o.set(0, 1, 0).applyQuaternion(m.getWorldQuaternion(qUp)),
+    }
+    ports.add(port)
+    // そばでは速さを落とす（縮める場所の落とし方だけでは、5 km のドックを一瞬で通り越すので）
+    const slow: SlowZone = { object: group.current, near: size * 1.6, far: size * 6, factor: 1 / 250 }
+    slowZones.add(slow)
+    return () => {
+      ports.delete(port)
+      slowZones.delete(slow)
+    }
+  }, [size])
+
+  // 置き場所は、自機（Ship）より先に決める。後だと、カメラが 1 フレーム前のドックの位置で船を追い、
+  // ドックの近くで模型がガクガク揺れて見える（SF モードをあとから入れると、登録の順で後になる）
+  const warpWas = useRef('idle')
+  useFrame(() => {
     const e = bodies.get('earth')
     if (!e) return
     const g = group.current
@@ -199,6 +293,22 @@ export function SpaceDock() {
     g.lookAt(look)
     g.rotateY(-Math.PI / 2)
     moved()
+    // ワープで着いたら、そのまま周辺観察へ（速すぎて通り越さないように。そこから「着艦」）
+    const st = useStore.getState()
+    if (warpWas.current !== 'idle' && st.warpPhase === 'idle' && st.targetId === DOCK_ID) {
+      startObserve()
+      if (useObserve.getState().id === DOCK_ID) st.showToast(DOCK_TEXT.arrive())
+    }
+    warpWas.current = st.warpPhase
+    // ドックの中にいるか（照明の演出）
+    meters.current.updateWorldMatrix(true, false)
+    loc.copy(ship.position).applyMatrix4(invM.copy(meters.current.matrixWorld).invert())
+    const inBay = loc.z > MOUTH_Z && loc.z < -500 && Math.abs(loc.x) < BAY_HALF && loc.y > BAY_FLOOR && loc.y < BAY_CEIL
+    dockFx.inside += ((inBay ? 1 : 0) - dockFx.inside) * 0.05
+  }, -0.5)
+
+  useFrame(({ camera }) => {
+    const g = group.current
     g.getWorldPosition(at)
     const d = camera.position.distanceTo(at)
     const L = lod.current
@@ -215,6 +325,14 @@ export function SpaceDock() {
           <DockModel lod={lod} detail={detail} />
         </Suspense>
       )}
+      <group ref={meters} scale={UNITS_PER_METER}>
+        {load && (
+          // 着艦の誘導灯：口（大きな船は係留塔の横）から外へ伸びる回廊。ApproachLights は -Y へ伸びるので、-Z へ向ける
+          <group position={big ? [OUTER.x, OUTER.y, OUTER.z - 600] : [BERTH.x, BERTH.y, MOUTH_Z]} rotation={[Math.PI / 2, 0, 0]} scale={LANE}>
+            <ApproachLights mouth={0} reach={1} start={0.04} spread={0.07} port={0.03} />
+          </group>
+        )}
+      </group>
       <Html position={[0, size * 0.9, 0]} center className="label" zIndexRange={LABEL_Z}>
         <span ref={label} onClick={() => useStore.getState().setTarget(DOCK_ID)}>
           {dockName()}
