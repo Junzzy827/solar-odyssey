@@ -236,7 +236,8 @@ export function SpaceDock() {
         const end = isBig() ? OUTER : BERTH
         const mouth = isBig() ? end.z - 600 : MOUTH_Z
         const inside = !isBig() && local.z > MOUTH_Z && Math.abs(local.x) < BAY_HALF && local.y > BAY_FLOOR && local.y < BAY_CEIL
-        const lined = Math.hypot(local.x - end.x, local.y - end.y) < 140 && local.z <= mouth + 50
+        // 大きな船は口の先（外側の係留位置）まで同じ線の上を進むので、そこまでを「並んでいる」とみなす
+        const lined = Math.hypot(local.x - end.x, local.y - end.y) < 140 && local.z <= (isBig() ? end.z : mouth) + 50
         if (inside || (isBig() && lined && local.z > mouth - 50)) {
           if (inside && !entered) {
             entered = true
