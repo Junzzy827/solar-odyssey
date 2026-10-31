@@ -2,15 +2,17 @@ import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
 import { flightControl, ship, thrustFx, warpFx } from './state/flight'
-import { bodies, markerOverride, beamTargets, sim } from './state/registry'
+import { bodies, markerOverride, beamTargets, ports, sim } from './state/registry'
 import { useRace } from './state/race'
 import { useMission } from './state/mission'
 import { MISSIONS } from './data/missions'
 import { useBridge } from './state/bridge'
 import { shipZoom } from './state/zoom'
+import { dockAtPort, observeRun, startObserve, stopObserve, useObserve } from './state/observe'
 import { useQuality } from './state/quality'
 import { setGoal, toggleAuto, toggleCompare, useGallery, openGallery, closeGallery, selectPart } from './state/gallery'
 import { probeClock, useProbes } from './state/probes'
+import { skipDescent, startLanding, startTakeoff, useLanding } from './state/landing'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
 // 録画・動作確認用（#debug のときだけ読み込む）：アプリの中身をブラウザのコンソールや録画スクリプトから動かせるようにする。
@@ -27,13 +29,16 @@ const sv = {
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
   probes: { state: useProbes, clock: probeClock },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
+  landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff },
   ship,
   shipZoom,
+  observe: { state: useObserve, start: startObserve, stop: stopObserve, dock: dockAtPort, run: observeRun },
   quality: useQuality,
   flightControl,
   warpFx,
   thrustFx,
   bodies,
+  ports,
   markerOverride,
   beamTargets,
   sim,

@@ -23,6 +23,7 @@ import { named, setLang, t, useLang } from '../i18n/lang'
 import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
 import { ThrottleMeter } from './Throttle'
+import { toggleObserve, useObserve } from '../state/observe'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -311,6 +312,7 @@ export function NavPanel() {
   const startRace = useRace((r) => r.start)
   const racing = racePhase === 'countdown' || racePhase === 'running'
   const busy = s.warpPhase !== 'idle' || racing
+  const observing = useObserve((o) => o.id !== null)
   const quizOpen = useQuiz((q) => q.open)
   const probesOpen = useProbes((p) => p.open)
   const eclipsesOpen = useEclipse((e) => e.open)
@@ -416,6 +418,9 @@ export function NavPanel() {
       </button>
       <button className={`secondary nav-auto${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
         {t('自動航行', 'Autopilot')} <kbd>G</kbd>
+      </button>
+      <button className={`secondary nav-observe${observing ? ' on' : ''}`} onClick={toggleObserve} disabled={!s.targetId || busy || racing}>
+        {observing ? t('観察をやめる', 'Stop observing') : t('周辺観察（目標のまわりを回る）', 'Observe (orbit the target)')} <kbd>O</kbd>
       </button>
       <button className={`secondary mission-start${missionPhase !== 'closed' ? ' on' : ''}`} onClick={() => (pick(), missionPhase !== 'active' && closeEclipses(), openMissions())} disabled={racing}>
         {ui().missionsButton}

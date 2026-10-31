@@ -55,3 +55,11 @@ export const passThrough = new Set<string>()
  */
 export type BeamSweep = (from: THREE.Vector3, dir: THREE.Vector3, length: number, radius: number, spread: number, hit: (at: THREE.Vector3, size: number) => void) => void
 export const beamSweeps = new Set<BeamSweep>()
+
+/**
+ * 港から中へ入れる構造物の入口（周辺観察の「入港」で、自動で入口の手前まで行く）。
+ * next は from（自機の位置）から次に向かう点を out に、入口から中へ向かう向きを inward に入れ、
+ * 入口の手前（最後の点）なら true を返す。壁を突き抜けないよう、途中の点を順に返す
+ */
+export type Port = { object: THREE.Object3D; next: (from: THREE.Vector3, out: THREE.Vector3, inward: THREE.Vector3) => boolean }
+export const ports = new Set<Port>()
