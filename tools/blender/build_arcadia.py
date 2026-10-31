@@ -426,6 +426,7 @@ def engine_details(eng):
                 t = (-590 - yy) / 24
                 r = 16 + (23 - 16) * t + 0.8
                 cone(eng, (c[0], yy - 1, c[1]), (c[0], yy + 1, c[1]), r, r, 'Metal', n=32, cap0=None, cap1=None)
+            cone(eng, (c[0], -597, c[1]), (c[0], -598, c[1]), 14, 14, 'Glow', n=32)
             cone(eng, (c[0], -598, c[1]), (c[0], -606, c[1]), 7, 3, 'Metal', n=24)
     for sx in (1, -1):
         for yy in (-470, -520, -570):
@@ -508,6 +509,17 @@ def greebles(part):
     for y in (-20, 30, 80):
         cone(part, (0, y, 52 - max(0, y + 60) * 0.1), (0, y, 55 - max(0, y + 60) * 0.1), 3.5, 3.0, 'Mech', n=16)
         bf.box(part, (0, y, 55.5 - max(0, y + 60) * 0.1), (2, 2, 1), 'Blue')
+    # 機関部の上の通信用の皿と、舳先の先のセンサー灯
+    for sx in (1, -1):
+        cone(part, (sx * 30, -470, 60), (sx * 30, -470, 68), 1.5, 1.5, 'Metal', n=8)
+        cone(part, (sx * 30, -476, 68), (sx * 30, -466, 76), 12, 1.5, 'Hull', n=28, cap0=None)
+        bf.box(part, (sx * 38, 470, 10), (1.5, 6, 1.5), 'Blue')
+        # 舷側のドッキング口（四角い枠と、両脇の灯）
+        for y in (-300, -420):
+            bf.box(part, (sx * 91.5, y, -24), (2, 16, 12), 'Mech')
+            bf.box(part, (sx * 92.6, y, -24), (0.6, 10, 7), 'Dark')
+            for dy in (-9, 9):
+                bf.box(part, (sx * 92.4, y + dy, -16), (0.8, 1.2, 1.2), 'Blue')
     # 航行灯（左舷 赤、右舷 緑）
     for sx, lamp in ((-1, 'NavRed'), (1, 'NavGreen')):
         bf.box(part, (sx * 69, 230, 12), (2, 4, 2), lamp)
@@ -616,8 +628,17 @@ def compose(P, N, ID, AO, EDGE):
     pod_side = valid & is_m('Hull') & (np.abs(nx) > 0.85) & (((np.abs(x) > 120) & (y > -262) & (y < -95)) | ((np.abs(x) > 85) & (y < -255) & (y > -495)))
     band = (np.abs(z - 6) < 9) | (np.abs(z + 16) < 3)
     windows(pod_side & band, 6.0, 4.5, 3.2, 1.5, 0.3, 4, every=9)
-    tower_side = valid & is_p('Tower') & is_m('Hull') & (np.abs(nx) > 0.7)
-    windows(tower_side, 4.0, 3.6, 2.6, 1.4, 0.45, 7, every=6)
+    tower_side = valid & is_p('Tower') & is_m('Hull') & (np.abs(nx) > 0.9)
+    tier_rows = np.zeros_like(valid)
+    for zf, h in ((78, 22), (98, 22), (118, 18)):
+        for k in range(2):
+            zr = zf + h * (0.3 + 0.32 * k)
+            tier_rows |= np.abs(z - zr) < 0.8
+    tw = tower_side & tier_rows & (np.mod(np.floor(y / 3.2), 8) != 7) & (np.abs(np.mod(y / 3.2, 1) - 0.5) < 0.36)
+    base[tw] = ba.srgb('#10161f')
+    rough[tw] = 0.12
+    emit[tw & (ba.hash2(np.floor(y / 3.2), np.floor(z), np.sign(x)) < 0.55)] = np.array([1.0, 0.82, 0.55]) * 0.75
+    height[tw] = -0.5
     # 窓の箱（Window）は窓ガラスとして点灯
     wb = valid & is_m('Window')
     emit[wb] = np.array([1.0, 0.85, 0.6]) * 0.9
@@ -830,7 +851,7 @@ def preview(tag):
     scene.cycles.device = 'CPU'
     scene.cycles.samples = int(os.environ.get('PREVIEW_SAMPLES', '24'))
     scene.cycles.use_denoising = True
-    scene.render.resolution_x, scene.render.resolution_y = 1280, 720
+    scene.render.resolution_x, scene.render.resolution_y = int(os.environ.get('RES_X', '1280')), int(os.environ.get('RES_Y', '720'))
     scene.view_settings.view_transform = 'AgX'
     scene.world = bpy.data.worlds.new('world')
     scene.world.use_nodes = True
@@ -855,6 +876,7 @@ def preview(tag):
         'front': ((-0.75, 1.45, 0.3), (0, 0.02, 0.0), 'PERSP', 45),
         'rear': ((1.0, -1.35, 0.45), (0, -0.12, 0.0), 'PERSP', 45),
         'tower': ((0.38, 0.1, 0.28), (0, -0.19, 0.09), 'PERSP', 40),
+        'night': ((0.85, 0.55, 0.12), (0, 0.02, 0.0), 'PERSP', 40),
         'stern': ((0, -3, 0.0), (0, 0, 0.0), 'ORTHO', 0.7),
         'under': ((1.15, 0.85, -0.7), (0, -0.04, 0.0), 'PERSP', 50),
     }
@@ -875,6 +897,9 @@ def preview(tag):
         else:
             cam.data.lens = lens
         cam.data.clip_start = 0.001
+        night = name == 'night'
+        sun.data.energy = 0.12 if night else 3.0
+        fill.data.energy = 0.04 if night else 0.6
         scene.render.filepath = os.path.join(PREVIEW_DIR, f'arcadia-{tag}-{name}.png')
         bpy.ops.render.render(write_still=True)
         print('  render', name, flush=True)
