@@ -4,6 +4,7 @@ import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { ColonyModel, MIRROR_ANGLE } from './ColonyModel'
 import { ApproachLights } from './ApproachLights'
+import { ColonyDock } from './ColonyDock'
 import { ConstructionSite } from './ConstructionSite'
 import { colliders, passThrough, ports, registerBody, slowZones, zoomZones, type Port, type SlowZone, type ZoomZone } from '../../state/registry'
 import { MAX_SPEED } from '../../state/throttle'
@@ -215,6 +216,8 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
       </group>
       {/* 港へ入る船の誘導灯（回さない） */}
       <ApproachLights />
+      {/* 港の中の回らないドック（停泊中の船） */}
+      <ColonyDock />
       {primary && (
         <>
           <group ref={site} position={[SITE_OFFSET, 0, 0]} visible={false}>
