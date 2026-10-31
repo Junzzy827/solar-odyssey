@@ -59,7 +59,7 @@ const plumeFragment = /* glsl */ `
   varying vec2 vUv;
   void main() {
     // vUv.y：0 が噴射口、1 が先。vUv.x：まわり（0〜1）
-    float y = vUv.y;
+    float y = 1.0 - vUv.y; // 円柱の uv は上が 1 なので、噴射口（上）を 0 にする
     float edge = abs(fract(vUv.x * 2.0) - 0.5) * 2.0; // 縁ほど 1（筒を真横から見ると縁が薄い）
     float body = pow(1.0 - y, 1.6) * (1.0 - 0.75 * edge * edge);
     // 噴流の脈動（衝撃波のふし：ショックダイヤモンド）
@@ -73,7 +73,8 @@ const plumeFragment = /* glsl */ `
 
 /** 噴射口 1 つ分の噴流（先が広がる、開いた円すい）。噴射口が原点、-Y へ伸びる。長さ 1 */
 export function plumeGeometry() {
-  const g = new THREE.CylinderGeometry(1, 0.35, 1, 16, 1, true)
+  // 噴射口（上）で細く、先（下）ほど広がる
+  const g = new THREE.CylinderGeometry(0.35, 1, 1, 16, 1, true)
   g.translate(0, -0.5, 0)
   return g
 }
@@ -251,6 +252,141 @@ export class Dust {
     this.geo.attributes.aAlpha.needsUpdate = true
     this.geo.attributes.aSize.needsUpdate = true
     return alive
+  }
+
+  dispose() {
+    this.geo.dispose()
+    this.material.dispose()
+  }
+}
+
+// ---- 砂つぶ ---------------------------------------------------------------------------------
+// 噴流に叩かれて弾き飛ばされる、ひとつぶずつ見える砂や小石。弧を描いて飛び、地面に落ちて止まる。
+// （ふわっと広がる砂ぼこりの雲 Dust とは別。こちらは粒が見える）
+
+const gritVertex = /* glsl */ `
+  attribute float aAlpha;
+  attribute float aSize;
+  uniform float uScale;
+  varying float vAlpha;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    float px = aSize * uScale / max(-mv.z, 0.5);
+    // 1 画素より小さい粒は、大きさの代わりに薄さで表す（ちらつかない）
+    vAlpha = aAlpha * min(1.0, px / 1.6);
+    gl_PointSize = max(px, 1.6);
+    gl_Position = projectionMatrix * mv;
+  }
+`
+const gritFragment = /* glsl */ `
+  uniform vec3 uColor;
+  varying float vAlpha;
+  void main() {
+    float r = length(gl_PointCoord - 0.5) * 2.0;
+    float a = smoothstep(1.0, 0.35, r) * vAlpha;
+    if (a < 0.01) discard;
+    gl_FragColor = vec4(uColor, a);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`
+
+export class Grit {
+  readonly points: THREE.Points
+  readonly material: THREE.ShaderMaterial
+  private geo = new THREE.BufferGeometry()
+  private pos: Float32Array
+  private alpha: Float32Array
+  private size: Float32Array
+  private vel: Float32Array
+  private age: Float32Array
+  private life: Float32Array
+  private next = 0
+
+  constructor(
+    readonly count: number,
+    color: THREE.Color,
+    private hasAir: boolean,
+    private gravity: number,
+    private wind: THREE.Vector3,
+  ) {
+    this.pos = new Float32Array(count * 3)
+    this.alpha = new Float32Array(count)
+    this.size = new Float32Array(count)
+    this.vel = new Float32Array(count * 3)
+    this.age = new Float32Array(count).fill(99)
+    this.life = new Float32Array(count).fill(1)
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3))
+    this.geo.setAttribute('aAlpha', new THREE.BufferAttribute(this.alpha, 1))
+    this.geo.setAttribute('aSize', new THREE.BufferAttribute(this.size, 1))
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: gritVertex,
+      fragmentShader: gritFragment,
+      uniforms: { uColor: { value: color.clone() }, uScale: { value: 500 } },
+      transparent: true,
+      depthWrite: false,
+    })
+    this.points = new THREE.Points(this.geo, this.material)
+    this.points.frustumCulled = false
+    this.points.renderOrder = 2
+  }
+
+  /** 着陸船の真下 (cx, gy, cz) の地面から、強さ k（0〜1）で弾き出す */
+  emit(dt: number, cx: number, gy: number, cz: number, k: number, rate: number) {
+    const n = Math.min(this.count / 4, Math.floor(dt * rate * k + Math.random()))
+    for (let i = 0; i < n; i++) {
+      const j = this.next++ % this.count
+      const a = Math.random() * Math.PI * 2
+      const r = 0.8 + Math.random() * 4.5
+      // 噴流は地面すれすれに外へ流れるので、粒は浅い角度で速く飛ぶ
+      const sp = (7 + Math.random() * 20) * (0.45 + 0.55 * k)
+      const up = (0.6 + Math.random() * Math.random() * 7) * (0.5 + 0.5 * k)
+      this.pos[j * 3] = cx + Math.cos(a) * r
+      this.pos[j * 3 + 1] = gy + 0.05 + Math.random() * 0.3
+      this.pos[j * 3 + 2] = cz + Math.sin(a) * r
+      this.vel[j * 3] = Math.cos(a) * sp
+      this.vel[j * 3 + 1] = up
+      this.vel[j * 3 + 2] = Math.sin(a) * sp
+      this.age[j] = 0
+      this.life[j] = 1.4 + Math.random() * 2.2
+      // 砂（数 cm）がほとんど、ときどき小石
+      this.size[j] = Math.random() < 0.1 ? 0.25 + Math.random() * 0.2 : 0.09 + Math.random() * 0.1
+    }
+  }
+
+  update(dt: number, groundY: number) {
+    const w = this.wind
+    const g = 9.8 * this.gravity
+    // 空気があると少しだけ減速して風に寄る（砂つぶは重いので、雲ほどは流されない）
+    const drag = this.hasAir ? Math.min(1, 0.35 * dt) : 0
+    for (let j = 0; j < this.count; j++) {
+      if (this.age[j] >= this.life[j]) {
+        this.alpha[j] = 0
+        continue
+      }
+      this.age[j] += dt
+      const i = j * 3
+      const onGround = this.pos[i + 1] <= groundY + 0.03
+      if (!onGround) {
+        this.vel[i] += (w.x - this.vel[i]) * drag
+        this.vel[i + 2] += (w.z - this.vel[i + 2]) * drag
+        this.vel[i + 1] -= g * dt
+        this.pos[i] += this.vel[i] * dt
+        this.pos[i + 1] += this.vel[i + 1] * dt
+        this.pos[i + 2] += this.vel[i + 2] * dt
+        if (this.pos[i + 1] <= groundY + 0.03) {
+          // 落ちたら止まって、すぐ地面に紛れる
+          this.pos[i + 1] = groundY + 0.03
+          this.life[j] = Math.min(this.life[j], this.age[j] + 0.4)
+        }
+      }
+      const u = this.age[j] / this.life[j]
+      const fadeIn = Math.min(1, this.age[j] / 0.05)
+      this.alpha[j] = fadeIn * Math.max(0, 1 - u * u)
+    }
+    this.geo.attributes.position.needsUpdate = true
+    this.geo.attributes.aAlpha.needsUpdate = true
+    this.geo.attributes.aSize.needsUpdate = true
   }
 
   dispose() {

@@ -14,7 +14,12 @@ import { named, t, useLang } from '../../i18n/lang'
 import { AirParams, ApUniforms, SkyLut, airFor, airUniforms, apUniforms, autoExposure, luminance, skyLookupGlsl, sunTransmittance, withAir } from './atmosphere'
 import { SurfacePost } from './SurfacePost'
 import { SurfaceLab } from './SurfaceLab'
-import { Dust, LegRig, TOUCHDOWN, legsDuringDescent, setLegs, splitLegs, descentAltitude, descentThrust, plumeGeometry, plumeMaterial, splashMaterial, suspension, windFor } from './landerFx'
+import { SurfaceStars } from './SurfaceStars'
+import { TimeBar } from './TimeBar'
+import { SkyFrame, hoursPerSecond, litFraction, useSkyClock } from './skyClock'
+import type { SkyNow } from './skyNow'
+import { SKY_FROM_APP } from '../../data/skyFrame'
+import { Dust, Grit, LegRig, TOUCHDOWN, legsDuringDescent, setLegs, splitLegs, descentAltitude, descentThrust, plumeGeometry, plumeMaterial, splashMaterial, suspension, windFor } from './landerFx'
 import { QualityGovernor } from '../QualityGovernor'
 import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 
@@ -57,26 +62,29 @@ const skyVertex = /* glsl */ `
 const skyFragment = /* glsl */ `
   uniform sampler2D uLut;
   uniform float uStars;
-  uniform sampler2D uStarMap;
+  uniform sampler2D uGlow;
+  uniform mat3 uGalRot;
   varying vec3 vDir;
   ${skyLookupGlsl}
   void main() {
     vec3 d = normalize(vDir);
     // 空の色は大気の計算の表から（地平線より下は、地平線のすぐ上の色で、遠い地面の向こうを埋める）
     vec3 col = airSkyColor(uLut, d);
-    // 星（天の川の写真）：空が明るいほど見えなくなる
-    vec2 uv = vec2(atan(d.x, -d.z) / 6.2831853 + 0.5, asin(clamp(d.y, -1.0, 1.0)) / 3.1415926 + 0.5);
-    vec3 stars = texture2D(uStarMap, uv).rgb;
-    float skyLum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-    col += stars * stars * uStars * 1.6 * clamp(1.0 - skyLum * 12.0, 0.0, 1.0);
+    // 天の川の淡い光（星の点は星表で別に描く）。天体の自転と一緒に回る
+    vec3 g = uGalRot * d;
+    vec2 uv = vec2(fract(atan(g.z, -g.x) / 6.2831853 + 1.0), asin(clamp(g.y, -1.0, 1.0)) / 3.1415926 + 0.5);
+    col += texture2D(uGlow, uv).rgb * 0.32 * uStars * smoothstep(-0.02, 0.12, d.y);
     gl_FragColor = vec4(col, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
 `
 
-function Sky({ def, lut }: { def: SurfaceDef; lut: THREE.Texture }) {
-  const stars = useOptionalTexture(textureUrl('milkyWay'))
+const GAL = new THREE.Matrix3()
+const M3 = new THREE.Matrix3()
+
+function Sky({ def, lut, sky }: { def: SurfaceDef; lut: THREE.Texture; sky: SkyNow }) {
+  const glow = useOptionalTexture(textureUrl('milkyWayGlow'))
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -85,14 +93,19 @@ function Sky({ def, lut }: { def: SurfaceDef; lut: THREE.Texture }) {
         side: THREE.BackSide,
         depthWrite: false,
         fog: false,
-        uniforms: { uLut: { value: lut }, uStars: { value: 0 }, uStarMap: { value: null } },
+        uniforms: { uLut: { value: lut }, uStars: { value: 0 }, uGlow: { value: null }, uGalRot: { value: new THREE.Matrix3() } },
       }),
     [lut],
   )
   useEffect(() => {
-    mat.uniforms.uStarMap.value = stars
-    mat.uniforms.uStars.value = stars ? def.stars : 0
-  }, [mat, stars, def.stars])
+    mat.uniforms.uGlow.value = glow
+  }, [mat, glow])
+  useFrame(() => {
+    mat.uniforms.uStars.value = glow ? sky.starVis * Math.min(1, def.stars * 1.5 + 0.2) : 0
+    // 地方の向き → 宇宙（黄道）→ 天の川の画像の向き
+    M3.setFromMatrix4(sky.frame.toApp)
+    mat.uniforms.uGalRot.value.copy(GAL.copy(SKY_FROM_APP)).multiply(M3)
+  })
   useEffect(() => () => mat.dispose(), [mat])
   return (
     <mesh material={mat} renderOrder={-10} frustumCulled={false}>
@@ -101,35 +114,94 @@ function Sky({ def, lut }: { def: SurfaceDef; lut: THREE.Texture }) {
   )
 }
 
-function SunDisc({ def, sunDir, tint }: { def: SurfaceDef; sunDir: THREE.Vector3; tint: THREE.Vector3 }) {
+function SunDisc({ def, sky }: { def: SurfaceDef; sky: SkyNow }) {
   const mat = useMemo(
     () => new THREE.SpriteMaterial({ map: haloTexture(), color: new THREE.Color(1.6, 1.5, 1.35), transparent: true, depthWrite: false, fog: false, toneMapped: false }),
     [],
   )
-  // 大気を通った太陽の色（夕方は赤く暗く）。明るさは光のにじみが出るくらいに保つ
-  const m = Math.max(tint.x, tint.y, tint.z, 1e-4)
-  const k = 1.6 * Math.min(1, 0.35 + luminance(tint) * 2)
-  mat.color.setRGB((tint.x / m) * k, (tint.y / m) * k * 0.94, (tint.z / m) * k * 0.85)
-  mat.opacity = Math.min(1, luminance(tint) * 6)
-  useEffect(() => () => mat.dispose(), [mat])
-  if (def.sunHidden || sunDir.y < -0.02) return null
+  const sprite = useRef<THREE.Sprite>(null)
   const angle = 0.533 / def.au
   // 光のにじみを含めて、少し大きめに（遠い星でも点として見えるように下限をつける）
   const size = Math.max(2 * SKY_R * Math.tan(((angle * Math.PI) / 180) / 2) * 7, 60)
-  const p = sunDir.clone().multiplyScalar(SKY_R * 0.95)
-  return <sprite material={mat} position={p} scale={[size, size, 1]} renderOrder={-9} />
+  useFrame(() => {
+    const sp = sprite.current
+    if (!sp) return
+    const tint = sky.sunT
+    // 大気を通った太陽の色（夕方は赤く暗く）。明るさは光のにじみが出るくらいに保つ
+    const m = Math.max(tint.x, tint.y, tint.z, 1e-4)
+    const k = 1.6 * Math.min(1, 0.35 + luminance(tint) * 2)
+    mat.color.setRGB((tint.x / m) * k, (tint.y / m) * k * 0.94, (tint.z / m) * k * 0.85)
+    mat.opacity = Math.min(1, luminance(tint) * 6)
+    sp.visible = !def.sunHidden && sky.sunDir.y > -0.02
+    sp.position.copy(sky.sunDir).multiplyScalar(SKY_R * 0.95)
+  })
+  useEffect(() => () => mat.dispose(), [mat])
+  return <sprite ref={sprite} material={mat} scale={[size, size, 1]} renderOrder={-9} />
 }
 
-/** 空に浮かぶ母惑星（または衛星）。太陽の光で満ち欠けする */
-function SkyPlanet({ def }: { def: SurfaceDef }) {
+const planetVertex = /* glsl */ `
+  varying vec3 vN;
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    vN = normalize(mat3(modelMatrix) * normal);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+const planetFragment = /* glsl */ `
+  uniform sampler2D uMap;
+  uniform float uHasMap;
+  uniform vec3 uColor;
+  uniform vec3 uSun;
+  uniform float uBright;
+  uniform float uOpacity;
+  varying vec3 vN;
+  varying vec2 vUv;
+  void main() {
+    vec3 albedo = uHasMap > 0.5 ? texture2D(uMap, vUv).rgb : uColor;
+    // 太陽に照らされた側だけ明るい（地平線の下に太陽があっても、空の惑星には日が当たっている）
+    float l = smoothstep(-0.04, 0.12, dot(normalize(vN), uSun));
+    gl_FragColor = vec4(albedo * l * uBright, uOpacity);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`
+
+/** 空に浮かぶ母惑星（または衛星）。太陽の光で満ち欠けする。地球の空の月だけは、星と一緒に空を回る */
+function SkyPlanet({ def, sky }: { def: SurfaceDef; sky: SkyNow }) {
   const sb = def.skyBody!
   const map = useOptionalTexture(textureUrl(sb.id))
   const ringMap = useOptionalTexture(sb.ringOpen !== undefined ? textureUrl('saturnRing') : undefined)
   const dist = SKY_R * 0.8
   const r = dist * Math.tan(((sb.angle * Math.PI) / 180) / 2)
   const dir = useMemo(() => dirFrom(sb.az, sb.el), [sb.az, sb.el])
-  const pos = useMemo(() => dir.clone().multiplyScalar(dist), [dir, dist])
+  // 地球の月：着陸したときの空の位置を、宇宙の向きで覚えておく（その後は自転で動く）
+  const appDir = useMemo(() => (def.id === 'earth' ? dir.clone().applyMatrix4(sky.frame.toApp) : null), [def.id, dir, sky])
+  const group = useRef<THREE.Group>(null)
   const fade = Math.max(0.08, 1 - def.haze * 1.15)
+  const mat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: planetVertex,
+        fragmentShader: planetFragment,
+        uniforms: {
+          uMap: { value: null },
+          uHasMap: { value: 0 },
+          uColor: { value: new THREE.Color(sb.color) },
+          uSun: { value: new THREE.Vector3(0, 1, 0) },
+          uBright: { value: 1 },
+          uOpacity: { value: fade },
+        },
+        transparent: fade < 1,
+        fog: false,
+      }),
+    [sb.color, fade],
+  )
+  useEffect(() => {
+    mat.uniforms.uMap.value = map
+    mat.uniforms.uHasMap.value = map ? 1 : 0
+  }, [mat, map])
+  useEffect(() => () => mat.dispose(), [mat])
   const ring = useMemo(() => {
     if (sb.ringOpen === undefined) return null
     const planet = PLANETS.find((p) => p.id === sb.id)!.ring!
@@ -150,21 +222,20 @@ function SkyPlanet({ def }: { def: SurfaceDef }) {
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), n)
     return { geo, q }
   }, [sb.ringOpen, sb.id, r, dir])
+  useFrame(() => {
+    const g = group.current
+    if (!g) return
+    if (appDir) sky.bodyDir.copy(appDir).applyMatrix4(sky.frame.toLocal)
+    else sky.bodyDir.copy(dir)
+    g.position.copy(sky.bodyDir).multiplyScalar(dist)
+    mat.uniforms.uSun.value.copy(sky.sunDir)
+    // 日の当たった面の明るさ：地面と同じ太陽の強さと露出（アルベドは模様の色）
+    mat.uniforms.uBright.value = Math.min(4, (def.au ** -2 * sky.exposure * 0.9) / Math.PI) * (def.sunHidden ? 0.25 : 1)
+  })
   return (
-    <group position={pos}>
-      <mesh rotation={[0.4, 2.2, 0.2]}>
+    <group ref={group}>
+      <mesh rotation={[0.4, 2.2, 0.2]} material={mat}>
         <sphereGeometry args={[r, 64, 32]} />
-        <meshStandardMaterial
-          key={map ? 'map' : 'color'}
-          map={map}
-          color={map ? '#ffffff' : sb.color}
-          roughness={1}
-          metalness={0}
-          fog={false}
-          envMapIntensity={0}
-          transparent={fade < 1}
-          opacity={fade}
-        />
       </mesh>
       {ring && (
         <mesh geometry={ring.geo} quaternion={ring.q}>
@@ -319,7 +390,8 @@ function shrinkTexture(tex: THREE.Texture, max: number): THREE.Texture | null {
   return out
 }
 
-function Lander({ terrain, dustColor, ap, sunDir }: { terrain: Terrain; dustColor: string; ap: ApUniforms; sunDir: THREE.Vector3 }) {
+function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: string; ap: ApUniforms; sky: SkyNow }) {
+  const sunDir = sky.sunDir
   const { scene } = useGLTF(url('ship-lander.glb'))
   const group = useRef<THREE.Group>(null)
   const ground = useMemo(() => terrain.height(LANDER_POS.x, LANDER_POS.y), [terrain])
@@ -411,6 +483,8 @@ function Lander({ terrain, dustColor, ap, sunDir }: { terrain: Terrain; dustColo
   }, [splash])
   const splashMesh = useRef<THREE.Mesh>(null)
   const light = useRef<THREE.PointLight>(null)
+  // 夜の足元の照明（着陸船の腹の作業灯）
+  const work = useRef<THREE.PointLight>(null)
 
   // 砂ぼこり：降りる・飛び立つときに、着陸船の下から外へ広がり、風に流されていく
   const level = useLevel()
@@ -421,6 +495,12 @@ function Lander({ terrain, dustColor, ap, sunDir }: { terrain: Terrain; dustColo
     return new Dust(count, c, hasAir ? 0.55 : 0, terrain.def.gravity, windFor(terrain.def.id, hasAir))
   }, [dustColor, level, hasAir, terrain])
   useEffect(() => () => dust.dispose(), [dust])
+  // ひとつぶずつ見える砂つぶ
+  const grit = useMemo(() => {
+    const count = level === 'high' ? 6000 : level === 'medium' ? 3500 : 1500
+    return new Grit(count, new THREE.Color(dustColor), hasAir, terrain.def.gravity, windFor(terrain.def.id, hasAir))
+  }, [dustColor, level, hasAir, terrain])
+  useEffect(() => () => grit.dispose(), [grit])
   const dustBase = useMemo(() => new THREE.Color(dustColor), [dustColor])
   const camDir = useMemo(() => new THREE.Vector3(), [])
 
@@ -493,19 +573,28 @@ function Lander({ terrain, dustColor, ap, sunDir }: { terrain: Terrain; dustColo
       light.current.intensity = thrust * flick * 900 * (0.4 + 0.6 * nearGround)
     }
 
+    if (work.current) {
+      work.current.position.set(LANDER_POS.x, ground + alt + 1.4 - squash, LANDER_POS.y)
+      work.current.intensity = sky.night * 70
+    }
+
     // 砂ぼこり
     if (thrust > 0.05 && alt < 28 && terrain.def.dust) {
       const k = thrust * (1 - alt / 28) ** 1.5
       dust.emit(dt, LANDER_POS.x, ground, LANDER_POS.y, k, level === 'low' ? 110 : 260)
+      grit.emit(dt, LANDER_POS.x, ground, LANDER_POS.y, k, level === 'low' ? 1200 : 3500)
     }
     const cam = state.camera as THREE.PerspectiveCamera
     dust.material.uniforms.uScale.value = state.size.height * state.viewport.dpr / (2 * Math.tan((cam.fov * Math.PI) / 360))
     dust.update(dt, ground)
+    grit.material.uniforms.uScale.value = dust.material.uniforms.uScale.value
+    grit.update(dt, ground)
     // 太陽を背にすると暗く、太陽の方を向くと光る（細かい粒は光を前へ散らす）
     cam.getWorldDirection(camDir)
     const fwd = Math.max(0, camDir.dot(sunDir)) ** 3
     const lit = Math.max(0.15, Math.min(1, sunDir.y * 3 + 0.2))
     dust.material.uniforms.uColor.value.copy(dustBase).multiplyScalar(lit * (0.75 + 1.6 * fwd))
+    grit.material.uniforms.uColor.value.copy(dustBase).multiplyScalar(lit * (0.55 + 0.5 * fwd))
   })
 
   return (
@@ -515,7 +604,9 @@ function Lander({ terrain, dustColor, ap, sunDir }: { terrain: Terrain; dustColo
       </group>
       <mesh ref={splashMesh} geometry={splash.geo} material={splash.mat} renderOrder={1} frustumCulled={false} />
       <pointLight ref={light} color="#9fb8ff" distance={60} decay={2} intensity={0} />
+      <pointLight ref={work} color="#ffd9a8" distance={45} decay={2} intensity={0} />
       <primitive object={dust.points} />
+      <primitive object={grit.points} />
     </>
   )
 }
@@ -653,20 +744,20 @@ type Air = {
   ap: ApUniforms
   pmrem: THREE.PMREMGenerator
   env: THREE.Texture | null
-  dirtyKey: string
+  lutKey: string
+  envKey: string
   lastEnv: number
 }
 
+const tmpDir = new THREE.Vector3()
+
 function Scene({ def }: { def: SurfaceDef }) {
   const terrain = useMemo(() => new Terrain(def), [def])
-  const lab = useSurfaceLab()
   const level = useLevel()
-  const sunEl = lab.sunEl ?? def.sunEl
-  const sunAz = lab.sunAz ?? def.sunAz
-  const haze = lab.haze
-  const sunDir = useMemo(() => dirFrom(sunAz, sunEl), [sunAz, sunEl])
+  const haze = useSurfaceLab((l) => l.haze)
   const { scene, gl } = useThree()
   const sun = useRef<THREE.DirectionalLight>(null)
+  const shine = useRef<THREE.DirectionalLight>(null)
 
   // 大気の計算の道具は天体ごとに 1 回だけ作る（霞の濃さは uniform で変える）
   const A = useMemo<Air>(() => {
@@ -674,7 +765,7 @@ function Scene({ def }: { def: SurfaceDef }) {
     const radiusM = def.radiusKm * 1000
     const lut = new SkyLut(airUniforms(air, radiusM, 1), new THREE.Color(def.ground), level === 'low' || lowMemory() ? 256 : 512)
     const ap = apUniforms(air, 1, terrain.height(0, 0), lut.target.texture)
-    return { air, lut, ap, pmrem: new THREE.PMREMGenerator(gl), env: null, dirtyKey: '', lastEnv: 0 }
+    return { air, lut, ap, pmrem: new THREE.PMREMGenerator(gl), env: null, lutKey: '', envKey: '', lastEnv: 0 }
   }, [def, gl, terrain, level])
   useEffect(
     () => () => {
@@ -686,19 +777,22 @@ function Scene({ def }: { def: SurfaceDef }) {
     [A, scene],
   )
 
-  // 太陽：遠い星ほど弱い（地球を 1）。大気を通った色と、露出
+  // 今の空（毎フレーム書き換える）。着陸するたびに時計を 0 から
+  const sky = useMemo<SkyNow>(() => {
+    useSkyClock.setState({ hours: 0 })
+    const frame = new SkyFrame(def)
+    const sunDir = frame.sunLocal(new THREE.Vector3())
+    return { frame, sunDir, sunT: new THREE.Vector3(1, 1, 1), exposure: 1, night: 0, starVis: 0, bodyDir: new THREE.Vector3(0, 1, 0), bodyLit: 0 }
+  }, [def])
+  const clock = useRef({ hours: 0, ui: 0, lastLit: 0 })
+  useEffect(() => {
+    clock.current.hours = 0
+  }, [sky])
+
+  // 太陽：遠い星ほど弱い（地球を 1）。昼の目の慣れ方の上限（夜に露出を上げすぎて昼のようにならないように）
   const radiusM = def.radiusKm * 1000
   const sunI = def.au ** -2
-  const sunT = useMemo(() => sunTransmittance(A.air, radiusM, (sunEl * Math.PI) / 180, haze), [A, radiusM, sunEl, haze])
-  // 厚い雲の下は、目が慣れても薄暗く感じるくらいに
-  const exposure = autoExposure(sunI, sunT, (sunEl * Math.PI) / 180, A.air, lab.ev + (def.sunHidden ? -0.9 : 0))
-  const tMax = Math.max(sunT.x, sunT.y, sunT.z, 1e-6)
-  const sunColor = useMemo(() => new THREE.Color(sunT.x / tMax, sunT.y / tMax, sunT.z / tMax), [sunT, tMax])
-  const sunIntensity = sunI * tMax * exposure
-
-  useEffect(() => {
-    if (Math.abs(useSurfaceLab.getState().exposure - exposure) > 1e-6) useSurfaceLab.getState().set({ exposure })
-  }, [exposure])
+  const dayExposure = useMemo(() => autoExposure(sunI, new THREE.Vector3(1, 1, 1), Math.PI / 4, A.air, 0), [sunI, A])
 
   // 霞の濃さ（調整ページ）は uniform だけ書き換える
   useEffect(() => {
@@ -707,52 +801,105 @@ function Scene({ def }: { def: SurfaceDef }) {
     u.uBetaL.value.set(...A.air.low).multiplyScalar(haze)
     u.uExtL.value.set(...A.air.lowExt).multiplyScalar(haze)
     A.ap.uApL.value.set(...A.air.lowExt).multiplyScalar(haze)
+    A.lutKey = ''
   }, [A, haze])
 
   useEffect(() => {
     scene.background = new THREE.Color('#000000')
     scene.environmentIntensity = 1
     // 動作確認用（#debug のとき）
-    if (location.hash.includes('debug')) (window as unknown as { __surface: THREE.Scene }).__surface = scene
+    if (location.hash.includes('debug')) (window as unknown as { __surface: THREE.Scene; __sky: SkyNow }).__surface = scene
   }, [scene])
+  useEffect(() => {
+    if (location.hash.includes('debug')) (window as unknown as { __sky: SkyNow }).__sky = sky
+  }, [sky])
 
-  // 空の表と、まわりの景色の光（PMREM）を、変わったときだけ描き直す
-  useFrame(() => {
-    const key = `${sunDir.x.toFixed(4)},${sunDir.y.toFixed(4)},${sunDir.z.toFixed(4)},${exposure.toPrecision(5)},${haze}`
-    if (key === A.dirtyKey) return
+  // 時間を進めて、太陽・露出・光・空の表を更新する（ほかの部品より先に）
+  useFrame((_, dt) => {
+    const lab = useSurfaceLab.getState()
+    const { rate } = useSkyClock.getState()
+    const c = clock.current
+    const seek = useSkyClock.getState().seek
+    if (seek !== null) {
+      c.hours = seek
+      useSkyClock.setState({ seek: null })
+    }
+    const phase = useLanding.getState().phase
+    if (phase === 'surface' || phase === 'descent' || phase === 'ascent') c.hours += Math.min(dt, 0.1) * hoursPerSecond(rate, def.id)
+    c.ui += dt
+    if (c.ui > 0.25) {
+      c.ui = 0
+      const lit = sky.bodyLit
+      useSkyClock.setState({ hours: c.hours, clock: sky.frame.localClock(), bodyLit: lit, waxing: lit >= c.lastLit })
+      c.lastLit = lit
+    }
+    sky.frame.at(c.hours)
+    if (lab.sunEl !== null || lab.sunAz !== null) sky.sunDir.copy(dirFrom(lab.sunAz ?? def.sunAz, lab.sunEl ?? def.sunEl))
+    else sky.frame.sunLocal(sky.sunDir)
+    const el = Math.asin(THREE.MathUtils.clamp(sky.sunDir.y, -1, 1))
+    sky.sunT.copy(sunTransmittance(A.air, radiusM, el, haze))
+    // 厚い雲の下は、目が慣れても薄暗く感じるくらいに
+    const ev = lab.ev + (def.sunHidden ? -0.9 : 0)
+    sky.exposure = Math.min(autoExposure(sunI, sky.sunT, el, A.air, ev), dayExposure * 2 ** ev * 5)
+    sky.night = THREE.MathUtils.smoothstep(-el, -0.05, 0.12)
+    const twilight = THREE.MathUtils.smoothstep(-el, 0.0, 0.2)
+    sky.starVis = def.sunHidden ? 0 : A.air ? twilight * Math.max(0, 1 - Math.max(0, haze - 1) * 0.5) : 0.3 + 0.7 * sky.night
+    if (def.skyBody) sky.bodyLit = litFraction(sky.sunDir, sky.bodyDir)
+    if (Math.abs(lab.exposure - sky.exposure) / sky.exposure > 0.02) lab.set({ exposure: sky.exposure })
+
+    // 太陽の光
+    const l = sun.current
+    if (l) {
+      const t = sky.sunT
+      const tMax = Math.max(t.x, t.y, t.z, 1e-6)
+      l.color.setRGB(t.x / tMax, t.y / tMax, t.z / tMax)
+      l.intensity = sky.sunDir.y > -0.02 ? sunI * tMax * sky.exposure : 0
+      l.position.copy(sky.sunDir).multiplyScalar(160).add(tmpDir.set(0, 0, -15))
+    }
+    // 母惑星の照り返し（月の夜を照らす地球照など）：満ちているほど明るい
+    const s = shine.current
+    if (s && def.skyBody) {
+      s.position.copy(sky.bodyDir).multiplyScalar(160)
+      const size = Math.min(3, def.skyBody.angle / 1.9)
+      s.intensity = sky.bodyDir.y > 0 ? 0.5 * size * sky.bodyLit ** 2 * (1 - 0.8 * (1 - sky.night)) : 0
+    }
+
+    // 空の表：太陽が少し動いたら描き直す。まわりの景色の光（重い）は間を空けて
+    const key = `${sky.sunDir.x.toFixed(3)},${sky.sunDir.y.toFixed(3)},${sky.sunDir.z.toFixed(3)},${sky.exposure.toPrecision(3)}`
+    if (key !== A.lutKey) {
+      A.lutKey = key
+      A.lut.render(gl, sky.sunDir, sunI, sky.exposure)
+    }
     const now = performance.now()
-    A.lut.render(gl, sunDir, sunI, exposure)
-    // まわりの景色の光は重いので、続けて動かしているあいだは間を空ける
-    if (A.env && now - A.lastEnv < 120) return
-    A.dirtyKey = key
-    A.lastEnv = now
-    const rt = A.pmrem.fromEquirectangular(A.lut.target.texture)
-    A.env?.dispose()
-    A.env = rt.texture
-    scene.environment = rt.texture
-  })
+    if (A.envKey !== A.lutKey && (!A.env || now - A.lastEnv > 250)) {
+      A.envKey = A.lutKey
+      A.lastEnv = now
+      const rt = A.pmrem.fromEquirectangular(A.lut.target.texture)
+      A.env?.dispose()
+      A.env = rt.texture
+      scene.environment = rt.texture
+    }
+  }, -1)
 
   useEffect(() => {
-    const l = sun.current
-    if (!l) return
-    l.target.position.set(0, 0, -15)
-    l.target.updateMatrixWorld()
+    for (const l of [sun.current, shine.current]) {
+      if (!l) continue
+      l.target.position.set(0, 0, -15)
+      l.target.updateMatrixWorld()
+    }
   }, [])
-  const sunPos = sunDir.clone().multiplyScalar(160).add(new THREE.Vector3(0, 0, -15))
   // 影の細かさ：高画質のパソコンだけ 2048（スマホや軽い画質では 1024 で、メモリを 1/4 に）
   const shadow = level === 'high' && !lowMemory() ? 2048 : 1024
   return (
     <>
-      <Sky def={def} lut={A.lut.target.texture} />
-      <SunDisc def={def} sunDir={sunDir} tint={sunT} />
-      {def.skyBody && <SkyPlanet def={def} />}
+      <Sky def={def} lut={A.lut.target.texture} sky={sky} />
+      <SurfaceStars sky={sky} hasAir={!!A.air} />
+      <SunDisc def={def} sky={sky} />
+      {def.skyBody && <SkyPlanet def={def} sky={sky} />}
       <Plumes def={def} />
       <directionalLight
         key={shadow}
         ref={sun}
-        position={sunPos}
-        intensity={sunDir.y > -0.02 ? sunIntensity : 0}
-        color={sunColor}
         castShadow
         shadow-mapSize={[shadow, shadow]}
         shadow-camera-left={-70}
@@ -764,10 +911,11 @@ function Scene({ def }: { def: SurfaceDef }) {
         shadow-bias={-0.0004}
         shadow-normalBias={0.04}
       />
+      {def.skyBody && <directionalLight ref={shine} color={def.skyBody.id === 'earth' ? '#a9c4ff' : '#e8dcc8'} intensity={0} />}
       {/* 空と地面の照り返しの光は、まわりの景色の光（scene.environment）が受け持つ */}
       <Ground terrain={terrain} ap={A.ap} />
       <Suspense fallback={null}>
-        <Lander terrain={terrain} dustColor={def.sky ? def.hazeColor : def.ground} ap={A.ap} sunDir={sunDir} />
+        <Lander terrain={terrain} dustColor={def.sky ? def.hazeColor : def.ground} ap={A.ap} sky={sky} />
       </Suspense>
       <Look terrain={terrain} />
     </>
@@ -827,6 +975,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
               </>
             )}
           </div>
+          <TimeBar def={def} />
           <div className="surface-hint">
             {view === 'eye'
               ? t('ドラッグで見回す・ホイール／2本指でズーム', 'Drag to look around · scroll or pinch to zoom')
