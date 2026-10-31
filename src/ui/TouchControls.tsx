@@ -123,13 +123,15 @@ export function TouchWarp() {
   const observing = useObserve((o) => o.id !== null)
   const quizOpen = useQuiz((q) => q.open)
   const sheet = useTouchUI((u) => u.sheet)
+  const shipId = useStore((s) => s.settings.ship)
   // 操縦席では、目標がなくても推進の段階（−／＋）だけは出す
   const throttle = mode === 'flight'
   if (!isTouchDevice() || mode === 'gallery' || scope || quizOpen || sheet || raceActive() || (!targetId && !throttle)) return null
   const info = targetId ? bodyInfo(targetId) : null
   const busy = warpPhase !== 'idle'
   return (
-    <div className={`touch-warp ${mode}`}>
+    // アルカディアは右手のボタンに「発進」の段が1つ増えるので、そのぶん上に出す
+    <div className={`touch-warp ${mode}${throttle && shipId === 'arcadia' ? ' extra-row' : ''}`}>
       {throttle && <TouchThrottle />}
       {targetId && (
         <>
