@@ -10,6 +10,12 @@ import { haloTexture } from '../ship/ShipModel'
 import { ASCENT, DESCENT, FADE, landingNow, skipDescent, startTakeoff, useLanding } from '../../state/landing'
 import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded } from './terrain'
 import { named, t, useLang } from '../../i18n/lang'
+import { AirParams, ApUniforms, SkyLut, airFor, airUniforms, apUniforms, autoExposure, luminance, skyLookupGlsl, sunTransmittance, withAir } from './atmosphere'
+import { SurfacePost } from './SurfacePost'
+import { SurfaceLab } from './SurfaceLab'
+import { QualityGovernor } from '../QualityGovernor'
+import { QUALITY, dprFor, useLevel } from '../../state/quality'
+import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 
 // 着陸した天体の地表の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 // 立つ場所は 1 か所に決めて、まわりを 360° 見回せる。着陸船は少し先に降りてくる。
@@ -48,56 +54,40 @@ const skyVertex = /* glsl */ `
   }
 `
 const skyFragment = /* glsl */ `
-  uniform vec3 uZenith;
-  uniform vec3 uHorizon;
-  uniform vec3 uSunDir;
-  uniform vec3 uGlow;
-  uniform float uAir;
-  uniform float uHaze;
+  uniform sampler2D uLut;
   uniform float uStars;
   uniform sampler2D uStarMap;
   varying vec3 vDir;
+  ${skyLookupGlsl}
   void main() {
     vec3 d = normalize(vDir);
-    float el = d.y;
-    vec3 sky = mix(uHorizon, uZenith, pow(clamp(el, 0.0, 1.0), 0.45));
-    sky = mix(sky, uHorizon * 0.6, smoothstep(0.0, -0.25, el));
-    float s = max(dot(d, uSunDir), 0.0);
-    sky += uGlow * (pow(s, 12.0) * 0.6 + pow(s, 3.0) * 0.15 * uHaze);
-    vec3 col = sky * uAir;
-    // 星（天の川の写真）：大気が無いほど、はっきり
+    // 空の色は大気の計算の表から（地平線より下は、地平線のすぐ上の色で、遠い地面の向こうを埋める）
+    vec3 col = airSkyColor(uLut, d);
+    // 星（天の川の写真）：空が明るいほど見えなくなる
     vec2 uv = vec2(atan(d.x, -d.z) / 6.2831853 + 0.5, asin(clamp(d.y, -1.0, 1.0)) / 3.1415926 + 0.5);
     vec3 stars = texture2D(uStarMap, uv).rgb;
-    col += stars * stars * uStars * 1.6;
+    float skyLum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    col += stars * stars * uStars * 1.6 * clamp(1.0 - skyLum * 12.0, 0.0, 1.0);
     gl_FragColor = vec4(col, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
 `
 
-function Sky({ def, sunDir }: { def: SurfaceDef; sunDir: THREE.Vector3 }) {
+function Sky({ def, lut }: { def: SurfaceDef; lut: THREE.Texture }) {
   const stars = useOptionalTexture(textureUrl('milkyWay'))
-  const mat = useMemo(() => {
-    const air = def.sky ? 1 : 0
-    const glow = def.id === 'mars' ? new THREE.Color('#7fa6d6') : new THREE.Color(def.sky ? def.sky.horizon : '#000000')
-    return new THREE.ShaderMaterial({
-      vertexShader: skyVertex,
-      fragmentShader: skyFragment,
-      side: THREE.BackSide,
-      depthWrite: false,
-      fog: false,
-      uniforms: {
-        uZenith: { value: new THREE.Color(def.sky?.zenith ?? '#000000') },
-        uHorizon: { value: new THREE.Color(def.sky?.horizon ?? '#000000') },
-        uSunDir: { value: sunDir },
-        uGlow: { value: glow },
-        uAir: { value: air },
-        uHaze: { value: def.haze },
-        uStars: { value: 0 },
-        uStarMap: { value: null },
-      },
-    })
-  }, [def, sunDir])
+  const mat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: skyVertex,
+        fragmentShader: skyFragment,
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: { uLut: { value: lut }, uStars: { value: 0 }, uStarMap: { value: null } },
+      }),
+    [lut],
+  )
   useEffect(() => {
     mat.uniforms.uStarMap.value = stars
     mat.uniforms.uStars.value = stars ? def.stars : 0
@@ -110,12 +100,18 @@ function Sky({ def, sunDir }: { def: SurfaceDef; sunDir: THREE.Vector3 }) {
   )
 }
 
-function SunDisc({ def, sunDir }: { def: SurfaceDef; sunDir: THREE.Vector3 }) {
+function SunDisc({ def, sunDir, tint }: { def: SurfaceDef; sunDir: THREE.Vector3; tint: THREE.Vector3 }) {
   const mat = useMemo(
     () => new THREE.SpriteMaterial({ map: haloTexture(), color: new THREE.Color(1.6, 1.5, 1.35), transparent: true, depthWrite: false, fog: false, toneMapped: false }),
     [],
   )
-  if (def.sunHidden) return null
+  // 大気を通った太陽の色（夕方は赤く暗く）。明るさは光のにじみが出るくらいに保つ
+  const m = Math.max(tint.x, tint.y, tint.z, 1e-4)
+  const k = 1.6 * Math.min(1, 0.35 + luminance(tint) * 2)
+  mat.color.setRGB((tint.x / m) * k, (tint.y / m) * k * 0.94, (tint.z / m) * k * 0.85)
+  mat.opacity = Math.min(1, luminance(tint) * 6)
+  useEffect(() => () => mat.dispose(), [mat])
+  if (def.sunHidden || sunDir.y < -0.02) return null
   const angle = 0.533 / def.au
   // 光のにじみを含めて、少し大きめに（遠い星でも点として見えるように下限をつける）
   const size = Math.max(2 * SKY_R * Math.tan(((angle * Math.PI) / 180) / 2) * 7, 60)
@@ -164,6 +160,7 @@ function SkyPlanet({ def }: { def: SurfaceDef }) {
           roughness={1}
           metalness={0}
           fog={false}
+          envMapIntensity={0}
           transparent={fade < 1}
           opacity={fade}
         />
@@ -220,7 +217,7 @@ function Plumes({ def }: { def: SurfaceDef }) {
 
 // ---- 地面と岩 ---------------------------------------------------------------------
 
-function Ground({ terrain }: { terrain: Terrain }) {
+function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const def = terrain.def
   const geo = useMemo(() => terrain.geometry(), [terrain])
   const rocks = useMemo(() => terrain.rocks(Math.round(def.relief.rocks * 1400)), [terrain, def.relief.rocks])
@@ -229,11 +226,11 @@ function Ground({ terrain }: { terrain: Terrain }) {
   const grain = grainTexture()
   const groundMat = useMemo(() => {
     const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.97, metalness: 0, map: grain, bumpMap: grain, bumpScale: 0.8 })
-    return m
-  }, [grain])
+    return withAir(m, ap)
+  }, [grain, ap])
   const rockMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: def.rock, roughness: round ? 0.7 : 0.92, metalness: 0, map: grain, bumpMap: grain, bumpScale: 1.5 }),
-    [def.rock, grain, round],
+    () => withAir(new THREE.MeshStandardMaterial({ color: def.rock, roughness: round ? 0.7 : 0.92, metalness: 0, map: grain, bumpMap: grain, bumpScale: 1.5 }), ap),
+    [def.rock, grain, round, ap],
   )
   const inst = useRef<(THREE.InstancedMesh | null)[]>([])
   useEffect(() => {
@@ -298,7 +295,7 @@ const BELLY: [number, number, number][] = [
   [0.13, 0.08, 0.22],
 ]
 
-function Lander({ terrain, dustColor }: { terrain: Terrain; dustColor: string }) {
+function Lander({ terrain, dustColor, ap }: { terrain: Terrain; dustColor: string; ap: ApUniforms }) {
   const { scene } = useGLTF(url('ship-lander.glb'))
   const group = useRef<THREE.Group>(null)
   const ground = useMemo(() => terrain.height(LANDER_POS.x, LANDER_POS.y), [terrain])
@@ -323,7 +320,8 @@ function Lander({ terrain, dustColor }: { terrain: Terrain; dustColor: string })
         const m = src.clone()
         m.emissive.setRGB(1, 1, 1)
         m.emissiveIntensity = 1
-        m.envMapIntensity = 0.4
+        m.envMapIntensity = 0.8
+        withAir(m, ap)
         owned.push(m)
         mesh.material = m
       }
@@ -342,7 +340,7 @@ function Lander({ terrain, dustColor }: { terrain: Terrain; dustColor: string })
       }
     }
     return { model, owned, flames, flameMat }
-  }, [scene])
+  }, [scene, ap])
   useEffect(() => () => built.owned.forEach((m) => m.dispose()), [built])
 
   // 砂ぼこり：降りる・飛び立つときに、着陸船の下から外へ広がる
@@ -351,11 +349,11 @@ function Lander({ terrain, dustColor }: { terrain: Terrain; dustColor: string })
     const geo = new THREE.BufferGeometry()
     const pos = new Float32Array(DUST * 3)
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    const mat = new THREE.PointsMaterial({ map: haloTexture(), color: dustColor, size: 6, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true })
+    const mat = withAir(new THREE.PointsMaterial({ map: haloTexture(), color: dustColor, size: 6, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true }), ap)
     const vel = Array.from({ length: DUST }, () => new THREE.Vector3())
     const life = new Float32Array(DUST).fill(99)
     return { geo, mat, vel, life, next: 0 }
-  }, [dustColor])
+  }, [dustColor, ap])
   useEffect(() => () => {
     dust.geo.dispose()
     dust.mat.dispose()
@@ -560,48 +558,92 @@ function Look({ terrain }: { terrain: Terrain }) {
 
 // ---- 場面 ---------------------------------------------------------------------------
 
-/** 空・地平線・地面の色を、まわりの景色として材質に映すための、ゆるいグラデーション */
-function skyEnvTexture(def: SurfaceDef) {
-  const c = document.createElement('canvas')
-  c.width = 64
-  c.height = 32
-  const g = c.getContext('2d')!
-  const grad = g.createLinearGradient(0, 0, 0, 32)
-  const zenith = def.sky ? def.sky.zenith : '#05060a'
-  const horizon = def.sky ? def.sky.horizon : '#1a1c22'
-  grad.addColorStop(0, zenith)
-  grad.addColorStop(0.47, horizon)
-  grad.addColorStop(0.53, def.ground)
-  grad.addColorStop(1, def.ground2 ?? def.ground)
-  g.fillStyle = grad
-  g.fillRect(0, 0, 64, 32)
-  const t = new THREE.CanvasTexture(c)
-  t.mapping = THREE.EquirectangularReflectionMapping
-  t.colorSpace = THREE.SRGBColorSpace
-  return t
+/** 大気・太陽・露出：太陽の向きや霞を変えたら、空の表とまわりの景色の光を描き直す */
+type Air = {
+  air: AirParams | null
+  lut: SkyLut
+  ap: ApUniforms
+  pmrem: THREE.PMREMGenerator
+  env: THREE.Texture | null
+  dirtyKey: string
+  lastEnv: number
 }
 
 function Scene({ def }: { def: SurfaceDef }) {
   const terrain = useMemo(() => new Terrain(def), [def])
-  const sunDir = useMemo(() => dirFrom(def.sunAz, def.sunEl), [def.sunAz, def.sunEl])
-  const { scene } = useThree()
+  const lab = useSurfaceLab()
+  const level = useLevel()
+  const sunEl = lab.sunEl ?? def.sunEl
+  const sunAz = lab.sunAz ?? def.sunAz
+  const haze = lab.haze
+  const sunDir = useMemo(() => dirFrom(sunAz, sunEl), [sunAz, sunEl])
+  const { scene, gl } = useThree()
   const sun = useRef<THREE.DirectionalLight>(null)
-  // 遠い星ほど暗いが、目は慣れるので、明るさの落ち方はゆるめにする
-  const sunPower = def.sunHidden ? 1.3 * def.au ** -0.3 : 2.8 * def.au ** -0.45
-  const skyCol = def.sky ? new THREE.Color(def.sky.horizon) : new THREE.Color('#202430')
+
+  // 大気の計算の道具は天体ごとに 1 回だけ作る（霞の濃さは uniform で変える）
+  const A = useMemo<Air>(() => {
+    const air = airFor(def.id)
+    const radiusM = def.radiusKm * 1000
+    const lut = new SkyLut(airUniforms(air, radiusM, 1), new THREE.Color(def.ground), level === 'low' ? 256 : 512)
+    const ap = apUniforms(air, 1, terrain.height(0, 0), lut.target.texture)
+    return { air, lut, ap, pmrem: new THREE.PMREMGenerator(gl), env: null, dirtyKey: '', lastEnv: 0 }
+  }, [def, gl, terrain, level])
+  useEffect(
+    () => () => {
+      A.lut.dispose()
+      A.env?.dispose()
+      A.pmrem.dispose()
+      scene.environment = null
+    },
+    [A, scene],
+  )
+
+  // 太陽：遠い星ほど弱い（地球を 1）。大気を通った色と、露出
+  const radiusM = def.radiusKm * 1000
+  const sunI = def.au ** -2
+  const sunT = useMemo(() => sunTransmittance(A.air, radiusM, (sunEl * Math.PI) / 180, haze), [A, radiusM, sunEl, haze])
+  // 厚い雲の下は、目が慣れても薄暗く感じるくらいに
+  const exposure = autoExposure(sunI, sunT, (sunEl * Math.PI) / 180, A.air, lab.ev + (def.sunHidden ? -0.9 : 0))
+  const tMax = Math.max(sunT.x, sunT.y, sunT.z, 1e-6)
+  const sunColor = useMemo(() => new THREE.Color(sunT.x / tMax, sunT.y / tMax, sunT.z / tMax), [sunT, tMax])
+  const sunIntensity = sunI * tMax * exposure
+
+  useEffect(() => {
+    if (Math.abs(useSurfaceLab.getState().exposure - exposure) > 1e-6) useSurfaceLab.getState().set({ exposure })
+  }, [exposure])
+
+  // 霞の濃さ（調整ページ）は uniform だけ書き換える
+  useEffect(() => {
+    if (!A.air) return
+    const u = A.lut.material.uniforms
+    u.uBetaL.value.set(...A.air.low).multiplyScalar(haze)
+    u.uExtL.value.set(...A.air.lowExt).multiplyScalar(haze)
+    A.ap.uApL.value.set(...A.air.lowExt).multiplyScalar(haze)
+  }, [A, haze])
+
   useEffect(() => {
     scene.background = new THREE.Color('#000000')
-    // 金属の面に映りこむまわりの景色（これが無いと、もやの星で金属の面が真っ黒になる）
-    const env = skyEnvTexture(def)
-    scene.environment = env
-    scene.environmentIntensity = def.sunHidden ? 0.9 : def.sky ? 0.6 : 0.25
+    scene.environmentIntensity = 1
     // 動作確認用（#debug のとき）
     if (location.hash.includes('debug')) (window as unknown as { __surface: THREE.Scene }).__surface = scene
-    return () => {
-      scene.environment = null
-      env.dispose()
-    }
-  }, [scene, def])
+  }, [scene])
+
+  // 空の表と、まわりの景色の光（PMREM）を、変わったときだけ描き直す
+  useFrame(() => {
+    const key = `${sunDir.x.toFixed(4)},${sunDir.y.toFixed(4)},${sunDir.z.toFixed(4)},${exposure.toPrecision(5)},${haze}`
+    if (key === A.dirtyKey) return
+    const now = performance.now()
+    A.lut.render(gl, sunDir, sunI, exposure)
+    // まわりの景色の光は重いので、続けて動かしているあいだは間を空ける
+    if (A.env && now - A.lastEnv < 120) return
+    A.dirtyKey = key
+    A.lastEnv = now
+    const rt = A.pmrem.fromEquirectangular(A.lut.target.texture)
+    A.env?.dispose()
+    A.env = rt.texture
+    scene.environment = rt.texture
+  })
+
   useEffect(() => {
     const l = sun.current
     if (!l) return
@@ -609,21 +651,21 @@ function Scene({ def }: { def: SurfaceDef }) {
     l.target.updateMatrixWorld()
   }, [])
   const sunPos = sunDir.clone().multiplyScalar(160).add(new THREE.Vector3(0, 0, -15))
+  const shadow = Math.max(QUALITY[level].shadow, 1024)
   return (
     <>
-      {/* もや：材質を作る前に置く（後から足すと、材質にもやが効かない） */}
-      {def.haze > 0 && <fogExp2 attach="fog" args={[def.hazeColor, def.haze * 0.0011]} />}
-      <Sky def={def} sunDir={sunDir} />
-      <SunDisc def={def} sunDir={sunDir} />
+      <Sky def={def} lut={A.lut.target.texture} />
+      <SunDisc def={def} sunDir={sunDir} tint={sunT} />
       {def.skyBody && <SkyPlanet def={def} />}
       <Plumes def={def} />
       <directionalLight
+        key={shadow}
         ref={sun}
         position={sunPos}
-        intensity={sunPower}
-        color={def.sunHidden ? def.hazeColor : '#fff6e8'}
+        intensity={sunDir.y > -0.02 ? sunIntensity : 0}
+        color={sunColor}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[shadow, shadow]}
         shadow-camera-left={-70}
         shadow-camera-right={70}
         shadow-camera-top={70}
@@ -633,11 +675,10 @@ function Scene({ def }: { def: SurfaceDef }) {
         shadow-bias={-0.0004}
         shadow-normalBias={0.04}
       />
-      {/* 空からの光と、地面の照り返し（大気の無い星では、影の側はほとんど真っ黒） */}
-      <hemisphereLight args={[skyCol, new THREE.Color(def.ground), def.sunHidden ? 0.7 : def.sky ? 0.45 : 0.15]} />
-      <Ground terrain={terrain} />
+      {/* 空と地面の照り返しの光は、まわりの景色の光（scene.environment）が受け持つ */}
+      <Ground terrain={terrain} ap={A.ap} />
       <Suspense fallback={null}>
-        <Lander terrain={terrain} dustColor={def.sky ? def.hazeColor : def.ground} />
+        <Lander terrain={terrain} dustColor={def.sky ? def.hazeColor : def.ground} ap={A.ap} />
       </Suspense>
       <Look terrain={terrain} />
     </>
@@ -716,6 +757,17 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
   )
 }
 
+function SurfaceCanvas({ def }: { def: SurfaceDef }) {
+  const level = useLevel()
+  return (
+    <Canvas shadows dpr={dprFor(level)} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
+      <Scene def={def} />
+      <QualityGovernor />
+      <SurfacePost />
+    </Canvas>
+  )
+}
+
 export function SurfaceView() {
   const phase = useLanding((l) => l.phase)
   const bodyId = useLanding((l) => l.bodyId)
@@ -734,7 +786,8 @@ export function SurfaceView() {
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
   }, [phase])
-  if (phase === 'idle' || !def) return null
+  const lab = labEnabled() ? <SurfaceLab /> : null
+  if (phase === 'idle' || !def) return lab
   const T = landingNow() - since
   let curtain = 0
   if (phase === 'fadeIn') curtain = Math.min(1, T / FADE)
@@ -744,12 +797,11 @@ export function SurfaceView() {
   return (
     <div className="surface-view">
       {scene3d && (
-        <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
-          <Scene def={def} />
-        </Canvas>
+        <SurfaceCanvas def={def} />
       )}
       <SurfacePanel def={def} />
       <div className="surface-curtain" style={{ opacity: curtain, pointerEvents: curtain > 0.5 ? 'auto' : 'none' }} />
+      {lab}
     </div>
   )
 }

@@ -3508,3 +3508,24 @@ body.sf .nav-panel {
 .observe-buttons button:hover {
   background: rgba(155, 140, 217, 0.35);
 }
+
+/* 地表の調整ページ（#surface-lab） */
+.surface-lab {
+  position: fixed;
+  top: 64px;
+  right: 12px;
+  z-index: 60;
+  width: 260px;
+  max-width: calc(100vw - 24px);
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(8, 12, 20, 0.82);
+  color: #e8eef6;
+  font-size: 13px;
+  pointer-events: auto;
+}
+.surface-lab .lab-head { font-weight: 600; margin-bottom: 6px; }
+.surface-lab .lab-row { display: grid; grid-template-columns: 70px 1fr 52px; align-items: center; gap: 6px; margin: 4px 0; }
+.surface-lab .lab-row b { font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+.surface-lab select { width: 100%; }
+.surface-lab .lab-foot { margin: 6px 0; }
