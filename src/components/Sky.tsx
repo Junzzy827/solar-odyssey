@@ -9,7 +9,7 @@ import { useLevel } from '../state/quality'
 import { MILKY_WAY_ROTATION } from '../data/skyFrame'
 
 /** 天の川の淡い光の明るさ（星の点を除いた画像。星は星表の点で描く） */
-const BASE = new THREE.Color('#3c3c3c')
+const BASE = new THREE.Color('#5a5a5a')
 const center = new THREE.Vector3()
 const toBody = new THREE.Vector3()
 const forward = new THREE.Vector3()
@@ -105,14 +105,15 @@ export const starVertex = /* glsl */ `
   varying vec3 vColor;
   varying float vSize;
   void main() {
-    // 1 等星を 1 とした光の量。目で見た明るさの差は光の量の差ほど大きくないので、少し縮める
-    float flux = pow(10.0, -0.4 * (mag - 1.5) * 0.8) * uExposure;
+    // 1 等星を 1 とした光の量。暗い場所で目が慣れると、暗い星もよく見える（目で見た明るさの差は、
+    // 光の量の差よりずっと小さい）ので、強めに縮める
+    float flux = pow(10.0, -0.4 * (mag - 1.5) * 0.6) * uExposure;
     // 明るい星ほど点を大きく（光のしみ出し）。暗い星は点の大きさはそのままで暗くする
-    float size = clamp(1.4 + 1.7 * sqrt(flux), 1.4, 6.5);
+    float size = clamp(1.5 + 1.8 * sqrt(flux), 1.5, 7.0);
     // 画面の倍率が 1 より小さい（軽量）ときも、点が細くなりすぎないように
     vSize = size * max(uPx, 1.0);
     // 点に配る明るさ：芯の明るさがおよそ光の量になるように
-    vColor = color * min(flux * 2.0, 3.0);
+    vColor = color * min(flux * 2.4, 3.4);
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
     gl_PointSize = vSize + 2.0;

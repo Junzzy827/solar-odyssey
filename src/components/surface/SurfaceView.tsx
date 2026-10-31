@@ -19,7 +19,7 @@ import { TimeBar } from './TimeBar'
 import { SkyFrame, hoursPerSecond, litFraction, useSkyClock } from './skyClock'
 import type { SkyNow } from './skyNow'
 import { SKY_FROM_APP } from '../../data/skyFrame'
-import { Dust, Grit, LegRig, TOUCHDOWN, legsDuringDescent, setLegs, splitLegs, descentAltitude, descentThrust, plumeGeometry, plumeMaterial, splashMaterial, suspension, windFor } from './landerFx'
+import { Dust, Exhaust, Grit, LegRig, TOUCHDOWN, legsDuringDescent, setLegs, splitLegs, descentAltitude, descentThrust, plumeGeometry, plumeMaterial, splashMaterial, suspension, windFor } from './landerFx'
 import { QualityGovernor } from '../QualityGovernor'
 import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 
@@ -64,6 +64,7 @@ const skyFragment = /* glsl */ `
   uniform float uStars;
   uniform sampler2D uGlow;
   uniform mat3 uGalRot;
+  uniform float uAirglow;
   varying vec3 vDir;
   ${skyLookupGlsl}
   void main() {
@@ -73,7 +74,12 @@ const skyFragment = /* glsl */ `
     // 天の川の淡い光（星の点は星表で別に描く）。天体の自転と一緒に回る
     vec3 g = uGalRot * d;
     vec2 uv = vec2(fract(atan(g.z, -g.x) / 6.2831853 + 1.0), asin(clamp(g.y, -1.0, 1.0)) / 3.1415926 + 0.5);
-    col += texture2D(uGlow, uv).rgb * 0.32 * uStars * smoothstep(-0.02, 0.12, d.y);
+    // 明るい星雲のかたまりが目立ちすぎないよう、明るいところを丸めて、淡い帯を持ち上げる
+    vec3 mw = texture2D(uGlow, uv).rgb;
+    mw = mw / (1.0 + 5.0 * mw);
+    col += mw * 1.5 * uStars * smoothstep(-0.02, 0.12, d.y);
+    // 夜空の地平線のほのかな明るさ（大気光と、遠くの星明かり）。山の稜線が夜空に浮かんで見える
+    col += vec3(0.010, 0.014, 0.026) * uAirglow * (0.35 + 0.65 * pow(1.0 - clamp(d.y, 0.0, 1.0), 3.0));
     gl_FragColor = vec4(col, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -93,7 +99,7 @@ function Sky({ def, lut, sky }: { def: SurfaceDef; lut: THREE.Texture; sky: SkyN
         side: THREE.BackSide,
         depthWrite: false,
         fog: false,
-        uniforms: { uLut: { value: lut }, uStars: { value: 0 }, uGlow: { value: null }, uGalRot: { value: new THREE.Matrix3() } },
+        uniforms: { uLut: { value: lut }, uStars: { value: 0 }, uAirglow: { value: 0 }, uGlow: { value: null }, uGalRot: { value: new THREE.Matrix3() } },
       }),
     [lut],
   )
@@ -101,7 +107,9 @@ function Sky({ def, lut, sky }: { def: SurfaceDef; lut: THREE.Texture; sky: SkyN
     mat.uniforms.uGlow.value = glow
   }, [mat, glow])
   useFrame(() => {
-    mat.uniforms.uStars.value = glow ? sky.starVis * Math.min(1, def.stars * 1.5 + 0.2) : 0
+    // 暗い場所で目が慣れたときの夜空：天の川がはっきり見える
+    mat.uniforms.uStars.value = glow ? sky.starVis : 0
+    mat.uniforms.uAirglow.value = def.sky && !def.sunHidden ? sky.night : 0
     // 地方の向き → 宇宙（黄道）→ 天の川の画像の向き
     M3.setFromMatrix4(sky.frame.toApp)
     mat.uniforms.uGalRot.value.copy(GAL.copy(SKY_FROM_APP)).multiply(M3)
@@ -167,18 +175,37 @@ const planetFragment = /* glsl */ `
   }
 `
 
+/** 地球の空の月の方向（宇宙の向き）：太陽から黄道に沿って東へ 120°、少し北 */
+function moonApp() {
+  const sun = new THREE.Vector3()
+  const f = new SkyFrame(surfaceFor('earth')!)
+  f.set(0)
+  sun.copy(f.sunLocal(new THREE.Vector3())).applyMatrix4(f.toApp)
+  return sun.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(120)).add(new THREE.Vector3(0, 0.05, 0)).normalize()
+}
+
 /** 空に浮かぶ母惑星（または衛星）。太陽の光で満ち欠けする。地球の空の月だけは、星と一緒に空を回る */
 function SkyPlanet({ def, sky }: { def: SurfaceDef; sky: SkyNow }) {
   const sb = def.skyBody!
   const map = useOptionalTexture(textureUrl(sb.id))
   const ringMap = useOptionalTexture(sb.ringOpen !== undefined ? textureUrl('saturnRing') : undefined)
   const dist = SKY_R * 0.8
-  const r = dist * Math.tan(((sb.angle * Math.PI) / 180) / 2)
+  // 地球の空の月は、目で見た印象に合わせて 2 倍に（本当の 0.5° だと画面では小さな点になる）
+  const isMoon = def.id === 'earth'
+  const r = dist * Math.tan(((sb.angle * (isMoon ? 2 : 1) * Math.PI) / 180) / 2)
   const dir = useMemo(() => dirFrom(sb.az, sb.el), [sb.az, sb.el])
   // 地球の月：着陸したときの空の位置を、宇宙の向きで覚えておく（その後は自転で動く）
-  const appDir = useMemo(() => (def.id === 'earth' ? dir.clone().applyMatrix4(sky.frame.toApp) : null), [def.id, dir, sky])
+  // 太陽から東へ 120° 離れた「満ちていく途中の月（十日夜くらい）」：昼すぎの東の空にうっすら見え、
+  // 日が沈むと明るく輝いて、夜中すぎに沈む
+  const appDir = useMemo(() => (def.id === 'earth' ? moonApp() : null), [def.id])
   const group = useRef<THREE.Group>(null)
   const fade = Math.max(0.08, 1 - def.haze * 1.15)
+  // 夜の月のまわりの、ぼうっとした光の輪
+  const halo = useMemo(
+    () => (isMoon ? new THREE.SpriteMaterial({ map: haloTexture(), color: new THREE.Color(0.75, 0.8, 0.95), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }) : null),
+    [isMoon],
+  )
+  useEffect(() => () => halo?.dispose(), [halo])
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -230,13 +257,21 @@ function SkyPlanet({ def, sky }: { def: SurfaceDef; sky: SkyNow }) {
     g.position.copy(sky.bodyDir).multiplyScalar(dist)
     mat.uniforms.uSun.value.copy(sky.sunDir)
     // 日の当たった面の明るさ：地面と同じ太陽の強さと露出（アルベドは模様の色）
-    mat.uniforms.uBright.value = Math.min(4, (def.au ** -2 * sky.exposure * 0.9) / Math.PI) * (def.sunHidden ? 0.25 : 1)
+    // 夜は目が暗さに慣れているので、月は白く輝いて見える
+    const cap = isMoon ? 4 + 12 * sky.night : 4
+    mat.uniforms.uBright.value = Math.min(cap, (def.au ** -2 * sky.exposure * 0.9) / Math.PI) * (def.sunHidden ? 0.25 : 1)
+    if (isMoon) {
+      mat.uniforms.uOpacity.value = fade + (1 - fade) * sky.night
+      mat.transparent = mat.uniforms.uOpacity.value < 0.999
+      if (halo) halo.opacity = 0.55 * sky.night * sky.bodyLit * THREE.MathUtils.smoothstep(sky.bodyDir.y, -0.03, 0.05)
+    }
   })
   return (
     <group ref={group}>
       <mesh rotation={[0.4, 2.2, 0.2]} material={mat}>
         <sphereGeometry args={[r, 64, 32]} />
       </mesh>
+      {halo && <sprite material={halo} scale={[r * 9, r * 9, 1]} renderOrder={-7} />}
       {ring && (
         <mesh geometry={ring.geo} quaternion={ring.q}>
           <meshStandardMaterial key={ringMap ? 'map' : 'none'} map={ringMap} alphaMap={ringMap} color="#e8dcc0" transparent opacity={0.9 * fade} side={THREE.DoubleSide} depthWrite={false} fog={false} />
@@ -495,6 +530,10 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
     return new Dust(count, c, hasAir ? 0.55 : 0, terrain.def.gravity, windFor(terrain.def.id, hasAir))
   }, [dustColor, level, hasAir, terrain])
   useEffect(() => () => dust.dispose(), [dust])
+  // 噴射口から吹き出すガスの粒
+  const exhaust = useMemo(() => new Exhaust(level === 'high' ? 4000 : level === 'medium' ? 2600 : 1200, hasAir), [level, hasAir])
+  useEffect(() => () => exhaust.dispose(), [exhaust])
+  const nozzle = useMemo(() => new THREE.Vector3(), [])
   // ひとつぶずつ見える砂つぶ
   const grit = useMemo(() => {
     const count = level === 'high' ? 6000 : level === 'medium' ? 3500 : 1500
@@ -552,13 +591,19 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
 
     // 噴射：地面が近いほど噴流は短く、地面で平たく広がる
     const flick = 0.9 + 0.1 * Math.sin(tm * 37)
-    const lenM = Math.min(14, 3 + alt * 0.9) * thrust
-    built.plumeMat.uniforms.uPower.value = thrust * 0.55 * flick
+    // 噴射口のすぐ下の、短く明るい芯（ガスの本体は粒で描く）
+    const lenM = Math.min(2.2, 0.8 + alt * 0.1) * thrust
+    built.plumeMat.uniforms.uPower.value = thrust * 0.5 * flick
     built.plumeMat.uniforms.uTime.value = tm
+    const lowQ = level === 'low'
     for (const m of built.plumes) {
       m.visible = thrust > 0.02
       const L = lenM / LANDER_M
-      m.scale.set(0.045 + L * 0.12, Math.max(L, 0.002), 0.045 + L * 0.12)
+      m.scale.set(0.035 + L * 0.1, Math.max(L, 0.002), 0.035 + L * 0.1)
+      if (thrust > 0.02) {
+        m.getWorldPosition(nozzle)
+        exhaust.emit(dt, nozzle.x, nozzle.y - 0.2, nozzle.z, thrust, lowQ ? 260 : 700)
+      }
     }
     const nearGround = thrust > 0.02 ? Math.max(0, 1 - alt / 30) : 0
     if (splashMesh.current) {
@@ -587,6 +632,8 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
     const cam = state.camera as THREE.PerspectiveCamera
     dust.material.uniforms.uScale.value = state.size.height * state.viewport.dpr / (2 * Math.tan((cam.fov * Math.PI) / 360))
     dust.update(dt, ground)
+    exhaust.material.uniforms.uScale.value = dust.material.uniforms.uScale.value
+    exhaust.update(dt, ground, flick)
     grit.material.uniforms.uScale.value = dust.material.uniforms.uScale.value
     grit.update(dt, ground)
     // 太陽を背にすると暗く、太陽の方を向くと光る（細かい粒は光を前へ散らす）
@@ -606,6 +653,7 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
       <pointLight ref={light} color="#9fb8ff" distance={60} decay={2} intensity={0} />
       <pointLight ref={work} color="#ffd9a8" distance={45} decay={2} intensity={0} />
       <primitive object={dust.points} />
+      <primitive object={exhaust.points} />
       <primitive object={grit.points} />
     </>
   )
@@ -618,6 +666,11 @@ function Look({ terrain }: { terrain: Terrain }) {
   const cam = camera as THREE.PerspectiveCamera
   const view = useLanding((l) => l.view)
   const st = useRef({ yaw: -0.15, pitch: 0.12, fov: 60, orbitYaw: 0.9, orbitPitch: 0.22, orbitDist: 48 })
+  // 確認用（#debug のときだけある window.__sv から、見る向きを変えられる）
+  useEffect(() => {
+    const sv = (window as unknown as { __sv?: Record<string, unknown> }).__sv
+    if (sv) sv.surfaceCam = st.current
+  }, [])
   const eyeY = useMemo(() => terrain.height(0, 0) + EYE, [terrain])
   const landerAt = useMemo(() => new THREE.Vector3(LANDER_POS.x, terrain.height(LANDER_POS.x, LANDER_POS.y) + 3, LANDER_POS.y), [terrain])
 
@@ -758,6 +811,7 @@ function Scene({ def }: { def: SurfaceDef }) {
   const { scene, gl } = useThree()
   const sun = useRef<THREE.DirectionalLight>(null)
   const shine = useRef<THREE.DirectionalLight>(null)
+  const nightFill = useRef<THREE.HemisphereLight>(null)
 
   // 大気の計算の道具は天体ごとに 1 回だけ作る（霞の濃さは uniform で変える）
   const A = useMemo<Air>(() => {
@@ -861,7 +915,14 @@ function Scene({ def }: { def: SurfaceDef }) {
     if (s && def.skyBody) {
       s.position.copy(sky.bodyDir).multiplyScalar(160)
       const size = Math.min(3, def.skyBody.angle / 1.9)
-      s.intensity = sky.bodyDir.y > 0 ? 0.5 * size * sky.bodyLit ** 2 * (1 - 0.8 * (1 - sky.night)) : 0
+      const up = THREE.MathUtils.smoothstep(sky.bodyDir.y, -0.02, 0.08)
+      // 地球の月明かり：夜は、目が慣れた明るさで地面を青白く照らす
+      if (def.id === 'earth') s.intensity = up * sky.night * 1.0 * sky.bodyLit ** 1.5
+      else s.intensity = up * 0.5 * size * sky.bodyLit ** 2 * (1 - 0.8 * (1 - sky.night))
+    }
+    // 夜の空の明かり（星明かり・大気光）：真っ暗にせず、地形と着陸船の形がほのかに見えるくらいに
+    if (nightFill.current) {
+      nightFill.current.intensity = sky.night * (A.air ? (def.sunHidden ? 2 : 3) : 3)
     }
 
     // 空の表：太陽が少し動いたら描き直す。まわりの景色の光（重い）は間を空けて
@@ -911,7 +972,8 @@ function Scene({ def }: { def: SurfaceDef }) {
         shadow-bias={-0.0004}
         shadow-normalBias={0.04}
       />
-      {def.skyBody && <directionalLight ref={shine} color={def.skyBody.id === 'earth' ? '#a9c4ff' : '#e8dcc8'} intensity={0} />}
+      {def.skyBody && <directionalLight ref={shine} color={def.skyBody.id === 'earth' ? '#a9c4ff' : def.id === 'earth' ? '#b9c9ff' : '#e8dcc8'} intensity={0} />}
+      <hemisphereLight ref={nightFill} args={['#4d628f', '#16151b', 0]} />
       {/* 空と地面の照り返しの光は、まわりの景色の光（scene.environment）が受け持つ */}
       <Ground terrain={terrain} ap={A.ap} />
       <Suspense fallback={null}>
