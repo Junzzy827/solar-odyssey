@@ -5,6 +5,8 @@ import { BRIDGE_BASE, METERS_PER_UNIT } from './ship/ShipModel'
 import { GalleryScene } from './ship/GalleryScene'
 import { OwnShipModel } from './ship/VariantModel'
 import { EngineFx } from './ship/EngineFx'
+import { LanderLaunch } from './ship/LanderLaunch'
+import { launchFx } from '../state/launch'
 import { currentShip, useShip } from '../data/ships'
 import { bodies, colliders, passThrough, type BodyEntry } from '../state/registry'
 import { useStore } from '../state/store'
@@ -380,6 +382,7 @@ export function Ship() {
         hero.active = false
         followCamera(camera as THREE.PerspectiveCamera, dt, st.warpPhase, zoomIn)
       }
+      if (launchFx.camera > 0 && !bridgeView) launchCamera(cam, dt)
       if (flyIn.t < 1) flyInCamera(cam, rawDelta)
       if (st.settings.beamFx.shake) shakeCamera(cam, rawDelta, shipScale())
       else beamFx.shake = 0
@@ -411,6 +414,11 @@ export function Ship() {
             <OwnShipModel spec={spec} unitScale={shipScale} />
           </Suspense>
           <EngineFx key={spec.id} spec={spec} />
+          {spec.id === 'arcadia' && (
+            <Suspense fallback={null}>
+              <LanderLaunch />
+            </Suspense>
+          )}
         </group>
         {mode === 'gallery' && <GalleryScene />}
       </group>
@@ -585,6 +593,28 @@ function heroCamera(camera: THREE.PerspectiveCamera, dt: number) {
   camera.up.lerp(up, 1 - Math.exp(-4 * dt))
   camera.lookAt(v.copy(ship.position).addScaledVector(up, 0.03 * scale))
   camera.fov += (22 - camera.fov) * (1 - Math.exp(-2 * dt))
+  camera.updateProjectionMatrix()
+}
+
+/**
+ * アルカディアの着陸船の発進：舳先の横、少し上から、発進路を走って飛び出していく着陸船を目で追う。
+ * launchFx.camera（0〜1）で追いかけカメラとまぜるので、始まりと終わりはなめらかにつながる
+ */
+const launchEye = new THREE.Vector3()
+const launchAim = new THREE.Vector3()
+const launchLook = new THREE.Quaternion()
+const launchMat = new THREE.Matrix4()
+function launchCamera(camera: THREE.PerspectiveCamera, dt: number) {
+  const k = launchFx.camera * launchFx.camera * (3 - 2 * launchFx.camera)
+  launchEye.set(0.045, 0.075, -0.45).multiplyScalar(shipScale()).applyQuaternion(ship.quaternion).add(ship.position)
+  camera.position.lerp(launchEye, k)
+  up.set(0, 1, 0).applyQuaternion(ship.quaternion)
+  // 着陸船と、発進路の先のあいだを見る（着陸船が遠くへ行っても見失わないように）
+  launchAim.set(0, -0.01, -0.45).multiplyScalar(shipScale()).applyQuaternion(ship.quaternion).add(ship.position).lerp(launchFx.pos, 0.97)
+  launchMat.lookAt(camera.position, launchAim, up)
+  launchLook.setFromRotationMatrix(launchMat)
+  camera.quaternion.slerp(launchLook, k)
+  camera.fov += (THREE.MathUtils.lerp(camera.fov, 40, k) - camera.fov) * (1 - Math.exp(-4 * dt))
   camera.updateProjectionMatrix()
 }
 

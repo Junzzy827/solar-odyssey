@@ -99,7 +99,7 @@ export default function Hangar() {
           <HubbleModel />
         ) : MODEL === 'webb' ? (
           <WebbModel />
-        ) : ['heron', 'sorakaze', 'hakobune', 'meguri', 'amatsu'].includes(MODEL) ? (
+        ) : ['heron', 'sorakaze', 'hakobune', 'meguri', 'amatsu', 'arcadia'].includes(MODEL) ? (
           <Suspense fallback={null}>
             <VariantModel spec={shipSpec(MODEL as ShipId)} />
           </Suspense>

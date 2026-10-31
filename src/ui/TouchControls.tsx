@@ -7,6 +7,7 @@ import { useTouchUI } from '../state/touchUI'
 import { bodyInfo, engage } from '../state/flight'
 import { TouchThrottle } from './Throttle'
 import { raceActive } from '../state/race'
+import { launchLander, useLaunchBusy } from '../state/launch'
 
 /** スティックを倒しきったときの、つまみの動く半径（ピクセル） */
 const STICK_RADIUS = 48
@@ -155,6 +156,9 @@ export function TouchControls() {
   const scope = useStore((s) => s.scope)
   const cameraMode = useStore((s) => s.cameraMode)
   const setCameraMode = useStore((s) => s.setCameraMode)
+  const shipId = useStore((s) => s.settings.ship)
+  const warpPhase = useStore((s) => s.warpPhase)
+  const launching = useLaunchBusy()
   const quizOpen = useQuiz((q) => q.open)
   const sheet = useTouchUI((u) => u.sheet)
   const touch = isTouchDevice()
@@ -180,6 +184,13 @@ export function TouchControls() {
           <HoldButton label="▲" title={t('上昇', 'Up')} onHold={(on) => (touchInput.lift = on ? 1 : 0)} />
           <HoldButton label="▼" title={t('下降', 'Down')} onHold={(on) => (touchInput.lift = on ? -1 : 0)} />
         </div>
+        {shipId === 'arcadia' && (
+          <div className="touch-row">
+            <button className="touch-button wide launch" onClick={launchLander} disabled={launching || warpPhase !== 'idle'}>
+              {t('発進', 'Launch')}
+            </button>
+          </div>
+        )}
         <div className="touch-row">
           <button className="touch-button wide" onClick={() => setCameraMode(nextCameraMode(cameraMode))}>
             {t('カメラ', 'Camera')}

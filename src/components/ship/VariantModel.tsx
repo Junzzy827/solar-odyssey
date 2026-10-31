@@ -36,6 +36,8 @@ const PALETTES: Record<Exclude<ShipId, 'sv01'>, Palette> = {
   // 白い長旅の船：灰色の機械区画、朱色の帯
   // 海の船の色：明るい灰色の舷側、濃い灰色の甲板、赤い船底
   amatsu: { hull: '#b9bec6', hull2: '#6d747e', accent: '#9e2a22', cargo: [], panelScale: 0.7, seed: 91 },
+  // 丸ごと焼いた船（色は glb のまま）。ここの色は使わない
+  arcadia: { hull: '#c3c6d2', hull2: '#a9adbc', accent: '#8a1b27', cargo: [], panelScale: 0.7, seed: 97 },
   meguri: { hull: '#e9e8e3', hull2: '#9097a0', accent: '#d4552a', cargo: [], panelScale: 0.6, seed: 79 },
   hakobune: { hull: '#dedad0', hull2: '#7f8690', accent: '#e0a526', cargo: ['#c8662a', '#2f7d86', '#b9b7ae', '#3b4a6b'], panelScale: 0.8, seed: 67 },
 }
