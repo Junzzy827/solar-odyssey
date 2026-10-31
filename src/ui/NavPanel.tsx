@@ -417,7 +417,7 @@ export function NavPanel() {
       <button className={`secondary nav-auto${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
         {t('自動航行', 'Autopilot')} <kbd>G</kbd>
       </button>
-      <button className={`secondary mission-start${missionPhase !== 'closed' ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), openMissions())} disabled={racing}>
+      <button className={`secondary mission-start${missionPhase !== 'closed' ? ' on' : ''}`} onClick={() => (pick(), missionPhase !== 'active' && closeEclipses(), openMissions())} disabled={racing}>
         {ui().missionsButton}
       </button>
       <button className="secondary race-start" onClick={startRace} disabled={busy || onMission}>

@@ -1,19 +1,30 @@
 import { create } from 'zustand'
-import { MISSIONS, ROCK_ID } from '../data/missions'
+import { CARGO_SPEED, CHAPTERS, LEGACY_ORDER, MISSIONS, ROCK_ID, chapterOf } from '../data/missions'
+import type { ShipId } from '../data/ships'
 import { missionText } from '../i18n'
 import { playBeep } from '../audio/sfx'
 import { raceActive } from './race'
 import { useStore } from './store'
+import { flightControl } from './flight'
+import { closeEclipses, openEclipses, playEclipse } from './eclipse'
 
-// ストーリーモード：任務の一覧 → 出発前の説明 → 手順を順番にこなす → まとめとクイズ → 星で評価。
-// 時間切れや失敗で終わることはない。星の数は端末に保存する
+// ストーリーモード：章（船）を選ぶ → 任務の一覧 → 出発前の説明 → 手順を順番にこなす → まとめとクイズ → 星で評価。
+// 任務を始めると章の船に乗り換え、ストーリーモードを閉じると元の船に戻す。
+// 時間切れや失敗で終わることはない。星の数は任務の id ごとに端末に保存する
 
-export type MissionPhase = 'closed' | 'list' | 'briefing' | 'active' | 'debrief'
+export type MissionPhase = 'closed' | 'chapters' | 'list' | 'briefing' | 'active' | 'debrief'
 
-const STARS_KEY = 'solar-voyager:missions'
+/** 撮影の枠：目標が枠の中か、遠すぎる・近すぎる・かくれているか。入港では far（輪の外）・fast（速すぎる）・ok */
+export type Framing = 'ok' | 'out' | 'far' | 'near' | 'hidden' | 'fast'
+
+const STARS_KEY = 'solar-voyager:mission-stars'
+/** 前のバージョンの保存（ソーラーボイジャーの8本を並びで） */
+const LEGACY_KEY = 'solar-voyager:missions'
 
 type MissionState = {
   phase: MissionPhase
+  /** 開いている章（CHAPTERS の順） */
+  chapter: number
   /** 選んでいる任務の番号（MISSIONS の順） */
   index: number
   /** いまの手順 */
@@ -26,25 +37,36 @@ type MissionState = {
   /** 確認クイズ：いまの問題と、選んだ答え */
   quizIndex: number
   picked: (number | null)[]
-  /** 任務ごとの最高の星の数（0 はまだ） */
-  stars: number[]
+  /** 任務の id ごとの最高の星の数（ないものはまだ） */
+  stars: Record<string, number>
   /** 今回の星（結果を見たあと） */
   earned: number | null
+  /** 撮影の手順で、目標が枠に入っているか */
+  framing: Framing | null
+  /** 荷物を積んでいるか（ハコブネ） */
+  cargo: boolean
+  /** ストーリーモードに入る前に乗っていた船（閉じたら戻す） */
+  prevShip: ShipId | null
 }
 
-function loadStars(): number[] {
+function loadStars(): Record<string, number> {
   try {
-    const saved = JSON.parse(localStorage.getItem(STARS_KEY) ?? '[]')
-    return MISSIONS.map((_, i) => Number(saved[i]) || 0)
+    const saved = localStorage.getItem(STARS_KEY)
+    if (saved) return JSON.parse(saved)
+    // 前のバージョンの星（並び）を、任務の id に移す
+    const legacy: unknown[] = JSON.parse(localStorage.getItem(LEGACY_KEY) ?? '[]')
+    return Object.fromEntries(LEGACY_ORDER.map((id, i) => [id, Number(legacy[i]) || 0]).filter(([, n]) => n))
   } catch {
-    return MISSIONS.map(() => 0)
+    return {}
   }
 }
 
+export const starsOf = (index: number) => useMission.getState().stars[MISSIONS[index]?.id] ?? 0
+
 /** 星を記録する（前より多いときだけ） */
 function saveStars(index: number, n: number) {
-  const stars = [...useMission.getState().stars]
-  stars[index] = Math.max(stars[index], n)
+  const id = MISSIONS[index].id
+  const stars = { ...useMission.getState().stars, [id]: Math.max(useMission.getState().stars[id] ?? 0, n) }
   try {
     localStorage.setItem(STARS_KEY, JSON.stringify(stars))
   } catch {
@@ -55,6 +77,7 @@ function saveStars(index: number, n: number) {
 
 export const useMission = create<MissionState>(() => ({
   phase: 'closed',
+  chapter: 0,
   index: 0,
   step: 0,
   progress: 0,
@@ -64,11 +87,19 @@ export const useMission = create<MissionState>(() => ({
   picked: [],
   stars: loadStars(),
   earned: null,
+  framing: null,
+  cargo: false,
+  prevShip: null,
 }))
 
 export const missionActive = () => useMission.getState().phase === 'active'
 
-export const isUnlocked = (i: number) => i === 0 || useMission.getState().stars[i - 1] > 0
+/** 章の最初の任務か、章の中で一つ前の任務を終えていれば始められる */
+export function isUnlocked(i: number) {
+  const missions = chapterOf(i).missions
+  const k = missions.findIndex((m) => m.id === MISSIONS[i].id)
+  return k <= 0 || (useMission.getState().stars[missions[k - 1].id] ?? 0) > 0
+}
 
 const say = (message: string) => useMission.setState((s) => ({ message, messageId: s.messageId + 1 }))
 
@@ -77,24 +108,55 @@ export function openMissions() {
   useStore.getState().setLogOpen(false)
   // 任務の途中なら、一覧ではなく今の任務を表示したままにする
   if (useMission.getState().phase === 'active') return
-  useMission.setState({ phase: 'list' })
+  useMission.setState({ phase: 'chapters' })
+}
+
+/** 章を開く（任務の一覧へ） */
+export function openChapter(chapter: number) {
+  useMission.setState({ phase: 'list', chapter })
 }
 
 export function closeMissions() {
-  if (useMission.getState().phase !== 'active') useMission.setState({ phase: 'closed' })
+  if (useMission.getState().phase === 'active') return
+  endMission()
+}
+
+/** 任務を終えて閉じる：荷物や日食の画面を片づけ、元の船に戻す */
+function endMission() {
+  const m = useMission.getState()
+  setCargo(false)
+  if (MISSIONS[m.index]?.steps.some((s) => s.kind === 'eclipse')) closeEclipses()
+  if (m.prevShip && useStore.getState().settings.ship !== m.prevShip) useStore.getState().updateSettings({ ship: m.prevShip })
+  useMission.setState({ phase: 'closed', message: '', prevShip: null, framing: null })
 }
 
 export function showBriefing(index: number) {
   if (!isUnlocked(index)) return
-  useMission.setState({ phase: 'briefing', index })
+  const chapter = CHAPTERS.indexOf(chapterOf(index))
+  useMission.setState({ phase: 'briefing', index, chapter })
 }
 
 export function startMission() {
   if (raceActive()) return
   const s = useStore.getState()
+  const m = useMission.getState()
+  // 章の船に乗り換える（はじめて乗り換えるときだけ、元の船を覚えておく）
+  const ship = chapterOf(m.index).ship
+  if (s.settings.ship !== ship) {
+    useMission.setState({ prevShip: m.prevShip ?? s.settings.ship })
+    s.updateSettings({ ship })
+  }
+  setCargo(false)
   if (s.mode !== 'flight') s.setMode('flight')
-  useMission.setState({ phase: 'active', step: 0, progress: 0, quizIndex: 0, picked: [], earned: null })
+  useMission.setState({ phase: 'active', step: 0, progress: 0, quizIndex: 0, picked: [], earned: null, framing: null })
   say(beginStep(0))
+}
+
+/** 荷物を積む・降ろす。積んでいるあいだは最高速度を落とす（重い船は速さが出にくい） */
+function setCargo(cargo: boolean) {
+  if (useMission.getState().cargo === cargo) return
+  flightControl.speedScale = cargo ? CARGO_SPEED : 1
+  useMission.setState({ cargo })
 }
 
 /** 手順を始める：目標をセットして、説明を出す（小惑星の目標は、MissionRunner が出してからセットする） */
@@ -102,7 +164,10 @@ function beginStep(step: number) {
   const m = useMission.getState()
   const def = MISSIONS[m.index].steps[step]
   const text = missionText(MISSIONS[m.index].id).steps[step]
-  if (def.body !== ROCK_ID && useStore.getState().targetId !== def.body) useStore.getState().setTarget(def.body)
+  if (def.kind === 'eclipse' && def.eclipse) {
+    openEclipses()
+    playEclipse(def.eclipse)
+  } else if (def.body !== ROCK_ID && useStore.getState().targetId !== def.body) useStore.getState().setTarget(def.body)
   return text.start
 }
 
@@ -112,20 +177,23 @@ export function completeStep() {
   const mission = MISSIONS[m.index]
   const text = missionText(mission.id)
   const done = text.steps[m.step].done
+  const kind = mission.steps[m.step].kind
+  if (kind === 'load') setCargo(true)
+  else if (kind === 'dock') setCargo(false)
   playBeep(880, 0.14)
   setTimeout(() => playBeep(1320, 0.22), 130)
   if (m.step + 1 >= mission.steps.length) {
     if (document.pointerLockElement) document.exitPointerLock()
     useStore.getState().setAutopilot(false)
     useStore.getState().setLogOpen(false)
-    useMission.setState({ phase: 'debrief', progress: 0, quizIndex: 0, picked: text.quiz.map(() => null) })
+    useMission.setState({ phase: 'debrief', progress: 0, quizIndex: 0, picked: text.quiz.map(() => null), framing: null })
     // クイズの途中で閉じても、任務を終えたぶんの星1つは残す（次の任務も開く）
     saveStars(m.index, 1)
     say(done)
     return
   }
   const next = m.step + 1
-  useMission.setState({ step: next, progress: 0 })
+  useMission.setState({ step: next, progress: 0, framing: null })
   say(`${done}\n\n${beginStep(next)}`)
 }
 
@@ -135,7 +203,11 @@ export function setProgress(progress: number) {
 
 /** 任務をやめる（星は記録しない） */
 export function abortMission() {
-  useMission.setState({ phase: 'closed', message: '' })
+  endMission()
+}
+
+export function setFraming(framing: Framing | null) {
+  if (useMission.getState().framing !== framing) useMission.setState({ framing })
 }
 
 export function answerQuiz(choice: number) {

@@ -1,10 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { DEFLECT_HITS, MISSIONS } from '../data/missions'
-import { missionText, ui } from '../i18n'
+import { CHAPTERS, DEFLECT_HITS, MISSIONS, chapterOf, missionIndexOf, type ChapterDef } from '../data/missions'
+import { shipLabel, shipSpec, type ShipId } from '../data/ships'
+import { chapterText, missionText, ui } from '../i18n'
 import { useLang } from '../i18n/lang'
 import { useStore } from '../state/store'
-import { abortMission, answerQuiz, closeMissions, isUnlocked, nextQuiz, showBriefing, startMission, useMission, openMissions } from '../state/mission'
+import { abortMission, answerQuiz, closeMissions, isUnlocked, nextQuiz, openChapter, openMissions, showBriefing, startMission, useMission } from '../state/mission'
 import { useRace } from '../state/race'
+import { openEclipses, playEclipse, useEclipse } from '../state/eclipse'
+import { PHOTO_FRAME } from '../components/mission/MissionRunner'
+
+const thumb = (id: ShipId) => `${import.meta.env.BASE_URL}ships/${id}.jpg`
 
 const Stars = ({ n, big }: { n: number; big?: boolean }) => (
   <span className={`stars${big ? ' big' : ''}`} aria-label={ui().starsLabel(n)}>
@@ -36,16 +41,60 @@ export function MissionPanel() {
   const phase = useMission((m) => m.phase)
   const mode = useStore((s) => s.mode)
   const scope = useStore((s) => s.scope)
-  const modal = (phase === 'list' || phase === 'briefing' || phase === 'debrief') && mode !== 'gallery' && !scope
+  const modal = (phase === 'chapters' || phase === 'list' || phase === 'briefing' || phase === 'debrief') && mode !== 'gallery' && !scope
   useEscape(modal, closeMissions)
   useLang()
 
   if (phase === 'active') return mode === 'gallery' ? null : <MissionBar />
   if (!modal) return null
   return (
-    <section className="quiz-run mission-panel" aria-label={ui().missionsTitle}>
-      {phase === 'list' ? <MissionList /> : phase === 'briefing' ? <Briefing /> : <Debrief />}
+    <section className={`quiz-run mission-panel${phase === 'chapters' ? ' wide' : ''}`} aria-label={ui().missionsTitle}>
+      {phase === 'chapters' ? <ChapterList /> : phase === 'list' ? <MissionList /> : phase === 'briefing' ? <Briefing /> : <Debrief />}
     </section>
+  )
+}
+
+/** 章ごとの星の合計と、取れる星の数 */
+function chapterStars(chapter: ChapterDef, stars: Record<string, number>) {
+  return { got: chapter.missions.reduce((n, m) => n + (stars[m.id] ?? 0), 0), max: chapter.missions.length * 3 }
+}
+
+/** 章の一覧：船ごとのカード。SF 編は SF モードのときだけ */
+function ChapterList() {
+  const stars = useMission((m) => m.stars)
+  const sf = useStore((s) => s.settings.world === 'sf')
+  const t = ui()
+  const ja = useLang() === 'ja'
+  const chapters = CHAPTERS.map((c, i) => ({ c, i })).filter(({ c }) => c.world === 'real' || sf)
+  return (
+    <>
+      <Header title={t.missionsTitle} />
+      <p className="muted small">{sf ? t.chaptersIntroSF : t.chaptersIntro}</p>
+      <ol className="chapter-list">
+        {chapters.map(({ c, i }) => {
+          const spec = shipSpec(c.ship)
+          const text = chapterText(c.id)
+          const { got, max } = chapterStars(c, stars)
+          return (
+            <li key={c.id}>
+              <button onClick={() => openChapter(i)} className={c.world === 'sf' ? 'sf' : ''}>
+                <img src={thumb(c.ship)} alt="" loading="lazy" />
+                <span className="chapter-body">
+                  <span className="chapter-ship">
+                    {shipLabel(spec, ja)}
+                    {c.world === 'sf' && <span className="chapter-tag">SF</span>}
+                  </span>
+                  <span className="mission-name">{text.title}</span>
+                  <span className="muted small">
+                    {t.skill}：{text.skill}　★ {got} / {max}
+                  </span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+    </>
   )
 }
 
@@ -60,27 +109,55 @@ function Header({ title, onClose = closeMissions }: { title: string; onClose?: (
   )
 }
 
+/** 章の船と得意技の説明 */
+function ShipSkill({ chapter }: { chapter: ChapterDef }) {
+  const t = ui()
+  const ja = useLang() === 'ja'
+  const text = chapterText(chapter.id)
+  return (
+    <div className="chapter-skill">
+      <img src={thumb(chapter.ship)} alt="" />
+      <div>
+        <div className="muted small">{t.shipForChapter(shipLabel(shipSpec(chapter.ship), ja))}</div>
+        <div>
+          <b>{t.skill}：{text.skill}</b>
+        </div>
+        <div className="muted small">{text.how}</div>
+      </div>
+    </div>
+  )
+}
+
 function MissionList() {
   const stars = useMission((m) => m.stars)
+  const chapter = CHAPTERS[useMission((m) => m.chapter)]
   const t = ui()
+  const text = chapterText(chapter.id)
   return (
     <>
-      <Header title={t.missionsTitle} />
-      <p className="muted small">{t.missionsIntro}</p>
+      <Header title={text.title} />
+      <p className="muted small">{text.intro}</p>
+      <ShipSkill chapter={chapter} />
       <ol className="mission-list">
-        {MISSIONS.map((m, i) => {
+        {chapter.missions.map((m, k) => {
+          const i = missionIndexOf(m.id)
           const open = isUnlocked(i)
           return (
             <li key={m.id}>
               <button disabled={!open} onClick={() => showBriefing(i)}>
-                <span className="mission-no">{t.missionNumber(i + 1)}</span>
+                <span className="mission-no">{t.missionNumber(k + 1)}</span>
                 <span className="mission-name">{open ? missionText(m.id).title : t.locked}</span>
-                {open && <Stars n={stars[i]} />}
+                {open && <Stars n={stars[m.id] ?? 0} />}
               </button>
             </li>
           )
         })}
       </ol>
+      <div className="quiz-actions">
+        <button className="secondary" onClick={openMissions}>
+          {t.backToChapters}
+        </button>
+      </div>
     </>
   )
 }
@@ -89,10 +166,12 @@ function Briefing() {
   const index = useMission((m) => m.index)
   const racing = useRace((r) => r.phase === 'countdown' || r.phase === 'running')
   const text = missionText(MISSIONS[index].id)
+  const chapter = chapterOf(index)
+  const k = chapter.missions.findIndex((m) => m.id === MISSIONS[index].id)
   const t = ui()
   return (
     <>
-      <Header title={`${t.missionNumber(index + 1)}　${text.title}`} />
+      <Header title={`${t.missionNumber(k + 1)}　${text.title}`} />
       <div className="muted small">{t.client(text.client)}</div>
       <div className="mission-comm">
         <b>{t.navi}</b>
@@ -106,6 +185,7 @@ function Briefing() {
           <li key={s.goal}>{s.goal}</li>
         ))}
       </ol>
+      <ShipSkill chapter={chapter} />
       {racing && <p className="muted small">{t.noRace}</p>}
       <div className="quiz-actions">
         <button className="engage" onClick={startMission} disabled={racing}>
@@ -119,7 +199,7 @@ function Briefing() {
   )
 }
 
-const openListFromBriefing = () => useMission.setState({ phase: 'list' })
+const openListFromBriefing = () => openChapter(useMission.getState().chapter)
 
 /** 任務中：いまの目標と進み具合、航法AIのことば。トーストと重ならないよう、トーストをこの下へずらす */
 function MissionBar() {
@@ -154,16 +234,21 @@ function MissionBar() {
     }
   }, [])
 
+  const timed = step.kind === 'unload' || step.kind === 'scan' || step.kind === 'load' || step.kind === 'photo' || step.kind === 'dock'
   let status: string
   if (step.kind === 'deflect') status = t.hits(m.progress, DEFLECT_HITS)
-  else if (step.kind === 'unload' || step.kind === 'scan') status = m.progress > 0 ? t.progress(Math.round(m.progress * 100)) : t.waitNear
+  else if (step.kind === 'photo' || step.kind === 'dock') status = m.framing ? t.framing[m.framing] : ''
+  else if (timed) status = m.progress > 0 ? t.progress(Math.round(m.progress * 100)) : t.waitNear
   else status = ''
-  const fraction = step.kind === 'deflect' ? m.progress / DEFLECT_HITS : step.kind === 'unload' || step.kind === 'scan' ? m.progress : 0
+  const fraction = step.kind === 'deflect' ? m.progress / DEFLECT_HITS : timed ? m.progress : 0
 
+  const chapter = chapterOf(m.index)
   return (
+    <>
+    {step.kind === 'photo' && <Viewfinder />}
     <div className="mission-bar" ref={bar}>
       <div className="mission-head">
-        <span className="mission-no">{t.missionNumber(m.index + 1)}</span>
+        <span className="mission-no">{t.missionNumber(chapter.missions.findIndex((x) => x.id === def.id) + 1)}</span>
         <span className="mission-name">{text.title}</span>
         <button className="race-quit" onClick={abortMission}>
           {t.quit}
@@ -178,11 +263,41 @@ function MissionBar() {
           <div style={{ width: `${Math.round(fraction * 100)}%` }} />
         </div>
       )}
+      {m.cargo && <div className="mission-cargo">{t.cargo}</div>}
+      {step.kind === 'eclipse' && <EclipseAgain id={step.eclipse} />}
       {m.message && (
         <button className={`mission-comm${folded ? ' folded' : ''}`} key={m.messageId} onClick={() => setFolded(!folded)} aria-expanded={!folded}>
           <b>{t.navi}</b> {m.message}
         </button>
       )}
+    </div>
+    </>
+  )
+}
+
+/** 日食の画面を閉じてしまったときに、もう一度開く */
+function EclipseAgain({ id }: { id?: string }) {
+  const open = useEclipse((e) => e.open && e.eclipseId === id)
+  if (open || !id) return null
+  return (
+    <button className="secondary mission-again" onClick={() => (openEclipses(), playEclipse(id))}>
+      {ui().eclipseAgain}
+    </button>
+  )
+}
+
+/** 撮影の枠：画面の真ん中に四すみのかぎ。目標が入ると緑になる */
+function Viewfinder() {
+  const framing = useMission((m) => m.framing)
+  const mode = useStore((s) => s.mode)
+  if (mode !== 'flight') return null
+  const inset = `${Math.round((0.5 - PHOTO_FRAME / 2) * 100)}%`
+  return (
+    <div className={`viewfinder${framing === 'ok' ? ' ok' : ''}`} style={{ inset }} aria-hidden>
+      <span />
+      <span />
+      <span />
+      <span />
     </div>
   )
 }
@@ -194,7 +309,8 @@ function Debrief() {
   const t = ui()
   const quiz = text.quiz[m.quizIndex]
   const picked = m.picked[m.quizIndex]
-  const last = m.index + 1 >= MISSIONS.length
+  const chapter = chapterOf(m.index)
+  const last = chapter.missions[chapter.missions.length - 1].id === def.id
 
   return (
     <>
@@ -210,6 +326,16 @@ function Debrief() {
           <li key={s}>{s}</li>
         ))}
       </ul>
+      {text.real && (
+        <div className="log-real">
+          <h3>{t.realScience}</h3>
+          <ul>
+            {text.real.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {quiz ? (
         <>
@@ -243,9 +369,9 @@ function Debrief() {
           <div className="mission-result">
             <Stars n={m.earned ?? 1} big />
             <div className="muted small">{t.starsNote}</div>
-            <div className="muted small">{t.best(m.stars[m.index])}</div>
+            <div className="muted small">{t.best(m.stars[def.id] ?? 0)}</div>
           </div>
-          {last && <p>{t.allDone}</p>}
+          {last && <p>{t.chapterDone}</p>}
           <div className="quiz-actions">
             {!last && (
               <button className="engage" onClick={() => showBriefing(m.index + 1)}>
@@ -255,8 +381,11 @@ function Debrief() {
             <button className="secondary" onClick={() => showBriefing(m.index)}>
               {t.retry}
             </button>
-            <button className="secondary" onClick={openMissions}>
+            <button className="secondary" onClick={() => openChapter(CHAPTERS.indexOf(chapter))}>
               {t.back}
+            </button>
+            <button className="secondary" onClick={openMissions}>
+              {t.backToChapters}
             </button>
           </div>
         </>

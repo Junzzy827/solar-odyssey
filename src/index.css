@@ -3092,3 +3092,152 @@ body.sf .nav-panel {
 .nav-throttle-hint {
   font-size: 11px;
 }
+
+/* ストーリーモードの章：船ごとのカード */
+.mission-panel.wide {
+  width: min(560px, calc(100vw - 24px));
+}
+
+.chapter-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chapter-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  border: 1px solid rgba(143, 216, 255, 0.25);
+  border-radius: 10px;
+  background: rgba(143, 216, 255, 0.06);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chapter-list button.sf {
+  border-color: rgba(196, 150, 255, 0.45);
+  background: rgba(196, 150, 255, 0.08);
+}
+
+.chapter-list img,
+.chapter-skill img {
+  flex: none;
+  width: 72px;
+  height: 54px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #0b0912;
+}
+
+.chapter-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chapter-ship {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #8fd8ff;
+}
+
+.chapter-tag {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: #8a5cd6;
+  color: #fff;
+  font-size: 10px;
+}
+
+.chapter-skill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.mission-cargo {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #ffb36b;
+}
+
+.mission-again {
+  margin-top: 6px;
+  width: 100%;
+  padding: 4px 10px;
+}
+
+/* 撮影の枠：四すみのかぎ（目標が入ると緑） */
+.viewfinder {
+  position: fixed;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.viewfinder span {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 0 solid rgba(255, 255, 255, 0.75);
+  transition: border-color 0.2s;
+}
+
+.viewfinder.ok span {
+  border-color: #7fe0a0;
+}
+
+.viewfinder span:nth-child(1) {
+  top: 0;
+  left: 0;
+  border-top-width: 3px;
+  border-left-width: 3px;
+}
+
+.viewfinder span:nth-child(2) {
+  top: 0;
+  right: 0;
+  border-top-width: 3px;
+  border-right-width: 3px;
+}
+
+.viewfinder span:nth-child(3) {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: 3px;
+  border-left-width: 3px;
+}
+
+.viewfinder span:nth-child(4) {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: 3px;
+  border-right-width: 3px;
+}
+
+@media (max-height: 500px) {
+  .chapter-list {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+
+  .chapter-list img,
+  .chapter-skill img {
+    width: 56px;
+    height: 42px;
+  }
+}

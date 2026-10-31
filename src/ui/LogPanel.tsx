@@ -6,6 +6,7 @@ import { bodyInfo } from '../state/flight'
 import { isSFObject } from '../data/sf'
 import { isTelescope } from '../data/telescopes'
 import { raceActive } from '../state/race'
+import { missionActive } from '../state/mission'
 import { openScope } from './Hud'
 import { useQuiz } from '../state/quiz'
 import { useProbes } from '../state/probes'
@@ -36,9 +37,9 @@ export function LogPanel() {
   const sheet = useTouchUI((u) => u.sheet)
   useLang()
 
-  // 目標に近づいたら一度だけ自動で開く
+  // 目標に近づいたら一度だけ自動で開く（任務中は航法AIが話すので開かない。I キーでは開ける）
   useEffect(() => {
-    if (!targetId || warpPhase !== 'idle' || distance === null || raceActive()) return
+    if (!targetId || warpPhase !== 'idle' || distance === null || raceActive() || missionActive()) return
     if (distance < NEAR && autoOpened.current !== targetId) {
       autoOpened.current = targetId
       setLogOpen(true)

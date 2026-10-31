@@ -2,9 +2,10 @@ import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
 import { flightControl, ship, thrustFx, warpFx } from './state/flight'
-import { bodies, sim } from './state/registry'
+import { bodies, markerOverride, sim } from './state/registry'
 import { useRace } from './state/race'
 import { useMission } from './state/mission'
+import { MISSIONS } from './data/missions'
 import { useBridge } from './state/bridge'
 import { shipZoom } from './state/zoom'
 import { useQuality } from './state/quality'
@@ -21,6 +22,7 @@ const sv = {
   store: useStore,
   race: useRace,
   mission: useMission,
+  missions: MISSIONS,
   bridge: useBridge,
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
   probes: { state: useProbes, clock: probeClock },
@@ -32,6 +34,7 @@ const sv = {
   warpFx,
   thrustFx,
   bodies,
+  markerOverride,
   sim,
   camera: null as CameraFn | null,
   setCamera: null as unknown as (fn: CameraFn | null) => void,
