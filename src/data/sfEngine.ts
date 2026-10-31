@@ -18,15 +18,16 @@ export const ENGINE_ROCK_TEXT = {
 export const ENGINE_FACTS: Record<string, Facts> = {
   [ENGINE_ROCK_ID]: {
     rows: [
-      ['大きさ', '幅約8km、高さ約8km のコマのような形の岩'],
+      ['大きさ', '幅約30km、高さ約30km のコマのような形の岩'],
       ['場所', '火星と地球の軌道のあいだ。何年もかけて地球へ近づく'],
-      ['設備', '採掘基地、ドームの居住区、横一列に並んだ4基のプラズマエンジン'],
+      ['設備', '採掘基地、ドームの居住区、宇宙船ドック、横一列に並んだ4基のプラズマエンジン'],
     ],
     fiction: true,
     notes: [
       '小惑星をまるごと運んできて、金属や水を採ろうという未来の計画を描いたものです。',
       'エンジンは青白いプラズマを吹き出し、とても小さな力で長い時間押しつづけます。',
       '上は平たく広がり、下は細くすぼまっています。上には尖った岩山と、働く人が暮らすドームがあります。エンジンはうしろの平らな面に横一列に並んでいます。',
+      '横の縁の下に宇宙船ドックがあり、周辺観察（O）の「入港」で口の前まで自動で行けます。中では整備中の船が休んでいます。',
     ],
     real: [
       'NASA は2010年代に、小惑星の岩を捕まえて月のまわりまで運ぶ「小惑星捕獲計画（ARM）」を考えましたが、2017年に中止になりました。',
@@ -46,15 +47,16 @@ export const ENGINE_FACTS: Record<string, Facts> = {
 export const ENGINE_FACTS_EN: Record<string, Facts> = {
   [ENGINE_ROCK_ID]: {
     rows: [
-      ['Size', 'A spinning-top-shaped rock about 8 km wide and 8 km tall'],
+      ['Size', 'A spinning-top-shaped rock about 30 km wide and 30 km tall'],
       ['Where', 'Between the orbits of Mars and Earth, creeping toward Earth over many years'],
-      ['Equipment', 'A mining base, a domed living area and four plasma engines in a row'],
+      ['Equipment', 'A mining base, a domed living area, a ship dock and four plasma engines in a row'],
     ],
     fiction: true,
     notes: [
       'It shows a future plan to bring a whole asteroid home and mine it for metal and water.',
       'The engines blow out bluish-white plasma, pushing very gently for a very long time.',
       'It is wide and flat on top and narrows to a point underneath, like a spinning top. On top are a sharp rocky peak and a dome where the workers live. The engines sit in a row on the flat back face.',
+      'Under the side rim: It has a ship dock. In observe mode (O), use Dock to fly to its mouth automatically. A ship is resting inside for repairs.',
     ],
     real: [
       'In the 2010s NASA studied the Asteroid Redirect Mission (ARM), which would have grabbed a boulder from an asteroid and moved it into orbit around the Moon. It was cancelled in 2017.',

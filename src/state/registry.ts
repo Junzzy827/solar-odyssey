@@ -61,5 +61,5 @@ export const beamSweeps = new Set<BeamSweep>()
  * next は from（自機の位置）から次に向かう点を out に、入口から中へ向かう向きを inward に入れ、
  * 入口の手前（最後の点）なら true を返す。壁を突き抜けないよう、途中の点を順に返す
  */
-export type Port = { object: THREE.Object3D; next: (from: THREE.Vector3, out: THREE.Vector3, inward: THREE.Vector3) => boolean }
+export type Port = { /** この港を持つ天体の id（中心から離れた港でも、その天体の港として選ぶ） */ owner?: string; object: THREE.Object3D; next: (from: THREE.Vector3, out: THREE.Vector3, inward: THREE.Vector3) => boolean }
 export const ports = new Set<Port>()
