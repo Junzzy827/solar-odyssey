@@ -77,6 +77,7 @@ export function updateProximity(position: THREE.Vector3) {
 export const approachSpeedFactor = () => (raceActive() ? 1 : speedFactor)
 
 export type Near = {
+  id: string
   name: string
   kind: ApproachKind
   /** 地表・雲の上からの高さ（km）。雲の中では null */
@@ -103,6 +104,7 @@ export function nearInfo(prox: typeof proximity): Near | null {
     if (air) dive = { km: depthKm, ...air }
   }
   return {
+    id: prox.id,
     name: prox.name,
     kind: prox.kind,
     altitudeKm: prox.altitude >= 0 ? prox.altitude * kmPerUnit : null,
@@ -111,4 +113,13 @@ export function nearInfo(prox: typeof proximity): Near | null {
     timesEarth: km / 6_371,
     zoom: shipZoom.factor,
   }
+}
+
+/** その天体のそばにいるか（着陸先を選ぶとき、近い大きな惑星より目標の衛星を優先するため） */
+export function isNear(id: string, position: THREE.Vector3) {
+  const body = bodies.get(id)
+  if (!body) return false
+  body.object.getWorldPosition(p)
+  const altitude = position.distanceTo(p) - body.radius
+  return altitude >= 0 && altitude < nearRange(body.radius)
 }

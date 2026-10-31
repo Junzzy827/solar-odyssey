@@ -55,6 +55,8 @@ import { ObservePanel } from './ui/ObservePanel'
 import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
+import { SurfaceView } from './components/surface/SurfaceView'
+import { useLanding } from './state/landing'
 import { BridgePanel } from './ui/BridgePanel'
 import { BridgeLabels } from './ui/BridgeLabels'
 import { PhotoNote } from './ui/PhotoNote'
@@ -75,10 +77,12 @@ export default function App() {
   useGlobalKeys()
   useThrottleWheel()
   const level = useLevel()
+  // 地表にいるあいだは、宇宙の場面を止める（暗転している最中は動かしておく）
+  const onSurface = useLanding((l) => l.phase === 'descent' || l.phase === 'surface' || l.phase === 'ascent')
 
   return (
     <>
-      <Canvas shadows dpr={dprFor(level)} camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
+      <Canvas frameloop={onSurface ? 'never' : 'always'} shadows dpr={dprFor(level)} camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
         <SimClock />
         <QualityGovernor />
         <SpaceLighting />
@@ -143,6 +147,7 @@ export default function App() {
       <ScaleBadge />
       <PhotoNote />
       <ContextLost />
+      <SurfaceView />
       <LabelDeclutter />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}

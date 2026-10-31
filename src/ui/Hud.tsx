@@ -10,6 +10,7 @@ import { canOpenGallery, closeGallery, openGallery } from '../state/gallery'
 import { isTouchDevice } from '../state/input'
 import { launchLander, useLaunchBusy } from '../state/launch'
 import { getLang, t, useLang } from '../i18n/lang'
+import { landableBody, landed, startLanding } from '../state/landing'
 import { toggleObserve } from '../state/observe'
 
 /** 全体のキー操作：M 全体マップ／V 鑑賞モード／Enter ワープ／G 自動航行／C カメラ／1〜9 ワープ速度 */
@@ -17,6 +18,8 @@ export function useGlobalKeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.repeat) return
+      // 着陸しているあいだは、宇宙の操作を受けつけない
+      if (landed()) return
       const s = useStore.getState()
       // 望遠鏡の写真を見ているあいだは、T と Esc（閉じる）だけ
       if (s.scope) {
@@ -43,6 +46,10 @@ export function useGlobalKeys() {
         else if (s.targetId && isTelescope(s.targetId)) s.showToast(TELESCOPE_TEXT.tooFar(scopeName(s.targetId)))
         return
       }
+      if (e.code === 'KeyJ') {
+        if (landableBody()) startLanding()
+        return
+      }
       if (e.code === 'KeyM') s.setMode(s.mode === 'map' ? 'flight' : 'map')
       else if (e.code === 'Enter') engage()
       else if (e.code === 'KeyC') s.setCameraMode(nextCameraMode(s.cameraMode))
@@ -56,6 +63,27 @@ export function useGlobalKeys() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+}
+
+/** 地表のある星のそばで出る「地表に降りる」ボタン */
+function LandPrompt() {
+  useLang()
+  // 近くの天体・画面・ワープの状態が変わったら選び直す
+  useStore((s) => `${s.telemetry.near?.id ?? ''}|${s.telemetry.near?.kind ?? ''}|${s.mode}|${s.warpPhase}|${s.targetId}`)
+  // 目標の衛星に近づいたかは、船が動くたびに変わるので、ときどき見直す
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const iv = window.setInterval(() => tick((n) => n + 1), 600)
+    return () => window.clearInterval(iv)
+  }, [])
+  const id = landableBody()
+  if (!id) return null
+  const name = bodyInfo(id)?.name ?? id
+  return (
+    <button className="land-prompt" onClick={() => startLanding(id)}>
+      {t(`${name}の地表に降りる`, `Land on ${name}`)} <kbd>J</kbd>
+    </button>
+  )
 }
 
 /** 望遠鏡の目で深宇宙をのぞく（マウスの固定を外して写真の画面を開く） */
@@ -267,6 +295,8 @@ export function Hud() {
           {t(`${scopeName(scopeNear)}でのぞく`, `Look through ${scopeName(scopeNear)}`)} <kbd>T</kbd>
         </button>
       )}
+
+      <LandPrompt />
 
       {mode === 'flight' && locked && <div className="crosshair" />}
       {/* スマホ・タブレットでは、お知らせは上のアイコン（TouchBar）にためる */}
