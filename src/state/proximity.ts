@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { approachKind, atmosphereAt, DIVE_DEPTH, limitDepthKm, radiusKm, SHIP_LENGTH_KM, type ApproachKind } from '../data/approach'
-import { bodies, zoomZones } from './registry'
+import { bodies, slowZones, zoomZones } from './registry'
 import { raceActive } from './race'
 import { shipZoom, zoneFactor } from './zoom'
 import { MAX_SPEED } from './throttle'
@@ -68,6 +68,12 @@ export function updateProximity(position: THREE.Vector3) {
   }
   // 縮める場所（スペースコロニーなど）では、縮めた分だけゆっくり（全部縮めると、1秒に船の約20〜30隻分）
   for (const zone of zoomZones) speedFactor = Math.min(speedFactor, 1 / zoneFactor(zone, position))
+  // 速さだけを落とす場所：近いほど遅く（対数の上でなめらかに）
+  for (const zone of slowZones) {
+    zone.object.getWorldPosition(p)
+    const k = 1 - THREE.MathUtils.smoothstep(position.distanceTo(p), zone.near, zone.far)
+    speedFactor = Math.min(speedFactor, zone.factor ** k)
+  }
 }
 
 /**

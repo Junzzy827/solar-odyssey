@@ -16,15 +16,15 @@ import { COLONY_LENGTH as L, COLONY_PORT as PORT } from '../../data/sf'
 // 回転するコロニーへは、回らない回転軸の上の港から入る（オニールの構想でも港は軸の端）。誘導灯も回さない。
 
 /** 港の口（コロニーの座標。回転軸は +Y、港は -Y の端） */
-const MOUTH = -L / 2 - 0.03 - 0.1
+const MOUTH_COLONY = -L / 2 - 0.03 - 0.1
 /** 回廊の長さ（港の口から外へ） */
-const REACH = 1.6
+const REACH_COLONY = 1.6
 /** 回廊の輪の数と、1 つの輪のブイの数 */
 const GATES = 9
 const BUOYS = 12
 /** 回廊の半径：港の口で START、外へ行くほど広がる */
-const START = PORT * 1.4
-const SPREAD = 0.11
+const START_COLONY = PORT * 1.4
+const SPREAD_COLONY = 0.11
 
 type Kind = 0 | 1 | 2 | 3
 // 0 回廊のブイ、1 流れる閃光、2 外側の目印、3 進入角指示灯
@@ -106,7 +106,18 @@ const axisWorld = new THREE.Vector3()
 const toShip = new THREE.Vector3()
 const q = new THREE.Quaternion()
 
-export function ApproachLights() {
+type Props = {
+  /** 港の口の位置（回転軸 -Y の上）。既定はコロニーの港 */
+  mouth?: number
+  /** 回廊の長さ・口での半径・広がり方・進入角指示灯の半径（どれも親の座標）。既定はコロニーの寸法 */
+  reach?: number
+  start?: number
+  spread?: number
+  port?: number
+}
+
+/** 誘導灯。回廊は -Y へ伸びる（置く側で回して、港の外へ向ける）。寸法を渡せば、コロニー以外の港にも使える */
+export function ApproachLights({ mouth: MOUTH = MOUTH_COLONY, reach: REACH = REACH_COLONY, start: START = START_COLONY, spread: SPREAD = SPREAD_COLONY, port: PORT_R = PORT }: Props = {}) {
   const points = useRef<THREE.Points>(null!)
   const { geometry, material } = useMemo(() => {
     const pos: number[] = []
@@ -136,19 +147,19 @@ export function ApproachLights() {
     // 回転軸の上の、流れる閃光（外から港へ）
     const N = 28
     for (let i = 0; i < N; i++) {
-      const d = REACH * (1 - i / N) + 0.04
+      const d = REACH * (1 - i / N) + REACH * 0.025
       add(0, MOUTH - d, 0, BLUE, 1, i / N, 0.01)
     }
     // 外側の目印（回廊の入口の四方）
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + Math.PI / 4
-      const r = START + REACH * SPREAD + 0.03
-      add(Math.sin(a) * r, MOUTH - REACH - 0.06, Math.cos(a) * r, WHITE, 2, 0, 0.022)
+      const r = START + REACH * SPREAD + REACH * 0.019
+      add(Math.sin(a) * r, MOUTH - REACH - REACH * 0.0375, Math.cos(a) * r, WHITE, 2, 0, 0.022)
     }
     // 港の口の進入角指示灯（四方）
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2
-      add(Math.sin(a) * PORT * 1.25, MOUTH - 0.005, Math.cos(a) * PORT * 1.25, WHITE, 3, 0, 0.012)
+      add(Math.sin(a) * PORT_R * 1.25, MOUTH - REACH * 0.003, Math.cos(a) * PORT_R * 1.25, WHITE, 3, 0, 0.012)
     }
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
@@ -167,7 +178,7 @@ export function ApproachLights() {
       toneMapped: false,
     })
     return { geometry: geo, material: mat }
-  }, [])
+  }, [MOUTH, REACH, START, SPREAD, PORT_R])
   useEffect(
     () => () => {
       geometry.dispose()
