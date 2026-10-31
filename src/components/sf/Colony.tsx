@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
-import { ColonyModel } from './ColonyModel'
+import { ColonyModel, MIRROR_ANGLE } from './ColonyModel'
 import { ConstructionSite } from './ConstructionSite'
-import { colliders, passThrough, registerBody, zoomZones, type ZoomZone } from '../../state/registry'
+import { colliders, passThrough, ports, registerBody, zoomZones, type Port, type ZoomZone } from '../../state/registry'
 import { flightControl, ship } from '../../state/flight'
 import { useStore } from '../../state/store'
 import { COLONY_LENGTH as L, COLONY_PORT as PORT, COLONY_RADIUS as R, COLONY_SPIN_SECONDS, COLONY_ZOOM, SF_TEXT } from '../../data/sf'
@@ -62,15 +62,45 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
     if (body) passThrough.add(id)
     zoomZones.add(zone)
     colliders.add(collide)
+    const port: Port = { object: group.current, next: portPath }
+    ports.add(port)
     return () => {
       unregister()
       if (body) passThrough.delete(id)
       zoomZones.delete(zone)
       colliders.delete(collide)
+      ports.delete(port)
     }
     // collide は state の ref だけを読む
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  /**
+   * 周辺観察の「入港」：港（太陽と反対側の端の軸）の少し外へ向かう道順。
+   * 円筒の横にいるときは、まず外へ離れてから端の高さへ下り、最後に軸の上へ寄る（外板を突き抜けないように）
+   */
+  function portPath(from: THREE.Vector3, out: THREE.Vector3, inward: THREE.Vector3) {
+    const g = group.current
+    inverse.copy(g.matrixWorld).invert()
+    local.copy(from).applyMatrix4(inverse)
+    inward.set(0, 1, 0).transformDirection(g.matrixWorld)
+    const r = Math.hypot(local.x, local.z)
+    const entry = -H - CAP - 0.12
+    // 外板と、太陽のほうへ開いた鏡（港側の端が支点）の外まで離れる
+    const clear = Math.max(OUTER * 1.3, R * 1.04 + Math.max(0, local.y + H) * Math.tan(MIRROR_ANGLE) + 0.05)
+    let last = false
+    if (local.y > entry + 0.02 && r < clear * 0.97) {
+      // 円筒や鏡のそば：まず真横へ離れる（下りるあいだに鏡は近づかないので、あとは真下へ）
+      if (r < 1e-4) local.set(clear, local.y, 0)
+      else local.set((local.x * clear) / r, local.y, (local.z * clear) / r)
+    } else if (local.y > entry + 0.02) local.y = entry
+    else {
+      local.set(0, entry, 0)
+      last = true
+    }
+    out.copy(local).applyMatrix4(g.matrixWorld)
+    return last
+  }
 
   /** 壁に当たる判定。外からは港の穴だけを通れ、中では地面と両端の壁の内側を飛ぶ */
   function collide() {
