@@ -30,6 +30,8 @@ export function LogPanel() {
   const markVisited = useStore((s) => s.markVisited)
   const quizOpen = useQuiz((q) => q.open)
   const probesOpen = useProbes((p) => p.open)
+  // 船を眺めているあいだは、船の説明の邪魔をしない
+  const gallery = useStore((s) => s.mode === 'gallery')
   const [picked, setPicked] = useState<number | null>(null)
   const autoOpened = useRef<string | null>(null)
   // スマホ・タブレットでは、近づいても画面下の「日誌」ボタンに印を付けるだけで、押したときに引き出す
@@ -48,6 +50,17 @@ export function LogPanel() {
 
   useEffect(() => setPicked(null), [targetId])
 
+  // パソコンでは、左上の操縦の説明（近くの天体の表示で背が伸びる）の下から始めて、重ならないようにする
+  useEffect(() => {
+    const hud = logOpen ? document.querySelector('.hud') : null
+    if (!hud) return
+    const set = () => document.documentElement.style.setProperty('--hud-bottom', `${Math.round(hud.getBoundingClientRect().bottom)}px`)
+    set()
+    const ro = new ResizeObserver(set)
+    ro.observe(hud)
+    return () => ro.disconnect()
+  }, [logOpen, targetId])
+
   // I キーで開閉
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -59,7 +72,7 @@ export function LogPanel() {
 
   const facts = targetId ? factsFor(targetId) : undefined
   const info = targetId ? bodyInfo(targetId) : null
-  if (!logOpen || (touch && sheet !== 'log') || quizOpen || probesOpen || !facts || !info || !targetId) return null
+  if (!logOpen || gallery || (touch && sheet !== 'log') || quizOpen || probesOpen || !facts || !info || !targetId) return null
 
   const done = visited.includes(targetId)
   const answered = picked !== null

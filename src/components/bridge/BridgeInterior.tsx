@@ -9,6 +9,7 @@ import { bodies } from '../../state/registry'
 import { isTouchDevice } from '../../state/input'
 import { Consoles, orientScreen, screenRoles } from './consoles'
 import { chirp, setBridgeAmbience } from '../../audio/bridge'
+import { usePostFxActive } from '../SpaceLighting'
 
 /**
  * 艦橋の中の部屋。船は 1 単位が約 2 km の縮尺なので、16 m の部屋はそのままでは近すぎて描けない。
@@ -20,6 +21,9 @@ export function BridgeInterior() {
   const camera = useMemo(() => new THREE.PerspectiveCamera(60, 1, 0.05, 60), [])
   const viewscreen = useBridge((b) => b.viewscreen)
   const zoom = useMemo(() => new ZoomView(), [])
+  // 後処理を使わないとき（画質「軽量」や、後処理をすべて切ったとき）は、宇宙を描く人がいないので、ここで先に描く
+  // （優先度つきの useFrame があると、R3F は自分では描かない。ないと窓の外が真っ黒になる）
+  const postFx = usePostFxActive()
   useEffect(() => () => zoom.dispose(), [zoom])
   // 艦橋の音（入っているあいだだけ）。見どころを移ったり拡大画面を切り替えたりすると、短く鳴る
   useEffect(() => {
@@ -37,6 +41,7 @@ export function BridgeInterior() {
     const cam = main as THREE.PerspectiveCamera
     // 拡大画面：窓の位置から目標（なければ正面）へ望遠のカメラを向けて、宇宙をもう一度描いておく
     if (useBridge.getState().viewscreen) zoom.render(gl, space, cam, dt)
+    if (!postFx) gl.render(space, cam)
     camera.fov = cam.fov
     camera.aspect = cam.aspect
     camera.updateProjectionMatrix()

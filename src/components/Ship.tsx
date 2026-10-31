@@ -334,7 +334,7 @@ export function Ship() {
       if (!useObserve.getState().id) ship.position.addScaledVector(ship.velocity, dt)
       avoidBodies()
       colliders.forEach((collide) => collide())
-      updateProximity(ship.position)
+      updateProximity(ship.position, st.targetId)
 
       // 待機中に操縦したら相対位置を更新、離れたら待機を解除
       if (hold.current && held) {

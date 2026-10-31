@@ -113,6 +113,9 @@ function loadSettings(): Settings {
   // 距離と大きさは、ひとつのスケールでいっしょに動かす（前に別々に保存した値は距離にそろえる）
   if (typeof saved.distance === 'number') saved.size = saved.distance
   else delete saved.size
+  // 古い版や壊れた保存値で、起動できなくならないように（知らない画質・船は初めの設定にもどす）
+  if (!['auto', 'high', 'medium', 'low'].includes(saved.quality as string)) delete saved.quality
+  if (!['sv01', 'heron', 'sorakaze', 'hakobune', 'meguri', 'amatsu', 'arcadia'].includes(saved.ship as string)) delete saved.ship
   return { ...DEFAULT_SETTINGS, ...saved, ...(worldFromUrl ? { world: worldFromUrl } : {}), ...(shipFromUrl ? { ship: shipFromUrl } : {}), ...(lookFromUrl ? { look: lookFromUrl } : {}) }
 }
 
