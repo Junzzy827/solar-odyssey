@@ -17,6 +17,8 @@ import { SurfaceLab } from './SurfaceLab'
 import { SurfaceStars } from './SurfaceStars'
 import { TimeBar } from './TimeBar'
 import { groundMaterial } from './groundMaterial'
+import { useDem } from './dem'
+import { farTerrainGeometry } from './farTerrain'
 import { SkyFrame, hoursPerSecond, litFraction, useSkyClock } from './skyClock'
 import type { SkyNow } from './skyNow'
 import { SKY_FROM_APP } from '../../data/skyFrame'
@@ -324,6 +326,29 @@ function Plumes({ def }: { def: SurfaceDef }) {
 }
 
 // ---- 地面と岩 ---------------------------------------------------------------------
+
+/** 地平線の山並み（本物の地形の遠くの地図） */
+function FarTerrain({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
+  const geo = useMemo(() => farTerrainGeometry(terrain.def, terrain.dem!.far, terrain.height(0, 0) + EYE, 2900), [terrain])
+  const mat = useMemo(
+    () =>
+      withAir(
+        new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, depthTest: false, depthWrite: false }),
+        ap,
+        true,
+      ),
+    [ap],
+  )
+  useEffect(
+    () => () => {
+      geo.dispose()
+      mat.dispose()
+    },
+    [geo, mat],
+  )
+  // 星と太陽の後、近くの地面の前に描く（近くの地面が上から重なる）
+  return <mesh geometry={geo} material={mat} renderOrder={-6.5} frustumCulled={false} />
+}
 
 function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const def = terrain.def
@@ -823,7 +848,9 @@ type Air = {
 const tmpDir = new THREE.Vector3()
 
 function Scene({ def }: { def: SurfaceDef }) {
-  const terrain = useMemo(() => new Terrain(def), [def])
+  // 本物の地形（火星・地球）。読み終わるまでは今までの作った地形
+  const dem = useDem(def.id)
+  const terrain = useMemo(() => new Terrain(def, dem || null), [def, dem])
   const level = useLevel()
   const haze = useSurfaceLab((l) => l.haze)
   const { scene, gl } = useThree()
@@ -994,6 +1021,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       <hemisphereLight ref={nightFill} args={['#4d628f', '#16151b', 0]} />
       {/* 空と地面の照り返しの光は、まわりの景色の光（scene.environment）が受け持つ */}
       <Ground terrain={terrain} ap={A.ap} />
+      {terrain.dem && <FarTerrain terrain={terrain} ap={A.ap} />}
       <Suspense fallback={null}>
         <Lander terrain={terrain} dustColor={def.sky ? def.hazeColor : def.ground} ap={A.ap} sky={sky} />
       </Suspense>

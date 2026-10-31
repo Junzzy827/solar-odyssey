@@ -154,7 +154,9 @@ export default function App() {
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}
         <a href="https://science.nasa.gov/resource/hubble-space-telescope-3d-model/" target="_blank" rel="noreferrer">NASA VTAD</a> · Stars:{' '}
-        <a href="http://tdc-www.harvard.edu/catalogs/bsc5.html" target="_blank" rel="noreferrer">Yale Bright Star Catalog</a>
+        <a href="http://tdc-www.harvard.edu/catalogs/bsc5.html" target="_blank" rel="noreferrer">Yale Bright Star Catalog</a> · Terrain:{' '}
+        <a href="https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_dem_1m" target="_blank" rel="noreferrer">USGS/NASA Gale DEM</a>,{' '}
+        <a href="https://www.usgs.gov/3d-elevation-program" target="_blank" rel="noreferrer">USGS 3DEP</a>
       </div>
     </>
   )

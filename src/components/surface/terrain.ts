@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { SurfaceDef } from '../../data/surfaces'
+import { heightAt, type Dem } from './dem'
 
 // 地表の地形：なだらかな起伏・クレーター・砂丘・遠くの山並み・天体の丸み（小さな星ほど地平線が近い）。
 // 立つ場所（原点）と着陸船の場所は平らにならす。
@@ -76,11 +77,15 @@ export class Terrain {
   private baseEye = 0
   private baseLander = 0
 
-  constructor(readonly def: SurfaceDef) {
+  /** 本物の地形（観測された標高）。あれば起伏・クレーター・砂丘・山並みは作らず、これを使う */
+  readonly dem: Dem | null
+
+  constructor(readonly def: SurfaceDef, dem: Dem | null = null) {
     this.seed = idSeed(def.id)
     this.radiusM = def.radiusKm * 1000
+    this.dem = dem
     const rnd = seeded(this.seed + 7)
-    const n = Math.round(def.relief.craters * 260)
+    const n = dem ? 0 : Math.round(def.relief.craters * 260)
     for (let i = 0; i < n; i++) {
       // 小さいクレーターほど多い（べき分布）
       const r = Math.max(2.5, def.relief.craterMax * rnd() ** 3.2)
@@ -135,6 +140,17 @@ export class Terrain {
   sample(x: number, z: number, raw = false) {
     const R = this.def.relief
     const s = this.seed
+    if (this.dem) {
+      // 本物の地形 ＋ 地図より細かい足もとのでこぼこ
+      const real = heightAt(this.dem.near, x, z) ?? heightAt(this.dem.far, x, z) ?? 0
+      let h = real + (fbm(x / 22, z / 22, s + 50, 3) - 0.5) * 0.5 + (fbm(x / 5, z / 5, s + 51, 2) - 0.5) * 0.15
+      if (raw) return { h, ejecta: 0, crack: 0 }
+      const a = 1 - smooth(4, 12, Math.hypot(x, z))
+      const b = 1 - smooth(14, 30, Math.hypot(x - LANDER_POS.x, z - LANDER_POS.y))
+      const f = Math.max(a, b)
+      h = h * (1 - f) + (a >= b ? this.baseEye : this.baseLander) * f
+      return { h, ejecta: 0, crack: 0 }
+    }
     let h = (fbm(x / R.hillScale, z / R.hillScale, s) - 0.5) * 2 * R.hills
     h += (fbm(x / 22, z / 22, s + 50, 3) - 0.5) * 0.9 // 足もとの細かいでこぼこ
     if (R.dunes) {
@@ -183,8 +199,9 @@ export class Terrain {
 
   /** 中心ほど細かい、円形の格子の地面 */
   geometry() {
-    const RINGS = 150
-    const SEG = 240
+    // 本物の地形は、崖や岩山の形が崩れないよう細かめに
+    const RINGS = this.dem ? 190 : 150
+    const SEG = this.dem ? 360 : 240
     const pos: number[] = []
     const col: number[] = []
     const uv: number[] = []
