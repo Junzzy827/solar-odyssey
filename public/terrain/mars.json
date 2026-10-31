@@ -1,0 +1,27 @@
+{
+  "site": "Mars - Gale crater, Aeolis Palus (near Bradbury Landing)",
+  "decode": "height_m = (R * 256 + G) * step - offset; x = east, z = south; pixel (0,0) is the north-west corner",
+  "near": {
+    "size": 1024,
+    "extent_m": 6400.0,
+    "step": 0.05,
+    "offset": 1000.0
+  },
+  "far": {
+    "size": 512,
+    "extent_m": 100000.0,
+    "step": 0.25,
+    "offset": 2000.0,
+    "shift_m": -23.87
+  },
+  "centre_lat": -4.589,
+  "centre_lon": 137.4366,
+  "attribution": [
+    "Elevation: MSL Gale Merged DEM 1 m v3 - Calef, F.J. III and Parker, T. (2016), PDS Annex, U.S. Geological Survey (USGS Astrogeology Science Center / JPL-Caltech / NASA / University of Arizona); built from HiRISE, CTX and HRSC stereo DEMs tied to MOLA.",
+    "Elevation: Mars MGS MOLA - MEX HRSC Blended DEM Global 200 m v2 - Fergason, R.L., Hare, T.M. and Laura, J. (2018), Astrogeology PDS Annex, U.S. Geological Survey. MOLA: NASA/GSFC; HRSC: ESA/DLR/FU Berlin."
+  ],
+  "licence": [
+    "USGS Astrogeology / NASA PDS Annex product. Metadata: Use Constraints \"None\"; Access Constraints \"Please credit authors\". USGS-produced data are U.S. public domain.",
+    "USGS Astrogeology product (originators DLR, NASA Goddard Space Flight Center). FGDC metadata: Use Constraints \"None\"; Access Constraints \"Please cite authors\". HRSC input data courtesy ESA/DLR/FU Berlin."
+  ]
+}

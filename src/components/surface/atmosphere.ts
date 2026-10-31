@@ -391,13 +391,13 @@ export function apUniforms(air: AirParams | null, hazeScale: number, groundY: nu
  * 材質に空気遠近を足す（three.js の霧の代わり）。uniform は場面全体で 1 組を共有するので、
  * 太陽を動かしても材質を作り直さなくてよい
  */
-export function withAir<M extends THREE.Material>(material: M, u: ApUniforms): M {
+export function withAir<M extends THREE.Material>(material: M, u: ApUniforms, realAttr = false): M {
   const prev = material.onBeforeCompile
   material.onBeforeCompile = (shader, renderer) => {
     prev?.call(material, shader, renderer)
     Object.assign(shader.uniforms, u)
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vAirWorld;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vAirWorld;' + (realAttr ? '\nattribute vec3 aReal;' : ''))
       .replace(
         '#include <project_vertex>',
         `#include <project_vertex>
@@ -407,6 +407,7 @@ export function withAir<M extends THREE.Material>(material: M, u: ApUniforms): M
             aw = instanceMatrix * aw;
           #endif
           vAirWorld = (modelMatrix * aw).xyz;
+          ${realAttr ? '// 縮めて置いた形は、縮める前の本当の位置で空気の厚みを計算する\n          vAirWorld = (modelMatrix * vec4(aReal, 1.0)).xyz;' : ''}
         }`,
       )
     shader.fragmentShader = shader.fragmentShader
@@ -415,7 +416,7 @@ export function withAir<M extends THREE.Material>(material: M, u: ApUniforms): M
   }
   // 空気遠近つきとそうでない材質を、別のシェーダーとして扱わせる
   const key = material.customProgramCacheKey.bind(material)
-  material.customProgramCacheKey = () => key() + '|air'
+  material.customProgramCacheKey = () => key() + (realAttr ? '|air-real' : '|air')
   material.needsUpdate = true
   return material
 }

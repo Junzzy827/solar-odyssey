@@ -9,7 +9,7 @@ import type { SurfaceDef } from '../../data/surfaces'
 export type SurfaceKind = 'sand' | 'regolith' | 'ice' | 'volcanic'
 
 const KIND: Record<string, SurfaceKind> = {
-  mars: 'sand', titan: 'sand',
+  earth: 'sand', mars: 'sand', titan: 'sand',
   venus: 'volcanic', io: 'volcanic',
   europa: 'ice', enceladus: 'ice', triton: 'ice', pluto: 'ice', charon: 'ice', tethys: 'ice', dione: 'ice', rhea: 'ice',
   mimas: 'ice', iapetus: 'ice', miranda: 'ice', ariel: 'ice', titania: 'ice', oberon: 'ice', ganymede: 'ice',

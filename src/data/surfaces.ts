@@ -93,11 +93,12 @@ const BASE: Record<string, Base> = {
     sky: { zenith: '#8a5a1e', horizon: '#c9862e' }, haze: 0.75, hazeColor: '#b9772c', sunHidden: true, stars: 0,
     sunEl: 50, sunAz: 150, dust: false,
   },
+  // 地球の着陸地点はモニュメント・バレー（赤い砂と砂岩の岩山。地形は本物の標高データ）
   earth: {
-    ground: '#5d7a3a', ground2: '#7d8a4a', rock: '#7c776e',
-    relief: { hills: 18, hillScale: 500, craters: 0, craterMax: 0, rocks: 0.15, mountains: 420 },
-    sky: { zenith: '#2f6fd6', horizon: '#b9d6f2' }, haze: 0.25, hazeColor: '#c9dcf0', stars: 0,
-    sunEl: 38, sunAz: 150, dust: false, extras: ['clouds'],
+    ground: '#b4643a', ground2: '#c98b58', rock: '#9a4a2c',
+    relief: { hills: 18, hillScale: 500, craters: 0, craterMax: 0, rocks: 0.35, mountains: 420 },
+    sky: { zenith: '#2f6fd6', horizon: '#b9d6f2' }, haze: 0.25, hazeColor: '#d8c2a8', stars: 0,
+    sunEl: 38, sunAz: 150, dust: true, extras: ['clouds'],
   },
   moon: airless('#8e8b86', '#6f6c68', '#5d5a56', { craters: 0.8, craterMax: 200, hills: 16, mountains: 300 }, { ejecta: '#b3afa8' }),
   mars: {
