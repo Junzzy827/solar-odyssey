@@ -19,6 +19,14 @@ const CAP = 0.03
 /** 帯 i（0〜5）の中心の角度。偶数が大地、奇数が窓 */
 const stripAngle = (i: number) => i * 60 * DEG
 
+/** 内側の大地の絵（大きいので、どのコロニーでも同じものを使い回して捨てない） */
+const lands = new Map<number, THREE.Texture>()
+function sharedLand(seed: number) {
+  let tex = lands.get(seed)
+  if (!tex) lands.set(seed, (tex = landTexture(seed)))
+  return tex
+}
+
 function envMapFor(gl: THREE.WebGLRenderer) {
   const pmrem = new THREE.PMREMGenerator(gl)
   const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
@@ -58,7 +66,7 @@ export function ColonyModel({ interior = true }: { interior?: boolean }) {
       mirrorMat: new THREE.MeshStandardMaterial({ color: '#7f8ca2', metalness: 1, roughness: 0.12, envMap: env, envMapIntensity: 0.7, side: THREE.DoubleSide }),
       lands: [0, 2, 4].map((i) => ({
         geometry: sector(R * 0.999, stripAngle(i), 60 * DEG),
-        material: new THREE.MeshBasicMaterial({ map: landTexture(17 + i * 13), side: THREE.BackSide, color: '#d8dcd0' }),
+        material: new THREE.MeshBasicMaterial({ map: sharedLand(17 + i * 13), side: THREE.BackSide, color: '#d8dcd0' }),
       })),
       hulls: [0, 2, 4].map((i) => sector(R * 1.004, stripAngle(i), 60 * DEG)),
       windows: [1, 3, 5].map((i) => sector(R, stripAngle(i), 60 * DEG)),
@@ -93,7 +101,6 @@ export function ColonyModel({ interior = true }: { interior?: boolean }) {
         const list = Array.isArray(value) ? value.flatMap((v) => (v instanceof THREE.BufferGeometry ? [v] : [v.geometry, v.material])) : [value]
         for (const v of list) if (v instanceof THREE.BufferGeometry || v instanceof THREE.Material || v instanceof THREE.Texture) v.dispose()
       }
-      parts.lands.forEach((l) => l.material.map?.dispose())
       parts.cloud.map?.dispose()
     },
     [parts],

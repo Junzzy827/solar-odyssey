@@ -37,13 +37,17 @@ type ColonyProps = {
   primary?: boolean
   /** 回転の向きをそろえないよう、最初の角度をずらす */
   phase?: number
+  /** 大きさ（第2〜第7コロニー群は半分）。自機の縮み方と速さも、同じ割合で合わせる（入り口の操作感を第1と同じに） */
+  scale?: number
+  /** 天体として登録するか（目標に選べる・名前が出る）。群の中の 1 基として近くでだけ出すときは登録しない */
+  body?: boolean
 }
 
 /**
  * 回転円筒型のスペースコロニー1基。回転軸（+Y）は群ごと太陽へ向いていて、
  * 1Gになる速さ（約2分に1回転）で回る。港から中へ入って飛べる。
  */
-export function Colony({ id, name, position = [0, 0, 0], primary = false, phase = 0 }: ColonyProps) {
+export function Colony({ id, name, position = [0, 0, 0], primary = false, phase = 0, scale = 1, body = true }: ColonyProps) {
   useLang()
   const group = useRef<THREE.Group>(null!)
   const spin = useRef<THREE.Group>(null!)
@@ -53,14 +57,14 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
   useHideBehindSun(label, group)
 
   useEffect(() => {
-    const zone: ZoomZone = { object: group.current, start: 2.6, full: 0.9, factor: COLONY_ZOOM }
-    const unregister = registerBody({ id, get name() { return name() }, radius: H * 1.1, object: group.current })
-    passThrough.add(id)
+    const zone: ZoomZone = { object: group.current, start: 2.6 * scale, full: 0.9 * scale, factor: COLONY_ZOOM / scale }
+    const unregister = body ? registerBody({ id, get name() { return name() }, radius: H * 1.1 * scale, object: group.current }) : () => {}
+    if (body) passThrough.add(id)
     zoomZones.add(zone)
     colliders.add(collide)
     return () => {
       unregister()
-      passThrough.delete(id)
+      if (body) passThrough.delete(id)
       zoomZones.delete(zone)
       colliders.delete(collide)
     }
@@ -160,7 +164,7 @@ export function Colony({ id, name, position = [0, 0, 0], primary = false, phase 
   })
 
   return (
-    <group ref={group} position={position}>
+    <group ref={group} position={position} scale={scale}>
       <group ref={spin} rotation={[0, phase, 0]}>
         <ColonyModel />
       </group>
