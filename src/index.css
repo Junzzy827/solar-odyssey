@@ -3562,3 +3562,16 @@ body.sf .nav-panel {
 body.touch .surface-time { top: calc(env(safe-area-inset-top) + 62px); left: 10px; right: auto; max-width: 230px; }
 body.touch .surface-time .time-rates { flex-wrap: wrap; }
 .surface-lab { top: 170px; }
+.surface-time .day-graph { margin-top: 8px; width: 210px; }
+.surface-time .day-now { display: flex; gap: 8px; white-space: nowrap; align-items: baseline; font-size: 12px; }
+.surface-time .day-now b { font-size: 16px; font-variant-numeric: tabular-nums; margin-left: 3px; }
+.surface-time .temp-chip b { color: #ff8a6a; }
+.surface-time .lux-chip b { color: #ffd27a; }
+.surface-time .day-graph svg { display: block; margin-top: 4px; overflow: visible; }
+.surface-time .g-label { font-size: 8px; fill: rgba(255, 255, 255, 0.6); }
+.surface-time .g-legend { display: flex; gap: 8px; margin-top: 2px; }
+.surface-time .g-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 3px; vertical-align: -1px; }
+.surface-time .sw-temp { background: #ff6a4a; }
+.surface-time .sw-light { background: rgba(255, 200, 90, 0.7); }
+.surface-time .sw-night { background: rgba(60, 85, 160, 0.7); }
+body.touch .surface-time .day-graph { width: 100%; }
