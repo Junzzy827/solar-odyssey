@@ -22,7 +22,7 @@ const URL = `${import.meta.env.BASE_URL}models/spacedock.glb`
 /** glb の 1 が何 m か */
 const GLB_M = 5000
 /** 地球の中心からの距離（表示単位。地球の半径は 1.2、軌道エレベーターの駅は 2.3） */
-const ORBIT = 3.0
+const ORBIT = 3.6
 /** 太陽の方向から、地球のまわりに回した角度（夕方の側。昼の地球を背にして見える） */
 const ANGLE = 1.15
 /** 黄道から上へ（約45°。月の軌道のラグランジュ点にある構造物と重ならないように） */
