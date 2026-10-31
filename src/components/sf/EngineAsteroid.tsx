@@ -3,7 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { asteroidMaterial } from '../asteroidShape'
-import { TOP_ENGINE_FACE, TOP_UP, rockMesh, surfaceProbe, topGeometry } from './rockShapes'
+import { TOP_ENGINE_FACE, TOP_SIZE, TOP_UP, rockMesh, surfaceProbe, topGeometry } from './rockShapes'
+import { AsteroidDock } from './AsteroidDock'
 import { sim } from '../../state/registry'
 import { useStore } from '../../state/store'
 import { useLayout } from '../../state/useLayout'
@@ -18,6 +19,10 @@ import { useSite } from './useSite'
 // 上の岩山とドーム形の居住区、採掘基地、うしろ（+Z）の平らな面に横一列の4基のプラズマエンジンを取りつけ、
 // 火星と地球の軌道のあいだをゆっくり地球のほうへ運ばれていく。
 // 武器はなく、採掘のための船として描く。形は m で決め、UNITS_PER_METER で表示単位にする。前は -Z。
+// 基地として働く岩なので、スペースコロニー並みの大きさにする（形を GROW 倍。横の縁に宇宙船ドックは本物の大きさで）。
+
+/** rockShapes の寸法の何倍で置くか（幅・高さとも約30km） */
+const GROW = 4
 
 /** 太陽からの距離（天文単位）：何年もかけて MIN から MAX のあいだを行き来する（近づくところを長く見せる） */
 const MIN_AU = 1.12
@@ -42,12 +47,15 @@ function useParts() {
     const ground = ([x, z]: [number, number]) => probe({ x, y: 20000, z }, { x, y: -20000, z })?.pos.y ?? TOP_UP
     const dome: [number, number, number] = [DOME_AT[0], ground(DOME_AT), DOME_AT[1]]
     const base: [number, number, number] = [BASE_AT[0], ground(BASE_AT) + 175, BASE_AT[1]]
+    // 宇宙船ドックは +X の縁の下の斜面（エンジンの面とも、前の採掘基地とも重ならない側）
+    const dock = probe({ x: 20000, y: -1500, z: 300 }, { x: 0, y: -1500, z: 300 })
 
     const metal = new THREE.MeshStandardMaterial({ color: '#c3c7cf', metalness: 0.55, roughness: 0.4 })
     const dark = new THREE.MeshStandardMaterial({ color: '#4a4f58', metalness: 0.6, roughness: 0.5 })
     const accent = new THREE.MeshStandardMaterial({ color: '#d98a2b', metalness: 0.3, roughness: 0.5 })
     return {
       rocks,
+      dock,
       dome,
       base,
       metal,
@@ -97,7 +105,7 @@ export function EngineAsteroid() {
   const label = useRef<HTMLSpanElement>(null)
   useHideBehindSun(label, group)
   const layout = useLayout()
-  const size = 5200 * UNITS_PER_METER
+  const size = TOP_SIZE * GROW * UNITS_PER_METER
   const moved = useSite(group, {
     id: ENGINE_ROCK_ID,
     radius: size,
@@ -134,10 +142,12 @@ export function EngineAsteroid() {
 
   return (
     <group ref={group}>
-      <group scale={UNITS_PER_METER}>
+      <group scale={UNITS_PER_METER * GROW}>
         <primitive object={parts.rocks} />
 
         {/* うしろ（+Z）の平らな面に、横一列のエンジン */}
+        {parts.dock && <AsteroidDock owner={ENGINE_ROCK_ID} at={parts.dock.pos.toArray()} normal={parts.dock.normal} scale={1 / GROW} />}
+
         <group position={[0, ENGINE_Y, TOP_ENGINE_FACE]}>
           <mesh geometry={parts.mount} material={parts.dark} position={[0, 0, 100]} />
           {ENGINES.map((x, i) => (

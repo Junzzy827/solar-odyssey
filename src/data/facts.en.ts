@@ -347,7 +347,7 @@ export const FACTS_EN: Record<string, Facts> = {
   },
   'rock-port': {
     rows: [
-      ['Size', 'About 9 km from tip to tip'],
+      ['Size', 'About 36 km from tip to tip (bigger than a space colony)'],
       ['Where', 'The Earth–Moon L4 point (on the Moon’s orbit, 60° ahead of the Moon)'],
       ['Job', 'A port for ships and homes for asteroid miners'],
     ],
@@ -355,6 +355,7 @@ export const FACTS_EN: Record<string, Facts> = {
     notes: [
       'An asteroid brought here and hollowed out for docks and homes. Sharp points stick out on four sides and from the top and bottom, like a konpeito sugar candy.',
       'The glowing squares in the hollows between the points are the ship entrances. Shuttles slowly come and go, and red lights mark the tips.',
+      'In the hollow facing Earth: It has a ship dock. In observe mode (O), use Dock to fly to its mouth automatically. A ship is resting inside for repairs.',
     ],
     real: [
       'People are studying how to use asteroids as resources. Hayabusa2 brought back samples from Ryugu, and NASA’s OSIRIS-REx from Bennu.',
@@ -371,7 +372,7 @@ export const FACTS_EN: Record<string, Facts> = {
   },
   'rock-base': {
     rows: [
-      ['Size', 'Cap about 6 km across, stem about 5 km long'],
+      ['Size', 'Cap about 31 km across, about 33 km tall'],
       ['Where', 'The Earth–Moon L2 point (beyond the Moon, seen from Earth)'],
       ['Job', 'A base for supplies and ship repairs'],
     ],
@@ -379,6 +380,7 @@ export const FACTS_EN: Record<string, Facts> = {
     notes: [
       'An asteroid base shaped like a mushroom: a big, thick cap, smaller ledges below it and a twisted rocky stem. The warm lights on the surface are windows of rooms where people live.',
       'Ship entrances are under the cap and at the tip of the stem. The red lights on the rim guide ships coming in.',
+      'Under the cap, on the Earth side, facing down: It has a ship dock. In observe mode (O), use Dock to fly to its mouth automatically. A ship is resting inside for repairs.',
     ],
     real: [
       'People are studying how to use asteroids as resources. Hayabusa2 brought back samples from Ryugu, and NASA’s OSIRIS-REx from Bennu.',
