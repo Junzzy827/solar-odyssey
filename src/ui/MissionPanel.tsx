@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { CHAPTERS, DEFLECT_HITS, MISSIONS, chapterOf, missionIndexOf, type ChapterDef } from '../data/missions'
+import { BEAM_NODES, CHAPTERS, DEFLECT_HITS, MISSIONS, chapterOf, missionIndexOf, shipOf, skillChapterOf, type ChapterDef } from '../data/missions'
 import { shipLabel, shipSpec, type ShipId } from '../data/ships'
 import { chapterText, missionText, ui } from '../i18n'
 import { useLang } from '../i18n/lang'
@@ -81,7 +81,7 @@ function ChapterList() {
                 <img src={thumb(c.ship)} alt="" loading="lazy" />
                 <span className="chapter-body">
                   <span className="chapter-ship">
-                    {shipLabel(spec, ja)}
+                    {c.fleet ? t.fleet : shipLabel(spec, ja)}
                     {c.world === 'sf' && <span className="chapter-tag">SF</span>}
                   </span>
                   <span className="mission-name">{text.title}</span>
@@ -109,16 +109,16 @@ function Header({ title, onClose = closeMissions }: { title: string; onClose?: (
   )
 }
 
-/** 章の船と得意技の説明 */
-function ShipSkill({ chapter }: { chapter: ChapterDef }) {
+/** 船と得意技の説明（最終章では、任務ごとの船の得意技） */
+function ShipSkill({ chapter, ship = chapter.ship }: { chapter: ChapterDef; ship?: ShipId }) {
   const t = ui()
   const ja = useLang() === 'ja'
-  const text = chapterText(chapter.id)
+  const text = chapterText(chapter.fleet ? skillChapterOf(ship).id : chapter.id)
   return (
     <div className="chapter-skill">
-      <img src={thumb(chapter.ship)} alt="" />
+      <img src={thumb(ship)} alt="" />
       <div>
-        <div className="muted small">{t.shipForChapter(shipLabel(shipSpec(chapter.ship), ja))}</div>
+        <div className="muted small">{chapter.fleet ? t.shipForMission(shipLabel(shipSpec(ship), ja)) : t.shipForChapter(shipLabel(shipSpec(ship), ja))}</div>
         <div>
           <b>{t.skill}：{text.skill}</b>
         </div>
@@ -137,7 +137,7 @@ function MissionList() {
     <>
       <Header title={text.title} />
       <p className="muted small">{text.intro}</p>
-      <ShipSkill chapter={chapter} />
+      {!chapter.fleet && <ShipSkill chapter={chapter} />}
       <ol className="mission-list">
         {chapter.missions.map((m, k) => {
           const i = missionIndexOf(m.id)
@@ -147,6 +147,7 @@ function MissionList() {
               <button disabled={!open} onClick={() => showBriefing(i)}>
                 <span className="mission-no">{t.missionNumber(k + 1)}</span>
                 <span className="mission-name">{open ? missionText(m.id).title : t.locked}</span>
+                {chapter.fleet && <img className="mission-ship" src={thumb(shipOf(i))} alt="" />}
                 {open && <Stars n={stars[m.id] ?? 0} />}
               </button>
             </li>
@@ -185,7 +186,7 @@ function Briefing() {
           <li key={s.goal}>{s.goal}</li>
         ))}
       </ol>
-      <ShipSkill chapter={chapter} />
+      <ShipSkill chapter={chapter} ship={shipOf(index)} />
       {racing && <p className="muted small">{t.noRace}</p>}
       <div className="quiz-actions">
         <button className="engage" onClick={startMission} disabled={racing}>
@@ -238,12 +239,13 @@ function MissionBar() {
   const timed = step.kind === 'unload' || step.kind === 'scan' || step.kind === 'load' || step.kind === 'photo' || step.kind === 'dock' || step.kind === 'sail' || craft
   let status: string
   if (step.kind === 'deflect') status = t.hits(m.progress, DEFLECT_HITS)
+  else if (step.kind === 'beam') status = t.hits(m.progress, BEAM_NODES)
   else if (craft) status = m.craftOut !== null ? t.craftOut : m.craftReady ? '' : t.craftFar
   else if (step.kind === 'sail') status = t.sailMoved(Math.round(m.progress * 100))
   else if (step.kind === 'photo' || step.kind === 'dock') status = m.framing ? t.framing[m.framing] : ''
   else if (timed) status = m.progress > 0 ? t.progress(Math.round(m.progress * 100)) : t.waitNear
   else status = ''
-  const fraction = step.kind === 'deflect' ? m.progress / DEFLECT_HITS : timed ? m.progress : 0
+  const fraction = step.kind === 'deflect' ? m.progress / DEFLECT_HITS : step.kind === 'beam' ? m.progress / BEAM_NODES : timed ? m.progress : 0
 
   const chapter = chapterOf(m.index)
   return (

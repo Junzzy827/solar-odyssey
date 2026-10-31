@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { CRAFT_SECONDS, DEFLECT_HITS, DOCK_RANGE, DOCK_SECONDS, DOCK_SPEED, FLYBY_ALTITUDE, LANDER_SECONDS, LAUNCH_RANGE, MECH_ID, MISSIONS, ROCK_ID, type MissionStep } from '../../data/missions'
+import { BEAM_NODES, CRAFT_SECONDS, DEFLECT_HITS, DOCK_RANGE, DOCK_SECONDS, DOCK_SPEED, FLYBY_ALTITUDE, LANDER_SECONDS, LAUNCH_RANGE, MECH_ID, MISSIONS, ROCK_ID, type MissionStep } from '../../data/missions'
 import { missionText, ui } from '../../i18n'
 import { approachKind } from '../../data/approach'
 import { beamTargets, bodies, markerOverride, registerBody, type BodyEntry } from '../../state/registry'
@@ -80,7 +80,7 @@ export function MissionRunner() {
     const st = useStore.getState()
     if (m.phase !== 'active' || st.warpPhase !== 'idle') return
     const def = MISSIONS[m.index].steps[m.step]
-    if (def.kind === 'deflect' || def.kind === 'dock') return
+    if (def.kind === 'deflect' || def.kind === 'dock' || def.kind === 'beam') return
     if (def.kind === 'sail') {
       // 光の帆：自分の力で進んだ道のりを数える（ワープは数えない）
       const p = Math.min(1, m.progress + (ship.velocity.length() * Math.min(delta, 0.1)) / (def.distance ?? 50))
@@ -129,9 +129,87 @@ export function MissionRunner() {
     <>
       {kind === 'deflect' && <MissionRock />}
       {kind === 'dock' && <DockRing key={`${index}-${step}`} />}
+      {kind === 'beam' && <BeamNodes key={`${index}-${step}`} />}
       {mechStep >= 0 && step <= mechStep && <StrandedMech />}
       {craftOut !== null && (kind === 'launch' || kind === 'land') && <Craft key={`${index}-${step}`} land={kind === 'land'} />}
     </>
+  )
+}
+
+const nodeAt = new THREE.Vector3()
+const LIT = new THREE.Color(0.5, 1.8, 2.4)
+const UNLIT = new THREE.Color(2.4, 1.1, 0.3)
+const nodeU = new THREE.Vector3()
+const nodeV = new THREE.Vector3()
+
+/** 起動の光：目標の天体（ゲート）のまわりに BEAM_NODES 個。ビームが当たると橙から水色に変わる */
+function BeamNodes() {
+  const group = useRef<THREE.Group>(null!)
+  const nodes = useRef<THREE.Mesh[]>([])
+  const run = useRef({ offsets: [] as THREE.Vector3[], lit: [] as boolean[], ready: false })
+
+  useEffect(() => {
+    const m = useMission.getState()
+    const def = MISSIONS[m.index].steps[m.step]
+    const entry = bodies.get(def.body)
+    if (!entry) return
+    // 自機から見て、天体の輪のまわりに等間隔に並べる（少し手前へ）
+    entry.object.getWorldPosition(nodeAt)
+    const toShip = ship.position.clone().sub(nodeAt).normalize()
+    nodeU.crossVectors(toShip, UP)
+    if (nodeU.lengthSq() < 1e-6) nodeU.set(1, 0, 0)
+    nodeU.normalize()
+    nodeV.crossVectors(nodeU, toShip).normalize()
+    const r = run.current
+    r.offsets = Array.from({ length: BEAM_NODES }, (_, i) => {
+      const a = Math.PI / 2 + (i / BEAM_NODES) * Math.PI * 2
+      return nodeU.clone().multiplyScalar(Math.cos(a)).addScaledVector(nodeV, Math.sin(a)).multiplyScalar(entry.radius * 1.05).addScaledVector(toShip, entry.radius * 0.1)
+    })
+    r.lit = r.offsets.map(() => false)
+    r.ready = true
+    const text = missionText(MISSIONS[m.index].id).steps[m.step]
+    const targets = nodes.current.map((object, i) => ({
+      object,
+      onHit: () => {
+        if (r.lit[i]) return
+        r.lit[i] = true
+        // 光った点は、もう当たらないように外す（次の一発はほかの点へ）
+        beamTargets.splice(beamTargets.indexOf(targets[i]), 1)
+        const n = r.lit.filter(Boolean).length
+        setProgress(n)
+        if (n < BEAM_NODES) missionSay(text.hits?.[n - 1] ?? '')
+        else setTimeout(() => useMission.getState().phase === 'active' && completeStep(), 1500)
+      },
+    }))
+    beamTargets.push(...targets)
+    return () => {
+      for (const t of targets) if (beamTargets.includes(t)) beamTargets.splice(beamTargets.indexOf(t), 1)
+    }
+  }, [])
+
+  useFrame(({ clock }) => {
+    const r = run.current
+    const m = useMission.getState()
+    const entry = bodies.get(MISSIONS[m.index]?.steps[m.step]?.body ?? '')
+    if (!r.ready || !entry) return
+    entry.object.getWorldPosition(nodeAt)
+    const t = clock.getElapsedTime()
+    nodes.current.forEach((node, i) => {
+      node.position.copy(nodeAt).add(r.offsets[i])
+      node.scale.setScalar(entry.radius * (r.lit[i] ? 0.08 : 0.06 + 0.015 * Math.sin(t * 4 + i)))
+      ;(node.material as THREE.MeshBasicMaterial).color.copy(r.lit[i] ? LIT : UNLIT)
+    })
+  })
+
+  return (
+    <group ref={group}>
+      {Array.from({ length: BEAM_NODES }, (_, i) => (
+        <mesh key={i} ref={(el) => el && (nodes.current[i] = el)}>
+          <sphereGeometry args={[1, 16, 12]} />
+          <meshBasicMaterial toneMapped={false} />
+        </mesh>
+      ))}
+    </group>
   )
 }
 

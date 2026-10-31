@@ -1805,6 +1805,14 @@ canvas {
   cursor: pointer;
 }
 
+.mission-list .mission-ship {
+  flex: none;
+  width: 46px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
 .mission-list button:disabled {
   opacity: 0.45;
   cursor: default;

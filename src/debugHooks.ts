@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
 import { flightControl, ship, thrustFx, warpFx } from './state/flight'
-import { bodies, markerOverride, sim } from './state/registry'
+import { bodies, markerOverride, beamTargets, sim } from './state/registry'
 import { useRace } from './state/race'
 import { useMission } from './state/mission'
 import { MISSIONS } from './data/missions'
@@ -35,6 +35,7 @@ const sv = {
   thrustFx,
   bodies,
   markerOverride,
+  beamTargets,
   sim,
   camera: null as CameraFn | null,
   setCamera: null as unknown as (fn: CameraFn | null) => void,

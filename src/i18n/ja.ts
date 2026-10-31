@@ -48,6 +48,8 @@ export const ja = {
   sailLight: (x: string) => `太陽の光の強さ：地球のそばの ${x} 倍`,
   sailLaser: 'レーザーの光を帆に受けています',
   sailMoved: (n: number) => `光の帆で進んだ道のり ${n}%`,
+  fleet: '船団 全6隻',
+  shipForMission: (ship: string) => `この任務では ${ship} に乗ります（任務を始めると乗り換えます）`,
   framing: {
     ok: '撮影中…',
     out: '目標を枠の中へ',

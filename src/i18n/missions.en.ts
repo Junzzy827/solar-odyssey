@@ -1165,6 +1165,274 @@ export const missionsEn: Record<string, MissionText> = {
       },
     ],
   },
+  'finale-observe': {
+    title: 'Observe the gate',
+    client: 'Fleet command',
+    briefing: [
+      'The signal picked up by the Europa Beacon came from the space-time gate beyond Neptune.',
+      'The gate is unstable, and it only stays passable for short spells. The whole six-ship fleet will work together to open it for good.',
+      'First, the Amatsukaze’s observatory will study the gate closely.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the space-time gate',
+        start: 'Target set: the space-time gate.',
+        done: 'We have reached the gate. Its rim is flickering faintly.',
+      },
+      {
+        goal: 'Frame the gate and take its photo',
+        start: 'Bring the gate into the photo frame and hold it there.',
+        done: 'Got it. The photos show that to steady the gate we need a powerful energy core and a beacon to mark its position.',
+      },
+    ],
+    summary: ['To steady the gate we need an energy core and a beacon.', 'All six ships will prepare, each using its own special skill.'],
+    real: [
+      'Wormholes (tunnels through space-time) come from the equations of Einstein’s general theory of relativity.',
+      'No real wormhole has ever been found. Even if one existed, it would probably be very unstable.',
+    ],
+    quiz: [
+      {
+        question: 'Which theory’s equations gave us the idea of wormholes?',
+        choices: ['General relativity', 'Evolution', 'Continental drift'],
+        answer: 0,
+        explanation: 'Einstein’s general relativity has solutions that look like tunnels linking faraway places.',
+      },
+      {
+        question: 'Have real wormholes been found?',
+        choices: ['Not yet', 'Many of them', 'There is one in our solar system'],
+        answer: 0,
+        explanation: 'They are possible on paper, but none has ever been found. The gate in this chapter is science fiction.',
+      },
+    ],
+  },
+
+  'finale-core': {
+    title: 'Deliver the energy core',
+    client: 'Lunar Shipyard',
+    briefing: [
+      'The Lunar Shipyard has finished a huge energy core to steady the gate.',
+      'It is very heavy. Carry it in the Hakobune and ease it into the gate’s docking ring.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the Lunar Shipyard',
+        start: 'Target set: the Lunar Shipyard.',
+        done: 'We have reached the shipyard.',
+      },
+      {
+        goal: 'Stop near the shipyard and load the core',
+        start: 'Please hold still while we load the core.',
+        done: 'Loaded. The ship feels much heavier now.',
+      },
+      {
+        goal: 'Fly to the space-time gate',
+        start: 'Target set: the gate. Warping is fine.',
+        done: 'We have reached the gate. The docking ring is in view.',
+      },
+      {
+        goal: 'Ease into the docking ring and stop',
+        start: 'Slowly enter the middle of the ring and come to a stop.',
+        done: 'The core is installed! The flicker around the gate’s rim has calmed a little.',
+      },
+    ],
+    summary: ['Heavy cargo is moved slowly and stopped slowly.', 'The energy core is now fitted to the gate.'],
+    real: [
+      'Big structures in space are built by bringing up parts one at a time and assembling them there.',
+      'The International Space Station took more than 40 launches and over ten years to assemble.',
+    ],
+    quiz: [
+      {
+        question: 'How was the International Space Station built?',
+        choices: ['Parts were carried up many times and assembled in space', 'It was built on the ground and launched in one go', 'It was built on the Moon'],
+        answer: 0,
+        explanation: 'It was far too big for one launch, so its parts were carried up in more than 40 trips and assembled in orbit.',
+      },
+      {
+        question: 'How does a heavy ship stop in space?',
+        choices: ['It fires its engine the other way', 'It uses brakes', 'It stops on its own'],
+        answer: 0,
+        explanation: 'With no air or ground to push on, the only way to stop is to fire the engine backward. The heavier the ship, the longer the burn.',
+      },
+    ],
+  },
+
+  'finale-buoy': {
+    title: 'Place the marker buoy',
+    client: 'Fleet command',
+    briefing: [
+      'We will place a marker buoy so ships going through the gate never lose their way.',
+      'Carry the buoy in the White Heron’s survey craft and set it beside the gate.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the space-time gate',
+        start: 'Target set: the gate.',
+        done: 'We have reached the gate.',
+      },
+      {
+        goal: 'Launch a craft to the gate and place the buoy',
+        start: 'Once you are close, launch a survey craft.',
+        arrive: 'The craft has placed the buoy. It lights up and starts sending its position signal.',
+        done: 'Buoy in place. Now we know exactly where the gate is.',
+      },
+    ],
+    summary: ['In space, beacons that send signals help ships know where they are.'],
+    real: [
+      'To track faraway probes, big antennas on Earth send radio signals and time how long the reply takes to come back.',
+      'NASA’s Deep Space Network has antennas in the USA, Spain and Australia, so as Earth turns one of them can always talk to a probe.',
+    ],
+    quiz: [
+      {
+        question: 'How is the distance to a faraway probe measured?',
+        choices: ['By timing a radio signal’s round trip', 'With a tape measure', 'By how big it looks in a telescope'],
+        answer: 0,
+        explanation: 'Radio waves travel at the speed of light, so the round-trip time tells you the distance.',
+      },
+      {
+        question: 'Why are NASA’s deep-space antennas in three places around the world?',
+        choices: ['So one can always reach a probe as Earth turns', 'To avoid the rain', 'Because those countries are the same size'],
+        answer: 0,
+        explanation: 'As Earth spins, a single antenna loses sight of a probe for part of the day. With three sites, one is always in contact.',
+      },
+    ],
+  },
+
+  'finale-light': {
+    title: 'The last part, by light sail',
+    client: 'Lunar Shipyard',
+    briefing: [
+      'One last light but important part is needed to tune the gate. It has to get there fast.',
+      'The Light-Sail Launcher’s laser will give the Sorakaze a huge boost.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the Light-Sail Launcher',
+        start: 'Target set: the Light-Sail Launcher.',
+        done: 'We have reached the launcher. The laser is hitting our sail!',
+      },
+      {
+        goal: 'Sail on the laser light',
+        start: 'Fly by light sail. You will pick up speed fast.',
+        done: 'That is plenty of speed!',
+      },
+      {
+        goal: 'Fly to the space-time gate',
+        start: 'Target set: the gate.',
+        done: 'We have reached the gate.',
+      },
+      {
+        goal: 'Stop near the gate and deliver the part',
+        start: 'Unloading the part. Please hold still.',
+        done: 'Delivered! Now all that is left is to switch the gate on.',
+      },
+    ],
+    summary: ['Light cargo can be carried very fast with a light sail and a laser.'],
+    real: [
+      'The lighter a light sail is, the faster it speeds up, so its cargo has to be very light too.',
+      'The Starshot project imagines probes the size of a postage stamp that weigh just a few grams.',
+    ],
+    quiz: [
+      {
+        question: 'What kind of ship speeds up best on a light sail?',
+        choices: ['A light one', 'A heavy one', 'One with a big engine'],
+        answer: 0,
+        explanation: 'Light pushes very gently, so the lighter the ship, the faster it speeds up.',
+      },
+      {
+        question: 'How heavy are Starshot’s planned probes?',
+        choices: ['A few grams', 'A few tonnes', 'A few hundred kilograms'],
+        answer: 0,
+        explanation: 'About the size of a postage stamp and a few grams in weight, so they can reach about one fifth of the speed of light.',
+      },
+    ],
+  },
+
+  'finale-open': {
+    title: 'Open the gate',
+    client: 'Fleet command',
+    briefing: [
+      'Everything is ready. Last of all, the Solar Voyager’s beam will light the three activation lights around the gate.',
+      'The whole fleet is watching. Captain, over to you.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the space-time gate',
+        start: 'Target set: the gate.',
+        done: 'We have reached the gate. Three orange lights glow around the ring.',
+      },
+      {
+        goal: 'Hit the three activation lights with the beam',
+        start: 'Put an orange light in your sights and fire with F or a click (the beam button on a phone).',
+        hits: ['The first one is lit!', 'The second! Just one more.'],
+        done: 'All three are lit! The gate begins to glow softly, and the view through the ring turns into the sky of a faraway star. The gate is open and steady!',
+      },
+    ],
+    summary: ['Together, the six ships’ skills opened the gate.', 'What one ship cannot do alone, a fleet can.'],
+    real: [
+      'Real space exploration is also carried out by many countries and people working together.',
+      'The International Space Station is run by 15 countries, including the USA, Russia, Japan, Canada and European nations.',
+    ],
+    quiz: [
+      {
+        question: 'About how many countries work together on the International Space Station?',
+        choices: ['15', '1', '100'],
+        answer: 0,
+        explanation: 'The USA, Russia, Japan, Canada and 11 member countries of the European Space Agency: 15 in all.',
+      },
+      {
+        question: 'What is the name of Japan’s laboratory module on the space station?',
+        choices: ['Kibo', 'Hayabusa', 'Himawari'],
+        answer: 0,
+        explanation: 'Kibo, which means “hope”, is the largest laboratory module on the station.',
+      },
+    ],
+  },
+
+  'finale-beyond': {
+    title: 'Beyond the gate',
+    client: 'Everyone in the fleet',
+    briefing: [
+      'The gate is open. The first ship through will be the Meguri, built for long journeys.',
+      'Go through the gate to the planet of two suns and make the fleet’s first landing.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the space-time gate',
+        start: 'Target set: the gate.',
+        done: 'We are in front of the gate. The whole fleet is seeing us off.',
+      },
+      {
+        goal: 'Go through the gate to the planet of two suns',
+        start: 'Target set: the planet of two suns. Fly straight into the ring, or warp.',
+        done: 'We have reached the planet of two suns.',
+      },
+      {
+        goal: 'Send down the lander',
+        start: 'Release the lander. This is the fleet’s first step.',
+        arrive: 'The lander has touched down. Two suns are slowly setting.',
+        done: 'The lander is back. Captain, that is the end of the fleet’s story. Each of the six ships’ skills brought us here. Well done!',
+      },
+    ],
+    summary: ['The fleet took its first step on a planet beyond the gate.', 'The journey was only possible because every ship had its own skill.'],
+    real: [
+      'The Moon is still the only world beyond Earth where people have set foot (the Apollo missions, 1969–1972).',
+      'NASA’s Artemis program is preparing to send people back to the Moon.',
+    ],
+    quiz: [
+      {
+        question: 'Besides Earth, where have people set foot?',
+        choices: ['Only the Moon', 'The Moon and Mars', 'Nowhere yet'],
+        answer: 0,
+        explanation: 'Twelve astronauts walked on the Moon during the Apollo missions from 1969 to 1972.',
+      },
+      {
+        question: 'What is the US program to send people back to the Moon called?',
+        choices: ['Artemis', 'Apollo', 'Voyager'],
+        answer: 0,
+        explanation: 'In Greek myth, Artemis is the twin sister of Apollo.',
+      },
+    ],
+  },
 }
 
 export const chaptersEn: Record<string, ChapterText> = {
@@ -1218,5 +1486,11 @@ export const chaptersEn: Record<string, ChapterText> = {
     skill: 'Send down the lander',
     how: 'Near a world, press “Send down the lander” or L to set the lander down on the surface.',
     intro: 'Measure time by the black hole beyond the gate, and land on planets of faraway stars.',
+  },
+  'finale-sf': {
+    title: 'Finale SF: Opening the Gate',
+    skill: 'Every ship’s skill',
+    how: 'You switch between the fleet’s six ships from mission to mission.',
+    intro: 'The beacon’s signal led to the space-time gate. Combine all six ships’ skills to open it.',
   },
 }

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { CARGO_SPEED, CHAPTERS, LEGACY_ORDER, MECH_ID, MISSIONS, ROCK_ID, SAIL_SPEED, chapterOf } from '../data/missions'
+import { CARGO_SPEED, CHAPTERS, LEGACY_ORDER, MECH_ID, MISSIONS, ROCK_ID, SAIL_SPEED, chapterOf, shipOf } from '../data/missions'
 import type { ShipId } from '../data/ships'
 import { missionText } from '../i18n'
 import { playBeep } from '../audio/sfx'
@@ -148,7 +148,7 @@ export function startMission() {
   const s = useStore.getState()
   const m = useMission.getState()
   // 章の船に乗り換える（はじめて乗り換えるときだけ、元の船を覚えておく）
-  const ship = chapterOf(m.index).ship
+  const ship = shipOf(m.index)
   if (s.settings.ship !== ship) {
     useMission.setState({ prevShip: m.prevShip ?? s.settings.ship })
     s.updateSettings({ ship })

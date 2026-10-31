@@ -1,6 +1,6 @@
 import type { Quiz } from './facts'
 import type { ShipId } from './ships'
-import { ARK_ID, BEACON_ID, BLACK_HOLE_ID, COLONY_ID, CROSS_ID, DESERT_ID, DYSON_ID, FLEET_ID, ICE_ID, SAIL_LAUNCHER_ID, SOLAR_PLANT_ID, YARD_ID } from './sf'
+import { ARK_ID, BEACON_ID, BLACK_HOLE_ID, COLONY_ID, CROSS_ID, DESERT_ID, DYSON_ID, FLEET_ID, GATE_ID, ICE_ID, SAIL_LAUNCHER_ID, SOLAR_PLANT_ID, YARD_ID } from './sf'
 import { ENGINE_ROCK_ID } from './sfEngine'
 import { RADIO_MOON_ID } from './sfSpace'
 import { MOON_CITY_ID, RAILWAY_ID } from './sfJapan'
@@ -22,8 +22,9 @@ import { MOON_CITY_ID, RAILWAY_ID } from './sfJapan'
  * launch：探査艇を発進させて天体へ送る（ホワイトヘロン）。back なら艇が戻ってくるまで（救助では相手を連れて帰る）
  * sail：光の帆で distance だけ進む（ソラカゼ）。light はその場所の太陽の光の強さ（地球のそばを1とした本物の比）
  * land：着陸艇を天体の表面へ降ろして、戻ってくるまで（メグリ）
+ * beam：天体のまわりに出る光の点（BEAM_NODES 個）に、ビームを全部当てる（最終章の SV-01）
  */
-export type StepKind = 'goto' | 'unload' | 'scan' | 'flyby' | 'deflect' | 'photo' | 'load' | 'dock' | 'eclipse' | 'launch' | 'sail' | 'land'
+export type StepKind = 'goto' | 'unload' | 'scan' | 'flyby' | 'deflect' | 'photo' | 'load' | 'dock' | 'eclipse' | 'launch' | 'sail' | 'land' | 'beam'
 
 export type MissionStep = {
   kind: StepKind
@@ -36,7 +37,12 @@ export type MissionStep = {
   light?: number
 }
 
-export type MissionDef = { id: string; steps: MissionStep[] }
+export type MissionDef = {
+  id: string
+  /** この任務だけ別の船に乗る（最終章は任務ごとに船が変わる） */
+  ship?: ShipId
+  steps: MissionStep[]
+}
 
 export type ChapterDef = {
   id: string
@@ -44,6 +50,8 @@ export type ChapterDef = {
   ship: ShipId
   /** 現実編か SF 編か（SF 編は SF モードのときだけ出る） */
   world: 'real' | 'sf'
+  /** 船団の全船で挑む章（最終章） */
+  fleet?: boolean
   missions: MissionDef[]
 }
 
@@ -70,6 +78,8 @@ export const CRAFT_SECONDS = 3
 export const LANDER_SECONDS = [4, 3, 4] as const
 /** 光の帆：最高速度の割合は光の強さに比例させるが、遊べる範囲に収める */
 export const SAIL_SPEED: [number, number] = [0.15, 4]
+/** 最終章：ゲートのまわりに出る起動の光の数 */
+export const BEAM_NODES = 3
 /** 救助の任務で出てくる作業メカ（目標として選べるよう、天体の一覧に一時的に加える） */
 export const MECH_ID = 'mission-mech'
 
@@ -385,6 +395,67 @@ export const CHAPTERS: ChapterDef[] = [
       },
     ],
   },
+  {
+    id: 'finale-sf',
+    ship: 'sv01',
+    world: 'sf',
+    fleet: true,
+    missions: [
+      {
+        id: 'finale-observe',
+        ship: 'amatsu',
+        steps: [
+          { kind: 'goto', body: GATE_ID },
+          { kind: 'photo', body: GATE_ID, seconds: 4 },
+        ],
+      },
+      {
+        id: 'finale-core',
+        ship: 'hakobune',
+        steps: [
+          { kind: 'goto', body: YARD_ID },
+          { kind: 'load', body: YARD_ID, seconds: 5 },
+          { kind: 'goto', body: GATE_ID },
+          { kind: 'dock', body: GATE_ID },
+        ],
+      },
+      {
+        id: 'finale-buoy',
+        ship: 'heron',
+        steps: [
+          { kind: 'goto', body: GATE_ID },
+          { kind: 'launch', body: GATE_ID },
+        ],
+      },
+      {
+        id: 'finale-light',
+        ship: 'sorakaze',
+        steps: [
+          { kind: 'goto', body: SAIL_LAUNCHER_ID },
+          { kind: 'sail', body: SAIL_LAUNCHER_ID, distance: 120, light: 50 },
+          { kind: 'goto', body: GATE_ID },
+          { kind: 'unload', body: GATE_ID, seconds: 4 },
+        ],
+      },
+      {
+        id: 'finale-open',
+        ship: 'sv01',
+        steps: [
+          { kind: 'goto', body: GATE_ID },
+          { kind: 'beam', body: GATE_ID },
+        ],
+      },
+      {
+        id: 'finale-beyond',
+        ship: 'meguri',
+        steps: [
+          { kind: 'goto', body: GATE_ID },
+          { kind: 'goto', body: DESERT_ID },
+          { kind: 'land', body: DESERT_ID },
+        ],
+      },
+    ],
+  },
 ]
 
 /** すべての任務（章の順）。任務の番号はこの並びの番号 */
@@ -396,6 +467,12 @@ export const chapterOf = (missionIndex: number) => {
 }
 
 export const missionIndexOf = (id: string) => MISSIONS.findIndex((m) => m.id === id)
+
+/** 任務で乗る船（ふだんは章の船、最終章は任務ごと） */
+export const shipOf = (missionIndex: number) => MISSIONS[missionIndex]?.ship ?? chapterOf(missionIndex).ship
+
+/** その船の得意技を説明している章（現実編） */
+export const skillChapterOf = (ship: ShipId) => CHAPTERS.find((c) => c.ship === ship && c.world === 'real' && !c.fleet) ?? CHAPTERS[0]
 
 /** 前のバージョンで保存した星の並び（ソーラーボイジャーの8本） */
 export const LEGACY_ORDER = SV01_MISSIONS.map((m) => m.id)

@@ -51,6 +51,8 @@ export const en: typeof ja = {
   sailLight: (x: string) => `Sunlight strength: ${x}× what it is near Earth`,
   sailLaser: 'The sail is catching the laser light',
   sailMoved: (n: number) => `Distance sailed by light: ${n}%`,
+  fleet: 'The whole fleet (6 ships)',
+  shipForMission: (ship: string) => `In this mission you fly the ${ship} (you switch ships when it starts)`,
   framing: {
     ok: 'Taking the photo…',
     out: 'Bring the target into the frame',
