@@ -3529,3 +3529,36 @@ body.sf .nav-panel {
 .surface-lab .lab-row b { font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
 .surface-lab select { width: 100%; }
 .surface-lab .lab-foot { margin: 6px 0; }
+
+/* 地表の時計（現地時刻・時間の速さ・地球から見た月） */
+.surface-time {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(10, 14, 22, 0.6);
+  font-size: 12px;
+  color: #dbe4f0;
+  pointer-events: auto;
+  max-width: 260px;
+}
+.surface-time .time-now b { font-size: 18px; font-variant-numeric: tabular-nums; margin: 0 4px; }
+.surface-time .small { font-size: 11px; }
+.surface-time .time-rates { display: flex; gap: 4px; margin-top: 6px; }
+.surface-time .time-rates button {
+  flex: 1;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.surface-time .time-rates button.active { background: rgba(255, 170, 80, 0.85); color: #1a1208; border-color: transparent; }
+.surface-time .moon-inset { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.surface-time .moon-inset b { font-size: 13px; }
+body.touch .surface-time { top: calc(env(safe-area-inset-top) + 62px); left: 10px; right: auto; max-width: 230px; }
+body.touch .surface-time .time-rates { flex-wrap: wrap; }
+.surface-lab { top: 170px; }
