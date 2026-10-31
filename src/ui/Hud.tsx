@@ -8,6 +8,7 @@ import type { Near } from '../state/proximity'
 import { isTelescope, scopeName, TELESCOPE_TEXT } from '../data/telescopes'
 import { canOpenGallery, closeGallery, openGallery } from '../state/gallery'
 import { isTouchDevice } from '../state/input'
+import { launchLander, useLaunchBusy } from '../state/launch'
 import { getLang, t, useLang } from '../i18n/lang'
 
 /** 全体のキー操作：M 全体マップ／V 鑑賞モード／Enter ワープ／G 自動航行／C カメラ／1〜9 ワープ速度 */
@@ -173,6 +174,8 @@ export function Hud() {
   const targetId = useStore((s) => s.targetId)
   const warpPhase = useStore((s) => s.warpPhase)
   const cameraMode = useStore((s) => s.cameraMode)
+  const shipId = useStore((s) => s.settings.ship)
+  const launching = useLaunchBusy()
   const warpFactor = useStore((s) => s.warpFactor)
   const telemetry = useStore((s) => s.telemetry)
   const scopeNear = useStore((s) => s.scopeNear)
@@ -244,6 +247,11 @@ export function Hud() {
               {t('ブリッジに入る', 'Enter the bridge')}
             </button>
           ))}
+          {mode === 'flight' && shipId === 'arcadia' && (
+            <button className="launch-button" onClick={launchLander} disabled={launching || warpPhase !== 'idle'}>
+              {t('着陸船を発進', 'Launch lander')} <kbd>L</kbd>
+            </button>
+          )}
           {mode === 'flight' && (
             <button className="gallery-button" onClick={openGallery} disabled={warpPhase !== 'idle' || !canOpenGallery()}>
               {t('船を眺める', 'View the ship')} <kbd>V</kbd>

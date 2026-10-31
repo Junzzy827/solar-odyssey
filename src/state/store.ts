@@ -101,7 +101,7 @@ const worldFromUrl = /[?&#](sf|real)\b/.exec(location.search + location.hash)?.[
 const lookFromUrl = /[?&#]look=(illustrated|photo)\b/.exec(location.search + location.hash)?.[1] as Settings['look'] | undefined
 
 // リンクで船を決めて開ける（#ship=heron など）
-const shipFromUrl = /[?&#]ship=(sv01|heron|sorakaze|hakobune|meguri|amatsu)\b/.exec(location.search + location.hash)?.[1] as ShipId | undefined
+const shipFromUrl = /[?&#]ship=(sv01|heron|sorakaze|hakobune|meguri|amatsu|arcadia)\b/.exec(location.search + location.hash)?.[1] as ShipId | undefined
 
 function loadSettings(): Settings {
   let saved: Partial<Settings> = {}

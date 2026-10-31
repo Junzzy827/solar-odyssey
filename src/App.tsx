@@ -144,7 +144,8 @@ export default function App() {
       <LabelDeclutter />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}
-        <a href="https://science.nasa.gov/resource/hubble-space-telescope-3d-model/" target="_blank" rel="noreferrer">NASA VTAD</a>
+        <a href="https://science.nasa.gov/resource/hubble-space-telescope-3d-model/" target="_blank" rel="noreferrer">NASA VTAD</a> · Stars:{' '}
+        <a href="http://tdc-www.harvard.edu/catalogs/bsc5.html" target="_blank" rel="noreferrer">Yale Bright Star Catalog</a>
       </div>
     </>
   )

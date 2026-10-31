@@ -1285,6 +1285,31 @@ button:disabled {
   opacity: 0.4;
 }
 
+/* アルカディアの「着陸船を発進」（船を眺めるボタンの上） */
+.launch-button {
+  position: fixed;
+  left: calc(50% + 96px);
+  bottom: 72px;
+  padding: 10px 18px;
+  border: 1px solid rgba(110, 170, 255, 0.75);
+  border-radius: 20px;
+  background: rgba(10, 16, 34, 0.75);
+  color: #bcd6ff;
+}
+
+.launch-button:disabled {
+  opacity: 0.4;
+}
+
+@media (max-width: 720px) {
+  .launch-button {
+    left: auto;
+    right: 12px;
+    bottom: 128px;
+    padding: 10px 12px;
+  }
+}
+
 /* 鑑賞モードの「艦橋の中に入る」 */
 .bridge-enter {
   display: block;
@@ -1532,6 +1557,15 @@ canvas {
 .touch-button.beam {
   border-color: rgba(242, 166, 90, 0.8);
   color: #f6c48f;
+}
+
+.touch-button.launch {
+  border-color: rgba(110, 170, 255, 0.85);
+  color: #bcd6ff;
+}
+
+.touch-button.launch:disabled {
+  opacity: 0.4;
 }
 
 .touch-button:active {
