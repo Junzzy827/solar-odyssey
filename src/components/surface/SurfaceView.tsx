@@ -7,6 +7,7 @@ import { textureUrl } from '../../data/textures'
 import { PLANETS } from '../../data/bodies'
 import { useOptionalTexture } from '../../hooks/useOptionalTexture'
 import { haloTexture } from '../ship/ShipModel'
+import { dprFor, lowMemory, useLevel } from '../../state/quality'
 import { ASCENT, DESCENT, FADE, landingNow, skipDescent, startTakeoff, useLanding } from '../../state/landing'
 import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded } from './terrain'
 import { named, t, useLang } from '../../i18n/lang'
@@ -298,13 +299,51 @@ const BELLY: [number, number, number][] = [
   [0.13, 0.08, 0.22],
 ]
 
+const MAP_KEYS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap'] as const
+
+/**
+ * 大きなテクスチャを小さく描き直した写しを作る（スマホのメモリ対策）。
+ * 地表の場面は宇宙の場面とは別の Canvas なので、着陸船の 2048 のテクスチャ5枚（GPU で約110MB）が
+ * そのまま二重に載ると、iPhone ではページごと落ちてしまう。
+ */
+function shrinkTexture(tex: THREE.Texture, max: number): THREE.Texture | null {
+  const img = tex.image as { width?: number; height?: number } | undefined
+  if (!img?.width || !img.height || Math.max(img.width, img.height) <= max) return null
+  const k = max / Math.max(img.width, img.height)
+  const c = document.createElement('canvas')
+  c.width = Math.max(1, Math.round(img.width * k))
+  c.height = Math.max(1, Math.round(img.height * k))
+  const ctx = c.getContext('2d')
+  if (!ctx) return null
+  ctx.drawImage(tex.image as CanvasImageSource, 0, 0, c.width, c.height)
+  const out = tex.clone()
+  out.source = new THREE.Source(c)
+  out.needsUpdate = true
+  return out
+}
+
 function Lander({ terrain, dustColor }: { terrain: Terrain; dustColor: string }) {
   const { scene } = useGLTF(url('ship-lander.glb'))
   const group = useRef<THREE.Group>(null)
   const ground = useMemo(() => terrain.height(LANDER_POS.x, LANDER_POS.y), [terrain])
   const built = useMemo(() => {
     const model = scene.clone(true)
-    const owned: THREE.Material[] = []
+    const owned: { dispose: () => void }[] = []
+    // スマホでは着陸船のテクスチャを 1024 に縮める（見た目はほとんど変わらず、メモリは 1/4）
+    const small = new Map<THREE.Texture, THREE.Texture>()
+    const shrink = (m: THREE.MeshStandardMaterial) => {
+      if (!lowMemory()) return
+      for (const key of MAP_KEYS) {
+        const tex = m[key]
+        if (!tex) continue
+        if (!small.has(tex)) {
+          const s = shrinkTexture(tex, 1024)
+          small.set(tex, s ?? tex)
+          if (s) owned.push(s)
+        }
+        m[key] = small.get(tex)!
+      }
+    }
     const glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 0.75, 2), toneMapped: false })
     owned.push(glow)
     model.traverse((o) => {
@@ -324,6 +363,7 @@ function Lander({ terrain, dustColor }: { terrain: Terrain; dustColor: string })
         m.emissive.setRGB(1, 1, 1)
         m.emissiveIntensity = 1
         m.envMapIntensity = 0.4
+        shrink(m)
         owned.push(m)
         mesh.material = m
       }
@@ -608,6 +648,9 @@ function Scene({ def }: { def: SurfaceDef }) {
     l.target.position.set(0, 0, -15)
     l.target.updateMatrixWorld()
   }, [])
+  // 影の細かさ：高画質のパソコンだけ 2048（スマホや軽い画質では 1024 で、メモリを 1/4 に）
+  const level = useLevel()
+  const shadowSize = level === 'high' && !lowMemory() ? 2048 : 1024
   const sunPos = sunDir.clone().multiplyScalar(160).add(new THREE.Vector3(0, 0, -15))
   return (
     <>
@@ -623,7 +666,7 @@ function Scene({ def }: { def: SurfaceDef }) {
         intensity={sunPower}
         color={def.sunHidden ? def.hazeColor : '#fff6e8'}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[shadowSize, shadowSize]}
         shadow-camera-left={-70}
         shadow-camera-right={70}
         shadow-camera-top={70}
@@ -721,6 +764,7 @@ export function SurfaceView() {
   const bodyId = useLanding((l) => l.bodyId)
   const since = useLanding((l) => l.since)
   const def = bodyId ? surfaceFor(bodyId) : null
+  const level = useLevel()
   const scene3d = phase === 'descent' || phase === 'surface' || phase === 'ascent'
   // 暗転の幕：宇宙 → 地表、地表 → 宇宙
   const [, setTick] = useState(0)
@@ -743,8 +787,9 @@ export function SurfaceView() {
   else if (phase === 'fadeOut') curtain = Math.max(0, 1 - T / FADE)
   return (
     <div className="surface-view">
+      {/* 画面の細かさは画質の設定にあわせる（スマホは「標準」なので 1.25 倍まで） */}
       {scene3d && (
-        <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
+        <Canvas shadows dpr={Math.min(dprFor(level), 1.75)} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
           <Scene def={def} />
         </Canvas>
       )}
