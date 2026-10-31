@@ -15,6 +15,11 @@ import { SUN_RADIUS, bodyRadius, moonOrbitRadius, orbitRadius } from './scale'
 const AU = 23_481 * bodyRadius(6_371)
 /** スライダーの右端で、惑星の距離を本物にどこまで近づけるか（対数で。冥王星がおよそ2万の距離に収まる） */
 const PLANET_REALISM = 0.54
+/**
+ * 地球の月だけ、見やすい並べ方での距離を広げる倍率。月を基準に置く SF の構造物（ラグランジュ点のコロニー群など）が
+ * 地球のまわりに詰まりすぎないように。距離のスライダーを本物へ寄せると、この倍率の効きは消えていく
+ */
+export const EARTH_MOON_SPREAD = 2
 /** 隣りあう惑星の衛星の軌道どうしのすきま */
 const GAP = 3
 /** 小惑星帯の内側と外側（天文単位） */
@@ -75,7 +80,7 @@ export function computeLayout(distance: number, size = 0): Layout {
     p.moons.forEach((m, i) => {
       const mr = Math.max(MIN_MOON, sizedRadius(m.radiusKm, s))
       radius.set(m.id, mr)
-      const near = moonOrbitRadius(base, i)
+      const near = moonOrbitRadius(base, i) * (m.id === 'moon' ? EARTH_MOON_SPREAD : 1)
       const far = (r * m.distanceKm) / p.radiusKm
       const at = blend(near, far, f)
       // 回る速さは、今の大きさ・距離のときの軌道を基準に、遠いほどゆっくり
