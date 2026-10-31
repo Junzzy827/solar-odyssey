@@ -9,6 +9,7 @@ import { ColonyGroups } from './ColonyGroups'
 import { AsteroidBase } from './AsteroidBase'
 import { Fleet } from './Fleet'
 import { Shipyard } from './Shipyard'
+import { SpaceDock } from './SpaceDock'
 import { SpaceElevator } from './SpaceElevator'
 import { CROSS_ID, UMBRELLA_ID } from '../../data/sf'
 import { RadioMoon } from './RadioMoon'
@@ -39,6 +40,7 @@ export function SFWorld() {
       <HourglassColonies />
       <ColonyGroups />
       <Shipyard />
+      <SpaceDock />
       <SpaceElevator />
       <AsteroidBase id={CROSS_ID} shape="cross" point="L4" />
       <AsteroidBase id={UMBRELLA_ID} shape="umbrella" point="L2" />

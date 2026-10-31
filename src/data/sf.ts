@@ -42,6 +42,9 @@ export const umbrellaName = () => t('傘の小惑星基地', 'Umbrella Asteroid 
 /** 月の軌道の造船所（自機 SV-01 の母港） */
 export const YARD_ID = 'shipyard'
 export const yardName = () => t('月軌道の造船所', 'Lunar Shipyard')
+/** 地球の軌道の宇宙船ドック「天の湊」（輪と十字の、差し渡し約5kmの造船・整備の基地） */
+export const DOCK_ID = 'spacedock'
+export const dockName = () => t('宇宙船ドック「天の湊」', 'Amano-Minato Orbital Dock')
 /** 軌道エレベーター（目標は静止軌道の駅） */
 export const ELEVATOR_ID = 'elevator'
 export const elevatorName = () => t('軌道エレベーター', 'Space Elevator')
@@ -92,6 +95,7 @@ export const SF_OBJECTS: SFEntry[] = [
   { id: TORUS_ID, name: torusName, spoken: 'the torus colony', color: '#c8d6a0' },
   { id: HOURGLASS_ID, name: hourglassName, spoken: 'the hourglass colonies', color: '#d8c7a0' },
   { id: YARD_ID, name: yardName, spoken: 'the lunar shipyard', color: '#d0b070' },
+  { id: DOCK_ID, name: dockName, spoken: 'Amano-Minato dock', color: '#c8ccd6' },
   { id: ELEVATOR_ID, name: elevatorName, spoken: 'the space elevator', color: '#a0c8f0' },
   { id: CROSS_ID, name: crossName, spoken: 'the cross asteroid port', color: '#b59a7a' },
   { id: UMBRELLA_ID, name: umbrellaName, spoken: 'the umbrella asteroid base', color: '#9c8f86' },
@@ -177,6 +181,11 @@ export const SF_TEXT = {
     t(
       '月軌道の造船所です。左のドックでは姉妹艦 SV-03 を建造中。右の空いたドックが、この船 SV-01 の母港の係留場所です。\n（I で航海日誌）',
       'This is the lunar shipyard. In the left dock, the sister ship SV-03 is being built. The empty dock on the right is the home berth of this ship, SV-01.\n(I for the ship’s log)',
+    ),
+  dockFound: () =>
+    t(
+      '宇宙船ドック「天の湊（あまのみなと）」です。差し渡し約5kmの輪と十字の基地で、前の大きなドックには大型の船がまるごと入ります。後ろの船台では、新しい船を組み立てています。\n（I で航海日誌）',
+      'This is the Amano-Minato Orbital Dock, a ring-and-cross base about 5 km across. A large ship fits whole inside the big dock at the front, and a new ship is being built on the open slipway at the back.\n(I for the ship’s log)',
     ),
   elevatorFound: () =>
     t(
