@@ -680,3 +680,28 @@ body.touch .touch-throttle-read b {
   color: #ffd27a;
   font-size: 13px;
 }
+
+body.touch .land-prompt {
+  top: calc(var(--below-bar) + 70px);
+  bottom: auto;
+  max-width: calc(100% - 32px);
+  padding: 7px 16px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+body.touch .surface-card {
+  left: 10px;
+  top: calc(env(safe-area-inset-top) + 10px);
+  max-width: calc(100% - 20px);
+  font-size: 13px;
+}
+
+body.touch .surface-hint {
+  top: auto;
+  bottom: 84px;
+}
+
+body.touch .surface-buttons {
+  bottom: calc(env(safe-area-inset-bottom) + 18px);
+}

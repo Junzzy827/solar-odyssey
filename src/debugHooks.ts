@@ -11,6 +11,7 @@ import { shipZoom } from './state/zoom'
 import { useQuality } from './state/quality'
 import { setGoal, toggleAuto, toggleCompare, useGallery, openGallery, closeGallery, selectPart } from './state/gallery'
 import { probeClock, useProbes } from './state/probes'
+import { skipDescent, startLanding, startTakeoff, useLanding } from './state/landing'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
 // 録画・動作確認用（#debug のときだけ読み込む）：アプリの中身をブラウザのコンソールや録画スクリプトから動かせるようにする。
@@ -27,6 +28,7 @@ const sv = {
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
   probes: { state: useProbes, clock: probeClock },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
+  landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff },
   ship,
   shipZoom,
   quality: useQuality,
