@@ -61,7 +61,7 @@ const WHITE = new THREE.Color(1, 1, 1)
 const LOW_LIMIT = 5.6
 
 let catalog: Promise<THREE.BufferGeometry> | null = null
-function loadCatalog() {
+export function loadCatalog() {
   catalog ??= fetch(`${import.meta.env.BASE_URL}stars/bsc5.bin`)
     .then((r) => {
       if (!r.ok) throw new Error(`stars ${r.status}`)
@@ -97,7 +97,7 @@ function loadCatalog() {
 
 const STAR_RADIUS = 1800
 
-const starVertex = /* glsl */ `
+export const starVertex = /* glsl */ `
   attribute float mag;
   attribute vec3 color;
   uniform float uPx;
@@ -119,7 +119,7 @@ const starVertex = /* glsl */ `
   }
 `
 
-const starFragment = /* glsl */ `
+export const starFragment = /* glsl */ `
   varying vec3 vColor;
   varying float vSize;
   void main() {
