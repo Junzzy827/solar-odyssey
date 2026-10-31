@@ -761,6 +761,11 @@ def hakobune():
 # 真ん中の軸は回らず、前に操縦区画と 2 機の着陸艇、後ろに主機と放熱板。
 
 
+# メグリの着陸艇をドッキングさせる場所（船の前後 y と、軸からの高さ z）。dock_landers.py と同じ値
+LANDER_DOCK_Y = 0.18
+LANDER_DOCK_Z = 0.062
+
+
 def meguri():
     hull, rotor = Part(), Part()
     H, H2, A, D, M = 'Hull', 'Hull2', 'Accent', 'Dark', 'Metal'
@@ -837,29 +842,11 @@ def meguri():
     # 前のドッキング口
     cylinder(hull, (0, 0.42, 0), (0, 0.432, 0), 0.02, 0.02, D, n=24)
 
-    # 着陸艇 2 機：軸の上と下に、機首を前へ向けてドッキング。下面は黒い耐熱タイル
+    # 着陸艇 2 機：軸の上と下に、腹を軸へ向けてドッキング。着陸艇そのものは、焼いたあとに
+    # tools/blender/dock_landers.py が ship-lander.glb（全部の船共通の着陸船）を差しこむ。ここではドッキングの柱だけ
     for sz in (1, -1):
-        lander = Part()
-        body = FacetLoft([
-            (-0.09, 0, 0.0, 0.020, 0.034, 0.036, 0.012, 0.010, H),
-            (-0.08, 0, 0.0, 0.024, 0.040, 0.044, 0.016, 0.011, H),
-            (0.02, 0, 0.0, 0.020, 0.034, 0.038, 0.016, 0.011, H),
-            (0.07, 0, -0.002, 0.008, 0.016, 0.020, 0.010, 0.008, H),
-            (0.09, 0, -0.004, 0.002, 0.004, 0.005, 0.003, 0.003, H),
-        ], chamfer=0.3, mid=-0.3, seg=2, cap_back=D)
-        body.build(lander)
-        strip(lander, body, -math.pi / 2, -0.085, 0.085, 0.07, D, lift=0.0006)
-        box(lander, (0, 0.05, 0.012), (0.018, 0.003, 0.004), 'Window', rot_x=-0.5)
-        for sx in (-1, 1):
-            plate(lander, [(sx * 0.03, -0.085, 0), (sx * 0.07, -0.095, 0.0), (sx * 0.07, -0.08, 0), (sx * 0.03, -0.04, 0)][::sx], 0.003, H, edge_mat=A)
-            nozzle(lander, (sx * 0.012, -0.1, 0.0), (sx * 0.012, -0.09, 0.0), 0.005, 0.008, n=12)
-        # 上下に置く（下の機は上下を返す）
-        for i, (x, y, z) in enumerate(lander.verts):
-            lander.verts[i] = (x, y + 0.13, sz * (0.048 + z))
-        if sz < 0:
-            lander.faces = [list(reversed(f)) for f in lander.faces]
-        hull.add(lander.verts, lander.faces, lander.mats)
-        cylinder(hull, (0, 0.13, sz * 0.03), (0, 0.13, sz * 0.04), 0.008, 0.008, M, n=12)
+        cylinder(hull, (0, LANDER_DOCK_Y, sz * 0.03), (0, LANDER_DOCK_Y, sz * LANDER_DOCK_Z), 0.009, 0.009, M, n=12)
+        cylinder(hull, (0, LANDER_DOCK_Y, sz * (LANDER_DOCK_Z - 0.004)), (0, LANDER_DOCK_Y, sz * LANDER_DOCK_Z), 0.014, 0.014, D, n=16)
 
     # 後ろ：主機の台と 3 つの噴射口、左右の放熱板
     eng = FacetLoft([
