@@ -1,13 +1,15 @@
-import { useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
-import { Stars } from '@react-three/drei'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { textureUrl } from '../data/textures'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { bodies } from '../state/registry'
 import { photoUniform, starExposure } from '../state/look'
+import { useLevel } from '../state/quality'
+import { MILKY_WAY_ROTATION } from '../data/skyFrame'
 
-const BASE = new THREE.Color('#9a9a9a')
+/** 天の川の淡い光の明るさ（星の点を除いた画像。星は星表の点で描く） */
+const BASE = new THREE.Color('#3c3c3c')
 const center = new THREE.Vector3()
 const toBody = new THREE.Vector3()
 const forward = new THREE.Vector3()
@@ -42,9 +44,134 @@ function brightOnScreen(camera: THREE.PerspectiveCamera) {
   return sum
 }
 
-/** 天の川の全天画像。無ければ点の星空。遠くの星なので、どこへ行ってもカメラと一緒に動かす */
+// ── 星表の星 ──
+// 宇宙では大気がないので、星は瞬かない。ぼやけずに、針で突いたような鋭い点のまま光り続ける。
+// 明るさは等級どおり、色は表面温度どおり（scripts/build-stars.mjs が作る public/stars/bsc5.bin）
+
+/** 表面温度（K）の色（黒体の色の近似。ほんの少し白に寄せる） */
+function starColor(k: number, out: THREE.Color) {
+  const t = k / 100
+  const r = t <= 66 ? 1 : THREE.MathUtils.clamp(1.293 * Math.pow(t - 60, -0.1332), 0, 1)
+  const g = t <= 66 ? THREE.MathUtils.clamp(0.39 * Math.log(t) - 0.6318, 0, 1) : THREE.MathUtils.clamp(1.1298 * Math.pow(t - 60, -0.0755), 0, 1)
+  const b = t >= 66 ? 1 : t <= 19 ? 0 : THREE.MathUtils.clamp(0.5432 * Math.log(t - 10) - 1.1962, 0, 1)
+  return out.setRGB(r, g, b).lerp(WHITE, 0.12)
+}
+const WHITE = new THREE.Color(1, 1, 1)
+/** 軽い画質で描く暗さの限界（等級） */
+const LOW_LIMIT = 5.6
+
+let catalog: Promise<THREE.BufferGeometry> | null = null
+function loadCatalog() {
+  catalog ??= fetch(`${import.meta.env.BASE_URL}stars/bsc5.bin`)
+    .then((r) => {
+      if (!r.ok) throw new Error(`stars ${r.status}`)
+      return r.arrayBuffer()
+    })
+    .then((buf) => {
+      const raw = new Int16Array(buf)
+      const n = raw.length / 5
+      const pos = new Float32Array(n * 3)
+      const col = new Float32Array(n * 3)
+      const mag = new Float32Array(n)
+      const c = new THREE.Color()
+      let low = n
+      for (let i = 0; i < n; i++) {
+        const o = i * 5
+        pos[i * 3] = (raw[o] / 32767) * STAR_RADIUS
+        pos[i * 3 + 1] = (raw[o + 1] / 32767) * STAR_RADIUS
+        pos[i * 3 + 2] = (raw[o + 2] / 32767) * STAR_RADIUS
+        mag[i] = raw[o + 3] / 1000
+        if (low === n && mag[i] > LOW_LIMIT) low = i
+        starColor(raw[o + 4], c)
+        c.toArray(col, i * 3)
+      }
+      const g = new THREE.BufferGeometry()
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3))
+      g.setAttribute('mag', new THREE.BufferAttribute(mag, 1))
+      g.userData.low = low
+      return g
+    })
+  return catalog
+}
+
+const STAR_RADIUS = 1800
+
+const starVertex = /* glsl */ `
+  attribute float mag;
+  attribute vec3 color;
+  uniform float uPx;
+  uniform float uExposure;
+  varying vec3 vColor;
+  varying float vSize;
+  void main() {
+    // 1 等星を 1 とした光の量。目で見た明るさの差は光の量の差ほど大きくないので、少し縮める
+    float flux = pow(10.0, -0.4 * (mag - 1.5) * 0.8) * uExposure;
+    // 明るい星ほど点を大きく（光のしみ出し）。暗い星は点の大きさはそのままで暗くする
+    float size = clamp(1.4 + 1.7 * sqrt(flux), 1.4, 6.5);
+    // 画面の倍率が 1 より小さい（軽量）ときも、点が細くなりすぎないように
+    vSize = size * max(uPx, 1.0);
+    // 点に配る明るさ：芯の明るさがおよそ光の量になるように
+    vColor = color * min(flux * 2.0, 3.0);
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = vSize + 2.0;
+  }
+`
+
+const starFragment = /* glsl */ `
+  varying vec3 vColor;
+  varying float vSize;
+  void main() {
+    // 芯はくっきり、まわりはすぐ落ちる（ぼやけたにじみにしない）
+    float r = length(gl_PointCoord - 0.5) * (vSize + 2.0) ;
+    float core = exp(-r * r / (0.18 * vSize * vSize + 0.35));
+    if (core < 0.004) discard;
+    gl_FragColor = vec4(vColor * core, 1.0);
+  }
+`
+
+function CatalogStars() {
+  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
+  const level = useLevel()
+  const gl = useThree((s) => s.gl)
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: { uPx: { value: 1 }, uExposure: { value: 1 } },
+        vertexShader: starVertex,
+        fragmentShader: starFragment,
+        blending: THREE.AdditiveBlending,
+        depthTest: false,
+        depthWrite: false,
+      }),
+    [],
+  )
+  useEffect(() => {
+    let alive = true
+    loadCatalog().then(
+      (g) => alive && setGeometry(g),
+      () => {},
+    )
+    return () => {
+      alive = false
+    }
+  }, [])
+  useEffect(() => () => material.dispose(), [material])
+  useEffect(() => {
+    if (geometry) geometry.setDrawRange(0, level === 'low' ? geometry.userData.low : Infinity)
+  }, [geometry, level])
+  useFrame(() => {
+    material.uniforms.uPx.value = gl.getPixelRatio()
+    material.uniforms.uExposure.value = starExposure.value
+  })
+  if (!geometry) return null
+  return <points geometry={geometry} material={material} renderOrder={-0.5} frustumCulled={false} />
+}
+
+/** 背景の空：天の川の全天画像（淡い光として）と、星表の本物の星。遠くの星なので、どこへ行ってもカメラと一緒に動かす */
 export function Sky() {
-  const map = useOptionalTexture(textureUrl('milkyWay'))
+  const map = useOptionalTexture(textureUrl('milkyWayGlow'))
   const group = useRef<THREE.Group>(null!)
   const material = useRef<THREE.MeshBasicMaterial>(null)
   useFrame(({ camera }, delta) => {
@@ -57,13 +184,12 @@ export function Sky() {
   return (
     <group ref={group}>
       {map ? (
-        <mesh renderOrder={-1}>
+        <mesh renderOrder={-1} quaternion={MILKY_WAY_ROTATION}>
           <sphereGeometry args={[2000, 64, 64]} />
-          <meshBasicMaterial ref={material} map={map} side={THREE.BackSide} color="#9a9a9a" depthWrite={false} />
+          <meshBasicMaterial ref={material} map={map} side={THREE.BackSide} color={BASE} depthWrite={false} depthTest={false} />
         </mesh>
-      ) : (
-        <Stars radius={1500} depth={200} count={8000} factor={6} fade />
-      )}
+      ) : null}
+      <CatalogStars />
     </group>
   )
 }

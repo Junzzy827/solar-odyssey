@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { SKY_FROM_APP } from '../../data/skyFrame'
 
 // ブラックホールのまわりで光が曲がる様子を、画面の点ごとに光の道すじをたどって描く。
 // シュワルツシルト時空の光の道すじの近似（加速度 = -1.5 h² r / |r|⁵、事象の地平面の半径を1とする）。
@@ -27,15 +28,17 @@ uniform float uInner;
 uniform float uOuter;
 uniform mat3 uToLocal;
 uniform sampler2D uSky;
+uniform mat3 uSkyRot;
 uniform float uHasSky;
 uniform float uTime;
 varying vec3 vWorld;
 
 float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 
-// 天の川の全天画像（Sky.tsx と同じ貼り方）。無ければ点の星
+// 天の川の全天画像（Sky.tsx と同じ貼り方・同じ向き）。無ければ点の星
 vec3 sky(vec3 d) {
   if (uHasSky > 0.5) {
+    d = uSkyRot * d;
     float theta = acos(clamp(d.y, -1.0, 1.0));
     float phi = atan(d.z, -d.x);
     if (phi < 0.0) phi += 2.0 * PI;
@@ -135,6 +138,7 @@ export function lensMaterial() {
       uOuter: { value: 14 },
       uToLocal: { value: new THREE.Matrix3() },
       uSky: { value: null },
+      uSkyRot: { value: SKY_FROM_APP },
       uHasSky: { value: 0 },
       uTime: { value: 0 },
     },
@@ -146,6 +150,7 @@ const mouthFragment = /* glsl */ `
 #include <common>
 #include <logdepthbuf_pars_fragment>
 uniform sampler2D uSky;
+uniform mat3 uSkyRot;
 uniform float uHasSky;
 uniform float uTime;
 uniform vec3 uCenter;
@@ -154,6 +159,7 @@ varying vec3 vWorld;
 float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 vec3 sky(vec3 d) {
   if (uHasSky > 0.5) {
+    d = uSkyRot * d;
     float theta = acos(clamp(d.y, -1.0, 1.0));
     float phi = atan(d.z, -d.x);
     if (phi < 0.0) phi += 2.0 * PI;
@@ -190,6 +196,7 @@ export function mouthMaterial() {
     fragmentShader: mouthFragment,
     uniforms: {
       uSky: { value: null },
+      uSkyRot: { value: SKY_FROM_APP },
       uHasSky: { value: 0 },
       uTime: { value: 0 },
       uCenter: { value: new THREE.Vector3() },

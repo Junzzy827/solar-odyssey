@@ -17,6 +17,8 @@ export const TEXTURES: Record<string, string> = {
   uranus: '2k_uranus.jpg',
   neptune: '2k_neptune.jpg',
   milkyWay: '2k_stars_milky_way.jpg',
+  /** 天の川の淡い光だけ（scripts/build-milkyway-glow.py で作る。星は星表の点で描く） */
+  milkyWayGlow: 'milky_way_glow.jpg',
 }
 
 export const textureUrl = (key: string) => (TEXTURES[key] ? base + TEXTURES[key] : undefined)
