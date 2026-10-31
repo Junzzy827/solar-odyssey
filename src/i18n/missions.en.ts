@@ -580,6 +580,591 @@ export const missionsEn: Record<string, MissionText> = {
       { question: 'How far away is the nearest star?', choices: ['About 4.2 light-years', 'About 4.2 light-minutes', 'About 420 light-years'], answer: 0, explanation: 'Even light takes about 4.2 years, a distance of about 40 trillion km. Light from the Sun takes only about 8 minutes.' },
     ],
   },
+  'heron-galilean': {
+    title: 'Survey craft to Jupiter’s four moons',
+    client: 'Jupiter system survey team',
+    briefing: [
+      'Welcome aboard the White Heron, Captain. She is a 400 m survey carrier. Her two forward legs hold hangars that launch small survey craft.',
+      'In 1610 Galileo used a homemade telescope to discover four points of light circling Jupiter: Io, Europa, Ganymede and Callisto.',
+      'Today we send one survey craft to each of those four moons.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to Jupiter',
+        start: 'Target set: Jupiter.',
+        done: 'We have reached Jupiter. All four moons are in view.',
+      },
+      {
+        goal: 'Launch a survey craft to Io',
+        start: 'Target set: Io. Once you are close, press the launch button or L to send out a craft.',
+        arrive: 'The craft has reached Io. Volcanoes are erupting all over it.',
+        done: 'Io is the most volcanically active world in the solar system. Jupiter’s strong gravity squeezes it and heats its insides.',
+      },
+      {
+        goal: 'Launch a survey craft to Europa',
+        start: 'Next is Europa. Get close and launch a craft.',
+        arrive: 'The craft has reached Europa. Its surface is cracked ice.',
+        done: 'Under Europa’s ice there is thought to be an ocean of salty water.',
+      },
+      {
+        goal: 'Launch a survey craft to Ganymede',
+        start: 'Next is Ganymede.',
+        arrive: 'The craft has reached Ganymede.',
+        done: 'Ganymede is the largest moon in the solar system, bigger even than Mercury. It is a moon with its own magnetic field.',
+      },
+      {
+        goal: 'Launch a survey craft to Callisto',
+        start: 'Last is Callisto.',
+        arrive: 'The craft has reached Callisto. It is covered in craters.',
+        done: 'Callisto is one of the most heavily cratered places in the solar system, almost unchanged for over 4 billion years. All four craft arrived safely!',
+      },
+    ],
+    summary: ['Galileo discovered Jupiter’s four big moons in 1610.', 'Io has volcanoes, Europa an ocean under ice, Ganymede is the largest moon, and Callisto is covered in craters.', 'The real probes JUICE and Europa Clipper are on their way to Jupiter now.'],
+    quiz: [
+      {
+        question: 'Who first discovered Jupiter’s four big moons?',
+        choices: ['Galileo Galilei', 'Isaac Newton', 'Albert Einstein'],
+        answer: 0,
+        explanation: 'Galileo found them with a telescope in 1610, so they are called the Galilean moons.',
+      },
+      {
+        question: 'What is the largest moon in the solar system?',
+        choices: ['Ganymede', 'The Moon', 'Io'],
+        answer: 0,
+        explanation: 'Ganymede is about 5,270 km across, larger than the planet Mercury (about 4,880 km).',
+      },
+    ],
+  },
+
+  'heron-saturn-moons': {
+    title: 'Survey craft to Saturn’s moons',
+    client: 'Saturn system survey team',
+    briefing: [
+      'We are going to study Saturn’s moons Enceladus and Titan.',
+      'The real Cassini probe was a mothership too, just like the White Heron. In 2005 it released the small Huygens probe, which landed on Titan.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to Saturn',
+        start: 'Target set: Saturn.',
+        done: 'We have reached Saturn.',
+      },
+      {
+        goal: 'Launch a survey craft to Enceladus',
+        start: 'Target set: Enceladus. Get close and launch a craft.',
+        arrive: 'The craft is over Enceladus’s south pole. Water is spraying out of cracks in the ice into space!',
+        done: 'There is an ocean under Enceladus’s ice, and its water sprays out. Cassini flew right through these plumes to study them.',
+      },
+      {
+        goal: 'Launch a survey craft to Titan',
+        start: 'Next is Titan.',
+        arrive: 'The craft has reached Titan. A thick orange haze hides the ground.',
+        done: 'Titan has an atmosphere thicker than Earth’s. Both craft arrived. Sending our report.',
+      },
+    ],
+    summary: ['Cassini was a mothership that released Huygens to land on Titan.', 'Water from the ocean under the ice sprays out of Enceladus’s south pole.', 'Titan is wrapped in an atmosphere thicker than Earth’s.'],
+    quiz: [
+      {
+        question: 'What was the probe that Cassini released to land on Titan?',
+        choices: ['Huygens', 'Hayabusa', 'Voyager'],
+        answer: 0,
+        explanation: 'Huygens landed on Titan in January 2005. It is the only probe ever to land on a world in the outer solar system.',
+      },
+      {
+        question: 'What sprays out of Enceladus’s south pole?',
+        choices: ['Water (ice grains)', 'Lava', 'Sand'],
+        answer: 0,
+        explanation: 'Water from the ocean under the ice sprays into space through cracks. Some of it feeds Saturn’s E ring.',
+      },
+    ],
+  },
+
+  'sorakaze-mercury': {
+    title: 'Sailing on light to Mercury',
+    client: 'Mercury observation team',
+    briefing: [
+      'Welcome aboard the Sorakaze, Captain. She is a 150 m light-sail courier. Six mirror-like sails spin around her, and sunlight pushes her along.',
+      'Light has a tiny pushing force. A light sail needs no fuel, but the stronger the light, the better it moves.',
+      'Light gets stronger closer to the Sun. Feel the difference for yourself at Venus and Mercury.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to Venus',
+        start: 'Target set: Venus.',
+        done: 'We have reached Venus. Sunlight here is about 1.9 times as strong as near Earth.',
+      },
+      {
+        goal: 'Sail on light near Venus',
+        start: 'Let’s fly by light sail. Any direction is fine; I will count the distance you travel. You should go faster than near Earth.',
+        done: 'Nicely sailed. Next, Mercury, even closer to the Sun.',
+      },
+      {
+        goal: 'Fly to Mercury',
+        start: 'Target set: Mercury.',
+        done: 'We have reached Mercury. The light here is about 6.6 times as strong as near Earth!',
+      },
+      {
+        goal: 'Sail on light near Mercury',
+        start: 'Fly by light sail once more. You will go even faster than at Venus.',
+        done: 'That was quick! When your distance from the Sun halves, the light becomes four times as strong.',
+      },
+      {
+        goal: 'Stop near Mercury and deliver the cargo',
+        start: 'Unloading the cargo for the Mercury team. Please hold still.',
+        done: 'Delivered!',
+      },
+    ],
+    summary: ['Light has a small pushing force, so a light sail can travel without fuel.', 'Halve your distance from the Sun and the light is four times as strong.', 'In 2010 Japan’s IKAROS became the first spacecraft to travel through space by light sail.'],
+    quiz: [
+      {
+        question: 'If your distance from the Sun halves, how does the strength of sunlight change?',
+        choices: ['It becomes 4 times as strong', 'It becomes twice as strong', 'It stays the same'],
+        answer: 0,
+        explanation: 'Light spreads out in every direction, so its strength falls with the square of the distance. Half the distance means 2 × 2 = 4 times the light.',
+      },
+      {
+        question: 'Which Japanese probe first traveled through space by light sail, in 2010?',
+        choices: ['IKAROS', 'Hayabusa', 'Kaguya'],
+        answer: 0,
+        explanation: 'IKAROS unfurled a thin square sail 14 m on each side and proved light could speed it up on its way to Venus.',
+      },
+    ],
+  },
+
+  'sorakaze-outer': {
+    title: 'Light is weak far away',
+    client: 'Outer planets laboratory',
+    briefing: [
+      'This time we test what happens to a light sail far from the Sun.',
+      'Let’s fly at Mars and Jupiter. If you cannot go as fast as you would like, that is today’s discovery.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to Mars',
+        start: 'Target set: Mars.',
+        done: 'We have reached Mars. The light here is about 0.43 times as strong as near Earth.',
+      },
+      {
+        goal: 'Sail on light near Mars',
+        start: 'Fly by light sail. It should feel a little sluggish.',
+        done: 'You made it, but much more slowly than at Mercury.',
+      },
+      {
+        goal: 'Fly to Jupiter',
+        start: 'Target set: Jupiter.',
+        done: 'We have reached Jupiter. The light here is only about 1/27 as strong as near Earth.',
+      },
+      {
+        goal: 'Sail on light near Jupiter',
+        start: 'Try flying by light sail. The light is so weak that you will only creep along.',
+        done: 'You managed it. Probes that travel far from the Sun need other kinds of power besides sunlight.',
+      },
+    ],
+    summary: ['The farther from the Sun, the weaker the light. At Jupiter it is about 1/27 of what it is near Earth.', 'Jupiter’s Juno probe makes electricity with enormous solar panels.', 'Voyager, which travels much farther, uses a nuclear battery instead of sunlight.'],
+    quiz: [
+      {
+        question: 'Near Jupiter, sunlight is about what fraction of its strength near Earth?',
+        choices: ['About 1/27', 'About 1/2', 'About 1/1000'],
+        answer: 0,
+        explanation: 'Jupiter is about 5.2 times as far from the Sun as Earth. 5.2 × 5.2 ≈ 27, so the light is about 1/27 as strong.',
+      },
+      {
+        question: 'What does Voyager use to make electricity far from the Sun?',
+        choices: ['A nuclear battery', 'Solar panels', 'A wind turbine'],
+        answer: 0,
+        explanation: 'Voyager uses a battery (an RTG) that turns heat from plutonium into electricity, because sunlight out there is far too weak.',
+      },
+    ],
+  },
+
+  'meguri-titan': {
+    title: 'Send a lander down to Titan',
+    client: 'Titan research team',
+    briefing: [
+      'Welcome aboard the Meguri, Captain. She is a survey ship with a spinning ring. The ring turns once every 13.5 seconds, so the crew inside feel about as heavy as they do on Earth.',
+      'Two landers are docked to the ship for trips down to the surface. Today we send one down to Titan.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to Titan',
+        start: 'Target set: Titan.',
+        done: 'We have reached Titan. It is wrapped in a thick atmosphere.',
+      },
+      {
+        goal: 'Send the lander down to Titan',
+        start: 'Near Titan, press the lander button or L to release a lander. It will go down, take a look and come back.',
+        arrive: 'The lander has touched down. It is about −180 °C, on the shore of a methane lake.',
+        done: 'The lander is back! On Titan, the lakes and rivers are filled with methane, not water.',
+      },
+    ],
+    summary: ['Titan has a thick atmosphere and lakes and rivers of methane.', 'The real Huygens probe landed in 2005, and NASA’s Dragonfly will fly through Titan’s skies.', 'A spinning ring can create a feeling of weight (artificial gravity).'],
+    quiz: [
+      {
+        question: 'What fills Titan’s lakes?',
+        choices: ['Liquid methane', 'Water', 'Molten iron'],
+        answer: 0,
+        explanation: 'At −180 °C, methane, which is a gas on Earth, turns liquid on Titan. It falls as rain and fills lakes and rivers.',
+      },
+      {
+        question: 'How do people inside Meguri’s spinning ring feel?',
+        choices: ['Pressed against the outer floor, so they feel weight', 'They float', 'Just dizzy'],
+        answer: 0,
+        explanation: 'Inside something that spins, you are pushed outward (centrifugal force). The ring’s floor is on the outside, so that push feels like weight.',
+      },
+    ],
+  },
+
+  'meguri-europa': {
+    title: 'Down onto Europa’s ice',
+    client: 'Europa ocean institute',
+    briefing: [
+      'Under Europa’s thick ice there may be more water than in all of Earth’s oceans combined.',
+      'We will set a lander down on the ice and study it. No real spacecraft has landed on Europa yet.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to Europa',
+        start: 'Target set: Europa.',
+        done: 'We have reached Europa.',
+      },
+      {
+        goal: 'Send the lander down to Europa',
+        start: 'Release the lander and set it down on the ice.',
+        arrive: 'The lander is on the ice. Reddish-brown salts are seeping up through the cracks.',
+        done: 'The lander is back! The color in the cracks may be salt that came up from the ocean below.',
+      },
+    ],
+    summary: ['Under Europa’s ice there may be about twice as much water as in Earth’s oceans.', 'The reddish-brown color in its cracks may be salt from the ocean.', 'NASA’s Europa Clipper will fly past it many times starting around 2030.'],
+    quiz: [
+      {
+        question: 'What is thought to lie under Europa’s ice?',
+        choices: ['An ocean of salty water', 'A sea of lava', 'Caves full of air'],
+        answer: 0,
+        explanation: 'Jupiter’s gravity kneads Europa and warms its insides, so there is thought to be liquid water under the ice.',
+      },
+      {
+        question: 'How much water might Europa’s ocean hold compared with Earth’s oceans?',
+        choices: ['About twice as much', 'About 1/100 as much', 'About the same'],
+        answer: 0,
+        explanation: 'Europa is a bit smaller than our Moon, but its ocean is very deep, so it may hold about twice the water of Earth’s oceans.',
+      },
+    ],
+  },
+
+  'heron-rescue': {
+    title: 'Rescue the work mech',
+    client: 'Colony Group 1 construction office',
+    briefing: [
+      'At the colony construction site, a work mech’s thrusters failed and it drifted off into space. The pilot is safe and waiting for rescue.',
+      'We will fly out in the White Heron’s survey craft, grab the mech and tow it home.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the L5 colony',
+        start: 'Target set: Colony Group 1.',
+        done: 'We have reached the colony. Can you see the blinking orange light? That is the work mech.',
+      },
+      {
+        goal: 'Launch a craft to the work mech and bring it back',
+        start: 'Target set: the work mech. Get close and launch a survey craft.',
+        arrive: 'The craft has grabbed the work mech! Towing it back now.',
+        done: 'Rescue complete! The mech is safe in our hangar and the pilot is fine.',
+      },
+    ],
+    summary: ['In space, once something is pushed it keeps drifting, because nothing stops it.', 'Astronauts use safety tethers and small thrusters so they never drift away.'],
+    real: [
+      'During spacewalks from the International Space Station, astronauts are always clipped to the station by a safety tether.',
+      'In case a tether comes loose, they wear a small thruster pack on their backs called SAFER.',
+      'Cargo ships are caught by Canadarm2, a robotic arm about 17 m long, and attached to the station.',
+    ],
+    quiz: [
+      {
+        question: 'What do astronauts always use during spacewalks so they don’t drift away?',
+        choices: ['A safety tether', 'Heavy boots', 'Suction cups'],
+        answer: 0,
+        explanation: 'They stay clipped to the station with a tether, because in space anything pushed keeps drifting without stopping.',
+      },
+      {
+        question: 'What does the International Space Station use to catch cargo ships?',
+        choices: ['A robotic arm', 'A net', 'Magnets'],
+        answer: 0,
+        explanation: 'The Canadarm2 robotic arm grabs the cargo ship and pulls it in to a docking port.',
+      },
+    ],
+  },
+
+  'heron-beacon': {
+    title: 'Investigate the Europa Beacon',
+    client: 'Fleet command',
+    briefing: [
+      'The mysterious beacon on Europa’s ice has suddenly started sending a strong signal.',
+      'Send a survey craft close to record the signal and bring the recording back.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to Europa',
+        start: 'Target set: Europa.',
+        done: 'We have reached Europa.',
+      },
+      {
+        goal: 'Launch a craft to the beacon and bring back the recording',
+        start: 'Target set: the beacon. Launch a craft to record the signal.',
+        arrive: 'The craft has reached the beacon. Recording… the signal repeats in a regular pattern.',
+        done: 'The recording is back. The signal comes from a single point beyond Neptune. Reporting to fleet command.',
+      },
+    ],
+    summary: ['The signal came from a single point beyond Neptune.', 'A signal that repeats in a regular pattern is hard for nature to make.'],
+    real: [
+      'Searching radio waves from space for signals from civilizations on other worlds is called SETI.',
+      'In 1974 the Arecibo radio telescope beamed a message about humanity toward the star cluster M13.',
+      'So far, no signal from another civilization has been found.',
+    ],
+    quiz: [
+      {
+        question: 'What is the search for radio signals from other civilizations called?',
+        choices: ['SETI', 'GPS', 'ISS'],
+        answer: 0,
+        explanation: 'SETI stands for the Search for Extraterrestrial Intelligence. Big radio telescopes are still listening today.',
+      },
+      {
+        question: 'Has a signal from another civilization ever been found?',
+        choices: ['Not yet', 'Many times', 'Exactly once'],
+        answer: 0,
+        explanation: 'People have searched for decades without finding a confirmed signal, and the search goes on.',
+      },
+    ],
+  },
+
+  'sorakaze-laser': {
+    title: 'Rush medicine by laser sail',
+    client: 'Migrant Fleet hospital',
+    briefing: [
+      'The Migrant Fleet has suddenly run short of medicine. The Sorakaze is our fastest way to get it there.',
+      'If the Light-Sail Launcher shines its powerful laser on our sail, it will push us far harder than sunlight can.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the Light-Sail Launcher',
+        start: 'Target set: the Light-Sail Launcher.',
+        done: 'We have reached the launcher.',
+      },
+      {
+        goal: 'Wait by the launcher while the laser gets ready',
+        start: 'Please stay near the launcher. They are aiming the laser.',
+        done: 'Ready. The laser is hitting our sail!',
+      },
+      {
+        goal: 'Sail on the laser light',
+        start: 'Fly by light sail. The laser pushes far harder than sunlight, so you will shoot ahead.',
+        done: 'What speed!',
+      },
+      {
+        goal: 'Fly to the Migrant Fleet',
+        start: 'Target set: the Migrant Fleet.',
+        done: 'We have reached the Migrant Fleet.',
+      },
+      {
+        goal: 'Stop near the fleet and deliver the medicine',
+        start: 'Delivering the medicine. Please hold still.',
+        done: 'Delivered! The hospital is sending its thanks.',
+      },
+    ],
+    summary: ['A light sail can be pushed by laser light as well as sunlight.', 'With a powerful laser, a ship can go very fast without carrying fuel.'],
+    real: [
+      'The Breakthrough Starshot project imagines shining powerful lasers from the ground to speed stamp-sized probes up to about one fifth of the speed of light.',
+      'At that speed they would reach Alpha Centauri, the nearest star system (about 4.2 light-years away), in about 20 years.',
+      'It is still only research: the giant lasers and the very light, strong sails have yet to be built.',
+    ],
+    quiz: [
+      {
+        question: 'How fast does Starshot hope to send its tiny probes?',
+        choices: ['About 1/5 the speed of light', 'About as fast as a bullet train', 'Twice the speed of light'],
+        answer: 0,
+        explanation: 'About 20% of the speed of light. Nothing can travel faster than light.',
+      },
+      {
+        question: 'Which nearby star system is Starshot aiming for?',
+        choices: ['Alpha Centauri', 'Sirius', 'Polaris'],
+        answer: 0,
+        explanation: 'Alpha Centauri is about 4.2 light-years away and includes the stars closest to the Sun.',
+      },
+    ],
+  },
+
+  'sorakaze-dyson': {
+    title: 'A sea of light by the Sun',
+    client: 'Solar Mirror Power Station',
+    briefing: [
+      'Close to the Sun there is a swarm of light-collecting satellites: the Dyson Swarm.',
+      'The light there is extremely strong. We will race through it by light sail, then deliver parts to the power station.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the Dyson Swarm',
+        start: 'Target set: the Dyson Swarm.',
+        done: 'We have reached the swarm. The light is dazzling.',
+      },
+      {
+        goal: 'Sail on light near the swarm',
+        start: 'Fly by light sail. The light here is dozens of times stronger than near Earth.',
+        done: 'You flew through in no time!',
+      },
+      {
+        goal: 'Fly to the Solar Mirror Power Station',
+        start: 'Target set: the Solar Mirror Power Station.',
+        done: 'We have reached the power station.',
+      },
+      {
+        goal: 'Stop near the station and deliver the parts',
+        start: 'Unloading the mirror parts. Please hold still.',
+        done: 'Delivered!',
+      },
+    ],
+    summary: ['The closer to the Sun, the stronger the light and the better a light sail moves.', 'The idea of surrounding the Sun with light-collecting satellites is called a Dyson swarm.'],
+    real: [
+      'The idea of surrounding a star with light-collecting structures was published by physicist Freeman Dyson in 1960.',
+      'NASA’s Parker Solar Probe came within about 6.1 million km of the Sun’s surface in 2024.',
+      'It was traveling at about 190 km per second, the fastest speed of anything people have ever built.',
+    ],
+    quiz: [
+      {
+        question: 'Who published the idea of surrounding the Sun with light-collecting structures?',
+        choices: ['Freeman Dyson', 'Galileo', 'Newton'],
+        answer: 0,
+        explanation: 'In 1960 Dyson suggested that advanced civilizations might gather and use their star’s light.',
+      },
+      {
+        question: 'What is the fastest object people have ever built?',
+        choices: ['Parker Solar Probe', 'Voyager 1', 'Apollo 10'],
+        answer: 0,
+        explanation: 'Parker Solar Probe was sped up by the Sun’s gravity to about 190 km per second.',
+      },
+    ],
+  },
+
+  'meguri-blackhole': {
+    title: 'Clocks by the black hole',
+    client: 'Fleet science team',
+    briefing: [
+      'We are going beyond the gate, to the black hole.',
+      'Near strong gravity, time runs more slowly. We will check this with the clock on board the Meguri.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the black hole',
+        start: 'Target set: the black hole. Warp there, or fly through the gate beyond Neptune.',
+        done: 'We have come out near the black hole. Look how its light bends.',
+      },
+      {
+        goal: 'Stay by the black hole and compare clocks',
+        start: 'Please stay close. I am comparing the ship’s clock with time signals from the solar system.',
+        done: 'The result is in: our clock ran slower than the clocks back in the solar system.',
+      },
+    ],
+    summary: ['The stronger the gravity, the more slowly time passes.', 'Near a black hole the difference becomes very large.'],
+    real: [
+      'Einstein’s general theory of relativity predicted that gravity slows time, and experiments have confirmed it.',
+      'GPS satellite clocks run about 38 microseconds a day fast compared with clocks on the ground, so they are corrected every day.',
+      'In 2019, radio telescopes around the world were linked together to take the first picture of a black hole’s shadow.',
+    ],
+    quiz: [
+      {
+        question: 'How does time pass where gravity is strong?',
+        choices: ['More slowly', 'Faster', 'It stops'],
+        answer: 0,
+        explanation: 'The stronger the gravity, the slower time runs. Even on Earth there is a tiny difference between a mountaintop and a valley.',
+      },
+      {
+        question: 'When was the first picture of a black hole’s shadow taken?',
+        choices: ['2019', '1969', '2000'],
+        answer: 0,
+        explanation: 'The Event Horizon Telescope imaged the black hole at the center of the galaxy M87.',
+      },
+    ],
+  },
+
+  'meguri-desert': {
+    title: 'The desert planet of two suns',
+    client: 'Fleet science team',
+    briefing: [
+      'Beyond the gate there is a desert planet that circles two suns.',
+      'We will send a lander down to study the sand.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the desert planet',
+        start: 'Target set: the desert planet.',
+        done: 'We have reached the desert planet. You can see both suns.',
+      },
+      {
+        goal: 'Send the lander down to the desert planet',
+        start: 'Release the lander and set it down on the sand.',
+        arrive: 'The lander is on the sand. It casts two shadows!',
+        done: 'The lander is back with a sample of sand.',
+      },
+    ],
+    summary: ['On a planet with two suns, things cast two shadows.', 'Many planets beyond our solar system have already been found.'],
+    real: [
+      'Planets that orbit two stars really exist. Kepler-16b, found in 2011, is one of them.',
+      'But Kepler-16b is not a desert world: it is thought to be a cold gas planet about the size of Saturn.',
+      'More than 6,000 planets beyond the solar system (exoplanets) have been found.',
+    ],
+    quiz: [
+      {
+        question: 'What kind of planet is the real two-sun planet Kepler-16b thought to be?',
+        choices: ['A cold gas planet', 'A desert planet', 'An ocean planet'],
+        answer: 0,
+        explanation: 'It is thought to be a very cold gas planet about the size of Saturn.',
+      },
+      {
+        question: 'What is a common way to find planets around other stars?',
+        choices: ['Measure the slight dimming when a planet passes in front of its star', 'Look at the ground with a telescope', 'Send a probe there'],
+        answer: 0,
+        explanation: 'When a planet crosses in front of its star, the star dims very slightly. This transit method has found thousands of planets.',
+      },
+    ],
+  },
+
+  'meguri-ice': {
+    title: 'Landing on the ice planet',
+    client: 'Fleet science team',
+    briefing: [
+      'Another world beyond the gate: a planet covered in ice from pole to pole.',
+      'We will set a lander down on the ice and take a look.',
+    ],
+    steps: [
+      {
+        goal: 'Fly to the ice planet',
+        start: 'Target set: the ice planet.',
+        done: 'We have reached the ice planet.',
+      },
+      {
+        goal: 'Send the lander down to the ice planet',
+        start: 'Release the lander and set it down on the ice.',
+        arrive: 'The lander is on the ice. Fine ice crystals are swirling in the wind.',
+        done: 'The lander is back. That completes the Meguri chapter. Well done, Captain.',
+      },
+    ],
+    summary: ['A planet far from its star can freeze over completely.', 'Some icy worlds might hide oceans beneath their ice.'],
+    real: [
+      'OGLE-2005-BLG-390Lb, announced in 2006, is thought to be an icy planet about 5 times Earth’s mass with a surface around −220 °C.',
+      'It was found by gravitational microlensing, where a nearer star’s gravity brightens the light of a more distant star.',
+    ],
+    quiz: [
+      {
+        question: 'What is it called when a nearer star’s gravity makes a more distant star look brighter?',
+        choices: ['Gravitational microlensing', 'An eclipse', 'An aurora'],
+        answer: 0,
+        explanation: 'Gravity bends light. The nearer star focuses the light like a lens, and a planet around it leaves a mark in how the brightness changes.',
+      },
+      {
+        question: 'Which solar system world is thought to have an ocean under its ice?',
+        choices: ['Europa', 'Mercury', 'Venus'],
+        answer: 0,
+        explanation: 'Europa and Enceladus are thought to have oceans under their ice. Icy planets around other stars might too.',
+      },
+    ],
+  },
 }
 
 export const chaptersEn: Record<string, ChapterText> = {
@@ -598,4 +1183,40 @@ export const chaptersEn: Record<string, ChapterText> = {
   },
   'amatsu-sf': { title: 'Amatsukaze, SF: landmarks of the future', skill: 'Observatory photos', how: 'Bring the target inside the camera frame and hold it for a few seconds.', intro: 'Photograph the landmarks of the SF world: the Moon Capital, the Radio Telescope Moon and the Galactic Railway.' },
   'hakobune-sf': { title: 'Hakobune, SF: shipping in future space', skill: 'Docking a heavy ship', how: 'Cargo makes the ship heavy. Fly the last part into the glowing docking ring yourself, slowly, and stop.', intro: 'Carry asteroid metal to the shipyard, then final supplies to the departing generation ship.' },
+  'heron-real': {
+    title: 'White Heron: The Survey Carrier',
+    skill: 'Launch survey craft',
+    how: 'When you get close to the target, a “Launch” button appears. Press it or L to send a survey craft out of the hangar in her legs.',
+    intro: 'Send survey craft to Jupiter’s four big moons and to Saturn’s moons.',
+  },
+  'sorakaze-real': {
+    title: 'Sorakaze: Sailing on Light',
+    skill: 'Sail on light',
+    how: 'Sunlight pushes the ship. She is faster near the Sun and slower far from it. In light-sail steps, the distance you fly yourself is counted.',
+    intro: 'Feel how sunlight changes from Mercury out to Jupiter.',
+  },
+  'meguri-real': {
+    title: 'Meguri: Sending Down the Lander',
+    skill: 'Send down the lander',
+    how: 'Near a world, press “Send down the lander” or L. The lander goes down to the surface, takes a look and comes back.',
+    intro: 'Land beside Titan’s methane lakes and on Europa’s ice.',
+  },
+  'heron-sf': {
+    title: 'White Heron SF: A Rescue and a Strange Signal',
+    skill: 'Launch survey craft',
+    how: 'When you get close to the target, a “Launch” button appears. In this chapter the craft brings something back with it.',
+    intro: 'Rescue a drifting work mech and bring back the Europa Beacon’s signal.',
+  },
+  'sorakaze-sf': {
+    title: 'Sorakaze SF: Lasers and a Sea of Light',
+    skill: 'Sail on light',
+    how: 'The stronger the light, the faster you go. The launcher’s laser and the Dyson Swarm’s light give you a big boost.',
+    intro: 'Rush medicine by laser sail and race through the sea of light by the Sun.',
+  },
+  'meguri-sf': {
+    title: 'Meguri SF: Beyond the Gate',
+    skill: 'Send down the lander',
+    how: 'Near a world, press “Send down the lander” or L to set the lander down on the surface.',
+    intro: 'Measure time by the black hole beyond the gate, and land on planets of faraway stars.',
+  },
 }

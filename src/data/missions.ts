@@ -1,6 +1,6 @@
 import type { Quiz } from './facts'
 import type { ShipId } from './ships'
-import { ARK_ID, CROSS_ID, YARD_ID } from './sf'
+import { ARK_ID, BEACON_ID, BLACK_HOLE_ID, COLONY_ID, CROSS_ID, DESERT_ID, DYSON_ID, FLEET_ID, ICE_ID, SAIL_LAUNCHER_ID, SOLAR_PLANT_ID, YARD_ID } from './sf'
 import { ENGINE_ROCK_ID } from './sfEngine'
 import { RADIO_MOON_ID } from './sfSpace'
 import { MOON_CITY_ID, RAILWAY_ID } from './sfJapan'
@@ -19,10 +19,22 @@ import { MOON_CITY_ID, RAILWAY_ID } from './sfJapan'
  * load：天体のそばで止まって荷物を積む（seconds 秒）。積んでいるあいだは船が重くなる（ハコブネ）
  * dock：天体のそばに出る入港の輪へ、ゆっくり入って止まる（ハコブネ）
  * eclipse：宇宙から日食・月食を見る（eclipse の id。いちばん深くなるまで）
+ * launch：探査艇を発進させて天体へ送る（ホワイトヘロン）。back なら艇が戻ってくるまで（救助では相手を連れて帰る）
+ * sail：光の帆で distance だけ進む（ソラカゼ）。light はその場所の太陽の光の強さ（地球のそばを1とした本物の比）
+ * land：着陸艇を天体の表面へ降ろして、戻ってくるまで（メグリ）
  */
-export type StepKind = 'goto' | 'unload' | 'scan' | 'flyby' | 'deflect' | 'photo' | 'load' | 'dock' | 'eclipse'
+export type StepKind = 'goto' | 'unload' | 'scan' | 'flyby' | 'deflect' | 'photo' | 'load' | 'dock' | 'eclipse' | 'launch' | 'sail' | 'land'
 
-export type MissionStep = { kind: StepKind; body: string; seconds?: number; frame?: [number, number]; eclipse?: string }
+export type MissionStep = {
+  kind: StepKind
+  body: string
+  seconds?: number
+  frame?: [number, number]
+  eclipse?: string
+  back?: boolean
+  distance?: number
+  light?: number
+}
 
 export type MissionDef = { id: string; steps: MissionStep[] }
 
@@ -50,6 +62,16 @@ export const DOCK_SPEED = 0.6
 export const DOCK_SECONDS = 2
 /** 荷物を積んだあいだの最高速度の割合 */
 export const CARGO_SPEED = 0.6
+
+/** 探査艇を出せる距離（表示の単位）と、艇が行く・帰るのにかかる秒数 */
+export const LAUNCH_RANGE = 30
+export const CRAFT_SECONDS = 3
+/** 着陸艇：降りる・地表にいる・上がる秒数 */
+export const LANDER_SECONDS = [4, 3, 4] as const
+/** 光の帆：最高速度の割合は光の強さに比例させるが、遊べる範囲に収める */
+export const SAIL_SPEED: [number, number] = [0.15, 4]
+/** 救助の任務で出てくる作業メカ（目標として選べるよう、天体の一覧に一時的に加える） */
+export const MECH_ID = 'mission-mech'
 
 const SV01_MISSIONS: MissionDef[] = [
   {
@@ -116,6 +138,57 @@ const SV01_MISSIONS: MissionDef[] = [
 export const CHAPTERS: ChapterDef[] = [
   { id: 'sv01-real', ship: 'sv01', world: 'real', missions: SV01_MISSIONS },
   {
+    id: 'heron-real',
+    ship: 'heron',
+    world: 'real',
+    missions: [
+      {
+        id: 'heron-galilean',
+        steps: [
+          { kind: 'goto', body: 'jupiter' },
+          { kind: 'launch', body: 'io' },
+          { kind: 'launch', body: 'europa' },
+          { kind: 'launch', body: 'ganymede' },
+          { kind: 'launch', body: 'callisto' },
+        ],
+      },
+      {
+        id: 'heron-saturn-moons',
+        steps: [
+          { kind: 'goto', body: 'saturn' },
+          { kind: 'launch', body: 'enceladus' },
+          { kind: 'launch', body: 'titan' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'sorakaze-real',
+    ship: 'sorakaze',
+    world: 'real',
+    missions: [
+      {
+        id: 'sorakaze-mercury',
+        steps: [
+          { kind: 'goto', body: 'venus' },
+          { kind: 'sail', body: 'venus', distance: 60, light: 1.9 },
+          { kind: 'goto', body: 'mercury' },
+          { kind: 'sail', body: 'mercury', distance: 60, light: 6.6 },
+          { kind: 'unload', body: 'mercury', seconds: 4 },
+        ],
+      },
+      {
+        id: 'sorakaze-outer',
+        steps: [
+          { kind: 'goto', body: 'mars' },
+          { kind: 'sail', body: 'mars', distance: 30, light: 0.43 },
+          { kind: 'goto', body: 'jupiter' },
+          { kind: 'sail', body: 'jupiter', distance: 12, light: 0.037 },
+        ],
+      },
+    ],
+  },
+  {
     id: 'amatsu-real',
     ship: 'amatsu',
     world: 'real',
@@ -159,6 +232,74 @@ export const CHAPTERS: ChapterDef[] = [
           { kind: 'load', body: 'saturn', seconds: 6 },
           { kind: 'goto', body: 'mars' },
           { kind: 'dock', body: 'mars' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'meguri-real',
+    ship: 'meguri',
+    world: 'real',
+    missions: [
+      {
+        id: 'meguri-titan',
+        steps: [
+          { kind: 'goto', body: 'titan' },
+          { kind: 'land', body: 'titan' },
+        ],
+      },
+      {
+        id: 'meguri-europa',
+        steps: [
+          { kind: 'goto', body: 'europa' },
+          { kind: 'land', body: 'europa' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'heron-sf',
+    ship: 'heron',
+    world: 'sf',
+    missions: [
+      {
+        id: 'heron-rescue',
+        steps: [
+          { kind: 'goto', body: COLONY_ID },
+          { kind: 'launch', body: MECH_ID, back: true },
+        ],
+      },
+      {
+        id: 'heron-beacon',
+        steps: [
+          { kind: 'goto', body: 'europa' },
+          { kind: 'launch', body: BEACON_ID, back: true },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'sorakaze-sf',
+    ship: 'sorakaze',
+    world: 'sf',
+    missions: [
+      {
+        id: 'sorakaze-laser',
+        steps: [
+          { kind: 'goto', body: SAIL_LAUNCHER_ID },
+          { kind: 'scan', body: SAIL_LAUNCHER_ID, seconds: 4 },
+          { kind: 'sail', body: SAIL_LAUNCHER_ID, distance: 120, light: 50 },
+          { kind: 'goto', body: FLEET_ID },
+          { kind: 'unload', body: FLEET_ID, seconds: 4 },
+        ],
+      },
+      {
+        id: 'sorakaze-dyson',
+        steps: [
+          { kind: 'goto', body: DYSON_ID },
+          { kind: 'sail', body: DYSON_ID, distance: 80, light: 25 },
+          { kind: 'goto', body: SOLAR_PLANT_ID },
+          { kind: 'unload', body: SOLAR_PLANT_ID, seconds: 4 },
         ],
       },
     ],
@@ -216,6 +357,34 @@ export const CHAPTERS: ChapterDef[] = [
       },
     ],
   },
+  {
+    id: 'meguri-sf',
+    ship: 'meguri',
+    world: 'sf',
+    missions: [
+      {
+        id: 'meguri-blackhole',
+        steps: [
+          { kind: 'goto', body: BLACK_HOLE_ID },
+          { kind: 'scan', body: BLACK_HOLE_ID, seconds: 6 },
+        ],
+      },
+      {
+        id: 'meguri-desert',
+        steps: [
+          { kind: 'goto', body: DESERT_ID },
+          { kind: 'land', body: DESERT_ID },
+        ],
+      },
+      {
+        id: 'meguri-ice',
+        steps: [
+          { kind: 'goto', body: ICE_ID },
+          { kind: 'land', body: ICE_ID },
+        ],
+      },
+    ],
+  },
 ]
 
 /** すべての任務（章の順）。任務の番号はこの並びの番号 */
@@ -245,6 +414,8 @@ export type MissionText = {
     start: string
     /** この手順を終えたときの解説 */
     done: string
+    /** launch・land：艇が着いたときのことば */
+    arrive?: string
     /** deflect：命中したときのことば（命中の数だけ） */
     hits?: string[]
   }[]

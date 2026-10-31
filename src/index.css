@@ -3177,6 +3177,36 @@ body.sf .nav-panel {
   color: #ffb36b;
 }
 
+.mission-cargo.sail {
+  color: #ffe08a;
+}
+
+/* 探査艇・着陸艇を出すボタン（ホワイトヘロン・メグリ） */
+.mission-launch {
+  margin-top: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffb36b, #e07a3a);
+  color: #1a1020;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  animation: mission-launch-pulse 1.6s ease-in-out infinite;
+}
+
+.mission-launch kbd {
+  margin-left: 6px;
+  font-size: 11px;
+}
+
+@keyframes mission-launch-pulse {
+  50% {
+    filter: brightness(1.18);
+  }
+}
+
 .mission-again {
   margin-top: 6px;
   width: 100%;

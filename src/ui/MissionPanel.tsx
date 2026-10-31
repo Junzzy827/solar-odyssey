@@ -4,7 +4,7 @@ import { shipLabel, shipSpec, type ShipId } from '../data/ships'
 import { chapterText, missionText, ui } from '../i18n'
 import { useLang } from '../i18n/lang'
 import { useStore } from '../state/store'
-import { abortMission, answerQuiz, closeMissions, isUnlocked, nextQuiz, openChapter, openMissions, showBriefing, startMission, useMission } from '../state/mission'
+import { abortMission, answerQuiz, closeMissions, isUnlocked, launchCraft, nextQuiz, openChapter, openMissions, showBriefing, startMission, useMission } from '../state/mission'
 import { useRace } from '../state/race'
 import { openEclipses, playEclipse, useEclipse } from '../state/eclipse'
 import { PHOTO_FRAME } from '../components/mission/MissionRunner'
@@ -234,9 +234,12 @@ function MissionBar() {
     }
   }, [])
 
-  const timed = step.kind === 'unload' || step.kind === 'scan' || step.kind === 'load' || step.kind === 'photo' || step.kind === 'dock'
+  const craft = step.kind === 'launch' || step.kind === 'land'
+  const timed = step.kind === 'unload' || step.kind === 'scan' || step.kind === 'load' || step.kind === 'photo' || step.kind === 'dock' || step.kind === 'sail' || craft
   let status: string
   if (step.kind === 'deflect') status = t.hits(m.progress, DEFLECT_HITS)
+  else if (craft) status = m.craftOut !== null ? t.craftOut : m.craftReady ? '' : t.craftFar
+  else if (step.kind === 'sail') status = t.sailMoved(Math.round(m.progress * 100))
   else if (step.kind === 'photo' || step.kind === 'dock') status = m.framing ? t.framing[m.framing] : ''
   else if (timed) status = m.progress > 0 ? t.progress(Math.round(m.progress * 100)) : t.waitNear
   else status = ''
@@ -264,6 +267,12 @@ function MissionBar() {
         </div>
       )}
       {m.cargo && <div className="mission-cargo">{t.cargo}</div>}
+      {step.kind === 'sail' && <div className="mission-cargo sail">{(step.light ?? 1) > 10 ? t.sailLaser : t.sailLight(sailRatio(step.light ?? 1))}</div>}
+      {craft && m.craftReady && m.craftOut === null && (
+        <button className="mission-launch" onClick={launchCraft}>
+          {step.kind === 'land' ? t.land : t.launch} <kbd>L</kbd>
+        </button>
+      )}
       {step.kind === 'eclipse' && <EclipseAgain id={step.eclipse} />}
       {m.message && (
         <button className={`mission-comm${folded ? ' folded' : ''}`} key={m.messageId} onClick={() => setFolded(!folded)} aria-expanded={!folded}>
@@ -274,6 +283,9 @@ function MissionBar() {
     </>
   )
 }
+
+/** 光の強さの倍率を、読みやすい数に（1より小さいときは分数のように小数2けた） */
+const sailRatio = (x: number) => (x >= 1 ? x.toFixed(1) : x.toFixed(x < 0.1 ? 3 : 2))
 
 /** 日食の画面を閉じてしまったときに、もう一度開く */
 function EclipseAgain({ id }: { id?: string }) {

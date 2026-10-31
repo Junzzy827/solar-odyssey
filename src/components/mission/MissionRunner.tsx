@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { DEFLECT_HITS, DOCK_RANGE, DOCK_SECONDS, DOCK_SPEED, FLYBY_ALTITUDE, MISSIONS, ROCK_ID, type MissionStep } from '../../data/missions'
+import { CRAFT_SECONDS, DEFLECT_HITS, DOCK_RANGE, DOCK_SECONDS, DOCK_SPEED, FLYBY_ALTITUDE, LANDER_SECONDS, LAUNCH_RANGE, MECH_ID, MISSIONS, ROCK_ID, type MissionStep } from '../../data/missions'
 import { missionText, ui } from '../../i18n'
 import { approachKind } from '../../data/approach'
 import { beamTargets, bodies, markerOverride, registerBody, type BodyEntry } from '../../state/registry'
 import { distanceToBody, ship } from '../../state/flight'
 import { useStore } from '../../state/store'
-import { completeStep, missionSay, setFraming, setProgress, useMission, type Framing } from '../../state/mission'
+import { completeStep, launchCraft, missionSay, setCraftReady, setFraming, setProgress, useMission, type Framing } from '../../state/mission'
 import { eclipseClock, useEclipse } from '../../state/eclipse'
 import { shipScale } from '../../state/zoom'
 import { asteroidGeometry } from '../asteroidShape'
+import { WorkMech } from '../sf/WorkMech'
+import { MECH_SIZE } from '../sf/ConstructionSite'
 
 const ROCK_RADIUS = 0.3
 /** ビームの当たり判定は見た目より大きく（スマホでも当てやすいように） */
@@ -79,6 +81,13 @@ export function MissionRunner() {
     if (m.phase !== 'active' || st.warpPhase !== 'idle') return
     const def = MISSIONS[m.index].steps[m.step]
     if (def.kind === 'deflect' || def.kind === 'dock') return
+    if (def.kind === 'sail') {
+      // 光の帆：自分の力で進んだ道のりを数える（ワープは数えない）
+      const p = Math.min(1, m.progress + (ship.velocity.length() * Math.min(delta, 0.1)) / (def.distance ?? 50))
+      if (p >= 1) completeStep()
+      else setProgress(p)
+      return
+    }
     if (def.kind === 'eclipse') {
       // 日食の画面で、食がいちばん深くなるところまで再生されたら
       if (useEclipse.getState().eclipseId === def.eclipse && eclipseClock.ms >= eclipseClock.peak) completeStep()
@@ -91,6 +100,9 @@ export function MissionRunner() {
       if (isNear(distance, entry.radius)) completeStep()
     } else if (def.kind === 'flyby') {
       if (distance < entry.radius * FLYBY_ALTITUDE) completeStep()
+    } else if (def.kind === 'launch' || def.kind === 'land') {
+      // 艇を出せるのは、発進なら目標まで LAUNCH_RANGE 以内、着陸ならその天体のそば
+      if (m.craftOut === null) setCraftReady(def.kind === 'launch' ? distance - entry.radius < LAUNCH_RANGE : isNear(distance, entry.radius))
     } else if (def.kind === 'photo') {
       // 撮るのは操縦席から（全体マップや鑑賞モードのカメラでは撮れない）
       const f = st.mode === 'flight' ? framing(camera, def, entry, distance) : 'out'
@@ -99,7 +111,203 @@ export function MissionRunner() {
     } else if (isNear(distance, entry.radius)) advance(delta, def.seconds ?? 5)
   })
 
-  return kind === 'deflect' ? <MissionRock /> : kind === 'dock' ? <DockRing key={`${index}-${step}`} /> : null
+  const steps = phase === 'active' ? MISSIONS[index].steps : []
+  const mechStep = steps.findIndex((s) => s.body === MECH_ID)
+  const craftOut = useMission((m) => m.craftOut)
+
+  // L キーで探査艇・着陸艇を出す
+  useEffect(() => {
+    if (kind !== 'launch' && kind !== 'land') return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'KeyL' && !e.repeat) launchCraft()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [kind])
+
+  return (
+    <>
+      {kind === 'deflect' && <MissionRock />}
+      {kind === 'dock' && <DockRing key={`${index}-${step}`} />}
+      {mechStep >= 0 && step <= mechStep && <StrandedMech />}
+      {craftOut !== null && (kind === 'launch' || kind === 'land') && <Craft key={`${index}-${step}`} land={kind === 'land'} />}
+    </>
+  )
+}
+
+/** 作業メカの大きさ（建設現場のものより大きく描いて、見つけやすくする） */
+const STRANDED_SIZE = MECH_SIZE * 3
+/** 救助の探査艇に引かれているあいだ、メカがついていく位置 */
+const tow = { on: false, at: new THREE.Vector3() }
+const mechFrom = new THREE.Vector3()
+
+/** 救助を待つ作業メカ：コロニーのそばでゆっくり回りながら漂う */
+function StrandedMech() {
+  const group = useRef<THREE.Group>(null!)
+  const offset = useRef(new THREE.Vector3())
+
+  useEffect(() => {
+    const colony = bodies.get(MISSIONS[useMission.getState().index].steps[0].body)
+    if (colony) {
+      colony.object.getWorldPosition(mechFrom)
+      offset.current.copy(ship.position).sub(mechFrom)
+      if (offset.current.lengthSq() < 1e-6) offset.current.set(0, 0.2, 1)
+      offset.current.applyAxisAngle(UP, -0.9).setLength(colony.radius * 1.8)
+      offset.current.y += colony.radius * 0.4
+    }
+    tow.on = false
+    const unregister = registerBody({ id: MECH_ID, get name() { return ui().mechName }, radius: STRANDED_SIZE, object: group.current })
+    return () => {
+      unregister()
+      tow.on = false
+      if (useStore.getState().targetId === MECH_ID) useStore.getState().setTarget(null)
+    }
+  }, [])
+
+  useFrame((_, delta) => {
+    const m = useMission.getState()
+    const def = MISSIONS[m.index]?.steps[m.step]
+    if (def?.body === MECH_ID && useStore.getState().targetId !== MECH_ID) useStore.getState().setTarget(MECH_ID)
+    if (tow.on) group.current.position.copy(tow.at)
+    else {
+      const colony = bodies.get(MISSIONS[m.index]?.steps[0].body ?? '')
+      if (colony) group.current.position.copy(colony.object.getWorldPosition(mechFrom)).add(offset.current)
+    }
+    group.current.rotation.x += delta * 0.25
+    group.current.rotation.z += delta * 0.1
+  })
+
+  return (
+    <group ref={group}>
+      <group scale={STRANDED_SIZE}>
+        <WorkMech pose="float" />
+      </group>
+      {/* 助けを呼ぶ点滅灯 */}
+      <Beacon size={STRANDED_SIZE} />
+    </group>
+  )
+}
+
+function Beacon({ size }: { size: number }) {
+  const mesh = useRef<THREE.Mesh>(null!)
+  useFrame(({ clock }) => {
+    ;(mesh.current.material as THREE.MeshBasicMaterial).opacity = Math.sin(clock.getElapsedTime() * 4) > 0.3 ? 1 : 0.15
+  })
+  return (
+    <mesh ref={mesh} position={[0, size * 0.9, 0]}>
+      <sphereGeometry args={[size * 0.12, 10, 8]} />
+      <meshBasicMaterial color={new THREE.Color(2.4, 0.9, 0.3)} transparent toneMapped={false} />
+    </mesh>
+  )
+}
+
+const craftTo = new THREE.Vector3()
+const craftDir = new THREE.Vector3()
+const lookAt = new THREE.Vector3()
+
+/**
+ * 探査艇（発進）と着陸艇：自機から目標へ飛んでいき、必要なら戻ってくる。
+ * 発進：CRAFT_SECONDS で目標の表面のそばへ（back なら同じ時間で帰る）。着陸：降りて、地表で待って、上がって戻る
+ */
+function Craft({ land }: { land: boolean }) {
+  const group = useRef<THREE.Group>(null!)
+  const flame = useRef<THREE.Mesh>(null!)
+  const run = useRef({ size: 1, start: new THREE.Vector3(), said: 0 })
+
+  useEffect(() => {
+    run.current.size = shipScale() * 0.3
+    run.current.start.copy(ship.position)
+    group.current.position.copy(ship.position)
+    group.current.scale.setScalar(run.current.size)
+    // 目標の印は艇を追いかける（大きな惑星のそばでも、艇の居場所がわかるように）
+    const craft = group.current
+    markerOverride.object = craft
+    return () => {
+      tow.on = false
+      if (markerOverride.object === craft) markerOverride.object = null
+    }
+  }, [])
+
+  useFrame(() => {
+    const m = useMission.getState()
+    const def = MISSIONS[m.index]?.steps[m.step]
+    const entry = bodies.get(def?.body ?? '')
+    if (m.phase !== 'active' || m.craftOut === null || !def || !entry) return
+    const elapsed = performance.now() / 1000 - m.craftOut
+    const [down, stay, up] = land ? LANDER_SECONDS : [CRAFT_SECONDS, 0, def.back ? CRAFT_SECONDS : 0]
+    const total = down + stay + up
+    // 行き先：目標の表面の、自機の側（作業メカやビーコンのような小さいものは、そのものの位置）
+    entry.object.getWorldPosition(craftTo)
+    const small = entry.radius < 0.05
+    if (!small) {
+      craftDir.copy(ship.position).sub(craftTo).normalize()
+      craftTo.addScaledVector(craftDir, entry.radius * (land ? 1.002 : 1.25))
+    }
+    let k: number
+    let from: THREE.Vector3, to: THREE.Vector3
+    if (elapsed < down) {
+      k = elapsed / down
+      from = run.current.start
+      to = craftTo
+    } else if (elapsed < down + stay) {
+      k = 1
+      from = craftTo
+      to = craftTo
+    } else {
+      k = up > 0 ? (elapsed - down - stay) / up : 1
+      from = craftTo
+      to = ship.position
+    }
+    const e = k * k * (3 - 2 * k)
+    lookAt.copy(group.current.position)
+    group.current.position.lerpVectors(from, to, Math.min(1, e))
+    // 進む向きを向く（止まっているあいだはそのまま）
+    if (lookAt.distanceToSquared(group.current.position) > 1e-12) {
+      lookAt.sub(group.current.position).multiplyScalar(-1).add(group.current.position)
+      group.current.lookAt(lookAt)
+    }
+    flame.current.visible = elapsed < down || elapsed > down + stay
+    // 救助：帰り道はメカを連れてくる
+    if (def.back && def.body === MECH_ID && elapsed >= down) {
+      tow.on = true
+      tow.at.copy(group.current.position)
+    }
+    // 着いた・地表に降りたときのことば
+    const text = missionText(MISSIONS[m.index].id).steps[m.step]
+    if (run.current.said === 0 && elapsed >= down && (stay > 0 || up > 0) && text.arrive) {
+      run.current.said = 1
+      missionSay(text.arrive)
+    }
+    if (elapsed >= total) completeStep()
+    else setProgress(Math.min(0.99, elapsed / total))
+  })
+
+  return (
+    <group ref={group}>
+      {/* 白い艇体と、橙の帯。前は +Z（lookAt で進む向きへ） */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.35, 1, 10]} />
+        <meshStandardMaterial color="#e8ecf2" roughness={0.5} metalness={0.2} />
+      </mesh>
+      <mesh position={[0, 0, -0.45]}>
+        <cylinderGeometry args={[0.36, 0.36, 0.12, 10]} />
+        <meshStandardMaterial color="#e07a3a" roughness={0.6} />
+      </mesh>
+      {/* 遠くからも見えるよう、ぼんやり光る */}
+      <mesh>
+        <sphereGeometry args={[0.9, 12, 8]} />
+        <meshBasicMaterial color={new THREE.Color(1.2, 1.4, 1.8)} transparent opacity={0.18} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 0, 0.1]}>
+        <sphereGeometry args={[0.12, 8, 6]} />
+        <meshBasicMaterial color={new THREE.Color(0.6, 1.8, 2.4)} toneMapped={false} />
+      </mesh>
+      <mesh ref={flame} position={[0, 0, -0.85]} rotation={[-Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.2, 0.7, 8]} />
+        <meshBasicMaterial color={new THREE.Color(2.4, 1.4, 0.6)} transparent opacity={0.8} toneMapped={false} depthWrite={false} />
+      </mesh>
+    </group>
+  )
 }
 
 const dockFrom = new THREE.Vector3()

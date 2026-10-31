@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { CARGO_SPEED, CHAPTERS, LEGACY_ORDER, MISSIONS, ROCK_ID, chapterOf } from '../data/missions'
+import { CARGO_SPEED, CHAPTERS, LEGACY_ORDER, MECH_ID, MISSIONS, ROCK_ID, SAIL_SPEED, chapterOf } from '../data/missions'
 import type { ShipId } from '../data/ships'
 import { missionText } from '../i18n'
 import { playBeep } from '../audio/sfx'
@@ -47,6 +47,10 @@ type MissionState = {
   cargo: boolean
   /** ストーリーモードに入る前に乗っていた船（閉じたら戻す） */
   prevShip: ShipId | null
+  /** 探査艇・着陸艇を出せるところにいるか（launch・land の手順） */
+  craftReady: boolean
+  /** 探査艇・着陸艇が出ているあいだ（時計の秒で、出した時刻） */
+  craftOut: number | null
 }
 
 function loadStars(): Record<string, number> {
@@ -90,6 +94,8 @@ export const useMission = create<MissionState>(() => ({
   framing: null,
   cargo: false,
   prevShip: null,
+  craftReady: false,
+  craftOut: null,
 }))
 
 export const missionActive = () => useMission.getState().phase === 'active'
@@ -125,9 +131,10 @@ export function closeMissions() {
 function endMission() {
   const m = useMission.getState()
   setCargo(false)
+  flightControl.speedScale = 1
   if (MISSIONS[m.index]?.steps.some((s) => s.kind === 'eclipse')) closeEclipses()
   if (m.prevShip && useStore.getState().settings.ship !== m.prevShip) useStore.getState().updateSettings({ ship: m.prevShip })
-  useMission.setState({ phase: 'closed', message: '', prevShip: null, framing: null })
+  useMission.setState({ phase: 'closed', message: '', prevShip: null, framing: null, craftOut: null, craftReady: false })
 }
 
 export function showBriefing(index: number) {
@@ -148,15 +155,42 @@ export function startMission() {
   }
   setCargo(false)
   if (s.mode !== 'flight') s.setMode('flight')
-  useMission.setState({ phase: 'active', step: 0, progress: 0, quizIndex: 0, picked: [], earned: null, framing: null })
+  useMission.setState({ phase: 'active', step: 0, progress: 0, quizIndex: 0, picked: [], earned: null, framing: null, craftOut: null, craftReady: false })
+  applySpeed()
   say(beginStep(0))
 }
 
 /** 荷物を積む・降ろす。積んでいるあいだは最高速度を落とす（重い船は速さが出にくい） */
 function setCargo(cargo: boolean) {
   if (useMission.getState().cargo === cargo) return
-  flightControl.speedScale = cargo ? CARGO_SPEED : 1
   useMission.setState({ cargo })
+  applySpeed()
+}
+
+/** 光の帆の手順なら、その場所の光の強さ */
+export function sailLight() {
+  const m = useMission.getState()
+  const def = m.phase === 'active' ? MISSIONS[m.index].steps[m.step] : undefined
+  return def?.kind === 'sail' ? (def.light ?? 1) : null
+}
+
+/** 最高速度の割合：荷物の重さと、光の帆の強さ */
+function applySpeed() {
+  const light = sailLight()
+  const sail = light === null ? 1 : Math.min(SAIL_SPEED[1], Math.max(SAIL_SPEED[0], light))
+  flightControl.speedScale = (useMission.getState().cargo ? CARGO_SPEED : 1) * sail
+}
+
+/** 探査艇・着陸艇を出す（L キーか、任務の表示のボタン） */
+export function launchCraft() {
+  const m = useMission.getState()
+  if (m.phase !== 'active' || !m.craftReady || m.craftOut !== null) return
+  useMission.setState({ craftOut: performance.now() / 1000, progress: 0 })
+  playBeep(660, 0.12)
+}
+
+export function setCraftReady(craftReady: boolean) {
+  if (useMission.getState().craftReady !== craftReady) useMission.setState({ craftReady })
 }
 
 /** 手順を始める：目標をセットして、説明を出す（小惑星の目標は、MissionRunner が出してからセットする） */
@@ -167,7 +201,7 @@ function beginStep(step: number) {
   if (def.kind === 'eclipse' && def.eclipse) {
     openEclipses()
     playEclipse(def.eclipse)
-  } else if (def.body !== ROCK_ID && useStore.getState().targetId !== def.body) useStore.getState().setTarget(def.body)
+  } else if (def.body !== ROCK_ID && def.body !== MECH_ID && useStore.getState().targetId !== def.body) useStore.getState().setTarget(def.body)
   return text.start
 }
 
@@ -186,14 +220,16 @@ export function completeStep() {
     if (document.pointerLockElement) document.exitPointerLock()
     useStore.getState().setAutopilot(false)
     useStore.getState().setLogOpen(false)
-    useMission.setState({ phase: 'debrief', progress: 0, quizIndex: 0, picked: text.quiz.map(() => null), framing: null })
+    useMission.setState({ phase: 'debrief', progress: 0, quizIndex: 0, picked: text.quiz.map(() => null), framing: null, craftOut: null, craftReady: false })
+    flightControl.speedScale = 1
     // クイズの途中で閉じても、任務を終えたぶんの星1つは残す（次の任務も開く）
     saveStars(m.index, 1)
     say(done)
     return
   }
   const next = m.step + 1
-  useMission.setState({ step: next, progress: 0, framing: null })
+  useMission.setState({ step: next, progress: 0, framing: null, craftOut: null, craftReady: false })
+  applySpeed()
   say(`${done}\n\n${beginStep(next)}`)
 }
 
