@@ -38,15 +38,17 @@ function factorFor(kind: ApproachKind, radius: number, altitude: number) {
 /** 天体の「そば」：半径の3倍まで（小さな衛星でも、ワープで着いた位置が入るよう少し足す） */
 export const nearRange = (radius: number) => radius * 3 + 1
 
-/** 表示する天体を選ぶ順位：雲の中の惑星、そばにいる天体のうちいちばん近いもの、半径に対していちばん近い天体 */
-function rank(altitude: number, radius: number) {
+/** 表示する天体を選ぶ順位：雲の中の惑星、そばにいる目標、そばにいる天体のうちいちばん近いもの、半径に対していちばん近い天体 */
+function rank(altitude: number, radius: number, isTarget: boolean) {
   if (altitude < 0) return -Infinity
+  // 目標の衛星へワープしたら、すぐそばの親の惑星（地球と月など）ではなく、目標の衛星を表示する
+  if (isTarget && altitude < nearRange(radius)) return altitude - 2e6
   // 太陽を大きくすると、木星のそばでも「半径に対して」は太陽の方が近くなるので、そばにいる天体を先にする
   if (altitude < nearRange(radius)) return altitude - 1e6
   return altitude / radius
 }
 
-export function updateProximity(position: THREE.Vector3) {
+export function updateProximity(position: THREE.Vector3, targetId: string | null = null) {
   let best = Infinity
   speedFactor = 1
   proximity.id = null
@@ -56,7 +58,7 @@ export function updateProximity(position: THREE.Vector3) {
     const altitude = position.distanceTo(p) - body.radius
     const kind = approachKind(body.id)
     speedFactor = Math.min(speedFactor, factorFor(kind, body.radius, altitude))
-    const score = rank(altitude, body.radius)
+    const score = rank(altitude, body.radius, body.id === targetId)
     if (score < best) {
       best = score
       proximity.id = body.id
