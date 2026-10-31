@@ -424,6 +424,11 @@ body.touch .touch-warp {
   gap: 6px;
 }
 
+/* 右手のボタンが4段（アルカディアの「発進」）のときは、もう1段ぶん上に */
+body.touch .touch-warp.extra-row {
+  bottom: calc(var(--pad-b) + 4 * 50px + 4 * 8px + 4px);
+}
+
 /* 全体マップでは、下のまんなかに */
 body.touch .touch-warp.map {
   right: 50%;
@@ -569,7 +574,8 @@ body.touch .stamp-book {
   }
 
   /* 横向きでは、右手のボタンは縦2つずつの3列（index.css）なので、その上に */
-  body.touch .touch-warp.flight {
+  body.touch .touch-warp.flight,
+  body.touch .touch-warp.flight.extra-row {
     bottom: calc(var(--pad-b) + 2 * 44px + 8px + 10px);
   }
 }
@@ -614,6 +620,10 @@ body.touch .stamp-book {
   body.touch .touch-warp {
     right: calc(var(--safe-r) + 28px);
     bottom: calc(var(--pad-b) + 12px + 3 * 58px + 3 * 8px + 6px);
+  }
+
+  body.touch .touch-warp.extra-row {
+    bottom: calc(var(--pad-b) + 12px + 4 * 58px + 4 * 8px + 6px);
   }
 
   body.touch .hud {
