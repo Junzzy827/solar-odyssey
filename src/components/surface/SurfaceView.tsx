@@ -16,6 +16,7 @@ import { SurfacePost } from './SurfacePost'
 import { SurfaceLab } from './SurfaceLab'
 import { SurfaceStars } from './SurfaceStars'
 import { TimeBar } from './TimeBar'
+import { groundMaterial } from './groundMaterial'
 import { SkyFrame, hoursPerSecond, litFraction, useSkyClock } from './skyClock'
 import type { SkyNow } from './skyNow'
 import { SKY_FROM_APP } from '../../data/skyFrame'
@@ -331,10 +332,9 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const round = def.id === 'titan'
   const rockGeos = useMemo(() => [0, 1, 2].map((k) => rockGeometry(terrain.seed + k * 17, round)), [terrain.seed, round])
   const grain = grainTexture()
-  const groundMat = useMemo(() => {
-    const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.97, metalness: 0, map: grain, bumpMap: grain, bumpScale: 0.8 })
-    return withAir(m, ap)
-  }, [grain, ap])
+  // 地面の素材（砂・レゴリス・氷・火山岩）の細かい凹凸と粗さ、斜面の岩肌
+  const level = useLevel()
+  const groundMat = useMemo(() => withAir(groundMaterial(def, level === 'low' || lowMemory()), ap), [def, level, ap])
   const rockMat = useMemo(
     () => withAir(new THREE.MeshStandardMaterial({ color: def.rock, roughness: round ? 0.7 : 0.92, metalness: 0, map: grain, bumpMap: grain, bumpScale: 1.5 }), ap),
     [def.rock, grain, round, ap],
