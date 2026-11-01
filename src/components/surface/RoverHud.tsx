@@ -29,6 +29,7 @@ export function RoverHud() {
   useLang()
   const kmh = useRover((r) => r.kmh)
   const hud = useRover((r) => r.hud)
+  const next = useRover((r) => r.next)
   const v = Math.min(kmh, TOP_KMH)
   const [nx, ny] = at(v, R - 16)
   const [bx, by] = at(v, R - 34)
@@ -100,6 +101,21 @@ export function RoverHud() {
           <span className="rr-v">
             {hud.dist} <small>m</small>
           </span>
+        </div>
+        <div className="rr-row">
+          <span className="rr-k">{t('岩', 'ROCK')}</span>
+          {next ? (
+            <>
+              <span className="rr-next" style={{ transform: `rotate(${next.rel}deg)` }}>
+                ▲
+              </span>
+              <span className="rr-v">
+                {next.dist} <small>m</small>
+              </span>
+            </>
+          ) : (
+            <span className="rr-v small">{t('完了', 'done')}</span>
+          )}
         </div>
         <div className={`rr-air${hud.air ? ' on' : ''}`}>{t('空中', 'AIR')}</div>
       </div>

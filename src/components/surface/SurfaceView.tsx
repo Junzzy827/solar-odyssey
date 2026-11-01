@@ -30,7 +30,8 @@ import { QualityGovernor } from '../QualityGovernor'
 import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 import { Rover } from './Rover'
 import { RoverHud } from './RoverHud'
-import { bindRoverKeys, launchRover, recallRover, roverFocus, roverInput, useRover } from '../../state/rover'
+import { bindRoverKeys, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
+import { samplesFor } from '../../data/rockSamples'
 
 // 着陸した天体の地表の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 // 立つ場所は 1 か所に決めて、まわりを 360° 見回せる。着陸船は少し先に降りてくる。
@@ -1142,9 +1143,55 @@ function holdProps(on: () => void, off: () => void) {
 }
 
 /** ローバーを出しているあいだの表示：速さ・見方の切り替え・回収、スマホでは運転のボタン */
-function RoverPanel() {
+/** 採集した岩の分析結果のカード */
+function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
+  const lang = useLang()
+  const all = samplesFor(bodyId)
+  const k = all.find((s) => s.id === id)
+  const got = useSampleLog((l) => l.log[bodyId]?.length ?? 0)
+  if (!k) return null
+  const max = Math.max(...k.comp.map((c) => c[1]))
+  return (
+    <div className="sample-card">
+      <div className="sample-head">
+        <span className="sample-swatch" style={{ background: k.color }} />
+        <div>
+          <div className="sample-kicker">{t('試料を分析しました', 'Sample analysed')}</div>
+          <div className="sample-name">{lang === 'en' ? k.name[1] : k.name[0]}</div>
+        </div>
+      </div>
+      <div className="sample-comp">
+        {k.comp.map(([label, v]) => (
+          <div className="sample-bar" key={label}>
+            <span className="sb-k">{label}</span>
+            <span className="sb-track">
+              <span className="sb-fill" style={{ width: `${(v / max) * 100}%` }} />
+            </span>
+            <span className="sb-v">{v}%</span>
+          </div>
+        ))}
+      </div>
+      <p className="sample-note">{lang === 'en' ? k.note[1] : k.note[0]}</p>
+      <div className="sample-foot">
+        <span>
+          {t('この天体の試料', 'Samples here')} {got} / {all.length}
+        </span>
+        <button className="secondary" onClick={() => useRover.setState({ result: null })}>
+          {t('閉じる', 'Close')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function RoverPanel({ bodyId }: { bodyId: string }) {
   useLang()
   const phase = useRover((r) => r.phase)
+  const canSample = useRover((r) => r.canSample)
+  const sampling = useRover((r) => r.sampling)
+  const result = useRover((r) => r.result)
+  const got = useSampleLog((l) => l.log[bodyId]?.length ?? 0)
+  const total = samplesFor(bodyId).length
   const view = useRover((r) => r.view)
   const menu = useRover((r) => r.menu)
   const setView = useRover((r) => r.setView)
@@ -1154,12 +1201,29 @@ function RoverPanel() {
     <>
       <div className="surface-hint rover-hint">
         {drive
-          ? t('W/↑ 前進・S/↓ 後退・A D/← → 曲がる・スペース ジャンプ・V 見方', 'W/↑ drive · S/↓ reverse · A D/← → steer · Space jump · V view')
+          ? t('W/↑ 前進・S/↓ 後退・A D/← → 曲がる・スペース ジャンプ・E 採集・V 見方', 'W/↑ drive · S/↓ reverse · A D/← → steer · Space jump · E sample · V view')
           : phase === 'drop'
             ? t('ローバーを投下…', 'Dropping the rover…')
             : t('ローバーを展開中…', 'Rover unfolding…')}
       </div>
       {drive && <RoverHud />}
+      {drive && result && <SampleCard bodyId={bodyId} id={result} />}
+      {drive && (
+        <div className="sample-status">
+          <span className="sample-count" title={t('この天体で集めた試料の種類', 'Sample types collected here')}>
+            ◆ {t('試料', 'Samples')} {got}/{total}
+          </span>
+          {sampling ? (
+            <span className="sample-busy">{t('アームで採集中…', 'Arm collecting…')}</span>
+          ) : (
+            canSample && (
+              <button className="sample-btn" onClick={() => (roverInput.sample = true)}>
+                {t('採集する', 'Collect')} <kbd>E</kbd>
+              </button>
+            )
+          )}
+        </div>
+      )}
       {drive && (
         <div className="rover-pad">
           <div className="rover-pad-left">
@@ -1252,7 +1316,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
           </div>}
           {showInfo && <TimeBar def={def} />}
           {rover !== 'none' ? (
-            <RoverPanel />
+            <RoverPanel bodyId={def.id} />
           ) : (
           <>
           <div className="surface-hint">

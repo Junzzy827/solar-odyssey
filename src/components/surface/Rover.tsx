@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { FAR, LANDER_POS, Terrain } from './terrain'
+import { FAR, LANDER_POS, Terrain, rockGeometry, seeded } from './terrain'
 import { dustFragment, dustVertex, puffTexture, windFor } from './landerFx'
 import type { SkyNow } from './skyNow'
 import { useLevel } from '../../state/quality'
 import { useLanding } from '../../state/landing'
-import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverFocus, roverInput, roverNow, setRoverPhase, useRover } from '../../state/rover'
+import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverFocus, roverInput, roverDebug, roverNow, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
+import { samplesFor, type RockSample } from '../../data/rockSamples'
 
 // 無人探査ローバー ORV-7（全長 1.8 m）。模型は tools/blender/build_rover.py で作った rover-orv7.glb。
 // 関節（脚・太陽電池・マスト・アンテナ・アーム）は模型ではすべて 0 で、ここで回して
@@ -278,7 +279,19 @@ type Drive = {
   dropped: boolean
   burst: number
   hudT: number
+  /** 採集の経過（秒）。-1 = 採集していない */
+  sampleT: number
+  sampleIdx: number
 }
+
+/** 採集できる岩の置き場所 */
+type Site = { x: number; y: number; z: number; size: number; rot: number; seed: number; kind: RockSample }
+
+/** 採集の段取り（秒）：アームを伸ばす → つかむ → 持ち上げて車体へ */
+const REACH = 1.1
+const GRIP = 1.7
+const DONE = 2.8
+const ARM_REACH = [0, 30, -62, -86].map((v) => v * D)
 
 const PROPS = { cam: new THREE.Vector3(), look: new THREE.Vector3(), fwd: new THREE.Vector3(), tmp: new THREE.Vector3(), q: new THREE.Quaternion() }
 
@@ -357,10 +370,74 @@ export function Rover({
   useEffect(() => () => dust.dispose(), [dust])
   const dustBase = useMemo(() => new THREE.Color(dustColor), [dustColor])
   const feet = useMemo(() => landerFeet(landerYaw), [landerYaw])
+
+  // ---- 採集できる岩：着陸地点のまわりにちらばらせる。1 つめは、ローバーが降りた正面の少し先に ----
+  const sites = useMemo<Site[]>(() => {
+    const kinds = samplesFor(def.id)
+    const rnd = seeded(terrain.seed + 911)
+    const n = Math.min(10, Math.max(6, kinds.length * 2))
+    const h0 = landerYaw + Math.PI / 2
+    const out: Site[] = []
+    const push = (x: number, z: number) =>
+      out.push({ x, z, y: meshHeight(terrain, x, z), size: 0.2 + rnd() * 0.12, rot: rnd() * Math.PI * 2, seed: Math.floor(rnd() * 1e6), kind: kinds[out.length % kinds.length] })
+    push(LANDER_POS.x - Math.sin(h0) * 14, LANDER_POS.y - Math.cos(h0) * 14)
+    for (let tries = 0; out.length < n && tries < 500; tries++) {
+      const x = (rnd() * 2 - 1) * (ROVER_RANGE - 8)
+      const z = (rnd() * 2 - 1) * (ROVER_RANGE - 8)
+      if (Math.hypot(x - LANDER_POS.x, z - LANDER_POS.y) < 14) continue
+      if (out.some((o) => Math.hypot(o.x - x, o.z - z) < 20)) continue
+      push(x, z)
+    }
+    return out
+  }, [terrain, def.id, landerYaw])
+  const rocks = useMemo(() => {
+    const beaconGeo = new THREE.CylinderGeometry(0.05, 0.05, 1, 8, 1, true)
+    beaconGeo.translate(0, 0.5, 0)
+    const beaconMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.0, 0.45), transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })
+    const items = sites.map((site) => {
+      const geo = rockGeometry(site.seed, !!site.kind.round)
+      const mat = prepare(new THREE.MeshStandardMaterial({ color: site.kind.color, roughness: 0.85 - (site.kind.gloss ?? 0) * 0.6, metalness: (site.kind.gloss ?? 0) * 0.3 }))
+      return { geo, mat }
+    })
+    const chipMat = new THREE.MeshStandardMaterial({ color: '#888', roughness: 0.7 })
+    const chipGeo = rockGeometry(7, false)
+    return { beaconGeo, beaconMat, items, chipMat, chipGeo }
+  }, [sites, prepare])
+  useEffect(
+    () => () => {
+      rocks.beaconGeo.dispose()
+      rocks.beaconMat.dispose()
+      rocks.chipGeo.dispose()
+      rocks.chipMat.dispose()
+      for (const it of rocks.items) {
+        it.geo.dispose()
+        it.mat.dispose()
+      }
+    },
+    [rocks],
+  )
+  const beacons = useRef<(THREE.Mesh | null)[]>([])
+  const chip = useRef<THREE.Mesh>(null)
+  /** この着陸で、もう採った岩（目印を消す） */
+  const taken = useRef(new Set<number>())
   const lights = useRef<THREE.SpotLight>(null)
 
   // 走りの状態。落とすたびに着陸船の真下から
   const st = useRef<Drive | null>(null)
+  useEffect(() => {
+    // i 番目の岩の手前（アームが届くところ）へ
+    roverDebug.moveTo = (i) => {
+      const d = st.current
+      const site = sites[i]
+      if (!d || !site) return
+      Object.assign(d, { x: site.x + Math.sin(d.heading) * 1.1, z: site.z + Math.cos(d.heading) * 1.1, speed: 0 })
+    }
+    roverDebug.sites = () => sites.map(({ x, z }) => ({ x, z }))
+    return () => {
+      roverDebug.moveTo = undefined
+      roverDebug.sites = undefined
+    }
+  }, [sites])
   useEffect(() => {
     if (phase !== 'drop') return
     const x = LANDER_POS.x
@@ -384,7 +461,10 @@ export function Rover({
       dropped: false,
       burst: 0,
       hudT: 0,
+      sampleT: -1,
+      sampleIdx: -1,
     }
+    taken.current.clear()
   }, [phase, terrain, landerYaw])
 
   useFrame((state, rawDt) => {
@@ -420,10 +500,12 @@ export function Rover({
     } else {
       // 運転
       const inp = roverInput
-      const steerTarget = inp.steer
+      const busy = s.sampleT >= 0
+      const steerTarget = busy ? 0 : inp.steer
       s.steer += (steerTarget - s.steer) * Math.min(1, dt * 6)
       if (s.grounded) {
-        const th = inp.throttle
+        const th = busy ? 0 : inp.throttle
+        if (busy) s.speed *= 1 - Math.min(1, dt * 8)
         if (th > 0) s.speed += (s.speed < 0 ? 14 : 7 * Math.max(0.15, 1 - s.speed / ROVER_TOP)) * dt
         else if (th < 0) s.speed -= (s.speed > 0 ? 14 : 4) * dt
         else s.speed -= Math.sign(s.speed) * Math.min(Math.abs(s.speed), 2.2 * dt)
@@ -433,7 +515,7 @@ export function Rover({
         // 速いほど大回り。4 輪（前後）を逆向きに切るので、遅いときは小回りがきく
         const R = 2.6 + Math.abs(s.speed) * 0.32
         s.heading -= s.steer * (s.speed / R) * dt
-        if (inp.jump) {
+        if (inp.jump && !busy) {
           // ぴょーん（重力の弱い星ほど高く、長く飛ぶ）
           s.vy = 3.2 + Math.abs(s.speed) * 0.08
           s.grounded = false
@@ -500,6 +582,57 @@ export function Rover({
       s.arm += ((s.still > 1.5 ? 1 : 0) - s.arm) * Math.min(1, dt * (s.still > 1.5 ? 0.8 : 3))
       pose = deployPose(1)
       pose.arm = ARM_STOW.map((p, i) => p + (ARM_WORK[i] - p) * s.arm)
+
+      // ---- 採集：アームの先が届く岩を探す。E／ボタンで採集 ----
+      const reachX = s.x + fwd.x * 1.1 + sideX * 0.2
+      const reachZ = s.z + fwd.z * 1.1 + sideZ * 0.2
+      let near = -1
+      let nearD = 0.95
+      let next = -1
+      let nextD = Infinity
+      for (let i = 0; i < sites.length; i++) {
+        if (taken.current.has(i)) continue
+        const st2 = sites[i]
+        const d = Math.hypot(st2.x - s.x, st2.z - s.z)
+        if (d < nextD) {
+          nextD = d
+          next = i
+        }
+        const r = Math.hypot(st2.x - reachX, st2.z - reachZ)
+        if (r < nearD && s.grounded && Math.abs(s.speed) < 0.8) {
+          nearD = r
+          near = i
+        }
+      }
+      if (inp.sample && near >= 0 && !busy) {
+        s.sampleT = 0
+        s.sampleIdx = near
+        s.still = 0
+      }
+      inp.sample = false
+      if (s.sampleT >= 0) {
+        s.sampleT += dt
+        const site = sites[s.sampleIdx]
+        // 岩の向き（ローバーの正面から右回り）に、肩を回す
+        const dx = site.x - (s.x + sideX * 0.22)
+        const dz = site.z - (s.z + sideZ * 0.22)
+        const rel = Math.atan2(dx * sideX + dz * sideZ, dx * fwd.x + dz * fwd.z)
+        const reach = [THREE.MathUtils.clamp(rel, -50 * D, 60 * D), ...ARM_REACH.slice(1)]
+        const w = s.sampleT < REACH ? ease(0, REACH, s.sampleT) : s.sampleT < GRIP ? 1 : 1 - ease(GRIP, DONE, s.sampleT)
+        pose.arm = pose.arm.map((p, i) => p + (reach[i] - p) * w)
+        if (s.sampleT >= DONE) {
+          taken.current.add(s.sampleIdx)
+          // 採った岩は、このフレームの「近い岩」「次の岩」から外す（次の岩は、計器を次に書き換えるときに選び直す）
+          near = -1
+          if (next === s.sampleIdx) next = -1
+          useSampleLog.getState().add(def.id, site.kind.id)
+          useRover.setState({ result: site.kind.id })
+          s.sampleT = -1
+          s.sampleIdx = -1
+        }
+      }
+      if (useRover.getState().canSample !== (near >= 0 && s.sampleT < 0) || useRover.getState().sampling !== s.sampleT >= 0)
+        useRover.setState({ canSample: near >= 0 && s.sampleT < 0, sampling: s.sampleT >= 0 })
       // 砂ぼこり：走っている車輪から（速いほど多く、後ろへ）
       if (s.grounded && def.dust && Math.abs(s.speed) > 1) {
         const k = Math.min(1, Math.abs(s.speed) / ROVER_TOP)
@@ -526,6 +659,15 @@ export function Rover({
             dist: Math.round(Math.hypot(s.x - LANDER_POS.x, s.z - LANDER_POS.y)),
             air: !s.grounded,
           },
+          next:
+            next >= 0
+              ? {
+                  dist: Math.round(nextD),
+                  rel: Math.round(
+                    (Math.atan2((sites[next].x - s.x) * sideX + (sites[next].z - s.z) * sideZ, (sites[next].x - s.x) * fwd.x + (sites[next].z - s.z) * fwd.z) * 180) / Math.PI,
+                  ),
+                }
+              : null,
         })
       }
     }
@@ -553,6 +695,34 @@ export function Rover({
       w.rotation.y = k[0] === 'F' ? -s.steer * 0.35 : k[0] === 'R' ? s.steer * 0.35 : 0
     }
     roverFocus.set(s.x, s.y, s.z)
+
+    // ---- 採集の小さなかけら：岩 → アームの先 → 車体の上の取り入れ口 ----
+    const c = chip.current
+    if (c) {
+      c.visible = s.sampleT >= REACH * 0.9 && s.sampleT < DONE
+      if (c.visible) {
+        const site = sites[s.sampleIdx]
+        built.model.updateMatrixWorld(true)
+        const hand = rig.arm[3].localToWorld(PROPS.tmp.set(0, 0, -0.17))
+        if (s.sampleT < GRIP) {
+          const u = ease(REACH * 0.9, GRIP, s.sampleT)
+          c.position.set(site.x, site.y + site.size * 0.8, site.z).lerp(hand, u)
+        } else c.position.copy(hand)
+        c.scale.setScalar(0.045 * (1 - ease(DONE - 0.25, DONE, s.sampleT)))
+        ;(c.material as THREE.MeshStandardMaterial).color.set(site.kind.color)
+      }
+    }
+    const tm = roverNow()
+    beacons.current.forEach((b, i) => {
+      if (!b) return
+      b.visible = !taken.current.has(i) && phase === 'drive'
+      if (!b.visible) return
+      const d = Math.hypot(sites[i].x - s.x, sites[i].z - s.z)
+      // 遠くからも見えるよう、遠いほど太く高く。近づくと薄く
+      const k = THREE.MathUtils.clamp(d / 40, 0.6, 3)
+      b.scale.set(k, 5 + k * 4, k)
+      rocks.beaconMat.opacity = 0.22 + 0.12 * Math.sin(tm * 3)
+    })
 
     // ---- ライト（夜は前照灯で地面を照らす） ----
     const sp = lights.current
@@ -593,7 +763,13 @@ export function Rover({
       return
     }
     rig.head.visible = true
-    if (phase === 'drive') {
+    if (phase === 'drive' && s.sampleT >= 0) {
+      // 採集中：右ななめ前から、アームが岩を拾うところを見せる
+      const sx = -fwd.z
+      const sz = fwd.x
+      camPos.set(s.x + fwd.x * 2.4 + sx * 2.3, s.y + 1.25, s.z + fwd.z * 2.4 + sz * 2.3)
+      look.set(s.x + fwd.x * 0.9 + sx * 0.2, s.y + 0.35, s.z + fwd.z * 0.9 + sz * 0.2)
+    } else if (phase === 'drive') {
       // 後ろから追う。速いほど少し引いて低く
       const v = Math.min(1, Math.abs(s.speed) / ROVER_TOP)
       const back = 5.2 + v * 2.2
@@ -627,6 +803,21 @@ export function Rover({
       </group>
       <spotLight ref={lights} color="#fff1dc" angle={0.6} penumbra={0.6} distance={40} decay={2} intensity={0} />
       <primitive object={dust.points} />
+      {sites.map((site, i) => (
+        <group key={i} position={[site.x, site.y, site.z]}>
+          <mesh geometry={rocks.items[i].geo} material={rocks.items[i].mat} scale={[site.size, site.size * 0.7, site.size * 0.9]} rotation={[0, site.rot, 0]} castShadow receiveShadow />
+          <mesh
+            ref={(el) => {
+              beacons.current[i] = el
+            }}
+            geometry={rocks.beaconGeo}
+            material={rocks.beaconMat}
+            renderOrder={3}
+            frustumCulled={false}
+          />
+        </group>
+      ))}
+      <mesh ref={chip} geometry={rocks.chipGeo} material={rocks.chipMat} visible={false} castShadow />
     </>
   )
 }
