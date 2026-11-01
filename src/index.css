@@ -3336,6 +3336,11 @@ body.sf .nav-panel {
   background: transparent;
 }
 
+/* 地表の場面を出しているあいだは、後ろの宇宙が透けないように黒で塞ぐ */
+.surface-view.solid {
+  background: #000;
+}
+
 .surface-view > div:first-child canvas {
   touch-action: none;
 }

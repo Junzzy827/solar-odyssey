@@ -25,21 +25,37 @@ export const useWeather = create<{ mode: WeatherMode; storm: number; setMode: (m
 }))
 
 /** 天気が変わる天体 */
-export const WEATHER_BODIES = new Set(['mars'])
+export const WEATHER_BODIES = new Set(['mars', 'titan', 'earth'])
+
+/** 風の見た目（流れるもや・飛砂・つむじ風）を出す天体 */
+export const WEATHER_FX = new Set(['mars', 'venus', 'titan', 'earth'])
 
 /** 砂嵐で、空気中の砂（低いところの霞）が何倍まで濃くなるか */
 export const STORM_HAZE = 18
 
+/**
+ * 天気の「強さ」が何を表すか。火星は砂嵐、タイタンはメタンの雨（雨の間は、もやが少し濃くなる）。
+ * タイタンの雲は、地表からは厚いもやに隠れてほとんど見えないので、見えるのは雨
+ */
+export const STORM_KIND: Record<string, { haze: number; dim: number; tint?: THREE.Vector3 }> = {
+  mars: { haze: STORM_HAZE, dim: 0.8 },
+  titan: { haze: 1.2, dim: 0.35 },
+  // 地球の砂漠の砂嵐：空気が濃いので、砂が本当に吹き荒れる（ただし何日も続く火星ほど空は濁らない）
+  earth: { haze: 30, dim: 0.5, tint: new THREE.Vector3(1.0, 0.72, 0.42) },
+}
+
 /** 自動の砂嵐の強さ：数日おきに砂嵐が来て、半日ほど吹き荒れて、また晴れる（着陸したときは晴れ。1 秒 = 1 時間なら 1 分半ほどで最初の砂嵐） */
 export function stormTarget(id: string, hours: number) {
   if (!WEATHER_BODIES.has(id)) return 0
-  const a = Math.sin(hours * 0.045 + 4.0) * 0.65 + Math.sin(hours * 0.11 + 0.4) * 0.35
+  // タイタンの雨はめったに降らない（季節の変わり目の大雨と、ときどきの霧雨）。降り出しまでは火星の砂嵐より少し早め
+  const ph = id === 'titan' ? 4.6 : id === 'earth' ? 5.3 : 4.0
+  const a = Math.sin(hours * 0.045 + ph) * 0.65 + Math.sin(hours * 0.11 + 0.4) * 0.35
   return THREE.MathUtils.smoothstep(a, 0.45, 0.85)
 }
 
 /** つむじ風の出やすさ：よく晴れた昼すぎ（11〜17 時）。砂嵐の間は出ない */
 export function devilTarget(id: string, clock: number, storm: number) {
-  if (!WEATHER_BODIES.has(id)) return 0
+  if (id !== 'mars' && id !== 'earth') return 0
   const day = THREE.MathUtils.smoothstep(clock, 10.5, 12.5) * (1 - THREE.MathUtils.smoothstep(clock, 16, 18))
   return day * (1 - THREE.MathUtils.smoothstep(storm, 0.05, 0.3))
 }

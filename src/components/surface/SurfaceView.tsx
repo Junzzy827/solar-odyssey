@@ -19,8 +19,9 @@ import { TimeBar } from './TimeBar'
 import { groundMaterial } from './groundMaterial'
 import { useDem } from './dem'
 import { farTerrainGeometry } from './farTerrain'
-import { STORM_HAZE, WEATHER_BODIES, devilTarget, stepWeather, useWeather, stormTarget, weatherNow } from './weather'
+import { STORM_HAZE, STORM_KIND, WEATHER_BODIES, WEATHER_FX, devilTarget, stepWeather, useWeather, stormTarget, weatherNow } from './weather'
 import { Weather } from './Weather'
+import { shimmerAmount, shimmerNow } from './heatShimmer'
 import { CLOUD_DRIFT, cloudCover, cloudMaterial, cloudUniforms, withCloudShadow } from './clouds'
 import { SkyFrame, hoursPerSecond, litFraction, useSkyClock } from './skyClock'
 import type { SkyNow } from './skyNow'
@@ -343,6 +344,7 @@ function cloudy<M extends THREE.Material>(def: SurfaceDef, m: M): M {
 }
 
 const CLOUD_R = 8200
+const TINT = new THREE.Vector3()
 const WIND_A = new THREE.Vector2()
 const WIND_B = new THREE.Vector2()
 
@@ -369,7 +371,8 @@ function Clouds({ terrain, ap, sky, clock }: { terrain: Terrain; ap: ApUniforms;
     const h = clock.current.hours
     const u = cloudUniforms
     u.uCloudOff.value.set(-WIND_A.x * h * CLOUD_DRIFT, -WIND_A.y * h * CLOUD_DRIFT, -WIND_B.x * h * CLOUD_DRIFT, -WIND_B.y * h * CLOUD_DRIFT)
-    const target = cloudCover(sky.frame.localClock(), h)
+    // 砂嵐の間は、舞い上がった砂のもやに隠れて雲が見えにくい
+    const target = cloudCover(sky.frame.localClock(), h) * (1 - 0.85 * weatherNow.storm)
     cover.current = cover.current < 0 ? target : cover.current + (target - cover.current) * 0.05
     u.uCloudCover.value = cover.current
     u.uCloudSun.value.copy(sky.sunDir)
@@ -964,13 +967,16 @@ function Scene({ def }: { def: SurfaceDef }) {
 
   // 霞の濃さ（調整ページ × 砂嵐）は uniform だけ書き換える
   const hazeNow = useRef({ A: null as Air | null, v: -1 })
-  const applyHaze = (v: number) => {
+  const tintNow = useMemo(() => new THREE.Vector3(1, 1, 1), [])
+  /** v：霞の濃さ。tint：霞の色（砂嵐の砂は青い光を吸って、黄土色に見える） */
+  const applyHaze = (v: number, tint: THREE.Vector3) => {
     const h = hazeNow.current
-    if (!A.air || (h.A === A && Math.abs(h.v - v) <= 0.01 * v)) return
+    if (!A.air || (h.A === A && Math.abs(h.v - v) <= 0.01 * v && tint.equals(tintNow))) return
     h.A = A
     h.v = v
+    tintNow.copy(tint)
     const u = A.lut.material.uniforms
-    u.uBetaL.value.set(...A.air.low).multiplyScalar(v)
+    u.uBetaL.value.set(...A.air.low).multiplyScalar(v).multiply(tint)
     u.uExtL.value.set(...A.air.lowExt).multiplyScalar(v)
     A.ap.uApL.value.set(...A.air.lowExt).multiplyScalar(v)
     A.lutKey = ''
@@ -1009,14 +1015,17 @@ function Scene({ def }: { def: SurfaceDef }) {
     sky.frame.at(c.hours)
     // 天気（火星の砂嵐）：空気中の砂が濃くなる
     const storm = WEATHER_BODIES.has(def.id) ? stepWeather(def.id, c.hours, sky.frame.localClock(), Math.min(dt, 0.1)).storm : 0
-    const hz = haze * (1 + STORM_HAZE * storm)
-    applyHaze(hz)
+    const kind = STORM_KIND[def.id]
+    const hz = haze * (1 + (kind?.haze ?? STORM_HAZE) * storm)
+    shimmerNow.amp = shimmerAmount(def.id, sky.sunDir.y)
+    const ta = kind?.tint ? Math.round(storm * 20) / 20 : 0
+    applyHaze(hz, kind?.tint ? TINT.set(1, 1, 1).lerp(kind.tint, ta) : TINT.set(1, 1, 1))
     if (lab.sunEl !== null || lab.sunAz !== null) sky.sunDir.copy(dirFrom(lab.sunAz ?? def.sunAz, lab.sunEl ?? def.sunEl))
     else sky.frame.sunLocal(sky.sunDir)
     const el = Math.asin(THREE.MathUtils.clamp(sky.sunDir.y, -1, 1))
     sky.sunT.copy(sunTransmittance(A.air, radiusM, el, hz))
     // 厚い雲の下は、目が慣れても薄暗く感じるくらいに
-    const ev = lab.ev + (def.sunHidden ? -0.9 : 0) - 0.8 * storm
+    const ev = lab.ev + (def.sunHidden ? -0.9 : 0) - (kind?.dim ?? 0.8) * storm
     sky.exposure = Math.min(autoExposure(sunI, sky.sunT, el, A.air, ev), dayExposure * 2 ** ev * 5)
     sky.night = THREE.MathUtils.smoothstep(-el, -0.05, 0.12)
     const twilight = THREE.MathUtils.smoothstep(-el, 0.0, 0.2)
@@ -1093,7 +1102,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       <SunDisc def={def} sky={sky} />
       {def.skyBody && <SkyPlanet def={def} sky={sky} />}
       <Plumes def={def} />
-      {WEATHER_BODIES.has(def.id) && <Weather def={def} terrain={terrain} sky={sky} light={level === 'low' || lowMemory()} />}
+      {WEATHER_FX.has(def.id) && <Weather def={def} terrain={terrain} sky={sky} light={level === 'low' || lowMemory()} />}
       {hasClouds(def) && <Clouds terrain={terrain} ap={A.ap} sky={sky} clock={clock} />}
       <directionalLight
         key={shadow}
@@ -1111,7 +1120,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       />
       {def.skyBody && <directionalLight ref={shine} color={def.skyBody.id === 'earth' ? '#a9c4ff' : def.id === 'earth' ? '#b9c9ff' : '#e8dcc8'} intensity={0} />}
       <hemisphereLight ref={nightFill} args={['#4d628f', '#16151b', 0]} />
-      {WEATHER_BODIES.has(def.id) && <hemisphereLight ref={stormFill} args={[def.hazeColor, def.ground, 0]} />}
+      {def.id === 'mars' && <hemisphereLight ref={stormFill} args={[def.hazeColor, def.ground, 0]} />}
       {/* 空と地面の照り返しの光は、まわりの景色の光（scene.environment）が受け持つ */}
       <Ground terrain={terrain} ap={A.ap} />
       {terrain.dem && <FarTerrain terrain={terrain} ap={A.ap} />}
@@ -1347,10 +1356,12 @@ function SurfaceCanvas({ def }: { def: SurfaceDef }) {
   const level = useLevel()
   return (
     // 画面の細かさは画質の設定にあわせる（スマホは「標準」なので 1.25 倍まで）
-    <Canvas shadows dpr={Math.min(dprFor(level), 1.75)} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
+    // 背景を不透明で塗る（alpha: false）。透明のままだと、描けなかったフレームから後ろが透けて見える。
+    // three.js は alpha: false でも透明にできる画面を作るので、後ろは .surface-view.solid の黒でも塞いでいる
+    <Canvas shadows dpr={Math.min(dprFor(level), 1.75)} gl={{ alpha: false }} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
       <Scene def={def} />
       <QualityGovernor />
-      <SurfacePost />
+      <SurfacePost bodyId={def.id} />
     </Canvas>
   )
 }
@@ -1382,7 +1393,7 @@ export function SurfaceView() {
   else if (phase === 'ascent') curtain = Math.max(0, (T - (ASCENT - FADE)) / FADE)
   else if (phase === 'fadeOut') curtain = Math.max(0, 1 - T / FADE)
   return (
-    <div className="surface-view">
+    <div className={scene3d ? 'surface-view solid' : 'surface-view'}>
       {scene3d && (
         <SurfaceCanvas def={def} />
       )}
