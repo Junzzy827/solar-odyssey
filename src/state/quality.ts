@@ -34,18 +34,53 @@ export const lowMemory = () =>
 type QualityState = {
   /** 自動のときに選んでいる画質 */
   auto: Level
+  /**
+   * 今、実際に描き方に使っている画質。設定（または自動）が変わっても、新しい画質のシェーダーを
+   * 裏で用意し終わるまでは前の画質のまま描く（QualityGovernor が切り替える）。
+   * いきなり切り替えると、全部の材質のシェーダーをその場で作り直すあいだ何秒も描けず、
+   * 画面の大きさも変わるので、3D が真っ黒のまま名前だけ残ってしまう（全体マップで天体が消える）
+   */
+  level: Level
   /** 直近の FPS（測れていなければ 0） */
   fps: number
   setAuto: (auto: Level) => void
   setFps: (fps: number) => void
 }
 
+/** 設定と自動の選択から決まる、使いたい画質 */
+export function wantedLevel(): Level {
+  const setting = useStore.getState().settings.quality
+  return setting === 'auto' ? useQuality.getState().auto : setting
+}
+
+const initialWanted = (): Level => {
+  const setting = useStore.getState().settings.quality
+  return setting === 'auto' ? 'high' : setting
+}
+
 export const useQuality = create<QualityState>((set) => ({
   auto: 'high',
+  level: initialWanted(),
   fps: 0,
   setAuto: (auto) => set({ auto }),
   setFps: (fps) => set({ fps }),
 }))
+
+/** シェーダーを先に用意してから画質を切り替える係（QualityGovernor）がいくつ動いているか */
+let switchers = 0
+export function registerSwitcher() {
+  switchers++
+  return () => {
+    switchers--
+  }
+}
+
+// 切り替え係がいない画面（模型の確認ページなど）では、そのまま切り替える
+const applyIfAlone = () => {
+  if (switchers === 0 && useQuality.getState().level !== wantedLevel()) useQuality.setState({ level: wantedLevel() })
+}
+useStore.subscribe(applyIfAlone)
+useQuality.subscribe(applyIfAlone)
 
 /** 内蔵 GPU やスマホの GPU か（はじめから「標準」で始める） */
 export function looksIntegrated(renderer: string) {
@@ -56,15 +91,12 @@ export function looksIntegrated(renderer: string) {
 export const stepDown = (level: Level): Level => ORDER[Math.max(0, ORDER.indexOf(level) - 1)]
 export const stepUp = (level: Level): Level => ORDER[Math.min(ORDER.length - 1, ORDER.indexOf(level) + 1)]
 
-/** 今の画質（設定が自動なら、自動で選んでいるもの） */
+/** 今の画質（描き方に使っているもの） */
 export function useLevel(): Level {
-  const setting = useStore((s) => s.settings.quality)
-  const auto = useQuality((q) => q.auto)
-  return setting === 'auto' ? auto : setting
+  return useQuality((q) => q.level)
 }
 
 /** useFrame の外から今の画質を読む */
 export function currentLevel(): Level {
-  const setting = useStore.getState().settings.quality
-  return setting === 'auto' ? useQuality.getState().auto : setting
+  return useQuality.getState().level
 }

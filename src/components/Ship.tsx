@@ -435,9 +435,11 @@ export function Ship() {
         </group>
         {mode === 'gallery' && <GalleryScene />}
       </group>
-      {/* 影の細かさが変わったら作り直す（影の地図は最初の大きさのまま使い回されるので） */}
+      {/* 影の細かさが変わったら作り直す（影の地図は最初の大きさのまま使い回されるので）。
+          影を使わない画質でも castShadow は切らない（切ると光の構成が変わり、全部の材質のシェーダーを作り直すことになって、
+          画質の切り替えのたびに何秒も描けなくなる）。そのときは影の濃さを 0 にして、影の地図も描き直さない */}
       <spotLight
-        key={shadowSize}
+        key={shadowSize || 'off'}
         ref={sunSpot}
         angle={0.12}
         penumbra={0.3}
@@ -445,8 +447,10 @@ export function Ship() {
         decay={0}
         intensity={3}
         color="#fff4e6"
-        castShadow={shadowSize > 0}
-        shadow-mapSize={[shadowSize || 512, shadowSize || 512]}
+        castShadow
+        shadow-intensity={shadowSize > 0 ? 1 : 0}
+        shadow-autoUpdate={shadowSize > 0}
+        shadow-mapSize={[shadowSize || 16, shadowSize || 16]}
         shadow-bias={-0.0003}
         shadow-normalBias={0.002}
         shadow-camera-near={1}
