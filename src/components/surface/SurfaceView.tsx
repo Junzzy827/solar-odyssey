@@ -1283,7 +1283,9 @@ function SurfaceCanvas({ def }: { def: SurfaceDef }) {
   const level = useLevel()
   return (
     // 画面の細かさは画質の設定にあわせる（スマホは「標準」なので 1.25 倍まで）
-    <Canvas shadows dpr={Math.min(dprFor(level), 1.75)} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
+    // 背景を不透明で塗る（alpha: false）。透明のままだと、描けなかったフレームから後ろが透けて見える。
+    // three.js は alpha: false でも透明にできる画面を作るので、後ろは .surface-view.solid の黒でも塞いでいる
+    <Canvas shadows dpr={Math.min(dprFor(level), 1.75)} gl={{ alpha: false }} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
       <Scene def={def} />
       <QualityGovernor />
       <SurfacePost />
@@ -1318,7 +1320,7 @@ export function SurfaceView() {
   else if (phase === 'ascent') curtain = Math.max(0, (T - (ASCENT - FADE)) / FADE)
   else if (phase === 'fadeOut') curtain = Math.max(0, 1 - T / FADE)
   return (
-    <div className="surface-view">
+    <div className={scene3d ? 'surface-view solid' : 'surface-view'}>
       {scene3d && (
         <SurfaceCanvas def={def} />
       )}
