@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -28,6 +28,8 @@ import { SKY_FROM_APP } from '../../data/skyFrame'
 import { Dust, Exhaust, Grit, LegRig, blastMark, TOUCHDOWN, legsDuringDescent, setLegs, splitLegs, descentAltitude, descentThrust, plumeGeometry, plumeMaterial, splashMaterial, suspension, windFor } from './landerFx'
 import { QualityGovernor } from '../QualityGovernor'
 import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
+import { Rover } from './Rover'
+import { bindRoverKeys, launchRover, recallRover, roverFocus, roverInput, useRover } from '../../state/rover'
 
 // 着陸した天体の地表の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 // 立つ場所は 1 か所に決めて、まわりを 360° 見回せる。着陸船は少し先に降りてくる。
@@ -839,6 +841,8 @@ function Look({ terrain }: { terrain: Terrain }) {
     const s = st.current
     const { phase, since } = useLanding.getState()
     const T = landingNow() - since
+    // ローバーを出しているあいだは、ローバーの側がカメラを動かす
+    if (phase === 'surface' && useRover.getState().phase !== 'none') return
     // 降下中と離陸中は、着陸船を目で追う
     if (phase === 'descent' || phase === 'ascent' || phase === 'fadeOut') {
       const lander = state.scene.getObjectByName('surface-lander')
@@ -923,6 +927,8 @@ function Scene({ def }: { def: SurfaceDef }) {
     const ap = apUniforms(air, 1, terrain.height(0, 0), lut.target.texture)
     return { air, lut, ap, pmrem: new THREE.PMREMGenerator(gl), env: null, lutKey: '', envKey: '', lastEnv: 0 }
   }, [def, gl, terrain, level])
+  // ローバーの素材にも、着陸船と同じ空気遠近と雲の影を
+  const prepareRover = useCallback((m: THREE.MeshStandardMaterial) => cloudy(def, withAir(m, A.ap)), [def, A.ap])
   useEffect(
     () => () => {
       A.lut.dispose()
@@ -1023,7 +1029,14 @@ function Scene({ def }: { def: SurfaceDef }) {
       const tMax = Math.max(t.x, t.y, t.z, 1e-6)
       l.color.setRGB(t.x / tMax, t.y / tMax, t.z / tMax)
       l.intensity = sky.sunDir.y > -0.02 ? sunI * tMax * sky.exposure : 0
-      l.position.copy(sky.sunDir).multiplyScalar(160).add(tmpDir.set(0, 0, -15))
+      // 影を描く範囲：ふだんは着陸地点のまわり、ローバーを出しているときはローバーのまわり
+      const rv = useRover.getState().phase !== 'none'
+      tmpDir.set(rv ? roverFocus.x : 0, rv ? roverFocus.y : 0, rv ? roverFocus.z : -15)
+      l.position.copy(sky.sunDir).multiplyScalar(160).add(tmpDir)
+      if (!l.target.position.equals(tmpDir)) {
+        l.target.position.copy(tmpDir)
+        l.target.updateMatrixWorld()
+      }
     }
     // 母惑星の照り返し（月の夜を照らす地球照など）：満ちているほど明るい
     const s = shine.current
@@ -1103,6 +1116,9 @@ function Scene({ def }: { def: SurfaceDef }) {
       <Suspense fallback={null}>
         <Lander terrain={terrain} dustColor={def.sky ? def.hazeColor : def.ground} ap={A.ap} sky={sky} />
       </Suspense>
+      <Suspense fallback={null}>
+        <Rover terrain={terrain} dustColor={def.ground} sky={sky} landerYaw={LANDER_YAW} prepare={prepareRover} />
+      </Suspense>
       <Look terrain={terrain} />
     </>
   )
@@ -1110,8 +1126,78 @@ function Scene({ def }: { def: SurfaceDef }) {
 
 // ---- 画面の上の表示 -------------------------------------------------------------------
 
+/** ボタンを押しているあいだだけ入力する（スマホの運転ボタン） */
+function holdProps(on: () => void, off: () => void) {
+  return {
+    onPointerDown: (e: RPointerEvent) => {
+      e.preventDefault()
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      on()
+    },
+    onPointerUp: off,
+    onPointerCancel: off,
+    onContextMenu: (e: RMouseEvent) => e.preventDefault(),
+  }
+}
+
+/** ローバーを出しているあいだの表示：速さ・見方の切り替え・回収、スマホでは運転のボタン */
+function RoverPanel() {
+  useLang()
+  const phase = useRover((r) => r.phase)
+  const view = useRover((r) => r.view)
+  const kmh = useRover((r) => r.kmh)
+  const setView = useRover((r) => r.setView)
+  useEffect(() => bindRoverKeys(), [])
+  const drive = phase === 'drive'
+  return (
+    <>
+      <div className="surface-hint">
+        {drive
+          ? t('W/↑ 前進・S/↓ 後退・A D/← → 曲がる・スペース ジャンプ・V 見方', 'W/↑ drive · S/↓ reverse · A D/← → steer · Space jump · V view')
+          : phase === 'drop'
+            ? t('ローバーを投下…', 'Dropping the rover…')
+            : t('ローバーを展開中…', 'Rover unfolding…')}
+      </div>
+      {drive && (
+        <div className="rover-speed">
+          <b>{kmh}</b> km/h
+        </div>
+      )}
+      {drive && (
+        <div className="rover-pad">
+          <div className="rover-pad-left">
+            <button {...holdProps(() => (roverInput.steer = -1), () => (roverInput.steer = 0))}>◀</button>
+            <button {...holdProps(() => (roverInput.steer = 1), () => (roverInput.steer = 0))}>▶</button>
+          </div>
+          <div className="rover-pad-right">
+            <button className="jump" {...holdProps(() => (roverInput.jump = true), () => undefined)}>
+              {t('ジャンプ', 'Jump')}
+            </button>
+            <button {...holdProps(() => (roverInput.throttle = -1), () => (roverInput.throttle = 0))}>▼</button>
+            <button className="go" {...holdProps(() => (roverInput.throttle = 1), () => (roverInput.throttle = 0))}>▲</button>
+          </div>
+        </div>
+      )}
+      <div className="surface-buttons">
+        {drive && (
+          <button className="secondary" onClick={() => setView(view === 'chase' ? 'cam' : 'chase')}>
+            {view === 'chase' ? t('カメラ視点', 'Rover camera') : t('後ろから見る', 'Chase view')}
+          </button>
+        )}
+        <button className="secondary" onClick={recallRover}>
+          {t('ローバーを回収', 'Recall the rover')}
+        </button>
+        <button className="primary" onClick={startTakeoff}>
+          {t('母船に戻る', 'Back to the ship')}
+        </button>
+      </div>
+    </>
+  )
+}
+
 function SurfacePanel({ def }: { def: SurfaceDef }) {
   useLang()
+  const rover = useRover((r) => r.phase)
   const phase = useLanding((l) => l.phase)
   const view = useLanding((l) => l.view)
   const setView = useLanding((l) => l.setView)
@@ -1162,6 +1248,10 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             )}
           </div>
           <TimeBar def={def} />
+          {rover !== 'none' ? (
+            <RoverPanel />
+          ) : (
+          <>
           <div className="surface-hint">
             {view === 'eye'
               ? t('ドラッグで見回す・ホイール／2本指でズーム', 'Drag to look around · scroll or pinch to zoom')
@@ -1171,10 +1261,15 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             <button className="secondary" onClick={() => setView(view === 'eye' ? 'lander' : 'eye')}>
               {view === 'eye' ? t('着陸船を眺める', 'View the lander') : t('地面に立って見回す', 'Stand and look around')}
             </button>
+            <button className="secondary" onClick={launchRover}>
+              {t('ローバーを出す', 'Deploy the rover')}
+            </button>
             <button className="primary" onClick={startTakeoff}>
               {t('離陸する', 'Take off')}
             </button>
           </div>
+          </>
+          )}
         </>
       )}
     </div>

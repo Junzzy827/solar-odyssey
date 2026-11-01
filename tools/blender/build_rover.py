@@ -624,6 +624,25 @@ def measure(objs):
             f'  (z {lo[2]:.3f}..{hi[2]:.3f})')
 
 
+def export(objs):
+    """
+    public/models/rover-orv7.glb に書き出す。関節はすべて 0（展開した姿で、アームはまっすぐ前）。
+    展開の動きと運転中の姿勢は three.js 側（src/components/surface/Rover.tsx）で、同じ関節を回して作る。
+    """
+    preview_materials()
+    for o in objs.values():
+        o.rotation_euler = (0, 0, 0)
+    objs['Body'].location = (0, 0, 0)
+    for o in bpy.context.scene.objects:
+        o.select_set(o.name in objs)
+    out = os.environ.get('OUT', os.path.join(bf.OUT_DIR, 'rover-orv7.glb'))
+    bpy.ops.export_scene.gltf(
+        filepath=out, export_format='GLB', use_selection=True, export_vertex_color='NONE',
+        export_normals=True, export_texcoords=False, export_tangents=False, export_materials='EXPORT', export_yup=True,
+    )
+    print('wrote', out, os.path.getsize(out) // 1024, 'KB', flush=True)
+
+
 def main():
     t0 = time.time()
     bf.reset_scene()
@@ -636,6 +655,8 @@ def main():
     print('  folded  (m):', measure(objs))
     apply_pose(objs, deploy_pose(1.0))
     print('  deployed(m):', measure(objs))
+    if os.environ.get('EXPORT'):
+        export(objs)
     if os.environ.get('PREVIEW') or os.environ.get('ANIM'):
         preview_materials()
         setup_preview()
