@@ -11,7 +11,6 @@ import { openScope } from './Hud'
 import { useQuiz } from '../state/quiz'
 import { useProbes } from '../state/probes'
 import { t, useLang } from '../i18n/lang'
-import { TerraMarsNote } from './TerraMarsNote'
 import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
 
@@ -125,7 +124,6 @@ export function LogPanel() {
           </ul>
         </div>
       )}
-      {targetId === 'mars' && <TerraMarsNote />}
       {isTelescope(targetId) && (
         <button className="secondary scope-open" onClick={() => openScope(targetId)} disabled={scopeNear !== targetId}>
           {scopeNear === targetId ? t('望遠鏡でのぞく', 'Look through the telescope') : t('そばまで行くと、望遠鏡でのぞけます', 'Fly close to look through the telescope')} <kbd>T</kbd>

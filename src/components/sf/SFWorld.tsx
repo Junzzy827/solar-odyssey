@@ -16,7 +16,6 @@ import { RadioMoon } from './RadioMoon'
 import { OreCarrier } from './OreCarrier'
 import { DiscFreighter } from './DiscFreighter'
 import { DysonSwarm } from './DysonSwarm'
-import { TerraMars } from './TerraMars'
 import { GenerationShip } from './GenerationShip'
 import { EuropaBeacon } from './EuropaBeacon'
 import { DebrisCollector } from './DebrisCollector'
@@ -49,7 +48,6 @@ export function SFWorld() {
       <OreCarrier />
       <DiscFreighter />
       <DysonSwarm />
-      <TerraMars />
       <GenerationShip />
       <EuropaBeacon />
       <DebrisCollector />
