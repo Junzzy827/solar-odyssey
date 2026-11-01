@@ -260,6 +260,52 @@ function landerFeet(yaw: number) {
   ].map(([x, z]) => new THREE.Vector2(LANDER_POS.x + x * c + z * s, LANDER_POS.y - x * s + z * c))
 }
 
+/** これより高い岩は乗り越えられない（m） */
+const BIG_ROCK = 0.42
+const CELL = 5
+
+type RockBody = { id: number; x: number; z: number; r: number; h: number }
+type RockGrid = Map<string, RockBody[]>
+
+function rockBodies(terrain: Terrain): RockGrid {
+  const grid: RockGrid = new Map()
+  const rocks = terrain.rocks(Math.round(terrain.def.relief.rocks * 1400))
+  rocks.forEach((r, i) => {
+    if (Math.abs(r.x) > ROVER_RANGE + 4 || Math.abs(r.z) > ROVER_RANGE + 4) return
+    // 岩の形は半径 0.7〜1.2 の球をつぶしたもの。中心は地面から 0.35 × 大きさ 下
+    const h = r.s * (r.sy * 0.95 - 0.35)
+    if (h < 0.04) return
+    const key = `${Math.floor(r.x / CELL)},${Math.floor(r.z / CELL)}`
+    const list = grid.get(key) ?? []
+    list.push({ id: i, x: r.x, z: r.z, r: r.s * 0.9, h })
+    grid.set(key, list)
+  })
+  return grid
+}
+
+const nearOut: RockBody[] = []
+const siteBody: RockBody = { id: 0, x: 0, z: 0, r: 0, h: 0 }
+const siteBodies: RockBody[] = []
+/** (x, z) のまわりの岩（採集用の岩も、まだ採っていなければ小石として入れる） */
+function nearRocks(grid: RockGrid, x: number, z: number, sites?: { x: number; z: number; size: number }[], taken?: Set<number>) {
+  nearOut.length = 0
+  const cx = Math.floor(x / CELL)
+  const cz = Math.floor(z / CELL)
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+    const list = grid.get(`${cx + i},${cz + j}`)
+    if (list) for (const r of list) nearOut.push(r)
+  }
+  if (sites) {
+    sites.forEach((st, i) => {
+      if (taken?.has(i) || Math.abs(st.x - x) > 3 || Math.abs(st.z - z) > 3) return
+      const b = siteBodies[i] ?? (siteBodies[i] = { ...siteBody })
+      Object.assign(b, { id: -10 - i, x: st.x, z: st.z, r: st.size, h: st.size * 0.6 })
+      nearOut.push(b)
+    })
+  }
+  return nearOut
+}
+
 type Drive = {
   x: number
   z: number
@@ -282,6 +328,11 @@ type Drive = {
   /** 採集の経過（秒）。-1 = 採集していない */
   sampleT: number
   sampleIdx: number
+  /** 範囲の端に最後に当たった時刻（秒）。メッセージを少しのあいだ出す */
+  edgeT: number
+  /** 最後に乗り上げた岩と、そこからの時間（同じ岩で何度も跳ねないように） */
+  bumpRock: number
+  bumpT: number
 }
 
 /** 採集できる岩の置き場所 */
@@ -421,6 +472,9 @@ export function Rover({
   /** この着陸で、もう採った岩（目印を消す） */
   const taken = useRef(new Set<number>())
   const lights = useRef<THREE.SpotLight>(null)
+  const farLight = useRef<THREE.SpotLight>(null)
+  // 地面の岩（SurfaceView の Ground と同じ並び）。走れる範囲の中のものだけ、5 m 四方のマスに分けて当たり判定に使う
+  const bodies = useMemo(() => rockBodies(terrain), [terrain])
 
   // 走りの状態。落とすたびに着陸船の真下から
   const st = useRef<Drive | null>(null)
@@ -433,11 +487,17 @@ export function Rover({
       Object.assign(d, { x: site.x + Math.sin(d.heading) * 1.1, z: site.z + Math.cos(d.heading) * 1.1, speed: 0 })
     }
     roverDebug.sites = () => sites.map(({ x, z }) => ({ x, z }))
+    roverDebug.place = (x, z, heading) => {
+      if (st.current) Object.assign(st.current, { x, z, speed: 0, heading: heading ?? st.current.heading })
+    }
+    roverDebug.rocks = () => [...bodies.values()].flat().map(({ x, z, r, h }) => ({ x, z, r, h }))
     return () => {
       roverDebug.moveTo = undefined
       roverDebug.sites = undefined
+      roverDebug.place = undefined
+      roverDebug.rocks = undefined
     }
-  }, [sites])
+  }, [sites, bodies])
   useEffect(() => {
     if (phase !== 'drop') return
     const x = LANDER_POS.x
@@ -463,9 +523,13 @@ export function Rover({
       hudT: 0,
       sampleT: -1,
       sampleIdx: -1,
+      edgeT: -9,
+      bumpRock: -1,
+      bumpT: 9,
     }
     taken.current.clear()
-  }, [phase, terrain, landerYaw])
+    useRover.setState({ sites: sites.map(({ x, z }) => ({ x, z })), taken: [] })
+  }, [phase, terrain, landerYaw, sites])
 
   useFrame((state, rawDt) => {
     const grp = group.current
@@ -531,6 +595,23 @@ export function Rover({
         nx = THREE.MathUtils.clamp(nx, -ROVER_RANGE, ROVER_RANGE)
         nz = THREE.MathUtils.clamp(nz, -ROVER_RANGE, ROVER_RANGE)
         s.speed *= 0.5
+        s.edgeT = roverNow()
+      }
+      const atEdge = roverNow() - s.edgeT < 2.5
+      if (atEdge !== useRover.getState().edge) useRover.setState({ edge: atEdge })
+      // 大きな岩は乗り越えられない（ぶつかって止まる）
+      for (const r of nearRocks(bodies, nx, nz)) {
+        if (r.h < BIG_ROCK) continue
+        const dx = nx - r.x
+        const dz = nz - r.z
+        const d = Math.hypot(dx, dz)
+        const min = r.r + 0.75
+        if (d < min && d > 1e-4) {
+          nx = r.x + (dx / d) * min
+          nz = r.z + (dz / d) * min
+          if (Math.abs(s.speed) > 3) s.burst = Math.max(s.burst, Math.min(0.6, Math.abs(s.speed) / 25))
+          s.speed *= 0.3
+        }
       }
       for (const f of feet) {
         const dx = nx - f.x
@@ -575,6 +656,30 @@ export function Rover({
         // 宙では少しずつ水平に
         s.pitch += (Math.min(0.25, Math.max(-0.35, s.vy * 0.04)) - s.pitch) * Math.min(1, dt * 1.2)
         s.roll *= 1 - Math.min(1, dt * 1.5)
+      }
+      // 小さな岩：車輪が乗り上げると、ぴょんと跳ねる（速いほど、岩が高いほど高く）。かたむきも少し
+      s.bumpT += dt
+      if (s.grounded && Math.abs(s.speed) > 0.6) {
+        hit: for (const wf of [0.72, 0, -0.72]) {
+          for (const sd of [-0.5, 0.5]) {
+            const wx = s.x + fwd.x * wf + sideX * sd
+            const wz = s.z + fwd.z * wf + sideZ * sd
+            for (const r of nearRocks(bodies, wx, wz, sites, taken.current)) {
+              if (r.h >= BIG_ROCK || (r.id === s.bumpRock && s.bumpT < 0.6)) continue
+              if (Math.hypot(wx - r.x, wz - r.z) > r.r * 0.85 + 0.08) continue
+              const kick = Math.min(5, r.h * (2.4 + Math.abs(s.speed) * 0.45))
+              if (kick < 0.25) continue
+              s.vy = Math.max(s.vy, kick)
+              s.grounded = false
+              s.roll += sd * 2 * Math.min(0.35, r.h * 0.9) * (1 - Math.abs(wf))
+              s.pitch += Math.sign(wf) * Math.min(0.3, r.h * 0.7) * Math.sign(s.speed)
+              s.squashV = Math.min(s.squashV, -0.3 - r.h)
+              s.bumpRock = r.id
+              s.bumpT = 0
+              break hit
+            }
+          }
+        }
       }
       s.spin -= (s.speed * dt) / WHEEL_R
       // 止まってしばらくするとアームを伸ばし、走り出すとたたむ
@@ -622,6 +727,7 @@ export function Rover({
         pose.arm = pose.arm.map((p, i) => p + (reach[i] - p) * w)
         if (s.sampleT >= DONE) {
           taken.current.add(s.sampleIdx)
+          useRover.setState({ taken: [...taken.current] })
           // 採った岩は、このフレームの「近い岩」「次の岩」から外す（次の岩は、計器を次に書き換えるときに選び直す）
           near = -1
           if (next === s.sampleIdx) next = -1
@@ -658,6 +764,8 @@ export function Rover({
             roll: deg(s.roll),
             dist: Math.round(Math.hypot(s.x - LANDER_POS.x, s.z - LANDER_POS.y)),
             air: !s.grounded,
+            x: Math.round(s.x * 10) / 10,
+            z: Math.round(s.z * 10) / 10,
           },
           next:
             next >= 0
@@ -725,13 +833,21 @@ export function Rover({
     })
 
     // ---- ライト（夜は前照灯で地面を照らす） ----
+    // 近くを広く照らす灯と、遠くまで届く細い灯の 2 つ
     const sp = lights.current
-    if (sp) {
-      sp.intensity = sky.night * 60
-      PROPS.tmp.set(0, 0.6, -0.7)
-      grp.localToWorld(sp.position.copy(PROPS.tmp))
-      grp.localToWorld(sp.target.position.set(0, -0.6, -8))
-      sp.target.updateMatrixWorld()
+    const far = farLight.current
+    // 遠くの地面は光が浅くあたって暗くなるので、遠くを照らす灯は距離で弱めず（decay 0）、マストの高さから
+    for (const [l, power, aimZ, hy] of [
+      [sp, 90, -8, 0.62],
+      [far, 80, -70, 1.25],
+    ] as const) {
+      if (!l) continue
+      l.intensity = sky.night * power
+      l.visible = sky.night > 0.01
+      PROPS.tmp.set(0, hy, -0.75)
+      grp.localToWorld(l.position.copy(PROPS.tmp))
+      grp.localToWorld(l.target.position.set(0, -0.6, aimZ))
+      l.target.updateMatrixWorld()
     }
 
     // ---- 砂ぼこりの色と大きさ ----
@@ -801,7 +917,8 @@ export function Rover({
       <group ref={group} visible={false} name="surface-rover">
         <primitive object={built.model} />
       </group>
-      <spotLight ref={lights} color="#fff1dc" angle={0.6} penumbra={0.6} distance={40} decay={2} intensity={0} />
+      <spotLight ref={lights} color="#fff1dc" angle={0.75} penumbra={0.6} distance={45} decay={1.6} intensity={0} />
+      <spotLight ref={farLight} color="#f4f6ff" angle={0.34} penumbra={0.5} distance={150} decay={0} intensity={0} />
       <primitive object={dust.points} />
       {sites.map((site, i) => (
         <group key={i} position={[site.x, site.y, site.z]}>

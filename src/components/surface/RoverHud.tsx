@@ -1,4 +1,5 @@
-import { useRover, ROVER_TOP } from '../../state/rover'
+import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
+import { LANDER_POS } from './terrain'
 import { t, useLang } from '../../i18n/lang'
 
 // ローバーの計器：速度計（0〜60 km/h の弧）と、向き・傾き・着陸船からの距離・宙に浮いているかの表示
@@ -120,6 +121,43 @@ export function RoverHud() {
         <div className={`rr-air${hud.air ? ' on' : ''}`}>{t('空中', 'AIR')}</div>
       </div>
       <div className="rover-badge">ORV-7</div>
+    </div>
+  )
+}
+
+/** ミニマップ：着陸船を中心に、走れる範囲（正方形）・採集の岩・ローバーの位置と向き */
+export function RoverMap() {
+  useLang()
+  const hud = useRover((r) => r.hud)
+  const sites = useRover((r) => r.sites)
+  const taken = useRover((r) => r.taken)
+  const edge = useRover((r) => r.edge)
+  const R = ROVER_RANGE
+  const pad = 6
+  // 着陸船を真ん中に。範囲の正方形は原点が中心なので、少しずれる
+  const cx = LANDER_POS.x
+  const cz = LANDER_POS.y
+  const half = R + Math.max(Math.abs(cx), Math.abs(cz)) + pad
+  const grid = [-100, -50, 0, 50, 100]
+  return (
+    <div className={`rover-map${edge ? ' edge' : ''}`}>
+      <svg viewBox={`${cx - half} ${cz - half} ${half * 2} ${half * 2}`} aria-label={t('ミニマップ', 'Minimap')}>
+        {grid.map((g) => (
+          <g key={g} className="m-grid">
+            <line x1={g} y1={-R} x2={g} y2={R} />
+            <line x1={-R} y1={g} x2={R} y2={g} />
+          </g>
+        ))}
+        <rect x={-R} y={-R} width={R * 2} height={R * 2} className="m-range" />
+        <circle cx={cx} cy={cz} r={6} className="m-lander" />
+        <path d={`M ${cx} ${cz - 11} L ${cx + 9} ${cz + 7} L ${cx - 9} ${cz + 7} Z`} className="m-lander-mark" />
+        {sites.map((p, i) => (taken.includes(i) ? <circle key={i} cx={p.x} cy={p.z} r={3.5} className="m-rock taken" /> : <rect key={i} x={p.x - 4.5} y={p.z - 4.5} width={9} height={9} transform={`rotate(45 ${p.x} ${p.z})`} className="m-rock" />))}
+        <g transform={`translate(${hud.x} ${hud.z}) rotate(${hud.hdg})`}>
+          <path d="M 0 -13 L 8 9 L 0 4 L -8 9 Z" className="m-rover" />
+        </g>
+      </svg>
+      <span className="m-n">N</span>
+      <span className="m-scale">200 m</span>
     </div>
   )
 }

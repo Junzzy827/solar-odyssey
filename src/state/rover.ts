@@ -20,7 +20,12 @@ type RoverState = {
   /** 画面に出す速さ（km/h）。毎フレームではなく、ときどき書き換える */
   kmh: number
   /** 計器の表示（ときどき書き換える）：向き（度、0〜359）、前後・左右の傾き（度）、着陸船からの距離（m）、宙に浮いているか */
-  hud: { hdg: number; pitch: number; roll: number; dist: number; air: boolean }
+  hud: { hdg: number; pitch: number; roll: number; dist: number; air: boolean; x: number; z: number }
+  /** 走れる範囲の端に当たっている（メッセージを出す） */
+  edge: boolean
+  /** ミニマップ用：採集の岩の位置と、採ったものの番号 */
+  sites: { x: number; z: number }[]
+  taken: number[]
   /** 運転中に、時刻・天気などのメニューを開いているか（ふだんはたたんで景色を広く） */
   menu: boolean
   /** 採集：アームの届く岩があるか・採集中か・いま見せている分析結果（試料の id）・この天体で集めた種類 */
@@ -39,7 +44,10 @@ export const useRover = create<RoverState>((set) => ({
   since: 0,
   view: 'chase',
   kmh: 0,
-  hud: { hdg: 0, pitch: 0, roll: 0, dist: 0, air: false },
+  hud: { hdg: 0, pitch: 0, roll: 0, dist: 0, air: false, x: 0, z: 0 },
+  edge: false,
+  sites: [],
+  taken: [],
   menu: false,
   canSample: false,
   sampling: false,
@@ -52,11 +60,11 @@ export const roverActive = () => useRover.getState().phase !== 'none'
 
 export function launchRover() {
   if (roverActive()) return
-  useRover.setState({ phase: 'drop', since: roverNow(), view: 'chase', kmh: 0, menu: false, canSample: false, sampling: false, result: null, next: null })
+  useRover.setState({ phase: 'drop', since: roverNow(), view: 'chase', kmh: 0, menu: false, canSample: false, sampling: false, result: null, next: null, edge: false })
 }
 
 export function recallRover() {
-  useRover.setState({ phase: 'none', since: roverNow(), kmh: 0, canSample: false, sampling: false, result: null, next: null })
+  useRover.setState({ phase: 'none', since: roverNow(), kmh: 0, canSample: false, sampling: false, result: null, next: null, edge: false })
 }
 
 export const setRoverPhase = (phase: RoverPhase) => useRover.setState({ phase, since: roverNow() })
@@ -153,4 +161,4 @@ export const useSampleLog = create<{ log: Record<string, string[]>; add: (bodyId
 }))
 
 /** テスト用（#debug）：ローバーの位置を動かす */
-export const roverDebug: { moveTo?: (site: number) => void; sites?: () => { x: number; z: number }[] } = {}
+export const roverDebug: { moveTo?: (site: number) => void; sites?: () => { x: number; z: number }[]; place?: (x: number, z: number, heading?: number) => void; rocks?: () => { x: number; z: number; r: number; h: number }[] } = {}
