@@ -29,6 +29,7 @@ import { Dust, Exhaust, Grit, LegRig, blastMark, TOUCHDOWN, legsDuringDescent, s
 import { QualityGovernor } from '../QualityGovernor'
 import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 import { Rover } from './Rover'
+import { RoverHud } from './RoverHud'
 import { bindRoverKeys, launchRover, recallRover, roverFocus, roverInput, useRover } from '../../state/rover'
 
 // 着陸した天体の地表の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
@@ -1145,24 +1146,20 @@ function RoverPanel() {
   useLang()
   const phase = useRover((r) => r.phase)
   const view = useRover((r) => r.view)
-  const kmh = useRover((r) => r.kmh)
+  const menu = useRover((r) => r.menu)
   const setView = useRover((r) => r.setView)
   useEffect(() => bindRoverKeys(), [])
   const drive = phase === 'drive'
   return (
     <>
-      <div className="surface-hint">
+      <div className="surface-hint rover-hint">
         {drive
           ? t('W/↑ 前進・S/↓ 後退・A D/← → 曲がる・スペース ジャンプ・V 見方', 'W/↑ drive · S/↓ reverse · A D/← → steer · Space jump · V view')
           : phase === 'drop'
             ? t('ローバーを投下…', 'Dropping the rover…')
             : t('ローバーを展開中…', 'Rover unfolding…')}
       </div>
-      {drive && (
-        <div className="rover-speed">
-          <b>{kmh}</b> km/h
-        </div>
-      )}
+      {drive && <RoverHud />}
       {drive && (
         <div className="rover-pad">
           <div className="rover-pad-left">
@@ -1178,17 +1175,20 @@ function RoverPanel() {
           </div>
         </div>
       )}
-      <div className="surface-buttons">
+      <div className="surface-buttons rover-actions">
+        <button className={`secondary${menu ? ' on' : ''}`} onClick={() => useRover.setState({ menu: !menu })} title={t('時刻・天気・説明', 'Time, weather and notes')}>
+          {menu ? t('▴ メニューをたたむ', '▴ Hide menu') : t('☰ メニュー', '☰ Menu')}
+        </button>
         {drive && (
           <button className="secondary" onClick={() => setView(view === 'chase' ? 'cam' : 'chase')}>
-            {view === 'chase' ? t('カメラ視点', 'Rover camera') : t('後ろから見る', 'Chase view')}
+            {view === 'chase' ? t('◉ カメラ視点', '◉ Rover camera') : t('◎ 後ろから', '◎ Chase view')}
           </button>
         )}
         <button className="secondary" onClick={recallRover}>
-          {t('ローバーを回収', 'Recall the rover')}
+          {t('回収', 'Recall')}
         </button>
         <button className="primary" onClick={startTakeoff}>
-          {t('母船に戻る', 'Back to the ship')}
+          {t('母船に戻る', 'Back to ship')}
         </button>
       </div>
     </>
@@ -1198,6 +1198,9 @@ function RoverPanel() {
 function SurfacePanel({ def }: { def: SurfaceDef }) {
   useLang()
   const rover = useRover((r) => r.phase)
+  // ローバーを出しているあいだは、説明と時刻・天気の表示をたたんで景色を広く（メニューのボタンで開く）
+  const roverMenu = useRover((r) => r.menu)
+  const showInfo = rover === 'none' || roverMenu
   const phase = useLanding((l) => l.phase)
   const view = useLanding((l) => l.view)
   const setView = useLanding((l) => l.setView)
@@ -1220,7 +1223,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
       {phase === 'ascent' && <div className="surface-caption">{t('離陸！母船へもどります', 'Lift-off! Heading back to the ship')}</div>}
       {phase === 'surface' && (
         <>
-          <div className={`surface-card${open ? '' : ' closed'}`}>
+          {showInfo && <div className={`surface-card${open ? '' : ' closed'}`}>
             <button className="surface-title" onClick={() => setOpen(!open)}>
               {t(`${name}に着陸`, `Landed on ${name}`)} <span className="muted">{open ? '▾' : '▸'}</span>
             </button>
@@ -1246,8 +1249,8 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
                 )}
               </>
             )}
-          </div>
-          <TimeBar def={def} />
+          </div>}
+          {showInfo && <TimeBar def={def} />}
           {rover !== 'none' ? (
             <RoverPanel />
           ) : (
