@@ -81,9 +81,12 @@ export default function App() {
   // 地表にいるあいだは、宇宙の場面を止める（暗転している最中は動かしておく）
   const onSurface = useLanding((l) => l.phase === 'descent' || l.phase === 'surface' || l.phase === 'ascent')
 
+  // 地表にいるあいだは、止めた宇宙の場面の最後の1枚を見えなくしておく。
+  // 地表の Canvas が一瞬描けなかったフレーム（画面サイズの変化・画質の切り替え・GPU の都合）に、
+  // 下に残った宇宙の絵が透けて「チラッ」と映ってしまうため。
   return (
     <>
-      <Canvas frameloop={onSurface ? 'never' : 'always'} shadows dpr={dprFor(level)} camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
+      <Canvas frameloop={onSurface ? 'never' : 'always'} style={{ visibility: onSurface ? 'hidden' : 'visible' }} shadows dpr={dprFor(level)} camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
         <SimClock />
         <QualityGovernor />
         <SpaceLighting />
