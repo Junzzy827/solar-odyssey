@@ -25,6 +25,7 @@ junji さんの設定資料（「惑星探査陸上ドローン」、正面・�
   DEPLOY=0..1   PREVIEW の展開の度合い（0 = たたんだ姿、1 = 展開した姿）
   ANIM=1        着陸船から落とされて着地し、展開するまでの連番画像を PREVIEW_DIR/anim に書き出す
   ARM=work|stow 展開したあとのアームの姿勢（work：設定資料の絵のように前へ伸ばして地面へ）
+  BAKE=1        質感を焼き込む（TEX=2048、AO_SAMPLES=64、TEX_DIR に焼いた絵）。EXPORT=1 と一緒なら焼いた glb を書き出す
 """
 
 import math
@@ -503,6 +504,8 @@ SHOTS = {
     'side': ((-6, 0, 0.70), None, 'ORTHO', 2.6, False),
     'front': ((0, 6, 0.70), None, 'ORTHO', 2.6, False),
     'anim': ((2.9, 3.4, 1.55), (0.0, 0.0, 0.45), 'PERSP', 42, True),
+    # 近くから：右前の角とアーム、前輪
+    'close': ((1.25, 1.55, 0.85), (0.25, 0.55, 0.5), 'PERSP', 40, True),
 }
 
 
@@ -643,6 +646,314 @@ def export(objs):
     print('wrote', out, os.path.getsize(out) // 1024, 'KB', flush=True)
 
 
+# ---- 質感の焼き込み（BAKE=1） ---------------------------------------------------------------
+#
+# 着陸船（build_lander.py）と同じやり方：部品をすべて 1 枚の UV にならべ、Cycles で位置・向き・材質・角・すき間の
+# 暗さ（AO）を画像に焼き、numpy で「塗装・パネルの継ぎ目・留め具・汚れ・砂ぼこり・塗装のはげ・金属のつや」を描く。
+# glb は材質「Baked」（色・ラフネス/メタリック・ノーマル）1 つと、光るライト「Lamp」だけになる。
+# 焼くのは関節をすべて 0 にした展開した姿。車輪は回るので、タイヤの模様は車輪の軸まわりの角度で描く。
+
+BAKE_PALETTE = {  # 色, ラフネス, メタリック
+    'Hull': ('#d6d3cb', 0.55, 0.0),
+    'Hull2': ('#a6aab0', 0.38, 0.75),
+    'Dark': ('#2b2d31', 0.6, 0.15),
+    'Mech': ('#4b4f57', 0.42, 0.7),
+    'Metal': ('#a2a7ae', 0.26, 1.0),
+    'Tyre': ('#1f2022', 0.88, 0.0),
+    'Solar': ('#14204a', 0.18, 0.35),
+    'Glass': ('#0a1018', 0.05, 0.0),
+    'Lamp': ('#fff4dc', 0.3, 0.0),
+    'Accent': ('#d9701a', 0.48, 0.0),
+}
+
+
+def node_edge_m(nt, m):
+    """角の強さ（ベベルの法線と本当の法線のずれ）。ローバーはメートルなので半径 1 cm"""
+    bev = nt.nodes.new('ShaderNodeBevel')
+    bev.samples = 8
+    bev.inputs['Radius'].default_value = 0.01
+    g = nt.nodes.new('ShaderNodeNewGeometry')
+    dot = nt.nodes.new('ShaderNodeVectorMath')
+    dot.operation = 'DOT_PRODUCT'
+    nt.links.new(bev.outputs[0], dot.inputs[0])
+    nt.links.new(g.outputs['Normal'], dot.inputs[1])
+    sub = nt.nodes.new('ShaderNodeMath')
+    sub.operation = 'SUBTRACT'
+    sub.inputs[0].default_value = 1
+    nt.links.new(dot.outputs['Value'], sub.inputs[1])
+    return sub.outputs[0]
+
+
+def compose_rover(P, N, ID, AO, EDGE, parts, wheels):
+    import build_amatsukaze as ba
+    srgb = bl.srgb
+    valid = ID[..., 3] > 0.5
+    mid = np.clip((ID[..., 0] * 32).astype(int), 0, 31)
+    pidx = np.clip(np.round(ID[..., 1] * 32).astype(int), 0, 31)
+    pos = P[..., :3] - 1
+    nrm = N[..., :3] * 2 - 1
+    x, y, z = pos[..., 0], pos[..., 1], pos[..., 2]
+    nx, nz = nrm[..., 0], nrm[..., 2]
+    ao = np.clip(ba.soft_blur(AO[..., 0], valid, 1.2), 0, 1)
+    edge = np.clip(ba.soft_blur(EDGE[..., 0], valid, 0.8) * 5, 0, 1)
+    is_m = lambda name: valid & (mid == MATS.index(name))  # noqa: E731
+    part_name = np.array(['?'] + parts + ['?'] * (32 - len(parts) - 1))[pidx]
+    on_body = valid & (part_name == 'Body')
+    on_wheel = valid & np.char.startswith(part_name, 'Wheel')
+    on_leg = valid & (np.char.startswith(part_name, 'Leg') | np.char.startswith(part_name, 'Link'))
+    on_panel = valid & np.char.startswith(part_name, 'Panel')
+
+    base = np.zeros(pos.shape, dtype=np.float32)
+    rough = np.zeros(x.shape, dtype=np.float32)
+    metal = np.zeros(x.shape, dtype=np.float32)
+    height = np.zeros(x.shape, dtype=np.float32)
+    for m, (col, r, mt) in BAKE_PALETTE.items():
+        sel = is_m(m)
+        base[sel] = srgb(col)
+        rough[sel] = r
+        metal[sel] = mt
+    white = is_m('Hull')
+    alu = is_m('Hull2')
+    dark = is_m('Dark') | is_m('Accent')
+    bare = is_m('Metal') | is_m('Mech') | alu
+    tyre = is_m('Tyre')
+    painted = white | dark
+
+    # 1. むら
+    n_big = ba.value_noise(pos, 1.6, 21)
+    n_mid = ba.value_noise(pos, 7.0, 22)
+    n_fine = ba.value_noise(pos, 28.0, 23)
+    base *= (1 + (n_big - 0.5) * 0.08 + (n_mid - 0.5) * 0.05)[..., None]
+    rough += (n_mid - 0.5) * 0.12 + (n_fine - 0.5) * 0.08
+
+    # 2. 金属のヘアライン（細長いむら）と、つやの差：金属の部品は面ごとに向きを変える
+    axis = np.argmax(np.abs(nrm), axis=-1)
+    hair = ba.value_noise(np.stack([x * 1.5, y * 60, z * 1.5], -1), 1.0, 24)
+    hair2 = ba.value_noise(np.stack([x * 60, y * 1.5, z * 1.5], -1), 1.0, 25)
+    brushed = np.where(axis == 0, hair, hair2)
+    rough[bare] += ((brushed - 0.5) * 0.22)[bare]
+    base[bare] *= (1 + (brushed[bare] - 0.5) * 0.12)[..., None]
+
+    # 3. パネルの継ぎ目・留め具・点検口（車体と脚の塗装面）。面の向きで投影を変える
+    a = np.where(axis == 1, x, y)
+    b = np.where(axis == 2, x, z)
+    pan = bl.Panels(77, lo=-1.5, hi=1.5, along=1.5)
+    # bl.Panels はメートルで 0.45〜1.4 の行なので、ローバーには 1/3.2 に縮めて使う
+    k = 3.2
+    da, db, pid = pan.sample(a * k, b * k + axis * 0.37)
+    da, db = da / k, db / k
+    dist = np.minimum(da, db)
+    G = 0.005
+    panel_area = painted & (on_body | on_leg)
+    groove = np.clip(1 - dist / (G * 2.2), 0, 1) * panel_area
+    height -= groove * 0.8
+    hp = ba.hash2(pid, axis * 1.0, 2.0)
+    base[white] *= (1 + (hp[white] - 0.5) * 0.06)[..., None]
+    base *= (1 - 0.6 * groove)[..., None]
+    PITCH = 0.045
+    fa = np.abs(np.mod(a, PITCH) / PITCH - 0.5)
+    fb = np.abs(np.mod(b, PITCH) / PITCH - 0.5)
+    rivet = panel_area & (((np.abs(db - 0.014) < 0.0032) & (fa < 0.07)) | ((np.abs(da - 0.014) < 0.0032) & (fb < 0.07)))
+    rivet &= ba.hash2(pid, 3.0, 9.0) < 0.75
+    height[rivet] += 0.6
+    base[rivet] = base[rivet] * 0.55 + srgb('#8f949b') * 0.45
+    metal[rivet] = 0.8
+    rough[rivet] = 0.35
+    # 車体の横の点検口と、後ろの放熱スリット
+    side = on_body & white & (np.abs(nx) > 0.6)
+    for (y0, y1, z0, z1) in ((0.18, 0.42, 0.58, 0.80), (-0.42, -0.12, 0.60, 0.78), (-0.70, -0.52, 0.55, 0.72)):
+        inside, dd = bl.rect_mask(y, z, y0, y1, z0, z1)
+        inside &= side
+        rim = inside & (dd < 0.006)
+        base[inside] *= 0.95
+        base[rim] *= 0.4
+        height[rim] -= 1.0
+    back = on_body & (nrm[..., 1] < -0.6)
+    slit = back & (np.abs(x) < 0.22) & (z > 0.55) & (z < 0.78) & (np.mod(z / 0.03, 1) < 0.4)
+    base[slit] *= 0.25
+    height[slit] -= 0.8
+    # 注意の印：アームの付け根のまわりに黄と黒の斜めじま、車体の後ろの角に橙の帯
+    # （黄黒の帯は、アームの肩の台の側面だけ）
+    hz = on_body & (np.abs(x - ARM_BASE[0]) < 0.07) & (np.abs(y - ARM_BASE[1]) < 0.07) & (np.abs(nz) < 0.4) & (z > 0.9)
+    stripe = np.mod((x + y + z) / 0.02, 1) < 0.5
+    base[hz & stripe] = srgb('#d9a21b')
+    base[hz & ~stripe] = srgb('#1d1f22')
+    # 読めない短い棒の列（識別の印。どの国の文字でもない）
+    import random
+    rr = random.Random(5)
+    for (y0, z0, sx_) in ((-0.30, 0.86, 1), (-0.30, 0.86, -1), (0.55, 0.69, 1), (0.55, 0.69, -1)):
+        yy = y0
+        for _ in range(7):
+            w_ = rr.choice([0.008, 0.012, 0.016, 0.022])
+            m_, _ = bl.rect_mask(y, z, yy, yy + w_, z0, z0 + 0.03)
+            m_ &= on_body & white & (nx * sx_ > 0.6)
+            base[m_] *= 0.3
+            yy += w_ + rr.choice([0.005, 0.005, 0.012])
+
+    # 4. 太陽電池：セルの細い格子と、角度で色が変わるような濃淡
+    sol = is_m('Solar')
+    cell = (np.mod(x / 0.052, 1) < 0.06) | (np.mod(y / 0.052, 1) < 0.06)
+    base[sol & cell] = srgb('#6d7480')
+    metal[sol & cell] = 0.9
+    base[sol] *= (1 + (ba.hash2(np.floor(x / 0.052), np.floor(y / 0.052)) - 0.5) * 0.18)[sol][..., None]
+
+    # 5. タイヤ：車輪の軸まわりの角度で、細かな溝とゴムのむら（車輪が回っても模様がずれない）
+    for name, (cx, cy, cz) in wheels.items():
+        sel = valid & (part_name == name)
+        ang = np.arctan2(z - cz, y - cy)
+        rad = np.hypot(z - cz, y - cy)
+        sipe = sel & tyre & (rad > 0.17) & (np.mod(ang * 36 / (2 * np.pi) + (x - cx) * 6, 1) < 0.12)
+        height[sipe] -= 0.6
+        base[sipe] *= 0.7
+        wall = sel & tyre & (np.abs(nx) > 0.7)
+        ring = wall & (np.abs(rad - 0.15) < 0.004)
+        height[ring] += 0.5
+    base[tyre] *= (1 + (n_fine[tyre] - 0.5) * 0.1)[..., None]
+
+    # 6. 汚れ（多め）
+    regolith = srgb('#8a7660')
+    grime = srgb('#3a3128')
+    # 砂ぼこり：低いところほど濃い。車輪・脚はたっぷり、上を向いた面にも積もる
+    low = np.clip((0.95 - z) / 0.6, 0, 1) ** 1.1
+    dust = low * (0.35 + 0.65 * n_mid)
+    # 車輪がはね上げた泥のしぶき（車体の横の下半分、細かな点）
+    splat = np.clip((ba.value_noise(pos, 22.0, 27) - 0.5) * 5, 0, 1) * np.clip((0.8 - z) / 0.3, 0, 1)
+    dust += splat * 0.6 * (on_body | on_leg)
+    dust += (on_wheel | on_leg) * (0.25 + 0.45 * n_mid)
+    dust += np.clip(nz, 0, 1) * (0.15 + 0.45 * np.clip((n_mid - 0.35) * 2, 0, 1)) * 0.7
+    dust += np.clip(nz, 0, 1) * on_panel * 0.25 * n_big
+    dust *= valid & ~is_m('Lamp') & ~is_m('Glass')
+    dust = np.clip(dust, 0, 0.9)
+    base = base * (1 - dust[..., None] * 0.8) + regolith * dust[..., None] * 0.8
+    rough += dust * 0.35
+    metal *= 1 - dust * 0.75
+    # すき間の黒ずみ（AO の暗いところに油と砂がたまる）
+    cav = np.clip((0.8 - ao) * 2.4, 0, 1) * valid * (0.6 + 0.4 * n_fine)
+    base = base * (1 - cav[..., None] * 0.6) + grime * cav[..., None] * 0.6
+    rough += cav * 0.15
+    # 雨だれのような縦の筋（車体の側面、上から下へ）
+    sn = ba.value_noise(np.stack([x * 50, y * 50, z * 2.0], -1), 1.0, 26)
+    streak = np.clip((sn - 0.5) * 4, 0, 1) * (np.abs(nx) > 0.5) * painted * np.clip((1.0 - z) / 0.35, 0, 1)
+    base = base * (1 - streak[..., None] * 0.55) + grime * streak[..., None] * 0.55
+    # 天板の汚れのむら（拭き跡のような大きなしみ）
+    blot = np.clip((n_big - 0.45) * 2.5, 0, 1) * np.clip(nz, 0, 1) * painted * 0.5
+    base = base * (1 - blot[..., None]) + regolith * blot[..., None]
+    # 角の塗装のはげ：白は下地の金属が出て光る、暗い色は明るくすれる
+    wear = edge * np.clip((n_fine - 0.3) * 2.4, 0, 1)
+    ww = wear * white
+    base = base * (1 - ww[..., None] * 0.7) + srgb('#9aa0a8') * ww[..., None] * 0.7
+    metal += ww * 0.85
+    rough -= ww * 0.3
+    wd = wear * dark
+    base *= (1 + 0.6 * wd)[..., None]
+    metal += wd * 0.5
+    # むき出しの金属の角はすり減って明るく光る
+    wb = edge * bare
+    base *= (1 + 0.25 * wb)[..., None]
+    rough -= wb * 0.15
+    # AO
+    base *= (0.45 + 0.55 * ao)[..., None]
+
+    # 7. ノーマル
+    nrm_map = np.zeros(pos.shape, dtype=np.float32)
+    nrm_map[..., 2] = 1
+    hs = bl.ndimage_gauss(height, 0.6)
+    texel = ba.estimate_texel(pos, valid)
+    cont_x = valid & np.roll(valid, -1, 1) & (np.linalg.norm(np.roll(pos, -1, 1) - pos, axis=-1) < texel * 3)
+    cont_y = valid & np.roll(valid, -1, 0) & (np.linalg.norm(np.roll(pos, -1, 0) - pos, axis=-1) < texel * 3)
+    gx = np.where(cont_x, np.roll(hs, -1, 1) - hs, 0)
+    gy = np.where(cont_y, np.roll(hs, -1, 0) - hs, 0)
+    nrm_map[..., 0] = -gx * 0.9
+    nrm_map[..., 1] = -gy * 0.9
+    nrm_map /= np.linalg.norm(nrm_map, axis=-1, keepdims=True)
+    print(f'  texel ≈ {texel * 1000:.1f} mm', flush=True)
+    return base, np.clip(rough, 0.05, 1), np.clip(metal, 0, 1), nrm_map, valid
+
+
+def bake(objs):
+    import build_amatsukaze as ba
+    tex = int(os.environ.get('TEX', '2048'))
+    ba.TEX = tex
+    ba.MATS = MATS
+    for o in objs.values():
+        o.rotation_euler = (0, 0, 0)
+    objs['Body'].location = (0, 0, 0)
+    bpy.context.view_layer.update()
+    scene = bpy.context.scene
+    scene.render.engine = 'CYCLES'
+    scene.cycles.device = 'CPU'
+    scene.world = bpy.data.worlds.new('bakeworld')
+    scene.world.use_nodes = True
+    scene.world.light_settings.distance = 0.22
+    parts = list(objs.keys())
+    for i, name in enumerate(parts):
+        objs[name].pass_index = i + 1
+    wheels = {n: tuple(objs[n].matrix_world.translation) for n in parts if n.startswith('Wheel')}
+    olist = list(objs.values())
+    ba.unwrap(olist)
+    t = time.time()
+    Pm = ba.bake_pass(olist, 'P', 'EMIT', ba.node_position)
+    Nm = ba.bake_pass(olist, 'N', 'EMIT', ba.node_normal)
+    IDm = ba.bake_pass(olist, 'ID', 'EMIT', ba.node_ids)
+    Em = ba.bake_pass(olist, 'EDGE', 'EMIT', node_edge_m, samples=8)
+    AOm = ba.bake_pass(olist, 'AO', 'AO', None, samples=int(os.environ.get('AO_SAMPLES', '64')))
+    print(f'  bakes {time.time() - t:.0f}s', flush=True)
+    base, rough, metal, nrm, valid = compose_rover(Pm, Nm, IDm, AOm, Em, parts, wheels)
+    orm = np.stack([np.ones_like(rough), rough, metal], -1)
+    base, orm = ba.dilate(base, valid), ba.dilate(orm, valid)
+    nrm_rgb = ba.dilate(nrm * 0.5 + 0.5, valid)
+    tex_dir = os.environ.get('TEX_DIR', '/tmp/claude-0/rover-tex')
+    os.makedirs(tex_dir, exist_ok=True)
+    black = np.zeros_like(base)
+    images = {
+        'base': ba.save_image('rover_base', ba.to_srgb(base), 'sRGB', os.path.join(tex_dir, 'base.png')),
+        'orm': ba.save_image('rover_orm', orm, 'Non-Color', os.path.join(tex_dir, 'orm.png')),
+        'normal': ba.save_image('rover_normal', nrm_rgb, 'Non-Color', os.path.join(tex_dir, 'normal.png')),
+        'emit': ba.save_image('rover_emit', black, 'sRGB', os.path.join(tex_dir, 'emit.png')),
+    }
+    baked = ba.final_material(images)
+    # 光るものは焼かない（emissive の絵は使わないので外す）
+    for link in list(baked.node_tree.links):
+        if link.to_socket.name == 'Emission Color':
+            baked.node_tree.links.remove(link)
+    baked.node_tree.nodes.get('Principled BSDF').inputs['Emission Strength'].default_value = 0.0
+    lamp = bpy.data.materials['Lamp']
+    lamp.name = 'Lamp_bake'
+    live = bpy.data.materials.new('Lamp')
+    live.use_nodes = True
+    bsdf = live.node_tree.nodes.get('Principled BSDF')
+    bsdf.inputs['Base Color'].default_value = (1, 0.95, 0.85, 1)
+    bsdf.inputs['Emission Color'].default_value = (1, 0.95, 0.85, 1)
+    bsdf.inputs['Emission Strength'].default_value = 8
+    for o in olist:
+        mesh = o.data
+        old = [m.name for m in mesh.materials]
+        slots = ['Baked'] + (['Lamp'] if 'Lamp_bake' in old else [])
+        remap = np.array([1 if n == 'Lamp_bake' else 0 for n in old], dtype=np.int32)
+        idx = np.empty(len(mesh.polygons), dtype=np.int32)
+        mesh.polygons.foreach_get('material_index', idx)
+        mesh.materials.clear()
+        for n in slots:
+            mesh.materials.append(baked if n == 'Baked' else live)
+        mesh.polygons.foreach_set('material_index', remap[idx])
+    return images
+
+
+def export_baked(objs):
+    for o in objs.values():
+        o.rotation_euler = (0, 0, 0)
+    objs['Body'].location = (0, 0, 0)
+    for o in bpy.context.scene.objects:
+        o.select_set(o.name in objs)
+    out = os.environ.get('OUT', os.path.join(bf.OUT_DIR, 'rover-orv7.glb'))
+    bpy.ops.export_scene.gltf(
+        filepath=out, export_format='GLB', use_selection=True, export_vertex_color='NONE',
+        export_normals=True, export_texcoords=True, export_tangents=False, export_materials='EXPORT',
+        export_image_format='JPEG', export_jpeg_quality=88, export_yup=True,
+    )
+    print('wrote', out, os.path.getsize(out) // 1024, 'KB', flush=True)
+
+
 def main():
     t0 = time.time()
     bf.reset_scene()
@@ -655,10 +966,15 @@ def main():
     print('  folded  (m):', measure(objs))
     apply_pose(objs, deploy_pose(1.0))
     print('  deployed(m):', measure(objs))
-    if os.environ.get('EXPORT'):
+    if os.environ.get('BAKE'):
+        bake(objs)
+        if os.environ.get('EXPORT'):
+            export_baked(objs)
+    elif os.environ.get('EXPORT'):
         export(objs)
     if os.environ.get('PREVIEW') or os.environ.get('ANIM'):
-        preview_materials()
+        if not os.environ.get('BAKE'):
+            preview_materials()
         setup_preview()
     if os.environ.get('PREVIEW'):
         t = float(os.environ.get('DEPLOY', '1'))

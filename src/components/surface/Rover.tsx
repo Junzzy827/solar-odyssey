@@ -5,7 +5,8 @@ import * as THREE from 'three'
 import { FAR, LANDER_POS, Terrain, rockGeometry, seeded } from './terrain'
 import { dustFragment, dustVertex, puffTexture, windFor } from './landerFx'
 import type { SkyNow } from './skyNow'
-import { useLevel } from '../../state/quality'
+import { lowMemory, useLevel } from '../../state/quality'
+import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { useLanding } from '../../state/landing'
 import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverFocus, roverInput, roverDebug, roverNow, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
 import { samplesFor, type RockSample } from '../../data/rockSamples'
@@ -382,11 +383,20 @@ export function Rover({
       if (!mats.has(src)) {
         if (src.name === 'Lamp') mats.set(src, lamp)
         else {
+          // 焼き込んだ質感（色・ラフネス/メタリック・ノーマル）の材質。金属の映り込みを少し強めに
           const m = src.clone()
-          m.envMapIntensity = 0.9
-          if (src.name === 'Solar') {
-            m.metalness = 0.4
-            m.roughness = 0.22
+          m.envMapIntensity = 1.15
+          // スマホではテクスチャを 1024 に縮める（地表の場面は別の Canvas なので、メモリを食いすぎないように）
+          if (lowMemory()) {
+            for (const key of MAP_KEYS) {
+              const tex = m[key]
+              if (!tex) continue
+              const small = shrinkTexture(tex, 1024)
+              if (small) {
+                m[key] = small
+                owned.push(small)
+              }
+            }
           }
           prepare(m)
           owned.push(m)
@@ -873,6 +883,19 @@ export function Rover({
     // ---- カメラ ----
     const lphase = useLanding.getState().phase
     if (lphase !== 'surface') return
+    const dc = roverDebug.cam
+    if (dc) {
+      // 確認用：ローバーから見た位置（前・右・上、m）にカメラを置いて、ローバーの少し上を見る
+      const sx = -fwd.z
+      const sz = fwd.x
+      cam.position.set(s.x + fwd.x * dc[0] + sx * dc[1], s.y + dc[2], s.z + fwd.z * dc[0] + sz * dc[1])
+      cam.lookAt(s.x + fwd.x * 0.2, s.y + dc[3], s.z + fwd.z * 0.2)
+      if (cam.fov !== 40) {
+        cam.fov = 40
+        cam.updateProjectionMatrix()
+      }
+      return
+    }
     const camPos = PROPS.cam
     const look = PROPS.look
     const k = 1 - Math.exp(-dt * 5)
