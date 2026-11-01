@@ -273,7 +273,8 @@ function rockBodies(terrain: Terrain): RockGrid {
   rocks.forEach((r, i) => {
     if (Math.abs(r.x) > ROVER_RANGE + 4 || Math.abs(r.z) > ROVER_RANGE + 4) return
     // 岩の形は半径 0.7〜1.2 の球をつぶしたもの。中心は地面から 0.35 × 大きさ 下
-    const h = r.s * (r.sy * 0.95 - 0.35)
+    // 見えている地面（格子の高さ）からの高さで決める。DEM のある天体では、岩が地面に埋まっていることがある（埋まった岩は当たらない）
+    const h = r.y + r.s * r.sy * 0.95 - meshHeight(terrain, r.x, r.z)
     if (h < 0.04) return
     const key = `${Math.floor(r.x / CELL)},${Math.floor(r.z / CELL)}`
     const list = grid.get(key) ?? []
@@ -692,7 +693,8 @@ export function Rover({
       const reachX = s.x + fwd.x * 1.1 + sideX * 0.2
       const reachZ = s.z + fwd.z * 1.1 + sideZ * 0.2
       let near = -1
-      let nearD = 0.95
+      // 岩の近く（アームの先から 2.6 m 以内）でゆっくり走っていれば採集できる。足りないぶんは採集の始めに寄っていく
+      let nearD = 2.6
       let next = -1
       let nextD = Infinity
       for (let i = 0; i < sites.length; i++) {
@@ -704,7 +706,7 @@ export function Rover({
           next = i
         }
         const r = Math.hypot(st2.x - reachX, st2.z - reachZ)
-        if (r < nearD && s.grounded && Math.abs(s.speed) < 0.8) {
+        if (r < nearD && s.grounded && Math.abs(s.speed) < 2.5) {
           nearD = r
           near = i
         }
@@ -718,6 +720,15 @@ export function Rover({
       if (s.sampleT >= 0) {
         s.sampleT += dt
         const site = sites[s.sampleIdx]
+        // アームの届くところまで、そっと寄る
+        if (s.sampleT < REACH) {
+          const k = Math.min(1, dt * 4)
+          const ex = site.x - (s.x + fwd.x * 1.1 + sideX * 0.2)
+          const ez = site.z - (s.z + fwd.z * 1.1 + sideZ * 0.2)
+          s.x += ex * k
+          s.z += ez * k
+          s.y = Math.max(s.y, meshHeight(terrain, s.x, s.z))
+        }
         // 岩の向き（ローバーの正面から右回り）に、肩を回す
         const dx = site.x - (s.x + sideX * 0.22)
         const dz = site.z - (s.z + sideZ * 0.22)
