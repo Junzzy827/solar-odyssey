@@ -19,6 +19,10 @@ type RoverState = {
   view: RoverView
   /** 画面に出す速さ（km/h）。毎フレームではなく、ときどき書き換える */
   kmh: number
+  /** 計器の表示（ときどき書き換える）：向き（度、0〜359）、前後・左右の傾き（度）、着陸船からの距離（m）、宙に浮いているか */
+  hud: { hdg: number; pitch: number; roll: number; dist: number; air: boolean }
+  /** 運転中に、時刻・天気などのメニューを開いているか（ふだんはたたんで景色を広く） */
+  menu: boolean
   setView: (v: RoverView) => void
 }
 
@@ -29,6 +33,8 @@ export const useRover = create<RoverState>((set) => ({
   since: 0,
   view: 'chase',
   kmh: 0,
+  hud: { hdg: 0, pitch: 0, roll: 0, dist: 0, air: false },
+  menu: false,
   setView: (view) => set({ view }),
 }))
 
@@ -36,7 +42,7 @@ export const roverActive = () => useRover.getState().phase !== 'none'
 
 export function launchRover() {
   if (roverActive()) return
-  useRover.setState({ phase: 'drop', since: roverNow(), view: 'chase', kmh: 0 })
+  useRover.setState({ phase: 'drop', since: roverNow(), view: 'chase', kmh: 0, menu: false })
 }
 
 export function recallRover() {

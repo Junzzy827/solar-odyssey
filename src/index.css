@@ -3579,22 +3579,200 @@ body.touch .surface-time .time-rates { flex-wrap: wrap; }
 .surface-time .sw-night { background: rgba(60, 85, 160, 0.7); }
 body.touch .surface-time .day-graph { width: 100%; }
 
-/* ローバー：速さ表示と、スマホの運転ボタン */
-.rover-speed {
+/* ローバー：計器（速度計・方位・傾き・距離）と、スマホの運転ボタン */
+.rover-hud {
   position: absolute;
   right: 18px;
-  bottom: 28px;
-  padding: 6px 14px;
-  border-radius: 14px;
-  background: rgba(10, 14, 22, 0.6);
-  color: #c8d4e4;
-  font-size: 13px;
+  bottom: 18px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 8px 10px 6px 12px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(14, 22, 34, 0.72), rgba(6, 10, 16, 0.6));
+  border: 1px solid rgba(120, 200, 255, 0.28);
+  box-shadow: 0 0 18px rgba(80, 180, 255, 0.12), inset 0 0 12px rgba(80, 180, 255, 0.06);
+  color: #d6e6f8;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
 }
 
-.rover-speed b {
-  font-size: 26px;
+.rover-gauge {
+  width: 210px;
+  height: auto;
+  display: block;
+}
+
+.rover-gauge .g-track {
+  fill: none;
+  stroke: rgba(150, 190, 230, 0.18);
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+
+.rover-gauge .g-red {
+  fill: none;
+  stroke: rgba(255, 90, 60, 0.45);
+  stroke-width: 3;
+}
+
+.rover-gauge .g-fill {
+  fill: none;
+  stroke: url(#rover-gauge-fill);
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+
+.rover-gauge .g-tick {
+  stroke: rgba(200, 225, 250, 0.45);
+  stroke-width: 1.2;
+}
+
+.rover-gauge .g-tick.major {
+  stroke: rgba(220, 240, 255, 0.9);
+  stroke-width: 2;
+}
+
+.rover-gauge .g-num {
+  fill: rgba(210, 230, 250, 0.75);
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+.rover-gauge .g-needle {
+  stroke: #ffd48a;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.rover-gauge .g-hub {
+  fill: #10161f;
+  stroke: #ffd48a;
+  stroke-width: 2;
+}
+
+.rover-gauge .g-speed {
+  fill: #fff3dc;
+  font-size: 40px;
+  font-weight: 700;
+  text-anchor: middle;
+  letter-spacing: 1px;
+}
+
+.rover-gauge .g-unit {
+  fill: rgba(200, 220, 240, 0.7);
+  font-size: 10px;
+  text-anchor: middle;
+  letter-spacing: 2px;
+}
+
+.rover-readouts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  min-width: 112px;
+}
+
+.rr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rr-k {
+  width: 34px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #7fc8f0;
+}
+
+.rr-v {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f0f6ff;
+}
+
+.rr-v small {
+  font-size: 10px;
+  color: #9fb4cc;
+  font-weight: 400;
+}
+
+.rr-v.small {
+  font-size: 12px;
+}
+
+/* 傾き：小さな水平儀 */
+.rr-tilt {
+  position: relative;
+  width: 34px;
+  height: 22px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #3a2a1e;
+  border: 1px solid rgba(120, 200, 255, 0.35);
+}
+
+.rr-horizon {
+  position: absolute;
+  left: -50%;
+  top: -100%;
+  width: 200%;
+  height: 150%;
+  background: #2c5f8a;
+  border-bottom: 1px solid #cfe8ff;
+  transition: transform 0.08s linear;
+}
+
+.rr-wings {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 10px;
+  height: 2px;
+  background: #ffd48a;
+}
+
+.rr-air {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 1px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  border: 1px solid rgba(255, 200, 120, 0.25);
+  color: rgba(255, 200, 120, 0.3);
+}
+
+.rr-air.on {
+  color: #1a1206;
+  background: #ffc46b;
+  border-color: #ffc46b;
+  box-shadow: 0 0 12px rgba(255, 196, 107, 0.8);
+}
+
+.rover-badge {
+  position: absolute;
+  left: 14px;
+  top: -9px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #7fc8f0;
+  background: #0a1018;
+  border: 1px solid rgba(120, 200, 255, 0.35);
+}
+
+.rover-actions {
+  left: 18px;
+  transform: none;
+}
+
+.rover-actions .on {
+  border-color: #ffc46b;
   color: #ffd9a8;
-  margin-right: 4px;
 }
 
 .rover-pad {
@@ -3608,7 +3786,7 @@ body.touch .rover-pad {
 .rover-pad-left,
 .rover-pad-right {
   position: absolute;
-  bottom: calc(env(safe-area-inset-bottom) + 74px);
+  bottom: calc(env(safe-area-inset-bottom) + 18px);
   display: flex;
   gap: 10px;
   align-items: flex-end;
@@ -3643,10 +3821,60 @@ body.touch .rover-pad {
 }
 
 .rover-pad button.jump {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* スマホ：キーの説明は出さない。計器は右上に小さく、ボタンは左上に縦に並べる */
+body.touch .rover-hint {
+  display: none;
+}
+
+body.touch .rover-hud {
+  top: calc(env(safe-area-inset-top) + 10px);
+  bottom: auto;
+  right: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 6px 8px;
+}
+
+body.touch .rover-gauge {
+  width: 138px;
+}
+
+body.touch .rover-readouts {
+  min-width: 0;
+  padding-bottom: 2px;
+  gap: 3px;
+}
+
+body.touch .rr-v {
   font-size: 13px;
 }
 
-body.touch .rover-speed {
+body.touch .rover-actions {
+  left: 10px;
+  right: auto;
   top: calc(env(safe-area-inset-top) + 10px);
   bottom: auto;
+  transform: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+body.touch .rover-actions button {
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+/* メニューを開いたときは、説明と時刻の表示の下に */
+body.touch .surface-card ~ .rover-actions {
+  top: auto;
+  bottom: calc(env(safe-area-inset-bottom) + 110px);
+}
+
+body.touch .surface-card ~ .rover-hud {
+  display: none;
 }

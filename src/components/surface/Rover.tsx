@@ -277,6 +277,7 @@ type Drive = {
   still: number
   dropped: boolean
   burst: number
+  hudT: number
 }
 
 const PROPS = { cam: new THREE.Vector3(), look: new THREE.Vector3(), fwd: new THREE.Vector3(), tmp: new THREE.Vector3(), q: new THREE.Quaternion() }
@@ -382,6 +383,7 @@ export function Rover({
       still: 0,
       dropped: false,
       burst: 0,
+      hudT: 0,
     }
   }, [phase, terrain, landerYaw])
 
@@ -510,9 +512,21 @@ export function Rover({
           dust.puff(px, ground, pz, -fwd.x * s.speed * 0.25, 0.6 + k * 1.6, -fwd.z * s.speed * 0.25, 0.35 + k * 0.6)
         }
       }
-      if (Math.random() < 0.1) {
-        const kmh = Math.round(Math.abs(s.speed) * 3.6)
-        if (kmh !== useRover.getState().kmh) useRover.setState({ kmh })
+      // 計器：1 秒に 12 回だけ書き換える
+      s.hudT += dt
+      if (s.hudT > 1 / 12) {
+        s.hudT = 0
+        const deg = (v: number) => Math.round((v * 180) / Math.PI)
+        useRover.setState({
+          kmh: Math.round(Math.abs(s.speed) * 3.6),
+          hud: {
+            hdg: ((Math.round((-s.heading * 180) / Math.PI) % 360) + 360) % 360,
+            pitch: deg(s.pitch),
+            roll: deg(s.roll),
+            dist: Math.round(Math.hypot(s.x - LANDER_POS.x, s.z - LANDER_POS.y)),
+            air: !s.grounded,
+          },
+        })
       }
     }
     // 着地の砂ぼこり
