@@ -161,4 +161,7 @@ export const useSampleLog = create<{ log: Record<string, string[]>; add: (bodyId
 }))
 
 /** テスト用（#debug）：ローバーの位置を動かす */
-export const roverDebug: { moveTo?: (site: number) => void; sites?: () => { x: number; z: number }[]; place?: (x: number, z: number, heading?: number) => void; rocks?: () => { x: number; z: number; r: number; h: number }[] } = {}
+export const roverDebug: {
+  /** 確認用のカメラ：ローバーから見た [前, 右, 上, 見る高さ]（m） */
+  cam?: [number, number, number, number]
+  moveTo?: (site: number) => void; sites?: () => { x: number; z: number }[]; place?: (x: number, z: number, heading?: number) => void; rocks?: () => { x: number; z: number; r: number; h: number }[] } = {}
