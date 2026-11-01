@@ -94,6 +94,11 @@ export function Ship() {
   const mode = useStore((s) => s.mode)
   const spec = useShip()
   const shadowSize = QUALITY[useLevel()].shadow
+  // 影を使わない画質でも、影の地図は一度だけ描いておく。一度も描かないと影の地図（深さのテクスチャ）が作られず、
+  // 影を受ける材質の描画が GPU に断られて、船体などが消えてしまう（光るナセルだけが残る）
+  useEffect(() => {
+    if (shadowSize === 0 && sunSpot.current) sunSpot.current.shadow.needsUpdate = true
+  }, [shadowSize])
 
   // 周回待機：天体と一緒に動く（ワープ到着や自動航行の後）
   const hold = useRef<{ id: string; offset: THREE.Vector3 } | null>(null)
