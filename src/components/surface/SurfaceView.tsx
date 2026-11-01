@@ -30,7 +30,7 @@ import { Dust, Exhaust, Grit, LegRig, blastMark, TOUCHDOWN, legsDuringDescent, s
 import { QualityGovernor } from '../QualityGovernor'
 import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 import { Rover } from './Rover'
-import { RoverHud } from './RoverHud'
+import { RoverHud, RoverMap } from './RoverHud'
 import { bindRoverKeys, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
 import { samplesFor } from '../../data/rockSamples'
 
@@ -1199,6 +1199,7 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
   const canSample = useRover((r) => r.canSample)
   const sampling = useRover((r) => r.sampling)
   const result = useRover((r) => r.result)
+  const edge = useRover((r) => r.edge)
   const got = useSampleLog((l) => l.log[bodyId]?.length ?? 0)
   const total = samplesFor(bodyId).length
   const view = useRover((r) => r.view)
@@ -1216,6 +1217,13 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
             : t('ローバーを展開中…', 'Rover unfolding…')}
       </div>
       {drive && <RoverHud />}
+      {drive && <RoverMap />}
+      {drive && edge && (
+        <div className="rover-edge">
+          {t('これ以上は遠くへ行けません', "Can't go any farther")}
+          <small>{t('探査できるのは着陸地点のまわり 200 m 四方です', 'The rover can explore a 200 m square around the landing site')}</small>
+        </div>
+      )}
       {drive && result && <SampleCard bodyId={bodyId} id={result} />}
       {drive && (
         <div className="sample-status">
