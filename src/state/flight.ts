@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { create } from 'zustand'
 import { PLANETS } from '../data/bodies'
 import { named, t } from '../i18n/lang'
 import { isTelescope, scopeName } from '../data/telescopes'
@@ -30,7 +31,14 @@ export const ship = {
 }
 
 /** 操縦の制限（レースのカウントダウン中は止める、スイングバイ後は最高速度を上げる） */
-export const flightControl = { locked: false, speedScale: 1, releaseHold: false, holding: false }
+export const flightControl = {
+  locked: false,
+  speedScale: 1,
+  releaseHold: false,
+  holding: false,
+  /** 全体マップでワープを押したとき：この天体の前へ、ワープの演出なしで移る（Ship が次のフレームで動かす） */
+  jumpTo: null as string | null,
+}
 
 /** ワープ演出の共有値（光の筋・ナセルの発光が参照する） */
 export const warpFx = { intensity: 0, glow: 0, seconds: 3 }
@@ -63,9 +71,37 @@ export function distanceToBody(id: string) {
   return Math.max(0, tmp.distanceTo(ship.position) - body.radius)
 }
 
+/**
+ * ワープの準備ができたか。起動した直後は、模型やテクスチャの読み込みとシェーダー作りがまだ続いていて、
+ * そこでワープすると声だけ先に流れて演出が止まる。準備が終わるまでは押されたことだけ覚えておき
+ * （ボタンは「準備中」）、終わったら声と演出を一緒に始める。QualityGovernor が ready にする
+ */
+export const useWarpPrep = create<{ ready: boolean; pending: boolean }>(() => ({ ready: false, pending: false }))
+
+/** 準備ができた。待っていたワープがあれば、ここで始める */
+export function warpPrepDone() {
+  if (useWarpPrep.getState().ready) return
+  const pending = useWarpPrep.getState().pending
+  useWarpPrep.setState({ ready: true, pending: false })
+  if (pending) engage()
+}
+
 export function engage() {
   const s = useStore.getState()
   if (!s.targetId || s.warpPhase !== 'idle') return
+  // 全体マップからは、声も光の筋も出さず、カメラがその天体の前の船まで約1秒ですっと寄るだけにする
+  // （マップから操縦席への切り替えとワープの演出が重なると、重くて止まりやすいので）
+  if (s.mode === 'map' && !raceActive()) {
+    if (!bodies.get(s.targetId)) return
+    s.setAutopilot(false)
+    flightControl.jumpTo = s.targetId
+    s.setMode('flight')
+    return
+  }
+  if (!useWarpPrep.getState().ready) {
+    useWarpPrep.setState({ pending: true })
+    return
+  }
   if (raceActive()) {
     s.showToast(RACE_TEXT.noWarp)
     return
@@ -74,7 +110,6 @@ export function engage() {
   if (distance === null) return
   warpFx.seconds = warpSeconds(distance, s.warpFactor)
   s.setAutopilot(false)
-  // 全体マップから押したら、操縦席へ切り替えて、船がワープに入るところを見せる
   if (s.mode === 'map') s.setMode('flight')
   s.setWarpPhase('charge')
   // 艦長の号令は、低く力強く（声の高さは 0〜2。下げすぎると機械のような声になる）

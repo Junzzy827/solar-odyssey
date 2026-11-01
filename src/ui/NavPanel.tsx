@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { PLANETS } from '../data/bodies'
 import { TIME_RATES } from '../data/scale'
 import { useStore, type ThrustFxLevel } from '../state/store'
-import { bodyInfo, engage, travelFacts } from '../state/flight'
+import { bodyInfo, engage, travelFacts, useWarpPrep } from '../state/flight'
 import { SF_OBJECTS, setWorld } from '../data/sf'
 import { HUBBLE_ID, scopeName, WEBB_ID } from '../data/telescopes'
 import { useRace } from '../state/race'
@@ -312,6 +312,7 @@ export function NavPanel() {
   const startRace = useRace((r) => r.start)
   const racing = racePhase === 'countdown' || racePhase === 'running'
   const busy = s.warpPhase !== 'idle' || racing
+  const pendingWarp = useWarpPrep((w) => w.pending)
   const observing = useObserve((o) => o.id !== null)
   const quizOpen = useQuiz((q) => q.open)
   const probesOpen = useProbes((p) => p.open)
@@ -414,7 +415,7 @@ export function NavPanel() {
         <input type="range" min={1} max={9} step={1} value={s.warpFactor} onChange={(e) => s.setWarpFactor(Number(e.target.value))} disabled={busy} />
       </label>
       <button className="engage" onClick={engage} disabled={!s.targetId || busy}>
-        {t('ワープ', 'Warp')} <kbd>Enter</kbd>
+        {pendingWarp ? t('準備中…', 'Getting ready…') : <>{t('ワープ', 'Warp')} <kbd>Enter</kbd></>}
       </button>
       <button className={`secondary nav-auto${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
         {t('自動航行', 'Autopilot')} <kbd>G</kbd>

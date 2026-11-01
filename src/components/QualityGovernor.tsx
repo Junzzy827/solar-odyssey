@@ -3,6 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { QUALITY, currentLevel, looksIntegrated, lowMemory, registerSwitcher, stepDown, stepUp, useQuality, wantedLevel, type Level } from '../state/quality'
 import { useStore } from '../state/store'
+import { useProgress } from '@react-three/drei'
+import { warpPrepDone } from '../state/flight'
 
 /** FPS を測る区切り（秒） */
 const WINDOW = 2
@@ -59,6 +61,11 @@ function sceneTextures(scene: THREE.Scene) {
   return found
 }
 
+/** 読み込みがこの秒数止まっていたら、落ち着いたとみなす */
+const LOAD_QUIET = 1
+/** ワープの準備をいつまでも待たない（秒） */
+const PREP_GIVE_UP = 20
+
 /** スマホで GPU に載せるテクスチャの最大の辺（ピクセル） */
 const PHONE_MAX_TEXTURE = 1024
 
@@ -74,7 +81,7 @@ export function QualityGovernor() {
   const scene = useThree((s) => s.scene)
   const camera = useThree((s) => s.camera)
   const m = useRef({ frames: 0, time: 0, slow: 0, fast: 0, lastDown: -Infinity, settleUntil: 0, tooSlow: new Set<Level>() })
-  const job = useRef({ busy: false, warmed: false, scanAt: 0, uploads: [] as THREE.Texture[] })
+  const job = useRef({ busy: false, warmed: false, scanAt: 0, uploads: [] as THREE.Texture[], prep: 'load' as 'load' | 'compile' | 'upload' | 'done', quietSince: -1 })
   // 後処理を通すときのシェーダーを用意するための、形だけの描画先
   const target = useMemo(() => new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }), [])
   useEffect(() => () => target.dispose(), [target])
@@ -133,6 +140,39 @@ export function QualityGovernor() {
     }
   }, [gl, scene, camera, target])
 
+  /**
+   * ワープの準備（起動直後だけ）：読み込みが落ち着いてから、その時点の場面のシェーダーを作り、
+   * パソコンではテクスチャも載せ終えたら、ワープを使えるようにする（それまで押されたワープは待たせる）
+   */
+  function warmForWarp(time: number) {
+    const j = job.current
+    if (j.prep === 'done') return
+    if (time > PREP_GIVE_UP) {
+      j.prep = 'done'
+      warpPrepDone()
+      return
+    }
+    if (j.prep === 'load') {
+      if (useProgress.getState().active || time < 1) {
+        j.quietSince = -1
+        return
+      }
+      if (j.quietSince < 0) j.quietSince = time
+      if (time - j.quietSince < LOAD_QUIET) return
+      j.prep = 'compile'
+      void prepare(gl, scene, camera, currentLevel(), target).then(() => {
+        j.prep = 'upload'
+        j.scanAt = 0
+      })
+    } else if (j.prep === 'upload') {
+      // スマホは前もって載せないので、シェーダーができたら準備完了
+      if (lowMemory() || (j.scanAt > 0 && j.uploads.length === 0)) {
+        j.prep = 'done'
+        warpPrepDone()
+      }
+    }
+  }
+
   useFrame(({ clock }, dt) => {
     // 最初に描けたら、今は見えていない天体や構造物のシェーダーも裏で用意しておく
     // （全体マップを開いた瞬間に、初めて画面に入る物のシェーダー作りで止まらないように）
@@ -153,6 +193,7 @@ export function QualityGovernor() {
       const next = j.uploads.shift()
       if (next) gl.initTexture(next)
     }
+    warmForWarp(clock.elapsedTime)
     const s = m.current
     // タブを切り替えた・テクスチャの読み込みで一瞬止まったなどの、とびぬけて長いフレームは数えない
     if (dt > 1 || document.hidden) return
