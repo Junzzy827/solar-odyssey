@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { QUALITY, currentLevel, looksIntegrated, registerSwitcher, stepDown, stepUp, useQuality, wantedLevel, type Level } from '../state/quality'
+import { QUALITY, currentLevel, looksIntegrated, lowMemory, registerSwitcher, stepDown, stepUp, useQuality, wantedLevel, type Level } from '../state/quality'
 import { useStore } from '../state/store'
 
 /** FPS を測る区切り（秒） */
@@ -40,6 +40,31 @@ function prepare(gl: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Came
   return Promise.race([done, new Promise((r) => setTimeout(r, PREPARE_LIMIT * 1000))])
 }
 
+/** 見えている物の材質が使うテクスチャ（描き込み先のテクスチャは除く） */
+function sceneTextures(scene: THREE.Scene) {
+  const found = new Set<THREE.Texture>()
+  const add = (v: unknown) => {
+    const t = v as (THREE.Texture & { isRenderTargetTexture?: boolean }) | null
+    if (t?.isTexture && !t.isRenderTargetTexture && t.image) found.add(t)
+  }
+  scene.traverseVisible((o) => {
+    const mesh = o as THREE.Mesh
+    const mats = mesh.material ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) : []
+    for (const m of mats) {
+      for (const v of Object.values(m)) add(v)
+      const u = (m as THREE.ShaderMaterial).uniforms
+      if (u) for (const k in u) add(u[k]?.value)
+    }
+  })
+  return found
+}
+
+/** スマホで GPU に載せるテクスチャの最大の辺（ピクセル） */
+const PHONE_MAX_TEXTURE = 1024
+
+/** まだ GPU に載せていないテクスチャを探す間隔（秒） */
+const UPLOAD_SCAN = 4
+
 /**
  * FPS を測り、画質が「自動」なら描画が追いつくところまで下げる（余裕があれば戻す）。
  * 画質の切り替え（自動・手動とも）は、新しい画質のシェーダーを裏で用意し終えてから行う
@@ -49,7 +74,7 @@ export function QualityGovernor() {
   const scene = useThree((s) => s.scene)
   const camera = useThree((s) => s.camera)
   const m = useRef({ frames: 0, time: 0, slow: 0, fast: 0, lastDown: -Infinity, settleUntil: 0, tooSlow: new Set<Level>() })
-  const job = useRef({ busy: false, warmed: false })
+  const job = useRef({ busy: false, warmed: false, scanAt: 0, uploads: [] as THREE.Texture[] })
   // 後処理を通すときのシェーダーを用意するための、形だけの描画先
   const target = useMemo(() => new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }), [])
   useEffect(() => () => target.dispose(), [target])
@@ -62,6 +87,11 @@ export function QualityGovernor() {
     const info = ctx.getExtension('WEBGL_debug_renderer_info')
     const renderer = String(info ? ctx.getParameter(info.UNMASKED_RENDERER_WEBGL) : ctx.getParameter(ctx.RENDERER))
     const touch = matchMedia('(pointer: coarse)').matches
+    // スマホは、GPU に載せるテクスチャを 1024 ピクセルまでに縮める（three.js が載せるときに縮める）。
+    // 2K の惑星や 4K の船体の模様をそのまま載せると 350MB を超え、ワープのあとに視点を回して
+    // 新しいテクスチャが載った瞬間などに、Safari がページごと落として最初から読み込み直してしまう。
+    // スマホの画面では 1024 でもほぼ画素と同じ細かさなので、見た目はほとんど変わらない
+    if (lowMemory()) gl.capabilities.maxTextureSize = Math.min(gl.capabilities.maxTextureSize, PHONE_MAX_TEXTURE)
     if (looksIntegrated(renderer) || touch) {
       useQuality.getState().setAuto('medium')
       if (useStore.getState().settings.quality === 'auto') useQuality.setState({ level: 'medium' })
@@ -109,6 +139,19 @@ export function QualityGovernor() {
     if (!job.current.warmed && clock.elapsedTime > 1) {
       job.current.warmed = true
       void prepare(gl, scene, camera, currentLevel(), target)
+    }
+    // テクスチャも前もって GPU に載せておく（パソコンだけ）。three.js は初めて画面に写ったときに載せるので、
+    // 全体マップでは小さすぎて描かれない船の 4K テクスチャなどが、ワープで操縦席に切り替えた瞬間にまとめて載り、
+    // ワープの演出が止まる。1フレームに1枚ずつ載せる。
+    // スマホは逆に、見ていない物まで載せるとメモリが足りなくなる（Safari がページごと落とす）ので、見えたときに載せる
+    if (job.current.warmed && !lowMemory()) {
+      const j = job.current
+      if (clock.elapsedTime > j.scanAt) {
+        j.scanAt = clock.elapsedTime + UPLOAD_SCAN
+        j.uploads = [...sceneTextures(scene)].filter((t) => (gl.properties.get(t) as { __webglTexture?: WebGLTexture }).__webglTexture === undefined)
+      }
+      const next = j.uploads.shift()
+      if (next) gl.initTexture(next)
     }
     const s = m.current
     // タブを切り替えた・テクスチャの読み込みで一瞬止まったなどの、とびぬけて長いフレームは数えない
