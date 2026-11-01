@@ -18,7 +18,7 @@ import { SurfaceStars } from './SurfaceStars'
 import { TimeBar } from './TimeBar'
 import { groundMaterial } from './groundMaterial'
 import { useDem } from './dem'
-import { farTerrainGeometry } from './farTerrain'
+import { FAR_SHRINK, farTerrainGeometry } from './farTerrain'
 import { STORM_HAZE, STORM_KIND, WEATHER_BODIES, WEATHER_FX, devilTarget, stepWeather, useWeather, stormTarget, weatherNow } from './weather'
 import { Weather } from './Weather'
 import { shimmerAmount, shimmerNow } from './heatShimmer'
@@ -393,7 +393,17 @@ function Clouds({ terrain, ap, sky, clock }: { terrain: Terrain; ap: ApUniforms;
 
 /** 地平線の山並み（本物の地形の遠くの地図） */
 function FarTerrain({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
-  const geo = useMemo(() => farTerrainGeometry(terrain.def, terrain.dem!.far, terrain.height(0, 0) + EYE, 2900), [terrain])
+  const eyeY = terrain.height(0, 0) + EYE
+  const geo = useMemo(() => farTerrainGeometry(terrain.def, terrain.dem!.far, eyeY, 2900), [terrain, eyeY])
+  const mesh = useRef<THREE.Mesh>(null)
+  // 山並みは、着陸地点の目の高さを中心に 1/FAR_SHRINK に縮めて置いてある。カメラが動いたら（ローバーで走るとき）
+  // 縮める中心もカメラへずらす：そうしないと、山の見える向きがずれて、近くの地面との間に隙間ができる
+  useFrame(({ camera }) => {
+    const m = mesh.current
+    if (!m) return
+    const k = 1 - 1 / FAR_SHRINK
+    m.position.set(camera.position.x * k, (camera.position.y - eyeY) * k, camera.position.z * k)
+  })
   const mat = useMemo(
     () =>
       cloudy(
@@ -410,7 +420,7 @@ function FarTerrain({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
     [geo, mat],
   )
   // 星と太陽の後、近くの地面の前に描く（近くの地面が上から重なる）
-  return <mesh geometry={geo} material={mat} renderOrder={-6.5} frustumCulled={false} />
+  return <mesh ref={mesh} geometry={geo} material={mat} renderOrder={-6.5} frustumCulled={false} />
 }
 
 function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
