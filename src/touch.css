@@ -727,3 +727,19 @@ body.touch .observe-panel {
 body.touch .observe-buttons button {
   min-height: 34px;
 }
+
+/* スマホ縦（操縦席）：ワープ・自動・観察を横に並べると画面のまんなかの船にかかるので、
+   右端に縦に積む（幅は下の2列のボタンとそろえる） */
+@media (max-width: 720px) and (min-height: 501px) {
+  body.touch .touch-warp.flight .touch-row {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  body.touch .touch-warp.flight .touch-button.wide {
+    width: calc(2 * 50px + 8px);
+    height: 36px;
+    padding: 0;
+  }
+}
