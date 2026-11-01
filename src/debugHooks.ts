@@ -15,6 +15,7 @@ import { probeClock, useProbes } from './state/probes'
 import { skipDescent, startLanding, startTakeoff, useLanding } from './state/landing'
 import { useSurfaceLab } from './state/surfaceLab'
 import { useSkyClock } from './components/surface/skyClock'
+import { weatherNow } from './components/surface/weather'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
 // 録画・動作確認用（#debug のときだけ読み込む）：アプリの中身をブラウザのコンソールや録画スクリプトから動かせるようにする。
@@ -34,6 +35,7 @@ const sv = {
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff },
   surfaceLab: useSurfaceLab,
   skyClock: useSkyClock,
+  weather: weatherNow,
   ship,
   shipZoom,
   observe: { state: useObserve, start: startObserve, stop: stopObserve, dock: dockAtPort, run: observeRun },

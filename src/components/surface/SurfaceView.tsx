@@ -19,6 +19,8 @@ import { TimeBar } from './TimeBar'
 import { groundMaterial } from './groundMaterial'
 import { useDem } from './dem'
 import { farTerrainGeometry } from './farTerrain'
+import { STORM_HAZE, WEATHER_BODIES, devilTarget, stepWeather, useWeather, stormTarget, weatherNow } from './weather'
+import { Weather } from './Weather'
 import { CLOUD_DRIFT, cloudCover, cloudMaterial, cloudUniforms, withCloudShadow } from './clouds'
 import { SkyFrame, hoursPerSecond, litFraction, useSkyClock } from './skyClock'
 import type { SkyNow } from './skyNow'
@@ -911,6 +913,7 @@ function Scene({ def }: { def: SurfaceDef }) {
   const sun = useRef<THREE.DirectionalLight>(null)
   const shine = useRef<THREE.DirectionalLight>(null)
   const nightFill = useRef<THREE.HemisphereLight>(null)
+  const stormFill = useRef<THREE.HemisphereLight>(null)
 
   // 大気の計算の道具は天体ごとに 1 回だけ作る（霞の濃さは uniform で変える）
   const A = useMemo<Air>(() => {
@@ -933,7 +936,11 @@ function Scene({ def }: { def: SurfaceDef }) {
   // 今の空（毎フレーム書き換える）。着陸するたびに時計を 0 から
   const sky = useMemo<SkyNow>(() => {
     useSkyClock.setState({ hours: 0 })
+    // 着陸するたびに、天気は自動に戻す
+    useWeather.setState({ mode: 'auto', storm: 0 })
+    weatherNow.storm = weatherNow.force ?? stormTarget(def.id, 0)
     const frame = new SkyFrame(def)
+    weatherNow.devils = devilTarget(def.id, frame.localClock(), weatherNow.storm)
     const sunDir = frame.sunLocal(new THREE.Vector3())
     return { frame, sunDir, sunT: new THREE.Vector3(1, 1, 1), exposure: 1, night: 0, starVis: 0, bodyDir: new THREE.Vector3(0, 1, 0), bodyLit: 0 }
   }, [def])
@@ -947,15 +954,19 @@ function Scene({ def }: { def: SurfaceDef }) {
   const sunI = def.au ** -2
   const dayExposure = useMemo(() => autoExposure(sunI, new THREE.Vector3(1, 1, 1), Math.PI / 4, A.air, 0), [sunI, A])
 
-  // 霞の濃さ（調整ページ）は uniform だけ書き換える
-  useEffect(() => {
-    if (!A.air) return
+  // 霞の濃さ（調整ページ × 砂嵐）は uniform だけ書き換える
+  const hazeNow = useRef({ A: null as Air | null, v: -1 })
+  const applyHaze = (v: number) => {
+    const h = hazeNow.current
+    if (!A.air || (h.A === A && Math.abs(h.v - v) <= 0.01 * v)) return
+    h.A = A
+    h.v = v
     const u = A.lut.material.uniforms
-    u.uBetaL.value.set(...A.air.low).multiplyScalar(haze)
-    u.uExtL.value.set(...A.air.lowExt).multiplyScalar(haze)
-    A.ap.uApL.value.set(...A.air.lowExt).multiplyScalar(haze)
+    u.uBetaL.value.set(...A.air.low).multiplyScalar(v)
+    u.uExtL.value.set(...A.air.lowExt).multiplyScalar(v)
+    A.ap.uApL.value.set(...A.air.lowExt).multiplyScalar(v)
     A.lutKey = ''
-  }, [A, haze])
+  }
 
   useEffect(() => {
     scene.background = new THREE.Color('#000000')
@@ -984,19 +995,24 @@ function Scene({ def }: { def: SurfaceDef }) {
       c.ui = 0
       const lit = sky.bodyLit
       useSkyClock.setState({ hours: c.hours, clock: sky.frame.localClock(), bodyLit: lit, waxing: lit >= c.lastLit })
+      if (WEATHER_BODIES.has(def.id) && Math.abs(useWeather.getState().storm - weatherNow.storm) > 0.02) useWeather.setState({ storm: weatherNow.storm })
       c.lastLit = lit
     }
     sky.frame.at(c.hours)
+    // 天気（火星の砂嵐）：空気中の砂が濃くなる
+    const storm = WEATHER_BODIES.has(def.id) ? stepWeather(def.id, c.hours, sky.frame.localClock(), Math.min(dt, 0.1)).storm : 0
+    const hz = haze * (1 + STORM_HAZE * storm)
+    applyHaze(hz)
     if (lab.sunEl !== null || lab.sunAz !== null) sky.sunDir.copy(dirFrom(lab.sunAz ?? def.sunAz, lab.sunEl ?? def.sunEl))
     else sky.frame.sunLocal(sky.sunDir)
     const el = Math.asin(THREE.MathUtils.clamp(sky.sunDir.y, -1, 1))
-    sky.sunT.copy(sunTransmittance(A.air, radiusM, el, haze))
+    sky.sunT.copy(sunTransmittance(A.air, radiusM, el, hz))
     // 厚い雲の下は、目が慣れても薄暗く感じるくらいに
-    const ev = lab.ev + (def.sunHidden ? -0.9 : 0)
+    const ev = lab.ev + (def.sunHidden ? -0.9 : 0) - 0.8 * storm
     sky.exposure = Math.min(autoExposure(sunI, sky.sunT, el, A.air, ev), dayExposure * 2 ** ev * 5)
     sky.night = THREE.MathUtils.smoothstep(-el, -0.05, 0.12)
     const twilight = THREE.MathUtils.smoothstep(-el, 0.0, 0.2)
-    sky.starVis = def.sunHidden ? 0 : A.air ? twilight * Math.max(0, 1 - Math.max(0, haze - 1) * 0.5) : 0.3 + 0.7 * sky.night
+    sky.starVis = def.sunHidden ? 0 : A.air ? twilight * Math.max(0, 1 - Math.max(0, hz - 1) * 0.5) : 0.3 + 0.7 * sky.night
     if (def.skyBody) sky.bodyLit = litFraction(sky.sunDir, sky.bodyDir)
     if (Math.abs(lab.exposure - sky.exposure) / sky.exposure > 0.02) lab.set({ exposure: sky.exposure })
 
@@ -1022,6 +1038,11 @@ function Scene({ def }: { def: SurfaceDef }) {
     // 夜の空の明かり（星明かり・大気光）：真っ暗にせず、地形と着陸船の形がほのかに見えるくらいに
     if (nightFill.current) {
       nightFill.current.intensity = sky.night * (A.air ? (def.sunHidden ? 2 : 3) : 3)
+    }
+    // 砂嵐の昼：太陽の光が砂に散らされて、空全体から明るさが降ってくる（影の側も真っ暗にならない）
+    if (stormFill.current) {
+      const day = THREE.MathUtils.smoothstep(sky.sunDir.y, -0.05, 0.25)
+      stormFill.current.intensity = storm * day * sunI * sky.exposure * 0.35
     }
 
     // 空の表：太陽が少し動いたら描き直す。まわりの景色の光（重い）は間を空けて
@@ -1057,6 +1078,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       <SunDisc def={def} sky={sky} />
       {def.skyBody && <SkyPlanet def={def} sky={sky} />}
       <Plumes def={def} />
+      {WEATHER_BODIES.has(def.id) && <Weather def={def} terrain={terrain} sky={sky} light={level === 'low' || lowMemory()} />}
       {hasClouds(def) && <Clouds terrain={terrain} ap={A.ap} sky={sky} clock={clock} />}
       <directionalLight
         key={shadow}
@@ -1074,6 +1096,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       />
       {def.skyBody && <directionalLight ref={shine} color={def.skyBody.id === 'earth' ? '#a9c4ff' : def.id === 'earth' ? '#b9c9ff' : '#e8dcc8'} intensity={0} />}
       <hemisphereLight ref={nightFill} args={['#4d628f', '#16151b', 0]} />
+      {WEATHER_BODIES.has(def.id) && <hemisphereLight ref={stormFill} args={[def.hazeColor, def.ground, 0]} />}
       {/* 空と地面の照り返しの光は、まわりの景色の光（scene.environment）が受け持つ */}
       <Ground terrain={terrain} ap={A.ap} />
       {terrain.dem && <FarTerrain terrain={terrain} ap={A.ap} />}
