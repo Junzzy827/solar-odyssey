@@ -717,8 +717,8 @@ export function Rover({
       const reachX = s.x + fwd.x * 1.1 + sideX * 0.2
       const reachZ = s.z + fwd.z * 1.1 + sideZ * 0.2
       let near = -1
-      // 岩の近く（アームの先から 2.6 m 以内）でゆっくり走っていれば採集できる。足りないぶんは採集の始めに寄っていく
-      let nearD = 2.6
+      // 岩の近く（アームの先から 3.9 m 以内）でゆっくり走っていれば採集できる。足りないぶんは採集の始めに寄っていく
+      let nearD = 3.9
       let next = -1
       let nextD = Infinity
       for (let i = 0; i < sites.length; i++) {
