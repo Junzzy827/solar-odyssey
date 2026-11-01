@@ -4,7 +4,7 @@ import { nextCameraMode, useStore } from '../state/store'
 import { useQuiz } from '../state/quiz'
 import { t, useLang } from '../i18n/lang'
 import { useTouchUI } from '../state/touchUI'
-import { bodyInfo, engage } from '../state/flight'
+import { bodyInfo, engage, useWarpPrep } from '../state/flight'
 import { TouchThrottle } from './Throttle'
 import { raceActive } from '../state/race'
 import { launchLander, useLaunchBusy } from '../state/launch'
@@ -117,6 +117,7 @@ export function TouchWarp() {
   const scope = useStore((s) => s.scope)
   const targetId = useStore((s) => s.targetId)
   const warpPhase = useStore((s) => s.warpPhase)
+  const pendingWarp = useWarpPrep((w) => w.pending)
   const autopilot = useStore((s) => s.autopilot)
   const setAutopilot = useStore((s) => s.setAutopilot)
   const distance = useStore((s) => s.telemetry.distance)
@@ -141,7 +142,7 @@ export function TouchWarp() {
           </div>
           <div className="touch-row">
             <button className="touch-button wide warp" onClick={engage} disabled={busy}>
-              {t('ワープ', 'Warp')}
+              {pendingWarp ? t('準備中…', 'Getting ready…') : t('ワープ', 'Warp')}
             </button>
             <button className={`touch-button wide auto${autopilot ? ' on' : ''}`} onClick={() => setAutopilot(!autopilot)} disabled={busy}>
               {t('自動', 'Auto')}

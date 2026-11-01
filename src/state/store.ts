@@ -130,7 +130,7 @@ function loadVisited(): string[] {
 }
 
 export const useStore = create<State>((set) => ({
-  mode: 'map',
+  mode: 'flight',
   targetId: null,
   warpFactor: 6,
   throttle: THROTTLE_DEFAULT,

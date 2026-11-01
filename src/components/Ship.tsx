@@ -9,6 +9,7 @@ import { LanderLaunch } from './ship/LanderLaunch'
 import { launchFx } from '../state/launch'
 import { currentShip, useShip } from '../data/ships'
 import { useStore } from '../state/store'
+import { DOCK_ID } from '../data/sf'
 import { CHARGE_SECONDS, EXIT_SECONDS, SHIP_SCALE, flightControl, ship, standoff, thrustFx, warpFx } from '../state/flight'
 import { APPROACH_TEXT, approachKind, limitDistance } from '../data/approach'
 import { approachSpeedFactor, nearInfo, proximity, updateProximity } from '../state/proximity'
@@ -21,7 +22,7 @@ import { beamFx, hitStopped, shakeCamera } from '../state/beam'
 import { QUALITY, useLevel } from '../state/quality'
 import { MAX_SPEED, THROTTLE_STEPS } from '../state/throttle'
 import { raceActive } from '../state/race'
-import { observeMin, observeRange, observeRun, OBSERVE_TEXT, ORBIT_RATE_MAX, stopObserve, useObserve } from '../state/observe'
+import { observeMin, observeRange, observeRun, OBSERVE_TEXT, ORBIT_RATE_MAX, startObserve, stopObserve, useObserve } from '../state/observe'
 import { bodies, colliders, passThrough, ports, type BodyEntry, type Port } from '../state/registry'
 
 const THRUST = 10
@@ -50,10 +51,17 @@ const OVERVIEW_FITS = 200
 
 /** 出発点：地球から見て太陽の方向から、どれだけ横へずらすか（rad）。太陽は船の斜め後ろになる */
 const START_ANGLE = 1.0
+/** SF モードの出発点：天の湊の中心から口の正面へ、どれだけ離れるか（ドックの減速が届く範囲の外） */
+const START_DOCK_DISTANCE = 0.3
+/** 天の湊が登録されるのを待つフレーム数 */
+const START_DOCK_WAIT = 90
 /** 逆光の強さ（太陽の光の約 1/4） */
 const RIM_INTENSITY = 0.7
 // 全体マップから操縦席へ切り替えるとき、カメラが船まで飛んでくる時間（ワープのチャージ 1.8 秒の内に終わる）
-const FLY_IN_SECONDS = 1.4
+const FLY_IN_SECONDS = 1.1
+/** 全体マップからのワープで出る位置：太陽の方向から横へ回す角度（rad）と、上へ持ち上げる割合 */
+const JUMP_ANGLE = 0.8
+const JUMP_LIFT = 0.35
 
 const keys = new Set<string>()
 const mouse = { dx: 0, dy: 0 }
@@ -111,6 +119,7 @@ export function Ship() {
   const prevTarget = useRef<{ id: string; pos: THREE.Vector3 } | null>(null)
   const prevMode = useRef(mode)
   const placed = useRef(false)
+  const placeWait = useRef(0)
   // 距離や大きさを切りかえたとき、いちばん近い天体のそばに、同じ高さの割合のままついていく。
   // 天体が新しい位置と大きさになるのを待つため、切りかえてから数フレーム後に移す
   const anchor = useRef<{ id: string; offset: THREE.Vector3; radius: number } | null>(null)
@@ -209,6 +218,32 @@ export function Ship() {
     const st = useStore.getState()
     const target = st.targetId ? bodies.get(st.targetId) : undefined
     if (target) target.object.getWorldPosition(tp)
+    // 全体マップからのワープ：船をその天体の前（昼の側の斜め上）へ移す。カメラは下の「マップを閉じた瞬間」の
+    // 寄り（FLY_IN_SECONDS）で、マップの位置から船の後ろまですっと飛んでくる
+    if (flightControl.jumpTo) {
+      const to = bodies.get(flightControl.jumpTo)
+      flightControl.jumpTo = null
+      if (to) {
+        to.object.getWorldPosition(v)
+        if (to.id !== 'sun') {
+          // 太陽から見て少し横・少し上から、昼の側を見る
+          const sun = bodies.get('sun')
+          if (sun) sun.object.getWorldPosition(hp)
+          else hp.set(0, 0, 0)
+          hp.sub(v).setY(0)
+          if (hp.lengthSq() < 1e-9) hp.set(1, 0, 0)
+          hp.normalize().applyAxisAngle(up.set(0, 1, 0), JUMP_ANGLE).addScaledVector(up, JUMP_LIFT)
+        } else hp.copy(ship.position).sub(v)
+        if (hp.lengthSq() < 1e-9) hp.set(0, 0.2, 1)
+        hp.setLength(standoff(to.radius))
+        ship.position.copy(v).add(hp)
+        ship.quaternion.copy(facing(ship.position, v, up.set(0, 1, 0)))
+        ship.velocity.set(0, 0, 0)
+        hold.current = { id: to.id, offset: hp.clone() }
+        // 天の湊はワープで着いたときと同じく、そのまま周辺観察へ（そこから「着艦」）
+        if (to.id === DOCK_ID) startObserve()
+      }
+    }
     // マップを閉じた瞬間のカメラを覚えておき、そこから船の後ろまで飛んでくる
     if (prevMode.current === 'map' && st.mode === 'flight') {
       flyIn.t = 0
@@ -226,17 +261,39 @@ export function Ship() {
     up.set(0, 1, 0).applyQuaternion(ship.quaternion)
 
     // 出発点：地球のそば。太陽は斜め後ろにして、昼の側の地球を見る（太陽の真ん前だと、何が何だかわからないので）
+    // SF モードでは、地球を回る宇宙ドック「天の湊」の口の正面から、ドックを眺めて始める
+    // （起動直後に全体マップだと、すぐワープしたくなるが、まだ読み込み中で重い。操縦席から始めれば、まず周りを見て回れる）
     if (!placed.current) {
       const earth = bodies.get('earth')
-      if (earth) {
+      // SF の構造物は少し遅れて登録・配置されるので、地球のそばに置かれるまで少し待つ（来なければ地球のそばから）
+      let dock = bodies.get(DOCK_ID)
+      if (dock && earth) {
+        dock.object.getWorldPosition(v)
+        earth.object.getWorldPosition(hp)
+        if (v.distanceTo(hp) > earth.radius * 20 || v.lengthSq() === 0) dock = undefined
+      }
+      const waitDock = st.settings.world === 'sf' && !dock && ++placeWait.current < START_DOCK_WAIT
+      if (earth && !waitDock) {
         placed.current = true
         earth.object.getWorldPosition(hp)
-        v.copy(hp).negate().setY(0).normalize().applyAxisAngle(up.set(0, 1, 0), START_ANGLE)
-        ship.position.copy(hp).addScaledVector(v, earth.radius * 4 + 1.2)
-        ship.position.y += earth.radius * 0.8
-        ship.quaternion.copy(facing(ship.position, hp, up))
-        ship.velocity.set(0, 0, 0)
-        hold.current = { id: 'earth', offset: ship.position.clone().sub(hp) }
+        if (dock) {
+          // ドックの口は -Z 側。口の正面、少し上の、ドックの減速の届かないところに置く
+          dock.object.updateWorldMatrix(true, false)
+          dock.object.getWorldPosition(v)
+          const front = new THREE.Vector3(0, 0, -1).transformDirection(dock.object.matrixWorld)
+          const lift = new THREE.Vector3(0, 1, 0).transformDirection(dock.object.matrixWorld)
+          ship.position.copy(v).addScaledVector(front, START_DOCK_DISTANCE).addScaledVector(lift, START_DOCK_DISTANCE * 0.18)
+          ship.quaternion.copy(facing(ship.position, v, up.set(0, 1, 0)))
+          ship.velocity.set(0, 0, 0)
+          hold.current = { id: DOCK_ID, offset: ship.position.clone().sub(v) }
+        } else {
+          v.copy(hp).negate().setY(0).normalize().applyAxisAngle(up.set(0, 1, 0), START_ANGLE)
+          ship.position.copy(hp).addScaledVector(v, earth.radius * 4 + 1.2)
+          ship.position.y += earth.radius * 0.8
+          ship.quaternion.copy(facing(ship.position, hp, up))
+          ship.velocity.set(0, 0, 0)
+          hold.current = { id: 'earth', offset: ship.position.clone().sub(hp) }
+        }
       }
     }
 
