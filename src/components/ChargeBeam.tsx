@@ -786,6 +786,7 @@ export function ChargeBeam() {
     l.distance = unit * (beamOn ? 2.4 : 0.8)
     const lightTo = beamOn ? 1.5 + c.firing * 0.8 : c.charging ? 0.4 + 1.6 * chargeK : 0
     l.intensity += (lightTo - l.intensity) * ease(0.35)
+    if (st.mode === 'map') l.intensity = 0
 
     // 光の輪
     for (const r of rings) {
@@ -809,10 +810,13 @@ export function ChargeBeam() {
     shards.material.uniforms.uTime.value = time
     shards.material.uniforms.uGain.value = gain
     shards.material.uniforms.uScale.value = scaleUniform
+    // 全体マップでは見せない。ただし光（pointLight）は隠さない：光の数が変わると、全部の材質のシェーダーを作り直すことになり、
+    // マップからワープしたときに数秒止まる（ワープの声だけ先に流れて演出が遅れる）
     group.current.visible = st.mode !== 'map'
   })
 
   return (
+    <>
     <group ref={group}>
       <group ref={ribbons} visible={false}>
         {/* 外側（太く色付き）→ 螺旋 → 芯（白く細い）の順に重ねる */}
@@ -830,7 +834,8 @@ export function ChargeBeam() {
       <sprite ref={glow} visible={false} renderOrder={13}>
         <spriteMaterial ref={glowMat} map={glowTex} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
       </sprite>
-      <pointLight ref={light} intensity={0} distance={1} decay={1} />
     </group>
+    <pointLight ref={light} intensity={0} distance={1} decay={1} />
+    </>
   )
 }
