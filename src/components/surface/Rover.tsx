@@ -265,7 +265,8 @@ function landerFeet(yaw: number) {
 const BIG_ROCK = 0.42
 const CELL = 5
 
-type RockBody = { id: number; x: number; z: number; r: number; h: number }
+/** t：岩のてっぺんの高さ（世界の y） */
+type RockBody = { id: number; x: number; z: number; r: number; h: number; t: number }
 type RockGrid = Map<string, RockBody[]>
 
 function rockBodies(terrain: Terrain): RockGrid {
@@ -279,16 +280,28 @@ function rockBodies(terrain: Terrain): RockGrid {
     if (h < 0.04) return
     const key = `${Math.floor(r.x / CELL)},${Math.floor(r.z / CELL)}`
     const list = grid.get(key) ?? []
-    list.push({ id: i, x: r.x, z: r.z, r: r.s * 0.9, h })
+    list.push({ id: i, x: r.x, z: r.z, r: r.s * 0.9, h, t: r.y + r.s * r.sy * 0.95 })
     grid.set(key, list)
   })
   return grid
 }
 
 const nearOut: RockBody[] = []
-const siteBody: RockBody = { id: 0, x: 0, z: 0, r: 0, h: 0 }
+const siteBody: RockBody = { id: 0, x: 0, z: 0, r: 0, h: 0, t: 0 }
 const siteBodies: RockBody[] = []
 /** (x, z) のまわりの岩（採集用の岩も、まだ採っていなければ小石として入れる） */
+/** 大きな岩の上に乗ったときの地面の高さ（岩をまるい丘とみなす）。岩の外なら base のまま */
+function onBigRocks(grid: RockGrid, x: number, z: number, base: number) {
+  let y = base
+  for (const r of nearRocks(grid, x, z)) {
+    if (r.h < BIG_ROCK) continue
+    const R = r.r + 0.3
+    const d = Math.hypot(x - r.x, z - r.z)
+    if (d < R) y = Math.max(y, r.t - r.h * (d / R) ** 2)
+  }
+  return y
+}
+
 function nearRocks(grid: RockGrid, x: number, z: number, sites?: { x: number; z: number; size: number }[], taken?: Set<number>) {
   nearOut.length = 0
   const cx = Math.floor(x / CELL)
@@ -598,7 +611,7 @@ export function Rover({
         }
       }
       inp.jump = false
-      const prevGround = meshHeight(terrain, s.x, s.z)
+      const prevGround = onBigRocks(bodies, s.x, s.z, meshHeight(terrain, s.x, s.z))
       let nx = s.x + fwd.x * s.speed * dt
       let nz = s.z + fwd.z * s.speed * dt
       // 範囲の端と、着陸船の脚
@@ -610,9 +623,9 @@ export function Rover({
       }
       const atEdge = roverNow() - s.edgeT < 2.5
       if (atEdge !== useRover.getState().edge) useRover.setState({ edge: atEdge })
-      // 大きな岩は乗り越えられない（ぶつかって止まる）
+      // 大きな岩は走っては乗り越えられない（ぶつかって止まる）。ジャンプで岩のてっぺんより高く跳んでいれば越えられる
       for (const r of nearRocks(bodies, nx, nz)) {
-        if (r.h < BIG_ROCK) continue
+        if (r.h < BIG_ROCK || s.y > r.t - 0.12 || Math.hypot(s.x - r.x, s.z - r.z) < r.r + 0.3) continue
         const dx = nx - r.x
         const dz = nz - r.z
         const d = Math.hypot(dx, dz)
@@ -636,7 +649,8 @@ export function Rover({
       }
       s.x = nx
       s.z = nz
-      const ground = meshHeight(terrain, s.x, s.z)
+      // 地面（大きな岩の上に乗っていれば、岩のてっぺん）
+      const ground = onBigRocks(bodies, s.x, s.z, meshHeight(terrain, s.x, s.z))
       const groundVy = (ground - prevGround) / Math.max(dt, 1e-3)
       // 縦の動き：地面が落ちていく速さより遅く落ちれば宙に浮く（坂の頂上で飛び出す）
       s.vy -= g * dt
