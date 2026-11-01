@@ -407,7 +407,7 @@ export function withAir<M extends THREE.Material>(material: M, u: ApUniforms, re
             aw = instanceMatrix * aw;
           #endif
           vAirWorld = (modelMatrix * aw).xyz;
-          ${realAttr ? '// 縮めて置いた形は、縮める前の本当の位置で空気の厚みを計算する\n          vAirWorld = (modelMatrix * vec4(aReal, 1.0)).xyz;' : ''}
+          ${realAttr ? '// 縮めて置いた形は、縮める前の本当の位置で空気の厚みを計算する\n          vAirWorld = aReal; // （縮めた形はカメラに合わせて動かすので、本当の位置は aReal そのもの）' : ''}
         }`,
       )
     shader.fragmentShader = shader.fragmentShader
