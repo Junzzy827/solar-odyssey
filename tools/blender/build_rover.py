@@ -14,13 +14,17 @@ junji さんの設定資料（「惑星探査陸上ドローン」、正面・�
   - 太陽電池：左右に開いた 2 枚ずつと、後ろの 1 枚。アンテナ 2 本
 
 座標は Blender のまま（Z が上、前方が +Y、右が +X）。単位はメートル。地面が z=0。
-回す部品は別のオブジェクトにしてある（車輪 Wheel_FR など 6 個は車軸が原点、Mast はマストの根元、Arm）。
+動く部品は別のオブジェクトで、関節の位置が原点（親子関係は「関節と展開」の節）。
+たたんだ姿（脚を振り上げて 3 輪を車体の横に並べ、腹を地面すれすれに下げ、マストとアンテナは前へ倒し、
+太陽電池は天板の上へ折り返し、アームは前にたたむ）から、展開した姿まで、deploy_pose(t) で動かす。
 
 実行:
   /home/user/.bpyvenv/bin/python tools/blender/build_rover.py
   STAGE=1..     改修の段階（1 は形のブロックアウト）
   PREVIEW=1     確認用の画像を PREVIEW_DIR に書き出す（VIEWS=hero,rear,low,top,side,front）
-  ARM=work|stow アームの姿勢（work：設定資料の絵のように前へ伸ばして地面へ、stow：前へたたむ）
+  DEPLOY=0..1   PREVIEW の展開の度合い（0 = たたんだ姿、1 = 展開した姿）
+  ANIM=1        着陸船から落とされて着地し、展開するまでの連番画像を PREVIEW_DIR/anim に書き出す
+  ARM=work|stow 展開したあとのアームの姿勢（work：設定資料の絵のように前へ伸ばして地面へ）
 """
 
 import math
@@ -92,11 +96,51 @@ def joint(part, c, r, length, mat='Dark', axis=(1, 0, 0), n=16):
     cylinder(part, c - ax * length / 2, c + ax * length / 2, r, r, mat, n=n)
 
 
+# ---- 関節と展開 -------------------------------------------------------------------
+#
+# 動く部品は別のオブジェクトにして、関節の位置を原点にしてある（親子関係つき）。
+#   Body ─┬ Leg_F{R,L}（前の関節で回る）─ Wheel_F{R,L}
+#         ├ Leg_M{R,L}（前の関節で回る：中輪へのリンク）─ Wheel_M{R,L}
+#         ├ Leg_R{R,L}（後ろの関節で回る）─ Wheel_R{R,L}
+#         ├ Mast（根元で前へ倒れる）─ Head（首振り）
+#         ├ Antenna1, Antenna2（根元で前へ倒れる）
+#         ├ Panel_{R,L}{1,2}（車体の肩のヒンジで、天板の上へ折り返す）
+#         └ ArmYaw ─ ArmUpper ─ ArmFore ─ ArmHand（肩・ひじ・手首）
+# 展開の度合い t（0 = たたんだ姿、1 = 展開した姿）で、それぞれの角度と車体の高さを決める。
+
+KNUCKLE_F = (0.42, 0.52)  # 車体横の関節（y, z）
+KNUCKLE_R = (-0.36, 0.52)
+ARM_X = 0.37  # 脚の通る面
+
+# たたんだときの脚の角度（X 軸まわり、度）。前輪は前へ振り上げ、中輪と後輪は後ろへ振り上げて
+# 車体の横に 3 輪を並べる。車体は腹が地面すれすれ（BELLY_DROP だけ下がる）まで沈む。
+LEG_FOLD = {'F': 122.0, 'M': -69.0, 'R': -117.0}
+BELLY_DROP = 0.32
+PANEL_HINGE = {1: (0.29, 0.99), -1: (0.29, 1.012)}  # 側面の太陽電池のヒンジ（x の大きさ、z）。左を上に重ねる
+MAST_BASE = (0.0, 0.34, 0.93)
+HEAD_PIVOT = (0.0, 0.34, 1.18)
+ANTENNAS = [(0.10, -0.12, 1.30), (-0.17, -0.20, 1.18)]
+ARM_BASE = (0.22, 0.60, 0.50)
+ARM_SHOULDER = (0.22, 0.68, 0.50)
+ARM_POSES = {  # 付け根の向き（外へ、度）、肩・ひじ・手首の角度（水平から、上が正）
+    'work': (28, 38, -42, -78),
+    'stow': (0, 86, -86, 0),
+}
+ARM_L = (0.36, 0.38, 0.10)
+
+
+def hub(wn):
+    return (WHEEL_Y[wn], WHEEL_R)
+
+
+def leg_pivot(wn):
+    return KNUCKLE_R if wn == 'R' else KNUCKLE_F
+
+
 # ---- 車体 ------------------------------------------------------------------------
 
 
-def build_body(P):
-    g = P['Body']
+def build_body(g):
     segs = {(0, j): 'Dark' for j in range(6)}
     segs.update({(1, j): 'Dark' for j in range(6)})
     loft = PolyLoft(BODY_SECTIONS, segs, cap_back='Dark', cap_front='Hull2')
@@ -112,6 +156,15 @@ def build_body(P):
         box(g, (sx * 0.338, 0.22, 0.66), (0.012, 0.30, 0.15), 'Dark')
         # 後ろの暗い箱の縦のオレンジ
         box(g, (sx * 0.336, -0.50, 0.66), (0.012, 0.025, 0.24), 'Accent')
+        # 脚の関節の内側の台と、左右をつなぐ差動バーの端
+        for ky, kz in (KNUCKLE_F, KNUCKLE_R):
+            joint(g, (sx * 0.345, ky, kz), 0.045, 0.05, 'Dark')
+        cylinder(g, (sx * 0.30, 0.03, 0.56), (sx * 0.345, 0.03, 0.56), 0.03, 0.03, 'Metal', n=12)
+        # 太陽電池のヒンジと支え
+        hx, hz = PANEL_HINGE[sx]
+        box(g, (sx * hx, 0.02, hz - 0.02), (0.03, 0.66, 0.025), 'Mech')
+        for y in (0.25, -0.22):
+            beam(g, (sx * hx, y, 0.80), (sx * hx, y, hz - 0.03), 0.03, 0.03, 'Mech')
     for k in range(4):
         box(g, (0, 0.662, 0.545 - k * 0.018), (0.16, 0.012, 0.008), 'Dark')
     box(g, (0, 0.655, 0.66), (0.16, 0.012, 0.012), 'Accent')
@@ -119,26 +172,46 @@ def build_body(P):
     box(g, (0, -0.02, 0.855), (0.24, 0.16, 0.05), 'Hull2')
     box(g, (0, -0.02, 0.882), (0.20, 0.12, 0.006), 'Dark')
     box(g, (0.0, -0.40, 0.85), (0.34, 0.20, 0.04), 'Mech')
-    # アンテナ 2 本（後ろ寄り）
-    for x, y, top in ((0.10, -0.12, 1.30), (-0.17, -0.20, 1.18)):
-        cylinder(g, (x, y, 0.83), (x, y, 0.90), 0.018, 0.018, 'Mech', n=10)
-        cylinder(g, (x, y, 0.90), (x, y, top), 0.006, 0.003, 'Metal', n=6)
-        cylinder(g, (x, y, 0.93), (x, y, 1.0), 0.010, 0.010, 'Dark', n=8)
+    # マストの台（倒れるヒンジ）
+    x, y, z = MAST_BASE
+    box(g, (x, y, 0.88), (0.16, 0.16, 0.10), 'Mech')
+    for sx in (1, -1):
+        box(g, (sx * 0.06, y, z), (0.025, 0.06, 0.05), 'Dark')
+    # アンテナの根元
+    for ax, ay, _ in ANTENNAS:
+        cylinder(g, (ax, ay, 0.83), (ax, ay, 0.89), 0.02, 0.02, 'Mech', n=10)
+    # 後ろの太陽電池（動かない。車体の後ろへ張り出す）
+    solar(g, -0.20, 0.20, -0.30, -0.78, 0.905, (3, 4))
+    for x in (0.12, -0.12):
+        beam(g, (x, -0.40, 0.87), (x, -0.40, 0.895), 0.03, 0.03, 'Mech')
+        beam(g, (x, -0.60, 0.79), (x, -0.62, 0.895), 0.025, 0.025, 'Mech')
+    # アームの付け根の台
+    bx, by, bz = ARM_BASE
+    box(g, (bx, by - 0.03, bz), (0.10, 0.10, 0.09), 'Mech')
+    cylinder(g, (bx, by + 0.02, bz), (bx, by + 0.06, bz), 0.045, 0.045, 'Dark', n=16)
+
+
+def build_antenna(g, x, y, top):
+    cylinder(g, (x, y, 0.88), (x, y, 0.92), 0.012, 0.012, 'Dark', n=8)
+    joint(g, (x, y, 0.90), 0.016, 0.04, 'Dark')
+    cylinder(g, (x, y, 0.90), (x, y, top), 0.006, 0.003, 'Metal', n=6)
+    cylinder(g, (x, y, 0.94), (x, y, 1.0), 0.010, 0.010, 'Dark', n=8)
 
 
 # ---- マストとカメラ ----------------------------------------------------------------
 
-MAST_BASE = (0.0, 0.34, 0.83)
 
-
-def build_mast(P):
-    g = P['Mast']
+def build_mast(g):
     x, y, z = MAST_BASE
-    box(g, (x, y, z + 0.025), (0.16, 0.16, 0.05), 'Mech')
-    cylinder(g, (x, y, z + 0.05), (x, y, 1.13), 0.034, 0.030, 'Metal', n=16)
-    cylinder(g, (x, y, z + 0.05), (x, y, z + 0.14), 0.05, 0.045, 'Hull2', n=16)
-    box(g, (x, y, 1.15), (0.10, 0.08, 0.06), 'Mech')  # 首振りの台
-    joint(g, (x, y, 1.18), 0.035, 0.12, 'Dark')
+    joint(g, (x, y, z), 0.035, 0.10, 'Dark')
+    cylinder(g, (x, y, z), (x, y, 1.14), 0.034, 0.030, 'Metal', n=16)
+    cylinder(g, (x, y, z), (x, y, z + 0.08), 0.05, 0.045, 'Hull2', n=16)
+    box(g, (x, y, 1.15), (0.10, 0.08, 0.05), 'Mech')  # 首振りの台
+
+
+def build_head(g):
+    x, y, _ = HEAD_PIVOT
+    joint(g, HEAD_PIVOT, 0.035, 0.12, 'Dark')
     # 頭：横に広い箱、前にレンズ 3 つ、横にオレンジの線
     hz = 1.275
     box(g, (x, y, hz), (0.34, 0.20, 0.13), 'Hull')
@@ -153,46 +226,41 @@ def build_mast(P):
 
 # ---- 足まわり（ロッカー・ボギー） -----------------------------------------------------
 
-KNUCKLE_F = (0.42, 0.52)  # 車体横の関節（y, z）
-KNUCKLE_R = (-0.36, 0.52)
-ARM_X = 0.37  # 腕の通る面
 
-
-def build_suspension(P):
-    g = P['Suspension']
-
-    def side(sx):
-        X = sx * ARM_X
-        hz = WHEEL_R
-        for (ky, kz) in (KNUCKLE_F, KNUCKLE_R):
-            joint(g, (sx * 0.345, ky, kz), 0.045, 0.05, 'Dark')
-            joint(g, (X, ky, kz), 0.055, 0.05, 'Hull2')
-        fy, ry = WHEEL_Y['F'], WHEEL_Y['R']
-        # 前輪・後輪へ：関節 → 少し下の肘 → 車輪の上の立て軸
-        for (ky, kz), wy in ((KNUCKLE_F, fy), (KNUCKLE_R, ry)):
-            elbow = (X, wy - math.copysign(0.10, wy), 0.42)
-            beam(g, (X, ky, kz), elbow, 0.06, 0.07, 'Hull')
-            joint(g, elbow, 0.04, 0.07, 'Dark')
-            top = (X, wy, 0.42)
-            beam(g, elbow, top, 0.055, 0.06, 'Hull')
-            # 立て軸（ステアリング）
-            cylinder(g, (X, wy, 0.45), (X, wy, hz + 0.02), 0.026, 0.026, 'Metal', n=12)
-            box(g, (X, wy, 0.43), (0.08, 0.09, 0.06), 'Mech')
-            box(g, (X, wy, hz), (0.05, 0.08, 0.09), 'Mech')
-            cylinder(g, (X, wy, hz), (sx * (WHEEL_X - WHEEL_W / 2), wy, hz), 0.03, 0.03, 'Metal', n=12)
-        # 中輪へ：前の関節から斜め下へリンク、後ろの関節からも
+def build_leg(g, wn, sx):
+    """1 本の脚（関節から車輪の車軸まで）。座標は展開した姿の車体座標"""
+    X = sx * ARM_X
+    wy, hz = hub(wn)
+    ky, kz = leg_pivot(wn)
+    if wn in ('F', 'R'):
+        joint(g, (X, ky, kz), 0.055, 0.05, 'Hull2')
+        elbow = (X, wy - math.copysign(0.10, wy), 0.42)
+        beam(g, (X, ky, kz), elbow, 0.06, 0.07, 'Hull')
+        joint(g, elbow, 0.04, 0.07, 'Dark')
+        beam(g, elbow, (X, wy, 0.42), 0.055, 0.06, 'Hull')
+        # 立て軸（ステアリング）
+        cylinder(g, (X, wy, 0.45), (X, wy, hz + 0.02), 0.026, 0.026, 'Metal', n=12)
+        box(g, (X, wy, 0.43), (0.08, 0.09, 0.06), 'Mech')
+        box(g, (X, wy, hz), (0.05, 0.08, 0.09), 'Mech')
+    else:
         bog = (X, 0.06, 0.34)
-        beam(g, (X, KNUCKLE_F[0], KNUCKLE_F[1]), bog, 0.045, 0.05, 'Mech')
-        beam(g, (X, KNUCKLE_R[0], KNUCKLE_R[1]), (X, -0.02, 0.38), 0.05, 0.06, 'Hull')
+        beam(g, (X, ky, kz), bog, 0.045, 0.05, 'Mech')
         joint(g, bog, 0.045, 0.07, 'Dark')
         beam(g, bog, (X, 0.0, hz + 0.06), 0.05, 0.06, 'Hull')
         box(g, (X, 0.0, hz), (0.05, 0.09, 0.12), 'Mech')
-        cylinder(g, (X, 0.0, hz), (sx * (WHEEL_X - WHEEL_W / 2), 0.0, hz), 0.03, 0.03, 'Metal', n=12)
-        # 車体と左右をつなぐ差動バー（天板の下を横切る）
-        cylinder(g, (sx * 0.30, 0.03, 0.56), (sx * 0.345, 0.03, 0.56), 0.03, 0.03, 'Metal', n=12)
+    cylinder(g, (X, wy, hz), (sx * (WHEEL_X - WHEEL_W / 2), wy, hz), 0.03, 0.03, 'Metal', n=12)
 
-    side(1)
-    side(-1)
+
+LINK_END = (-0.06, 0.40)
+LINK_FOLD = 52.0  # たたむとき前上へ振り上げる角度（度）
+
+
+def build_link(g, sx):
+    """後ろの関節から中輪のほうへ伸びる短いリンク（たたむと前上へ逃げる）"""
+    X = sx * (ARM_X + 0.055)
+    ky, kz = KNUCKLE_R
+    beam(g, (X, ky, kz), (X, *LINK_END), 0.05, 0.06, 'Hull')
+    joint(g, (X, *LINK_END), 0.035, 0.07, 'Dark')
 
 
 def build_wheel(sx):
@@ -209,7 +277,6 @@ def build_wheel(sx):
             a = t + off
             c = (half * hw * 0.5, (core + 0.014) * math.cos(a), (core + 0.014) * math.sin(a))
             box(g, c, (hw * 0.92, 0.042, 0.03), 'Tyre', rot_x=a - math.pi / 2)
-    # 側壁（外と内）
     for s in (1, -1):
         x = s * hw
         cylinder(g, (x - s * 0.004, 0, 0), (x, 0, 0), core, core * 0.98, 'Tyre', n=32, cap0=None, cap1=None)
@@ -235,83 +302,115 @@ def solar(part, x0, x1, y0, y1, z, cells=(4, 4)):
     """平らな太陽電池板：枠（明るい金属）と、セルの面"""
     box(part, ((x0 + x1) / 2, (y0 + y1) / 2, z), (abs(x1 - x0), abs(y1 - y0), 0.018), 'Hull2')
     box(part, ((x0 + x1) / 2, (y0 + y1) / 2, z + 0.0095), (abs(x1 - x0) - 0.02, abs(y1 - y0) - 0.02, 0.002), 'Solar')
-    if STAGE >= 1:
-        nx, ny = cells
-        for i in range(1, nx):
-            x = x0 + (x1 - x0) * i / nx
-            box(part, (x, (y0 + y1) / 2, z + 0.0108), (0.003, abs(y1 - y0) - 0.02, 0.001), 'Metal')
-        for j in range(1, ny):
-            y = y0 + (y1 - y0) * j / ny
-            box(part, ((x0 + x1) / 2, y, z + 0.0108), (abs(x1 - x0) - 0.02, 0.003, 0.001), 'Metal')
+    nx, ny = cells
+    for i in range(1, nx):
+        x = x0 + (x1 - x0) * i / nx
+        box(part, (x, (y0 + y1) / 2, z + 0.0108), (0.003, abs(y1 - y0) - 0.02, 0.001), 'Metal')
+    for j in range(1, ny):
+        y = y0 + (y1 - y0) * j / ny
+        box(part, ((x0 + x1) / 2, y, z + 0.0108), (abs(x1 - x0) - 0.02, 0.003, 0.001), 'Metal')
 
 
-def build_panels(P):
-    g = P['Panels']
-    z = 0.925
-    for sx in (1, -1):
-        # 左右に開いた 2 枚（ヒンジは車体の肩）
-        for y0, y1 in ((0.34, 0.025), (0.015, -0.30)):
-            solar(g, sx * 0.30, sx * 0.66, y0, y1, z, (3, 3))
-        box(g, (sx * 0.29, 0.02, z - 0.02), (0.03, 0.66, 0.03), 'Mech')  # ヒンジ
-        for y in (0.25, -0.22):  # 支え
-            beam(g, (sx * 0.30, y, 0.80), (sx * 0.29, y, z - 0.02), 0.03, 0.03, 'Mech')
-    # 後ろの 1 枚（車体の後ろへ張り出す）
-    solar(g, -0.20, 0.20, -0.30, -0.78, 0.905, (3, 4))
-    for x in (0.12, -0.12):
-        beam(g, (x, -0.40, 0.87), (x, -0.40, 0.895), 0.03, 0.03, 'Mech')
-        beam(g, (x, -0.60, 0.79), (x, -0.62, 0.895), 0.025, 0.025, 'Mech')
+PANEL_Y = {1: (0.34, 0.025), 2: (0.015, -0.30)}
 
 
-# ---- ロボットアーム -------------------------------------------------------------------
-
-ARM_BASE = (0.22, 0.60, 0.50)
-ARM_POSES = {  # 付け根の向き（外へ、度）、肩・ひじ・手首の角度（水平から、上が正）
-    'work': (28, 38, -42, -78),
-    'stow': (0, 4, 4, -8),
-}
-ARM_L = (0.36, 0.38, 0.10)
+def build_panel(g, sx, k):
+    hx, hz = PANEL_HINGE[sx]
+    y0, y1 = PANEL_Y[k]
+    solar(g, sx * (hx + 0.01), sx * 0.66, y0, y1, hz, (3, 3))
 
 
-def build_arm(P):
-    g = P['Arm']
-    yaw, a1, a2, a3 = (math.radians(v) for v in ARM_POSES[ARM])
-    fwd = np.array((math.sin(yaw), math.cos(yaw), 0.0))
-    side = np.array((math.cos(yaw), -math.sin(yaw), 0.0))
-    up = np.array((0, 0, 1.0))
-    base = np.array(ARM_BASE)
-    # 付け根の回転台
-    box(g, tuple(base + np.array((0, -0.03, 0))), (0.10, 0.10, 0.09), 'Mech')
-    cylinder(g, tuple(base + np.array((0, 0.02, 0))), tuple(base + np.array((0, 0.06, 0))), 0.045, 0.045, 'Dark', n=16)
-    sh = base + np.array((0, 0.08, 0))
-    joint(g, tuple(sh), 0.05, 0.10, 'Dark', axis=tuple(side))
+# ---- ロボットアーム（各部はその関節を原点に、+Y へ伸ばして組む） -----------------------------
 
-    def seg(p, ang, L):
-        return p + (fwd * math.cos(ang) + up * math.sin(ang)) * L
 
-    el = seg(sh, a1, ARM_L[0])
-    wr = seg(el, a2, ARM_L[1])
-    hand = seg(wr, a3, ARM_L[2])
-    cylinder(g, tuple(sh), tuple(el), 0.032, 0.03, 'Hull', n=14)
-    beam(g, tuple(sh + (el - sh) * 0.2), tuple(sh + (el - sh) * 0.8), 0.07, 0.03, 'Hull', up=tuple(side))
-    joint(g, tuple(el), 0.042, 0.09, 'Dark', axis=tuple(side))
-    cylinder(g, tuple(el), tuple(wr), 0.027, 0.025, 'Hull', n=14)
-    beam(g, tuple(el + (wr - el) * 0.25), tuple(el + (wr - el) * 0.75), 0.055, 0.026, 'Hull2', up=tuple(side))
-    joint(g, tuple(wr), 0.034, 0.075, 'Dark', axis=tuple(side))
-    cylinder(g, tuple(wr), tuple(hand), 0.03, 0.03, 'Mech', n=14)
-    # つかみ手：3 本指
-    d = hand - wr
-    d /= np.linalg.norm(d)
+def build_arm_yaw(g):
+    joint(g, (0, 0, 0), 0.05, 0.10, 'Dark')
+
+
+def build_arm_upper(g):
+    L = ARM_L[0]
+    cylinder(g, (0, 0, 0), (0, L, 0), 0.032, 0.03, 'Hull', n=14)
+    beam(g, (0, L * 0.2, 0), (0, L * 0.8, 0), 0.07, 0.03, 'Hull', up=(1, 0, 0))
+    joint(g, (0, L, 0), 0.042, 0.09, 'Dark')
+
+
+def build_arm_fore(g):
+    L = ARM_L[1]
+    cylinder(g, (0, 0, 0), (0, L, 0), 0.027, 0.025, 'Hull', n=14)
+    beam(g, (0, L * 0.25, 0), (0, L * 0.75, 0), 0.055, 0.026, 'Hull2', up=(1, 0, 0))
+    joint(g, (0, L, 0), 0.034, 0.075, 'Dark')
+
+
+def build_arm_hand(g):
+    L = ARM_L[2]
+    cylinder(g, (0, 0, 0), (0, L, 0), 0.03, 0.03, 'Mech', n=14)
+    d = np.array((0, 1.0, 0))
+    hand = d * L
     cylinder(g, tuple(hand), tuple(hand + d * 0.03), 0.04, 0.035, 'Hull2', n=14)
     tip0 = hand + d * 0.03
-    u = side
-    v = np.cross(d, u)
+    u, v = np.array((1.0, 0, 0)), np.array((0, 0, -1.0))
     for k in range(3):
         a = 2 * math.pi * k / 3
-        o = (u * math.cos(a) + v * math.sin(a))
+        o = u * math.cos(a) + v * math.sin(a)
         knuckle = tip0 + o * 0.03 + d * 0.035
         tip = tip0 + o * 0.012 + d * 0.085
         beam(g, tuple(tip0 + o * 0.02), tuple(knuckle), 0.016, 0.012, 'Metal', up=tuple(o))
         beam(g, tuple(knuckle), tuple(tip), 0.013, 0.01, 'Mech', up=tuple(o))
+
+
+# ---- 展開の動き ------------------------------------------------------------------------
+
+
+def ease(a, b, t):
+    u = min(1.0, max(0.0, (t - a) / (b - a)))
+    return u * u * (3 - 2 * u)
+
+
+def leg_hub_z(wn, ang):
+    """脚を ang（ラジアン）回したときの車軸の高さ（車体座標）"""
+    ky, kz = leg_pivot(wn)
+    wy, hz = hub(wn)
+    vy, vz = wy - ky, hz - kz
+    return kz + vy * math.sin(ang) + vz * math.cos(ang)
+
+
+def deploy_pose(t):
+    """展開の度合い t（0..1）での各部の回転（ラジアン）と車体の高さ"""
+    s = ease(0.05, 0.50, t)
+    legs = {wn: math.radians(f) * (1 - s) for wn, f in LEG_FOLD.items()}
+    # 車体の高さ：腹が地面すれすれより下へは行かず、どの車輪も地面にめりこまない
+    dz = max([-BELLY_DROP] + [WHEEL_R - leg_hub_z(wn, a) for wn, a in legs.items()])
+    pose = {'dz': dz, 'legs': legs, 'link': math.radians(LINK_FOLD) * (1 - s)}
+    pose['panel'] = {-1: math.pi * (1 - ease(0.50, 0.66, t)), 1: -math.pi * (1 - ease(0.57, 0.74, t))}
+    pose['mast'] = -math.pi / 2 * (1 - ease(0.66, 0.84, t))
+    pose['antenna'] = -math.pi / 2 * (1 - ease(0.72, 0.86, t))
+    h = ease(0.86, 1.0, t)
+    pose['head'] = math.radians(35) * math.sin(h * math.pi * 2) * (1 - h * 0.3)
+    a = ease(0.80, 1.0, t)
+    stow, work = ARM_POSES['stow'], ARM_POSES[ARM]
+    pose['arm'] = [math.radians(p + (q - p) * a) for p, q in zip(stow, work)]
+    return pose
+
+
+def apply_pose(objs, pose):
+    objs['Body'].location.z = pose['dz']
+    for side in ('R', 'L'):
+        for wn, a in pose['legs'].items():
+            objs[f'Leg_{wn}{side}'].rotation_euler.x = a
+        objs[f'Link_{side}'].rotation_euler.x = pose['link']
+    for sx, side in ((1, 'R'), (-1, 'L')):
+        for k in (1, 2):
+            objs[f'Panel_{side}{k}'].rotation_euler.y = pose['panel'][sx]
+    objs['Mast'].rotation_euler.x = pose['mast']
+    objs['Head'].rotation_euler.z = pose['head']
+    for i in range(len(ANTENNAS)):
+        objs[f'Antenna{i + 1}'].rotation_euler.x = pose['antenna']
+    yaw, a1, a2, a3 = pose['arm']
+    objs['ArmYaw'].rotation_euler.z = -yaw
+    objs['ArmUpper'].rotation_euler.x = a1
+    objs['ArmFore'].rotation_euler.x = a2 - a1
+    objs['ArmHand'].rotation_euler.x = a3 - a2
+
 
 
 # ---- Blender のオブジェクトに ------------------------------------------------------------
@@ -361,8 +460,7 @@ def preview_materials():
             b.inputs['Emission Strength'].default_value = 8
 
 
-def preview(tag):
-    from mathutils import Vector
+def setup_preview():
     scene = bpy.context.scene
     scene.render.engine = 'CYCLES'
     scene.cycles.device = 'CPU'
@@ -385,7 +483,8 @@ def preview(tag):
     scene.collection.objects.link(fill)
     bpy.ops.mesh.primitive_plane_add(size=14)
     ground = bpy.context.active_object
-    gm = bpy.data.materials.new('Ground')
+    ground.name = 'Ground'
+    gm = bpy.data.materials.new('GroundMat')
     gm.use_nodes = True
     gm.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (*bl.lin('#7a6655'), 1)
     gm.node_tree.nodes['Principled BSDF'].inputs['Roughness'].default_value = 0.95
@@ -393,37 +492,136 @@ def preview(tag):
     cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam'))
     scene.collection.objects.link(cam)
     scene.camera = cam
-    c = 0.70
-    shots = {
-        # 設定資料の絵と同じく、右前の角（アームのある側）を手前に
-        'hero': ((2.55, 3.1, 1.25), (0.05, 0.1, 0.55), 'PERSP', 50, True),
-        'rear': ((-2.6, -2.9, 1.5), (0, 0, 0.55), 'PERSP', 50, True),
-        'low': ((1.5, 2.1, 0.25), (0.05, 0.1, 0.6), 'PERSP', 35, True),
-        'top': ((0, 0, 6), None, 'ORTHO', 2.6, False),
-        'side': ((-6, 0, c), None, 'ORTHO', 2.6, False),
-        'front': ((0, 6, c), None, 'ORTHO', 2.6, False),
-    }
+
+
+SHOTS = {
+    # 設定資料の絵と同じく、右前の角（アームのある側）を手前に
+    'hero': ((2.55, 3.1, 1.25), (0.05, 0.1, 0.55), 'PERSP', 50, True),
+    'rear': ((-2.6, -2.9, 1.5), (0, 0, 0.55), 'PERSP', 50, True),
+    'low': ((1.5, 2.1, 0.25), (0.05, 0.1, 0.6), 'PERSP', 35, True),
+    'top': ((0, 0, 6), None, 'ORTHO', 2.6, False),
+    'side': ((-6, 0, 0.70), None, 'ORTHO', 2.6, False),
+    'front': ((0, 6, 0.70), None, 'ORTHO', 2.6, False),
+    'anim': ((2.9, 3.4, 1.55), (0.0, 0.0, 0.45), 'PERSP', 42, True),
+}
+
+
+def aim(name):
+    from mathutils import Vector
+    scene = bpy.context.scene
+    cam = scene.camera
+    pos, target, kind, lens, show_ground = SHOTS[name]
+    bpy.data.objects['Ground'].hide_render = not show_ground
+    cam.location = Vector(pos)
+    if target:
+        cam.rotation_euler = (Vector(target) - cam.location).to_track_quat('-Z', 'Y').to_euler()
+    elif name == 'top':
+        cam.rotation_euler = (0, 0, -math.pi / 2)  # 前（+Y）が左
+    elif name == 'side':
+        cam.rotation_euler = (math.pi / 2, 0, -math.pi / 2)  # 左から見て前が左（設定資料の向き）
+    elif name == 'front':
+        cam.rotation_euler = (math.pi / 2, 0, math.pi)
+    cam.data.type = kind
+    if kind == 'ORTHO':
+        cam.data.ortho_scale = lens
+    else:
+        cam.data.lens = lens
+    cam.data.clip_start = 0.01
+
+
+def preview(tag):
+    scene = bpy.context.scene
     for name in os.environ.get('VIEWS', 'hero,rear,low,top,side,front').split(','):
-        pos, target, kind, lens, show_ground = shots[name]
-        ground.hide_render = not show_ground
-        cam.location = Vector(pos)
-        if target:
-            cam.rotation_euler = (Vector(target) - cam.location).to_track_quat('-Z', 'Y').to_euler()
-        elif name == 'top':
-            cam.rotation_euler = (0, 0, -math.pi / 2)  # 前（+Y）が左
-        elif name == 'side':
-            cam.rotation_euler = (math.pi / 2, 0, -math.pi / 2)  # 左から見て前が左（設定資料の向き）
-        elif name == 'front':
-            cam.rotation_euler = (math.pi / 2, 0, math.pi)
-        cam.data.type = kind
-        if kind == 'ORTHO':
-            cam.data.ortho_scale = lens
-        else:
-            cam.data.lens = lens
-        cam.data.clip_start = 0.01
+        aim(name)
         scene.render.filepath = os.path.join(PREVIEW_DIR, f'rover-{tag}-{name}.png')
         bpy.ops.render.render(write_still=True)
         print('  render', name, flush=True)
+
+
+def animate(objs):
+    """着陸船から落とされて、着地して、展開するまでを連番画像に（あとで ffmpeg で動画に）"""
+    scene = bpy.context.scene
+    fps = int(os.environ.get('FPS', '24'))
+    scene.render.resolution_x, scene.render.resolution_y = (int(v) for v in os.environ.get('ANIM_RES', '960x540').split('x'))
+    scene.cycles.samples = int(os.environ.get('ANIM_SAMPLES', '12'))
+    aim(os.environ.get('ANIM_VIEW', 'anim'))
+    out = os.path.join(PREVIEW_DIR, 'anim')
+    os.makedirs(out, exist_ok=True)
+    drop_h, g = 1.4, 9.8 * float(os.environ.get('GRAVITY', '0.38'))  # 火星の重力
+    t_fall = math.sqrt(2 * drop_h / g)
+    t_wait, t_deploy, t_hold = 0.5, float(os.environ.get('DEPLOY_SEC', '6')), 1.0
+    total = t_fall + t_wait + t_deploy + t_hold
+    n = int(total * fps)
+    step = int(os.environ.get('ANIM_STEP', '1'))
+    for f in range(0, n, step):
+        tm = f / fps
+        pose = deploy_pose(0.0)
+        lift = 0.0
+        if tm < t_fall:
+            lift = drop_h - 0.5 * g * tm * tm
+        elif tm < t_fall + 0.25:  # 着地の小さなはね
+            u = (tm - t_fall) / 0.25
+            lift = 0.035 * math.sin(u * math.pi)
+        elif tm > t_fall + t_wait:
+            pose = deploy_pose(min(1.0, (tm - t_fall - t_wait) / t_deploy))
+        pose['dz'] += lift
+        apply_pose(objs, pose)
+        scene.render.filepath = os.path.join(out, f'f{f:04d}.png')
+        bpy.ops.render.render(write_still=True)
+        print(f'  frame {f}/{n}', flush=True)
+
+
+def build_all():
+    """全部のオブジェクトを親子つきで作って、名前 → オブジェクトの辞書を返す"""
+    objs = {}
+
+    def add(name, fn, origin=(0, 0, 0), parent=None, local=False, part=None):
+        g = part or Part()
+        if fn:
+            fn(g)
+        o = make_object(name, g, origin, local)
+        if parent:
+            o.parent = objs[parent]
+            o.location = tuple(np.array(origin) - np.array(PIVOTS[parent]))
+        PIVOTS[name] = origin
+        objs[name] = o
+        return o
+
+    add('Body', build_body)
+    for sx, side in ((1, 'R'), (-1, 'L')):
+        for wn in ('F', 'M', 'R'):
+            ky, kz = leg_pivot(wn)
+            add(f'Leg_{wn}{side}', lambda g: build_leg(g, wn, sx), (sx * ARM_X, ky, kz), 'Body')
+            add(f'Wheel_{wn}{side}', None, (sx * WHEEL_X, WHEEL_Y[wn], WHEEL_R), f'Leg_{wn}{side}', True,
+                build_wheel(sx))
+        add(f'Link_{side}', lambda g: build_link(g, sx), (sx * (ARM_X + 0.055), *KNUCKLE_R), 'Body')
+        for k in (1, 2):
+            hx, hz = PANEL_HINGE[sx]
+            add(f'Panel_{side}{k}', lambda g: build_panel(g, sx, k), (sx * hx, 0.02, hz), 'Body')
+    add('Mast', build_mast, MAST_BASE, 'Body')
+    add('Head', build_head, HEAD_PIVOT, 'Mast')
+    for i, (x, y, top) in enumerate(ANTENNAS):
+        add(f'Antenna{i + 1}', lambda g: build_antenna(g, x, y, top), (x, y, 0.90), 'Body')
+    sh = np.array(ARM_SHOULDER)
+    add('ArmYaw', build_arm_yaw, tuple(sh), 'Body', True)
+    add('ArmUpper', build_arm_upper, tuple(sh), 'ArmYaw', True)
+    add('ArmFore', build_arm_fore, tuple(sh + (0, ARM_L[0], 0)), 'ArmUpper', True)
+    add('ArmHand', build_arm_hand, tuple(sh + (0, ARM_L[0] + ARM_L[1], 0)), 'ArmFore', True)
+    for o in objs.values():
+        o.rotation_mode = 'XYZ'
+        bf.sharpen(o, 35)
+    return objs
+
+
+PIVOTS = {}
+
+
+def measure(objs):
+    bpy.context.view_layer.update()
+    allco = np.concatenate([np.array([(o.matrix_world @ v.co)[:] for v in o.data.vertices]) for o in objs.values()])
+    lo, hi = allco.min(0), allco.max(0)
+    return (f'width {hi[0] - lo[0]:.2f}  length {hi[1] - lo[1]:.2f}  height {hi[2] - lo[2]:.2f}'
+            f'  (z {lo[2]:.3f}..{hi[2]:.3f})')
 
 
 def main():
@@ -431,31 +629,22 @@ def main():
     bf.reset_scene()
     for m in MATS:
         bpy.data.materials.new(m)
-    P = {name: Part() for name in ('Body', 'Mast', 'Suspension', 'Panels', 'Arm')}
-    build_body(P)
-    build_mast(P)
-    build_suspension(P)
-    build_panels(P)
-    build_arm(P)
-    objs = []
-    for name, part in P.items():
-        origin = MAST_BASE if name == 'Mast' else (0, 0, 0)
-        objs.append(make_object(name, part, origin))
-    for sx, sn in ((1, 'R'), (-1, 'L')):
-        for wn, wy in WHEEL_Y.items():
-            objs.append(make_object(f'Wheel_{wn}{sn}', build_wheel(sx), (sx * WHEEL_X, wy, WHEEL_R), local=True))
-    for o in objs:
-        bf.sharpen(o, 35)
-    bpy.context.view_layer.update()
-    nf = sum(len(o.data.polygons) for o in objs)
-    print(f'  {nf} faces ({time.time() - t0:.1f}s)', flush=True)
-    allco = np.concatenate([np.array([(o.matrix_world @ v.co)[:] for v in o.data.vertices]) for o in objs])
-    lo, hi = allco.min(0), allco.max(0)
-    print(f'  size (m): width {hi[0] - lo[0]:.2f}  length {hi[1] - lo[1]:.2f}  height {hi[2] - lo[2]:.2f}'
-          f'  (z {lo[2]:.3f}..{hi[2]:.3f})')
-    if os.environ.get('PREVIEW'):
+    objs = build_all()
+    nf = sum(len(o.data.polygons) for o in objs.values())
+    print(f'  {len(objs)} objects, {nf} faces ({time.time() - t0:.1f}s)', flush=True)
+    apply_pose(objs, deploy_pose(0.0))
+    print('  folded  (m):', measure(objs))
+    apply_pose(objs, deploy_pose(1.0))
+    print('  deployed(m):', measure(objs))
+    if os.environ.get('PREVIEW') or os.environ.get('ANIM'):
         preview_materials()
-        preview(f's{STAGE}')
+        setup_preview()
+    if os.environ.get('PREVIEW'):
+        t = float(os.environ.get('DEPLOY', '1'))
+        apply_pose(objs, deploy_pose(t))
+        preview(f's{STAGE}' + ('' if t == 1 else f'-t{t:g}'))
+    if os.environ.get('ANIM'):
+        animate(objs)
 
 
 if __name__ == '__main__':
