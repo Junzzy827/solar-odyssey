@@ -15,19 +15,37 @@ import { weatherNow } from './weather'
 
 const BOX = 40 // 飛砂を置く範囲（カメラから ±m）
 const SHEET_BOX = 180
+const RAIN_BOX = 30
+const RAIN_H = 24
 
 type Parts = {
   sand: THREE.Points
   sheets: THREE.Points
   devils: THREE.Points
   sandMat: THREE.ShaderMaterial
+  rain: THREE.Points
+  rainMat: THREE.ShaderMaterial
+  nRain: number
   puffMat: THREE.ShaderMaterial
   devilMat: THREE.ShaderMaterial
   nSand: number
   nSheet: number
 }
 
-const DEVILS = 2
+/**
+ * 天体ごとの風の見え方。
+ * 火星：砂嵐で飛砂ともやが流れ、晴れた昼はつむじ風。
+ * 金星：地表の風はゆっくり（秒速 1 m ほど）だが空気がとても濃く、濁ったもやが重たく、いつも流れている。砂つぶやつむじ風は無し
+ */
+type Profile = { rain?: boolean; sand: boolean; devils: number; haze: number; stormHaze: number; bright: number; sheetSpeed: number; sizeMul: number; lift: number }
+const PROFILES: Record<string, Profile> = {
+  mars: { sand: true, devils: 2, haze: 0, stormHaze: 0.32, bright: 0.9, sheetSpeed: 2, sizeMul: 1, lift: 1 },
+  venus: { sand: false, devils: 0, haze: 0.18, stormHaze: 0, bright: 0.7, sheetSpeed: 1.1, sizeMul: 2.4, lift: 2.2 },
+  // タイタン：メタンの雨。重力が弱く空気が濃いので、大きな粒がゆっくり（秒速 1〜2 m）、ふわふわ落ちる
+  // 地球（モニュメント・バレー）：空気が濃いので、砂嵐では砂が速く、高く舞う。晴れた昼すぎはつむじ風も
+  earth: { sand: true, devils: 2, haze: 0, stormHaze: 0.36, bright: 0.9, sheetSpeed: 3, sizeMul: 1.3, lift: 1.4 },
+  titan: { rain: true, sand: false, devils: 0, haze: 0, stormHaze: 0.1, bright: 0.4, sheetSpeed: 0.6, sizeMul: 2, lift: 1.5 },
+}
 const DEVIL_PUFFS = 30
 
 function makePoints(n: number, attrs: string[], mat: THREE.ShaderMaterial) {
@@ -41,18 +59,26 @@ function makePoints(n: number, attrs: string[], mat: THREE.ShaderMaterial) {
 }
 
 export function Weather({ def, terrain, sky, light }: { def: SurfaceDef; terrain: Terrain; sky: SkyNow; light: boolean }) {
-  const color = useMemo(() => new THREE.Color(def.hazeColor), [def.hazeColor])
+  const prof = PROFILES[def.id] ?? PROFILES.mars
+  const DEVILS = prof.devils
+  // 舞い上がる砂の色：火星・金星・タイタンは空のもやの色、地球は赤い砂の色（もやの色だと白い湯気のように見える）
+  const color = useMemo(() => new THREE.Color(def.id === 'earth' ? '#c8875a' : def.hazeColor), [def.id, def.hazeColor])
   const wind = useMemo(() => windFor(def.id, true).normalize(), [def.id])
   const parts = useMemo<Parts>(() => {
-    const nSand = light ? 500 : 1400
+    const nSand = prof.sand ? (light ? 500 : 1400) : 0
     const nSheet = light ? 50 : 120
     const sandMat = gritMaterial(color)
+    const nRain = prof.rain ? (light ? 600 : 1600) : 0
+    const rainMat = gritMaterial(color)
     const puffMat = puffMaterial(color)
     const devilMat = puffMaterial(color)
     const puffAttrs = ['aAlpha', 'aSize', 'aRot', 'aVar']
     const p: Parts = {
       sand: makePoints(nSand, ['aAlpha', 'aSize'], sandMat),
       sheets: makePoints(nSheet, puffAttrs, puffMat),
+      rain: makePoints(nRain, ['aAlpha', 'aSize'], rainMat),
+      rainMat,
+      nRain,
       devils: makePoints(DEVILS * DEVIL_PUFFS, puffAttrs, devilMat),
       sandMat,
       puffMat,
@@ -70,6 +96,14 @@ export function Weather({ def, terrain, sky, light }: { def: SurfaceDef; terrain
       sp[i * 3 + 2] = (rnd() * 2 - 1) * BOX
       ss[i] = 0.025 + rnd() * 0.05
     }
+    const rp = p.rain.geometry.attributes.position.array as Float32Array
+    const rs = p.rain.geometry.attributes.aSize.array as Float32Array
+    for (let i = 0; i < nRain; i++) {
+      rp[i * 3] = (rnd() * 2 - 1) * RAIN_BOX
+      rp[i * 3 + 1] = rnd() * RAIN_H
+      rp[i * 3 + 2] = (rnd() * 2 - 1) * RAIN_BOX
+      rs[i] = 0.008 + rnd() * 0.012
+    }
     const hp = p.sheets.geometry.attributes.position.array as Float32Array
     const hs = p.sheets.geometry.attributes.aSize.array as Float32Array
     const hr = p.sheets.geometry.attributes.aRot.array as Float32Array
@@ -77,7 +111,7 @@ export function Weather({ def, terrain, sky, light }: { def: SurfaceDef; terrain
     for (let i = 0; i < nSheet; i++) {
       hp[i * 3] = (rnd() * 2 - 1) * SHEET_BOX
       hp[i * 3 + 2] = (rnd() * 2 - 1) * SHEET_BOX
-      hs[i] = 6 + rnd() * 12
+      hs[i] = (6 + rnd() * 12) * prof.sizeMul
       hr[i] = rnd() * Math.PI * 2
       hv[i] = rnd() * 0.999
     }
@@ -88,10 +122,11 @@ export function Weather({ def, terrain, sky, light }: { def: SurfaceDef; terrain
       dv[i] = rnd() * 0.999
     }
     return p
-  }, [color, light])
+  }, [color, light, prof, DEVILS])
   useEffect(
     () => () => {
-      for (const o of [parts.sand, parts.sheets, parts.devils]) o.geometry.dispose()
+      for (const o of [parts.sand, parts.sheets, parts.devils, parts.rain]) o.geometry.dispose()
+      parts.rainMat.dispose()
       parts.sandMat.dispose()
       parts.puffMat.dispose()
       parts.devilMat.dispose()
@@ -111,7 +146,7 @@ export function Weather({ def, terrain, sky, light }: { def: SurfaceDef; terrain
         amt: 0,
         seed: k * 7.3,
       })),
-    [],
+    [DEVILS],
   )
 
   const camDir = useMemo(() => new THREE.Vector3(), [])
@@ -129,7 +164,8 @@ export function Weather({ def, terrain, sky, light }: { def: SurfaceDef; terrain
     // 砂嵐の中は日が陰るので、砂も暗く。夜は見えない
     const sunLit = Math.max(0.12, Math.min(1, sunDir.y * 3 + 0.2)) * (1 - 0.85 * sky.night)
     // 砂嵐の中の砂は、空全体からの散った光で明るい（まわりのもやと同じくらいの明るさ）
-    const lit = sunLit + (0.95 * (1 - sky.night) - sunLit) * Math.min(1, s * 1.5)
+    // 厚い雲の下（金星）は、空全体からの光だけ
+    const lit = def.sunHidden ? prof.bright * (1 - 0.85 * sky.night) : sunLit + (0.95 * (1 - sky.night) - sunLit) * Math.min(1, s * 1.5)
 
     // 飛砂：風の強さは砂嵐の強さで決める（強いと 25 m/s ほど）
     const speed = 3 + 22 * s
@@ -160,7 +196,7 @@ export function Weather({ def, terrain, sky, light }: { def: SurfaceDef; terrain
     const hp = sh.position.array as Float32Array
     const ha = sh.aAlpha.array as Float32Array
     const hr = sh.aRot.array as Float32Array
-    const sheetSpeed = 2 + 14 * s
+    const sheetSpeed = prof.sheetSpeed + 14 * s
     for (let i = 0; i < parts.nSheet; i++) {
       const j = i * 3
       hp[j] += wind.x * sheetSpeed * dt
@@ -169,12 +205,12 @@ export function Weather({ def, terrain, sky, light }: { def: SurfaceDef; terrain
       else if (hp[j] - cx < -SHEET_BOX) hp[j] += 2 * SHEET_BOX
       if (hp[j + 2] - cz > SHEET_BOX) hp[j + 2] -= 2 * SHEET_BOX
       else if (hp[j + 2] - cz < -SHEET_BOX) hp[j + 2] += 2 * SHEET_BOX
-      hp[j + 1] = terrain.height(hp[j], hp[j + 2]) + 1.2 + (i % 5) * 1.1
+      hp[j + 1] = terrain.height(hp[j], hp[j + 2]) + (1.2 + (i % 5) * 1.1) * prof.lift
       hr[i] += dt * 0.05 * ((i % 3) - 1)
       const d = Math.hypot(hp[j] - cx, hp[j + 2] - cz) / SHEET_BOX
       // カメラのすぐそばは描かない（画面いっぱいにかぶさらないように）
       const near = THREE.MathUtils.smoothstep(d * SHEET_BOX, 14, 34)
-      ha[i] = 0.32 * THREE.MathUtils.smoothstep(s, 0.05, 0.6) * near * (1 - THREE.MathUtils.smoothstep(d, 0.35, 0.8))
+      ha[i] = Math.max(prof.haze, prof.stormHaze * THREE.MathUtils.smoothstep(s, 0.05, 0.6)) * near * (1 - THREE.MathUtils.smoothstep(d, 0.35, 0.8))
     }
     sh.position.needsUpdate = true
     sh.aAlpha.needsUpdate = true
@@ -183,6 +219,31 @@ export function Weather({ def, terrain, sky, light }: { def: SurfaceDef; terrain
     parts.puffMat.uniforms.uColor.value.copy(color).multiplyScalar(lit * (1.25 + 1.0 * fwd))
     parts.puffMat.uniforms.uShadow.value.copy(color).multiplyScalar(lit * (0.8 + 0.4 * fwd) + 0.03)
     parts.puffMat.uniforms.uSunView.value.copy(sunDir).transformDirection(cam.matrixWorldInverse)
+
+    // メタンの雨：大きな粒がゆっくり落ちて、風で少し流れる。地面に着いたら上から降り直す
+    if (parts.nRain) {
+      const rg = parts.rain.geometry.attributes
+      const rp = rg.position.array as Float32Array
+      const ra = rg.aAlpha.array as Float32Array
+      const rs = rg.aSize.array as Float32Array
+      for (let i = 0; i < parts.nRain; i++) {
+        const j = i * 3
+        rp[j] += wind.x * 0.5 * dt
+        rp[j + 1] -= (1.0 + rs[i] * 50) * dt
+        rp[j + 2] += wind.z * 0.5 * dt
+        if (rp[j + 1] < 0) rp[j + 1] += RAIN_H
+        if (rp[j] - cx > RAIN_BOX) rp[j] -= 2 * RAIN_BOX
+        else if (rp[j] - cx < -RAIN_BOX) rp[j] += 2 * RAIN_BOX
+        if (rp[j + 2] - cz > RAIN_BOX) rp[j + 2] -= 2 * RAIN_BOX
+        else if (rp[j + 2] - cz < -RAIN_BOX) rp[j + 2] += 2 * RAIN_BOX
+        ra[i] = 0.8 * THREE.MathUtils.smoothstep(s, 0.05, 0.5) * Math.min(1, rp[j + 1] * 2)
+      }
+      rg.position.needsUpdate = true
+      rg.aAlpha.needsUpdate = true
+      parts.rain.position.set(0, gy, 0)
+      parts.rainMat.uniforms.uScale.value = scale
+      parts.rainMat.uniforms.uColor.value.setRGB(0.9, 0.8, 0.65).multiplyScalar(lit * 1.8)
+    }
 
     // つむじ風
     const dg = parts.devils.geometry.attributes
@@ -244,6 +305,7 @@ export function Weather({ def, terrain, sky, light }: { def: SurfaceDef; terrain
       <primitive object={parts.sand} />
       <primitive object={parts.sheets} />
       <primitive object={parts.devils} />
+      <primitive object={parts.rain} />
     </>
   )
 }

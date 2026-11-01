@@ -151,28 +151,31 @@ const RATES: { r: TimeRate; ja: string; en: string }[] = [
   { r: 'day', ja: '1日を1分で', en: '1 day / min' },
 ]
 
-const MODES: { m: WeatherMode; ja: string; en: string }[] = [
-  { m: 'auto', ja: '自動', en: 'Auto' },
-  { m: 'storm', ja: '砂嵐', en: 'Storm' },
-  { m: 'clear', ja: '晴れ', en: 'Clear' },
-]
+/** 天体ごとの天気の呼び方：ボタン（自動・荒れ・おだやか）と、今の様子（強い・弱い・おだやか） */
+const WORDS: Record<string, { btn: [string, string][]; now: [string, string][] }> = {
+  mars: { btn: [['自動', 'Auto'], ['砂嵐', 'Storm'], ['晴れ', 'Clear']], now: [['砂嵐', 'Dust storm'], ['砂ぼこり', 'Dusty'], ['晴れ', 'Clear']] },
+  earth: { btn: [['自動', 'Auto'], ['砂嵐', 'Sandstorm'], ['晴れ', 'Clear']], now: [['砂嵐', 'Sandstorm'], ['風が強い', 'Windy'], ['晴れ', 'Clear']] },
+  titan: { btn: [['自動', 'Auto'], ['雨', 'Rain'], ['やむ', 'Stop']], now: [['メタンの雨', 'Methane rain'], ['霧雨', 'Drizzle'], ['もや', 'Hazy']] },
+}
+const MODE_KEYS: WeatherMode[] = ['auto', 'storm', 'clear']
 
 /** 天気（火星）：自動で移り変わる。砂嵐を呼んだり、晴れにしたりもできる */
-function WeatherRow() {
+function WeatherRow({ id }: { id: string }) {
+  const W = WORDS[id] ?? WORDS.mars
   const mode = useWeather((w) => w.mode)
   const setMode = useWeather((w) => w.setMode)
   const storm = useWeather((w) => w.storm)
-  const now =
-    storm > 0.6 ? t('砂嵐', 'Dust storm') : storm > 0.2 ? t('砂ぼこり', 'Dusty') : t('晴れ', 'Clear')
+  const [ja, en] = W.now[storm > 0.6 ? 0 : storm > 0.2 ? 1 : 2]
+  const now = t(ja, en)
   return (
     <div className="weather-row">
       <span className="muted small">
         {t('天気', 'Weather')} <b>{now}</b>
       </span>
       <div className="time-rates">
-        {MODES.map((x) => (
-          <button key={x.m} className={mode === x.m ? 'active' : ''} onClick={() => setMode(x.m)}>
-            {t(x.ja, x.en)}
+        {MODE_KEYS.map((m, i) => (
+          <button key={m} className={mode === m ? 'active' : ''} onClick={() => setMode(m)}>
+            {t(W.btn[i][0], W.btn[i][1])}
           </button>
         ))}
       </div>
@@ -192,7 +195,7 @@ export function TimeBar({ def }: { def: SurfaceDef }) {
   const extraLux = def.id === 'moon' ? 12 * bodyLit * bodyLit : 0
   // 砂嵐の間は、地面に届く光が 1/4 ほどまで減る
   const storm = useWeather((w) => w.storm)
-  const dim = WEATHER_BODIES.has(def.id) ? 1 - 0.75 * storm : 1
+  const dim = def.id === 'mars' ? 1 - 0.75 * storm : def.id === 'titan' ? 1 - 0.3 * storm : def.id === 'earth' ? 1 - 0.5 * storm : 1
   const h = Math.floor(clock)
   const m = Math.floor((clock - h) * 60)
   return (
@@ -208,7 +211,7 @@ export function TimeBar({ def }: { def: SurfaceDef }) {
           </button>
         ))}
       </div>
-      {WEATHER_BODIES.has(def.id) && <WeatherRow />}
+      {WEATHER_BODIES.has(def.id) && <WeatherRow id={def.id} />}
       <DayGraph p={profile} clock={clock} extraLux={extraLux} dim={dim} />
       {def.id === 'moon' && <MoonFromEarth earthLit={bodyLit} earthWaxing={waxing} />}
     </div>
