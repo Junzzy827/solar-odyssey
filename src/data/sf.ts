@@ -1,4 +1,3 @@
-import { create } from 'zustand'
 import { t } from '../i18n/lang'
 import { useStore } from '../state/store'
 import { CUBE_ID, cubeName } from './cube'
@@ -74,10 +73,6 @@ export const beaconName = () => t('エウロパのビーコン', 'Europa Beacon'
 /** 地球の低い軌道で宇宙ごみを集める回収船 */
 export const DEBRIS_ID = 'debris-tug'
 export const debrisName = () => t('宇宙ごみ回収船', 'Debris Collector')
-
-/** テラフォーミングした火星を見せるか（SF モードのときだけ。航海日誌のボタンで本物と見くらべる） */
-export const useTerra = create<{ on: boolean }>(() => ({ on: true }))
-export const toggleTerra = () => useTerra.setState((s) => ({ on: !s.on }))
 
 export type SFEntry = {
   id: string
