@@ -3578,3 +3578,75 @@ body.touch .surface-time .time-rates { flex-wrap: wrap; }
 .surface-time .sw-light { background: rgba(255, 200, 90, 0.7); }
 .surface-time .sw-night { background: rgba(60, 85, 160, 0.7); }
 body.touch .surface-time .day-graph { width: 100%; }
+
+/* ローバー：速さ表示と、スマホの運転ボタン */
+.rover-speed {
+  position: absolute;
+  right: 18px;
+  bottom: 28px;
+  padding: 6px 14px;
+  border-radius: 14px;
+  background: rgba(10, 14, 22, 0.6);
+  color: #c8d4e4;
+  font-size: 13px;
+}
+
+.rover-speed b {
+  font-size: 26px;
+  color: #ffd9a8;
+  margin-right: 4px;
+}
+
+.rover-pad {
+  display: none;
+}
+
+body.touch .rover-pad {
+  display: block;
+}
+
+.rover-pad-left,
+.rover-pad-right {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom) + 74px);
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.rover-pad-left {
+  left: 14px;
+}
+
+.rover-pad-right {
+  right: 14px;
+}
+
+.rover-pad button {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(10, 14, 22, 0.55);
+  border: 1px solid rgba(200, 220, 255, 0.4);
+  color: #e8f0ff;
+  font-size: 22px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.rover-pad button.go {
+  width: 76px;
+  height: 76px;
+  background: rgba(242, 166, 90, 0.75);
+  color: #1a1206;
+}
+
+.rover-pad button.jump {
+  font-size: 13px;
+}
+
+body.touch .rover-speed {
+  top: calc(env(safe-area-inset-top) + 10px);
+  bottom: auto;
+}

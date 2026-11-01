@@ -346,7 +346,7 @@ export function puffTexture() {
   return puffTex
 }
 
-const dustVertex = /* glsl */ `
+export const dustVertex = /* glsl */ `
   attribute float aAlpha;
   attribute float aSize;
   attribute float aRot;
@@ -370,7 +370,7 @@ const dustVertex = /* glsl */ `
     if (vAlpha < 0.003) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   }
 `
-const dustFragment = /* glsl */ `
+export const dustFragment = /* glsl */ `
   uniform sampler2D uMap;
   uniform vec3 uColor;
   uniform vec3 uShadow;

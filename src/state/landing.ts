@@ -5,6 +5,7 @@ import { surfaceFor } from '../data/surfaces'
 import { t } from '../i18n/lang'
 import { isNear } from './proximity'
 import { ship } from './flight'
+import { recallRover } from './rover'
 
 // 地表のある惑星・衛星への着陸。着陸しているあいだは、宇宙の場面を止めて、地表の場面（SurfaceView）を出す。
 // 流れ：fadeIn（宇宙から暗転）→ descent（着陸船が降りてくる）→ surface（360°見渡す）→ ascent（離陸）→ fadeOut → もとの宇宙
@@ -57,6 +58,7 @@ export function startLanding(bodyId = landableBody()) {
   if (!bodyId || !surfaceFor(bodyId) || landed()) return
   if (document.pointerLockElement) document.exitPointerLock()
   useLanding.setState({ bodyId, view: 'eye' })
+  recallRover()
   setPhase('fadeIn')
   window.setTimeout(() => {
     if (useLanding.getState().phase === 'fadeIn') setPhase('descent')
@@ -74,6 +76,7 @@ export function skipDescent() {
 export function startTakeoff() {
   if (useLanding.getState().phase !== 'surface') return
   useLanding.setState({ view: 'eye' })
+  recallRover()
   setPhase('ascent')
   window.setTimeout(() => {
     if (useLanding.getState().phase === 'ascent') setPhase('fadeOut')
