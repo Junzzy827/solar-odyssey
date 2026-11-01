@@ -401,6 +401,26 @@ const dustFragment = /* glsl */ `
   }
 `
 
+/**
+ * 砂ぼこりのかたまり（Points）の材質。点ごとに aAlpha・aSize（m）・aRot・aVar を持つ。
+ * 着陸の砂ぼこりと、砂嵐・つむじ風（weather）で共有する
+ */
+export function puffMaterial(color: THREE.Color) {
+  return new THREE.ShaderMaterial({
+    vertexShader: dustVertex,
+    fragmentShader: dustFragment,
+    uniforms: {
+      uMap: { value: puffTexture() },
+      uColor: { value: color.clone() },
+      uShadow: { value: color.clone().multiplyScalar(0.35) },
+      uSunView: { value: new THREE.Vector3(0, 1, 0) },
+      uScale: { value: 500 },
+    },
+    transparent: true,
+    depthWrite: false,
+  })
+}
+
 /** 天体ごとの風（m/s、x と z）。大気の無い星は無風 */
 export function windFor(id: string, hasAir: boolean): THREE.Vector3 {
   if (!hasAir) return new THREE.Vector3()
@@ -455,19 +475,7 @@ export class Dust {
     this.geo.setAttribute('aSize', new THREE.BufferAttribute(this.size, 1))
     this.geo.setAttribute('aRot', new THREE.BufferAttribute(this.rot, 1))
     this.geo.setAttribute('aVar', new THREE.BufferAttribute(this.vari, 1))
-    this.material = new THREE.ShaderMaterial({
-      vertexShader: dustVertex,
-      fragmentShader: dustFragment,
-      uniforms: {
-        uMap: { value: puffTexture() },
-        uColor: { value: color.clone() },
-        uShadow: { value: color.clone().multiplyScalar(0.35) },
-        uSunView: { value: new THREE.Vector3(0, 1, 0) },
-        uScale: { value: 500 },
-      },
-      transparent: true,
-      depthWrite: false,
-    })
+    this.material = puffMaterial(color)
     this.points = new THREE.Points(this.geo, this.material)
     this.points.frustumCulled = false
     this.points.renderOrder = 2
@@ -595,6 +603,17 @@ const gritFragment = /* glsl */ `
   }
 `
 
+/** ひとつぶずつ見える砂の点（Points、aAlpha・aSize）の材質。着陸の砂つぶと、砂嵐の飛砂で共有する */
+export function gritMaterial(color: THREE.Color) {
+  return new THREE.ShaderMaterial({
+    vertexShader: gritVertex,
+    fragmentShader: gritFragment,
+    uniforms: { uColor: { value: color.clone() }, uScale: { value: 500 } },
+    transparent: true,
+    depthWrite: false,
+  })
+}
+
 export class Grit {
   readonly points: THREE.Points
   readonly material: THREE.ShaderMaterial
@@ -623,13 +642,7 @@ export class Grit {
     this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3))
     this.geo.setAttribute('aAlpha', new THREE.BufferAttribute(this.alpha, 1))
     this.geo.setAttribute('aSize', new THREE.BufferAttribute(this.size, 1))
-    this.material = new THREE.ShaderMaterial({
-      vertexShader: gritVertex,
-      fragmentShader: gritFragment,
-      uniforms: { uColor: { value: color.clone() }, uScale: { value: 500 } },
-      transparent: true,
-      depthWrite: false,
-    })
+    this.material = gritMaterial(color)
     this.points = new THREE.Points(this.geo, this.material)
     this.points.frustumCulled = false
     this.points.renderOrder = 2

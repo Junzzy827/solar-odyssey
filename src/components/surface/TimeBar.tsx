@@ -3,6 +3,7 @@ import { t, useLang } from '../../i18n/lang'
 import { useMemo } from 'react'
 import { dayHours, useSkyClock, type TimeRate } from './skyClock'
 import { PROFILE_N, dayProfile, sampleAt, type DayProfile } from './dayProfile'
+import { WEATHER_BODIES, useWeather, type WeatherMode } from './weather'
 
 // 地表の時計：現地の時刻と、時間の速さ（止める・1 秒で 1 時間・1 日を 1 分で）。
 // 月では「地球から見た今の月」の小窓も出す。月面の昼と夜は、地球から見た月の満ち欠けと同じ周期で巡る。
@@ -76,7 +77,7 @@ function luxText(lx: number) {
   return { value, unit: t('ルクス', ' lux'), like }
 }
 
-function DayGraph({ p, clock, extraLux }: { p: DayProfile; clock: number; extraLux: number }) {
+function DayGraph({ p, clock, extraLux, dim = 1 }: { p: DayProfile; clock: number; extraLux: number; dim?: number }) {
   const x = (k: number) => (k / PROFILE_N) * GW
   const ty = (c: number) => {
     const span = Math.max(1, p.max - p.min)
@@ -107,7 +108,7 @@ function DayGraph({ p, clock, extraLux }: { p: DayProfile; clock: number; extraL
   }, [p])
   const now = (clock / 24) * GW
   const temp = sampleAt(p.temp, clock)
-  const lux = sampleAt(p.lux, clock) + extraLux
+  const lux = sampleAt(p.lux, clock) * dim + extraLux
   const L = luxText(lux)
   return (
     <div className="day-graph">
@@ -150,6 +151,35 @@ const RATES: { r: TimeRate; ja: string; en: string }[] = [
   { r: 'day', ja: '1日を1分で', en: '1 day / min' },
 ]
 
+const MODES: { m: WeatherMode; ja: string; en: string }[] = [
+  { m: 'auto', ja: '自動', en: 'Auto' },
+  { m: 'storm', ja: '砂嵐', en: 'Storm' },
+  { m: 'clear', ja: '晴れ', en: 'Clear' },
+]
+
+/** 天気（火星）：自動で移り変わる。砂嵐を呼んだり、晴れにしたりもできる */
+function WeatherRow() {
+  const mode = useWeather((w) => w.mode)
+  const setMode = useWeather((w) => w.setMode)
+  const storm = useWeather((w) => w.storm)
+  const now =
+    storm > 0.6 ? t('砂嵐', 'Dust storm') : storm > 0.2 ? t('砂ぼこり', 'Dusty') : t('晴れ', 'Clear')
+  return (
+    <div className="weather-row">
+      <span className="muted small">
+        {t('天気', 'Weather')} <b>{now}</b>
+      </span>
+      <div className="time-rates">
+        {MODES.map((x) => (
+          <button key={x.m} className={mode === x.m ? 'active' : ''} onClick={() => setMode(x.m)}>
+            {t(x.ja, x.en)}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function TimeBar({ def }: { def: SurfaceDef }) {
   useLang()
   const clock = useSkyClock((c) => c.clock)
@@ -160,6 +190,9 @@ export function TimeBar({ def }: { def: SurfaceDef }) {
   const profile = useMemo(() => dayProfile(def), [def])
   // 月の夜は、満ちた地球が地面を照らす（地球照：満月の数十倍の明るさ）
   const extraLux = def.id === 'moon' ? 12 * bodyLit * bodyLit : 0
+  // 砂嵐の間は、地面に届く光が 1/4 ほどまで減る
+  const storm = useWeather((w) => w.storm)
+  const dim = WEATHER_BODIES.has(def.id) ? 1 - 0.75 * storm : 1
   const h = Math.floor(clock)
   const m = Math.floor((clock - h) * 60)
   return (
@@ -175,7 +208,8 @@ export function TimeBar({ def }: { def: SurfaceDef }) {
           </button>
         ))}
       </div>
-      <DayGraph p={profile} clock={clock} extraLux={extraLux} />
+      {WEATHER_BODIES.has(def.id) && <WeatherRow />}
+      <DayGraph p={profile} clock={clock} extraLux={extraLux} dim={dim} />
       {def.id === 'moon' && <MoonFromEarth earthLit={bodyLit} earthWaxing={waxing} />}
     </div>
   )

@@ -3558,6 +3558,8 @@ body.sf .nav-panel {
   white-space: nowrap;
 }
 .surface-time .time-rates button.active { background: rgba(255, 170, 80, 0.85); color: #1a1208; border-color: transparent; }
+.surface-time .weather-row { margin-top: 6px; }
+.surface-time .weather-row b { margin-left: 3px; }
 .surface-time .moon-inset { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 .surface-time .moon-inset b { font-size: 13px; }
 body.touch .surface-time { top: calc(env(safe-area-inset-top) + 62px); left: 10px; right: auto; max-width: 230px; }
