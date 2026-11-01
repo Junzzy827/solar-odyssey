@@ -461,7 +461,9 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
       mesh.instanceMatrix.needsUpdate = true
       mesh.computeBoundingSphere()
     })
-  }, [rocks])
+    // 素材が変わると（画質の自動切り替えなど）instancedMesh が作り直されるので、そのたびに並べ直す。
+    // 並べ直さないと、岩がすべて原点に重なって見えなくなる（ローバーの当たり判定だけが残る）
+  }, [rocks, rockMat, rockGeos])
   useEffect(
     () => () => {
       geo.dispose()
@@ -1210,6 +1212,7 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
   const sampling = useRover((r) => r.sampling)
   const result = useRover((r) => r.result)
   const edge = useRover((r) => r.edge)
+  const next = useRover((r) => r.next)
   const got = useSampleLog((l) => l.log[bodyId]?.length ?? 0)
   const total = samplesFor(bodyId).length
   const view = useRover((r) => r.view)
@@ -1242,12 +1245,19 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
           </span>
           {sampling ? (
             <span className="sample-busy">{t('アームで採集中…', 'Arm collecting…')}</span>
+          ) : canSample ? (
+            <button className="sample-btn" onClick={() => (roverInput.sample = true)}>
+              {t('採集する', 'Collect')} <kbd>E</kbd>
+            </button>
+          ) : next ? (
+            <span className="sample-guide">
+              <span className="sg-arrow" style={{ transform: `rotate(${next.rel}deg)` }}>
+                ▲
+              </span>
+              {t(`光の柱の岩まで ${next.dist} m・近くで止まると採集できます`, `Rock at the light beam: ${next.dist} m · stop next to it to collect`)}
+            </span>
           ) : (
-            canSample && (
-              <button className="sample-btn" onClick={() => (roverInput.sample = true)}>
-                {t('採集する', 'Collect')} <kbd>E</kbd>
-              </button>
-            )
+            <span className="sample-busy">{t('ここの岩はすべて採集しました', 'All rocks here collected')}</span>
           )}
         </div>
       )}
