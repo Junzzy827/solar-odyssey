@@ -19,6 +19,7 @@ import { TimeBar } from './TimeBar'
 import { groundMaterial } from './groundMaterial'
 import { useDem } from './dem'
 import { farTerrainGeometry } from './farTerrain'
+import { CLOUD_DRIFT, cloudCover, cloudMaterial, cloudUniforms, withCloudShadow } from './clouds'
 import { SkyFrame, hoursPerSecond, litFraction, useSkyClock } from './skyClock'
 import type { SkyNow } from './skyNow'
 import { SKY_FROM_APP } from '../../data/skyFrame'
@@ -327,17 +328,70 @@ function Plumes({ def }: { def: SurfaceDef }) {
 
 // ---- 地面と岩 ---------------------------------------------------------------------
 
+/** 雲のある天体か（厚い雲で太陽が見えない金星は除く） */
+const hasClouds = (def: SurfaceDef) => !!def.extras?.includes('clouds') && !def.sunHidden
+
+/** 雲のある天体なら、地面に雲の影を落とす */
+function cloudy<M extends THREE.Material>(def: SurfaceDef, m: M): M {
+  return hasClouds(def) ? withCloudShadow(m) : m
+}
+
+const CLOUD_R = 8200
+const WIND_A = new THREE.Vector2()
+const WIND_B = new THREE.Vector2()
+
+/** 空の雲の層。時間の進みに合わせて流れ、午後に増え、夕焼けに染まり、夜は暗い影になる */
+function Clouds({ terrain, ap, sky, clock }: { terrain: Terrain; ap: ApUniforms; sky: SkyNow; clock: { current: { hours: number } } }) {
+  const level = useLevel()
+  const light = level === 'low' || lowMemory()
+  const mat = useMemo(() => cloudMaterial(ap, CLOUD_R, light), [ap, light])
+  const y = terrain.height(0, 0) + 1800
+  const cover = useRef(-1)
+  useEffect(() => {
+    const w = windFor(terrain.def.id, true)
+    WIND_A.set(w.x, w.z).normalize()
+    // 2 枚目の模様は少し向きを変えて遅く流す（重なり方が変わって、雲の形が育ったり崩れたりして見える）
+    WIND_B.copy(WIND_A).rotateAround(new THREE.Vector2(), 0.35).multiplyScalar(0.62)
+    cloudUniforms.uCloudOn.value = 1
+    cloudUniforms.uCloudH.value = y
+    return () => {
+      cloudUniforms.uCloudOn.value = 0
+    }
+  }, [terrain, y])
+  useEffect(() => () => mat.dispose(), [mat])
+  useFrame(() => {
+    const h = clock.current.hours
+    const u = cloudUniforms
+    u.uCloudOff.value.set(-WIND_A.x * h * CLOUD_DRIFT, -WIND_A.y * h * CLOUD_DRIFT, -WIND_B.x * h * CLOUD_DRIFT, -WIND_B.y * h * CLOUD_DRIFT)
+    const target = cloudCover(sky.frame.localClock(), h)
+    cover.current = cover.current < 0 ? target : cover.current + (target - cover.current) * 0.05
+    u.uCloudCover.value = cover.current
+    u.uCloudSun.value.copy(sky.sunDir)
+    // 雲を照らす日の光：地面と同じ強さと色。日が沈んだ直後も、高い雲にはしばらく夕日が当たる
+    const t = sky.sunT
+    const lit = THREE.MathUtils.smoothstep(sky.sunDir.y, -0.07, 0.01)
+    mat.uniforms.uSunCol.value.copy(t).multiplyScalar(sky.exposure * lit * 0.9)
+    // 夜：星明かりと月明かりで、雲がうっすら灰色に見える
+    const n = sky.night
+    mat.uniforms.uNightCol.value.set(0.012, 0.015, 0.024).multiplyScalar(n * (0.6 + 1.6 * sky.bodyLit))
+  })
+  return (
+    <mesh material={mat} position={[0, y, 0]} rotation={[-Math.PI / 2, 0, 0]} frustumCulled={false}>
+      <circleGeometry args={[CLOUD_R, 96]} />
+    </mesh>
+  )
+}
+
 /** 地平線の山並み（本物の地形の遠くの地図） */
 function FarTerrain({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const geo = useMemo(() => farTerrainGeometry(terrain.def, terrain.dem!.far, terrain.height(0, 0) + EYE, 2900), [terrain])
   const mat = useMemo(
     () =>
-      withAir(
-        new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, depthTest: false, depthWrite: false }),
-        ap,
-        true,
+      cloudy(
+        terrain.def,
+        withAir(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, depthTest: false, depthWrite: false }), ap, true),
       ),
-    [ap],
+    [ap, terrain.def],
   )
   useEffect(
     () => () => {
@@ -359,10 +413,10 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const grain = grainTexture()
   // 地面の素材（砂・レゴリス・氷・火山岩）の細かい凹凸と粗さ、斜面の岩肌
   const level = useLevel()
-  const groundMat = useMemo(() => withAir(groundMaterial(def, level === 'low' || lowMemory()), ap), [def, level, ap])
+  const groundMat = useMemo(() => cloudy(def, withAir(groundMaterial(def, level === 'low' || lowMemory()), ap)), [def, level, ap])
   const rockMat = useMemo(
-    () => withAir(new THREE.MeshStandardMaterial({ color: def.rock, roughness: round ? 0.7 : 0.92, metalness: 0, map: grain, bumpMap: grain, bumpScale: 1.5 }), ap),
-    [def.rock, grain, round, ap],
+    () => cloudy(def, withAir(new THREE.MeshStandardMaterial({ color: def.rock, roughness: round ? 0.7 : 0.92, metalness: 0, map: grain, bumpMap: grain, bumpScale: 1.5 }), ap)),
+    [def, grain, round, ap],
   )
   const inst = useRef<(THREE.InstancedMesh | null)[]>([])
   useEffect(() => {
@@ -493,7 +547,7 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
         m.emissiveIntensity = 1
         m.envMapIntensity = 0.8
         shrink(m)
-        withAir(m, ap)
+        cloudy(terrain.def, withAir(m, ap))
         owned.push(m)
         mesh.material = m
       }
@@ -1003,6 +1057,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       <SunDisc def={def} sky={sky} />
       {def.skyBody && <SkyPlanet def={def} sky={sky} />}
       <Plumes def={def} />
+      {hasClouds(def) && <Clouds terrain={terrain} ap={A.ap} sky={sky} clock={clock} />}
       <directionalLight
         key={shadow}
         ref={sun}
