@@ -11,12 +11,12 @@ import { shipZoom } from './state/zoom'
 import { dockAtPort, observeRun, startObserve, stopObserve, useObserve } from './state/observe'
 import { useQuality } from './state/quality'
 import { setGoal, toggleAuto, toggleCompare, useGallery, openGallery, closeGallery, selectPart } from './state/gallery'
-import { probeClock, useProbes } from './state/probes'
+import { openProbes, playProbe, probeClock, useProbes } from './state/probes'
 import { skipDescent, startLanding, startTakeoff, useLanding } from './state/landing'
 import { useSurfaceLab } from './state/surfaceLab'
 import { launchRover, recallRover, roverDebug, roverInput, useRover } from './state/rover'
 import { useSkyClock } from './components/surface/skyClock'
-import { weatherNow } from './components/surface/weather'
+import { useWeather, weatherNow } from './components/surface/weather'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
 // 録画・動作確認用（#debug のときだけ読み込む）：アプリの中身をブラウザのコンソールや録画スクリプトから動かせるようにする。
@@ -31,13 +31,14 @@ const sv = {
   missions: MISSIONS,
   bridge: useBridge,
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
-  probes: { state: useProbes, clock: probeClock },
+  probes: { state: useProbes, clock: probeClock, open: openProbes, play: playProbe },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff },
   surfaceLab: useSurfaceLab,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug },
   skyClock: useSkyClock,
   weather: weatherNow,
+  weatherMode: useWeather,
   ship,
   shipZoom,
   observe: { state: useObserve, start: startObserve, stop: stopObserve, dock: dockAtPort, run: observeRun },
