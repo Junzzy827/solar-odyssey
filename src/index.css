@@ -4915,7 +4915,8 @@ body.touch .eva-card {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  z-index: 30;
+  /* 地表の画面（z-index 50）の上にも出す */
+  z-index: 60;
   width: min(720px, calc(100vw - 24px));
   max-height: calc(100vh - 24px);
   max-height: calc(100dvh - 24px);
