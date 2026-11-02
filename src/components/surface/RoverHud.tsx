@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { t, useLang } from '../../i18n/lang'
@@ -125,39 +126,96 @@ export function RoverHud() {
   )
 }
 
-/** ミニマップ：着陸船を中心に、走れる範囲（正方形）・採集の岩・ローバーの位置と向き */
+/** ミニマップ：着陸船を中心に、走れる範囲（正方形）・採集の岩・ローバーの位置と向き。
+ * 広い天体（3 km 四方）では、ローバーのまわり 400 m と、範囲全体を、地図の右上のボタンで切り替える */
 export function RoverMap() {
   useLang()
   const hud = useRover((r) => r.hud)
   const sites = useRover((r) => r.sites)
   const taken = useRover((r) => r.taken)
   const edge = useRover((r) => r.edge)
-  const R = ROVER_RANGE
+  const R = useRover((r) => r.range)
+  const [whole, setWhole] = useState(false)
+  const wide = R > ROVER_RANGE
   const pad = 6
-  // 着陸船を真ん中に。範囲の正方形は原点が中心なので、少しずれる
-  const cx = LANDER_POS.x
-  const cz = LANDER_POS.y
-  const half = R + Math.max(Math.abs(cx), Math.abs(cz)) + pad
+  // 地図の座標は、今までの 200 m 四方の地図と同じ大きさ（半分の幅 V）。世界の座標は (x - cx) / k で地図へ
+  const V = ROVER_RANGE + Math.max(Math.abs(LANDER_POS.x), Math.abs(LANDER_POS.y)) + pad
+  let cx = LANDER_POS.x
+  let cz = LANDER_POS.y
+  let k = 1
+  let gridStep = 50
+  let label = '200 m'
+  if (wide && whole) {
+    cx = 0
+    cz = 0
+    k = (R * 1.04) / V
+    gridStep = 500
+    label = `${(R * 2) / 1000} km`
+  } else if (wide) {
+    cx = hud.x
+    cz = hud.z
+    k = 200 / V
+    label = '400 m'
+  }
+  const mx = (x: number) => (x - cx) / k
+  const mz = (z: number) => (z - cz) / k
+  const half = V * k
+  const lines: number[] = []
+  if (wide) {
+    for (let g = Math.ceil((cx - half) / gridStep) * gridStep; g <= cx + half; g += gridStep) lines.push(g)
+  }
+  const gridZ: number[] = []
+  if (wide) for (let g = Math.ceil((cz - half) / gridStep) * gridStep; g <= cz + half; g += gridStep) gridZ.push(g)
   const grid = [-100, -50, 0, 50, 100]
+  const lx = mx(LANDER_POS.x)
+  const lz = mz(LANDER_POS.y)
   return (
     <div className={`rover-map${edge ? ' edge' : ''}`}>
-      <svg viewBox={`${cx - half} ${cz - half} ${half * 2} ${half * 2}`} aria-label={t('ミニマップ', 'Minimap')}>
-        {grid.map((g) => (
-          <g key={g} className="m-grid">
-            <line x1={g} y1={-R} x2={g} y2={R} />
-            <line x1={-R} y1={g} x2={R} y2={g} />
-          </g>
-        ))}
-        <rect x={-R} y={-R} width={R * 2} height={R * 2} className="m-range" />
-        <circle cx={cx} cy={cz} r={6} className="m-lander" />
-        <path d={`M ${cx} ${cz - 11} L ${cx + 9} ${cz + 7} L ${cx - 9} ${cz + 7} Z`} className="m-lander-mark" />
-        {sites.map((p, i) => (taken.includes(i) ? <circle key={i} cx={p.x} cy={p.z} r={3.5} className="m-rock taken" /> : <rect key={i} x={p.x - 4.5} y={p.z - 4.5} width={9} height={9} transform={`rotate(45 ${p.x} ${p.z})`} className="m-rock" />))}
-        <g transform={`translate(${hud.x} ${hud.z}) rotate(${hud.hdg})`}>
+      <svg viewBox={`${-V} ${-V} ${V * 2} ${V * 2}`} aria-label={t('ミニマップ', 'Minimap')}>
+        {wide ? (
+          <>
+            {lines.map((g) => (
+              <line key={`x${g}`} className="m-grid-line" x1={mx(g)} y1={-V} x2={mx(g)} y2={V} />
+            ))}
+            {gridZ.map((g) => (
+              <line key={`z${g}`} className="m-grid-line" x1={-V} y1={mz(g)} x2={V} y2={mz(g)} />
+            ))}
+          </>
+        ) : (
+          grid.map((g) => (
+            <g key={g} className="m-grid">
+              <line x1={mx(g)} y1={mz(-R)} x2={mx(g)} y2={mz(R)} />
+              <line x1={mx(-R)} y1={mz(g)} x2={mx(R)} y2={mz(g)} />
+            </g>
+          ))
+        )}
+        <rect x={mx(-R)} y={mz(-R)} width={(R * 2) / k} height={(R * 2) / k} className="m-range" />
+        <circle cx={lx} cy={lz} r={6} className="m-lander" />
+        <path d={`M ${lx} ${lz - 11} L ${lx + 9} ${lz + 7} L ${lx - 9} ${lz + 7} Z`} className="m-lander-mark" />
+        {sites.map((p, i) => {
+          const x = mx(p.x)
+          const z = mz(p.z)
+          return taken.includes(i) ? <circle key={i} cx={x} cy={z} r={3.5} className="m-rock taken" /> : <rect key={i} x={x - 4.5} y={z - 4.5} width={9} height={9} transform={`rotate(45 ${x} ${z})`} className="m-rock" />
+        })}
+        <g transform={`translate(${mx(hud.x)} ${mz(hud.z)}) rotate(${hud.hdg})`}>
           <path d="M 0 -13 L 8 9 L 0 4 L -8 9 Z" className="m-rover" />
         </g>
       </svg>
       <span className="m-n">N</span>
-      <span className="m-scale">200 m</span>
+      <span className="m-scale">{label}</span>
+      {wide && (
+        <button
+          type="button"
+          className="m-swap"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            setWhole((w) => !w)
+          }}
+        >
+          {whole ? t('近く', 'Near') : t('全体', 'All')}
+        </button>
+      )}
     </div>
   )
 }

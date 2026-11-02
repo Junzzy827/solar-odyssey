@@ -77,10 +77,12 @@ export function SurfaceStars({ sky, hasAir }: { sky: SkyNow; hasAir: boolean }) 
   useEffect(() => {
     if (geometry) geometry.setDrawRange(0, level === 'low' ? geometry.userData.low : Infinity)
   }, [geometry, level])
-  useFrame(() => {
+  useFrame(({ camera }) => {
     material.uniforms.uPx.value = gl.getPixelRatio()
     material.uniforms.uVis.value = sky.starVis
     group.quaternion.copy(sky.frame.quatToLocal)
+    // 遠い星なので、カメラといっしょに動かす（ローバーで遠くへ行っても星の位置が変わらない）
+    group.position.copy(camera.position)
   })
   if (!geometry) return null
   return (

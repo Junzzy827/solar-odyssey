@@ -18,6 +18,7 @@ import { launchRover, recallRover, roverDebug, roverFocus, roverInput, useRover 
 import { evaDebug, evaInput, recallEva, startEva, useEva } from './state/eva'
 import { evaJobsDebug, jobsRt, useEvaJobs } from './state/evaJobs'
 import { useSkyClock } from './components/surface/skyClock'
+import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
@@ -37,6 +38,7 @@ const sv = {
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff },
   surfaceLab: useSurfaceLab,
+  wide: wideNow,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus },
   eva: { state: useEva, start: startEva, recall: recallEva, input: evaInput, debug: evaDebug, jobs: evaJobsDebug, jobsRt, jobsState: useEvaJobs },
   skyClock: useSkyClock,
@@ -55,8 +57,9 @@ const sv = {
   sim,
   camera: null as CameraFn | null,
   setCamera: null as unknown as (fn: CameraFn | null) => void,
-  root: () => {
-    const canvas = document.querySelector('canvas')
+  /** i 番目の canvas（0：宇宙、着陸中は 1 が地表）の R3F の状態 */
+  root: (i = 0) => {
+    const canvas = document.querySelectorAll('canvas')[i]
     return canvas ? _roots.get(canvas)?.store.getState() : undefined
   },
 }

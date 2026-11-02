@@ -14,9 +14,8 @@ export const FAR_SHRINK = 6
 /** すその深さ（m）。近くの地面の下に隠れるので、見えるのはふちのすぐ下だけ */
 const SKIRT = 400
 
-export function farTerrainGeometry(def: SurfaceDef, far: HeightMap, eyeY: number, r0: number) {
+export function farTerrainGeometry(def: SurfaceDef, far: HeightMap, eyeY: number, r0: number, RINGS = 110) {
   const r1 = far.extent / 2 - far.extent / far.size
-  const RINGS = 110
   const SEG = 360
   const R = def.radiusKm * 1000
   const real: number[] = []

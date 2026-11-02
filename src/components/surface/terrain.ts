@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { SurfaceDef } from '../../data/surfaces'
-import { heightAt, type Dem } from './dem'
+import { detailAt, heightAt, type Dem } from './dem'
 
 // 地表の地形：なだらかな起伏・クレーター・砂丘・遠くの山並み・天体の丸み（小さな星ほど地平線が近い）。
 // 立つ場所（原点）と着陸船の場所は平らにならす。
@@ -142,7 +142,8 @@ export class Terrain {
     const s = this.seed
     if (this.dem) {
       // 本物の地形 ＋ 地図より細かい足もとのでこぼこ
-      const real = heightAt(this.dem.near, x, z) ?? heightAt(this.dem.far, x, z) ?? 0
+      let real = heightAt(this.dem.near, x, z) ?? heightAt(this.dem.far, x, z) ?? 0
+      if (this.dem.detail) real += detailAt(this.dem.detail, x, z)
       let h = real + (fbm(x / 22, z / 22, s + 50, 3) - 0.5) * 0.5 + (fbm(x / 5, z / 5, s + 51, 2) - 0.5) * 0.15
       if (raw) return { h, ejecta: 0, crack: 0 }
       const a = 1 - smooth(4, 12, Math.hypot(x, z))
@@ -197,26 +198,14 @@ export class Terrain {
     return this.sample(x, z).h - r2 / (2 * this.radiusM)
   }
 
-  /** 中心ほど細かい、円形の格子の地面 */
-  geometry() {
-    // 本物の地形は、崖や岩山の形が崩れないよう細かめに
-    const RINGS = this.dem ? 190 : 150
-    const SEG = this.dem ? 360 : 240
-    const pos: number[] = []
-    const col: number[] = []
-    const uv: number[] = []
-    const idx: number[] = []
+  /** 地面の色（場所ごとのむら・クレーターの噴出物・割れ目）。sample() の結果を渡す */
+  private colors() {
     const g1 = new THREE.Color(this.def.ground)
     const g2 = new THREE.Color(this.def.ground2)
     const ej = new THREE.Color(this.def.ejecta ?? this.def.ground)
     const crackCol = new THREE.Color(this.def.id === 'europa' ? '#8a5a35' : this.def.ground2).multiplyScalar(0.8)
-    const c = new THREE.Color()
     const twoTone = this.def.id === 'iapetus'
-    const push = (x: number, z: number) => {
-      const { h, ejecta, crack } = this.sample(x, z)
-      const y = h - (x * x + z * z) / (2 * this.radiusM)
-      pos.push(x, y, z)
-      uv.push(x / 3, z / 3)
+    return (c: THREE.Color, x: number, z: number, ejecta: number, crack: number) => {
       let m = fbm(x / 260, z / 260, this.seed + 5, 4)
       m = twoTone ? smooth(0.42, 0.58, fbm(x / 1500, z / 1500, this.seed + 6, 3)) : smooth(0.3, 0.75, m)
       c.copy(g1).lerp(g2, m)
@@ -224,31 +213,216 @@ export class Terrain {
       c.lerp(crackCol, Math.min(1, crack))
       // 小さなむら
       c.multiplyScalar(0.9 + 0.2 * fbm(x / 9, z / 9, this.seed + 8, 3))
-      col.push(c.r, c.g, c.b)
+      return c
     }
-    push(0, 0)
+  }
+
+  /** 円形の格子の輪の数と、1 周の分割数 */
+  get rings() {
+    return this.dem ? { RINGS: 190, SEG: 360 } : { RINGS: 150, SEG: 240 }
+  }
+
+  /**
+   * 中心ほど細かい、円形の格子の地面。中心はふだん着陸地点（cx, cz = 0）。
+   * 広い範囲を走れる天体では、ローバーが遠くへ行くと、ローバーのそばを中心に作り直す
+   */
+  geometry(cx = 0, cz = 0) {
+    const job = this.geometryJob(cx, cz)
+    let r = job.next()
+    while (!r.done) r = job.next()
+    return r.value
+  }
+
+  /** geometry() を少しずつ作る（輪 20 本ごとに一休み。走っている間に作り直しても画面が止まらないように） */
+  *geometryJob(cx = 0, cz = 0): Generator<void, THREE.BufferGeometry, void> {
+    // 本物の地形は、崖や岩山の形が崩れないよう細かめに
+    const { RINGS, SEG } = this.rings
+    const nv = 1 + RINGS * SEG
+    const pos = new Float32Array(nv * 3)
+    const col = new Float32Array(nv * 3)
+    const uv = new Float32Array(nv * 2)
+    const c = new THREE.Color()
+    const color = this.colors()
+    let k = 0
+    const push = (x: number, z: number) => {
+      const { h, ejecta, crack } = this.sample(x, z)
+      pos[k * 3] = x
+      pos[k * 3 + 1] = h - (x * x + z * z) / (2 * this.radiusM)
+      pos[k * 3 + 2] = z
+      uv[k * 2] = x / 3
+      uv[k * 2 + 1] = z / 3
+      color(c, x, z, ejecta, crack)
+      col[k * 3] = c.r
+      col[k * 3 + 1] = c.g
+      col[k * 3 + 2] = c.b
+      k++
+    }
+    push(cx, cz)
     for (let i = 1; i <= RINGS; i++) {
       const r = FAR * (i / RINGS) ** 2.3
       for (let j = 0; j < SEG; j++) {
         const a = (j / SEG) * Math.PI * 2
-        push(Math.cos(a) * r, Math.sin(a) * r)
+        push(cx + Math.cos(a) * r, cz + Math.sin(a) * r)
       }
+      if (i % 4 === 0) yield
     }
-    for (let j = 0; j < SEG; j++) idx.push(0, 1 + ((j + 1) % SEG), 1 + j)
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+    geo.setIndex(this.ringIndex())
+    // 法線：輪に沿った向きと、外へ向かう向きの外積（となりの頂点から。少しずつ）
+    const nrm = new Float32Array(nv * 3)
+    nrm[1] = 1
+    const at = (i: number, j: number) => (i <= 0 ? 0 : 1 + (i - 1) * SEG + ((j + SEG) % SEG)) * 3
+    for (let i = 1; i <= RINGS; i++) {
+      for (let j = 0; j < SEG; j++) {
+        const p0 = at(i, j - 1)
+        const p1 = at(i, j + 1)
+        const q0 = at(i - 1, j)
+        const q1 = at(Math.min(RINGS, i + 1), j)
+        const ax = pos[p1] - pos[p0]
+        const ay = pos[p1 + 1] - pos[p0 + 1]
+        const az = pos[p1 + 2] - pos[p0 + 2]
+        const bx = pos[q1] - pos[q0]
+        const by = pos[q1 + 1] - pos[q0 + 1]
+        const bz = pos[q1 + 2] - pos[q0 + 2]
+        const nx = ay * bz - az * by
+        const ny = az * bx - ax * bz
+        const nz = ax * by - ay * bx
+        const l = Math.hypot(nx, ny, nz) || 1
+        const o = at(i, j)
+        nrm[o] = nx / l
+        nrm[o + 1] = ny / l
+        nrm[o + 2] = nz / l
+      }
+      if (i % 40 === 0) yield
+    }
+    geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3))
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, 0, cz), FAR * 1.01)
+    return geo
+  }
+
+  private ringIdx: THREE.BufferAttribute | null = null
+  /** 円形の格子のつなぎ方（どこを中心にしても同じなので 1 つだけ作る） */
+  private ringIndex() {
+    if (this.ringIdx) return this.ringIdx
+    const { RINGS, SEG } = this.rings
+    const idx = new Uint32Array(SEG * 3 + (RINGS - 1) * SEG * 6)
+    let o = 0
+    for (let j = 0; j < SEG; j++) {
+      idx[o++] = 0
+      idx[o++] = 1 + ((j + 1) % SEG)
+      idx[o++] = 1 + j
+    }
     for (let i = 1; i < RINGS; i++) {
       const a0 = 1 + (i - 1) * SEG
       const b0 = 1 + i * SEG
       for (let j = 0; j < SEG; j++) {
         const j1 = (j + 1) % SEG
-        idx.push(a0 + j, a0 + j1, b0 + j, a0 + j1, b0 + j1, b0 + j)
+        idx[o++] = a0 + j
+        idx[o++] = a0 + j1
+        idx[o++] = b0 + j
+        idx[o++] = a0 + j1
+        idx[o++] = b0 + j1
+        idx[o++] = b0 + j
       }
     }
+    this.ringIdx = new THREE.BufferAttribute(idx, 1)
+    return this.ringIdx
+  }
+
+  /**
+   * 正方形のタイルの地面（ローバーのまわりの細かい地面）。(x0, z0) が北西の角、一辺 size m、step m 間隔。
+   * 法線はタイルの外の 1 つ先の高さも使って求めるので、となりのタイルと継ぎ目なくつながる。
+   * ふちには下へ垂らした「すそ」を付ける（となりや粗い地面との小さなすき間をふさぐ）
+   */
+  tile(x0: number, z0: number, size: number, step: number) {
+    const job = this.tileJob(x0, z0, size, step)
+    let r = job.next()
+    while (!r.done) r = job.next()
+    return r.value
+  }
+
+  /** tile() を少しずつ作る（16 行ごとに一休み） */
+  *tileJob(x0: number, z0: number, size: number, step: number): Generator<void, THREE.BufferGeometry, void> {
+    const n = Math.round(size / step)
+    const w = n + 3 // 外側に 1 つずつ余分に
+    const hs = new Float32Array(w * w)
+    for (let j = 0; j < w; j++) {
+      for (let i = 0; i < w; i++) hs[j * w + i] = this.height(x0 + (i - 1) * step, z0 + (j - 1) * step)
+      if (j % 16 === 15) yield
+    }
+    const v = (n + 1) * (n + 1)
+    const skirt = 4 * n
+    const pos = new Float32Array((v + skirt) * 3)
+    const nrm = new Float32Array((v + skirt) * 3)
+    const col = new Float32Array((v + skirt) * 3)
+    const uv = new Float32Array((v + skirt) * 2)
+    const c = new THREE.Color()
+    const color = this.colors()
+    let k = 0
+    for (let j = 0; j <= n; j++) {
+      if (j % 16 === 15) yield
+      for (let i = 0; i <= n; i++, k++) {
+        const x = x0 + i * step
+        const z = z0 + j * step
+        const at = (j + 1) * w + i + 1
+        pos[k * 3] = x
+        pos[k * 3 + 1] = hs[at]
+        pos[k * 3 + 2] = z
+        const hx = hs[at + 1] - hs[at - 1]
+        const hz = hs[at + w] - hs[at - w]
+        const l = Math.hypot(hx, 2 * step, hz)
+        nrm[k * 3] = -hx / l
+        nrm[k * 3 + 1] = (2 * step) / l
+        nrm[k * 3 + 2] = -hz / l
+        uv[k * 2] = x / 3
+        uv[k * 2 + 1] = z / 3
+        const sm = this.def.relief.cracks || this.craters.length ? this.sample(x, z) : null
+        color(c, x, z, sm?.ejecta ?? 0, sm?.crack ?? 0)
+        col[k * 3] = c.r
+        col[k * 3 + 1] = c.g
+        col[k * 3 + 2] = c.b
+      }
+    }
+    const idx: number[] = []
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < n; i++) {
+        const a = j * (n + 1) + i
+        idx.push(a, a + n + 1, a + 1, a + 1, a + n + 1, a + n + 2)
+      }
+    // すそ：ふちを 1 周（北→東→南→西）たどり、真下へ 3 m 下げた頂点と結ぶ
+    const ring: number[] = []
+    for (let i = 0; i < n; i++) ring.push(i)
+    for (let j = 0; j < n; j++) ring.push(j * (n + 1) + n)
+    for (let i = n; i > 0; i--) ring.push(n * (n + 1) + i)
+    for (let j = n; j > 0; j--) ring.push(j * (n + 1))
+    ring.forEach((src, r) => {
+      const d = v + r
+      for (let q = 0; q < 3; q++) {
+        pos[d * 3 + q] = pos[src * 3 + q]
+        nrm[d * 3 + q] = nrm[src * 3 + q]
+        col[d * 3 + q] = col[src * 3 + q]
+      }
+      pos[d * 3 + 1] -= 3
+      uv[d * 2] = uv[src * 2]
+      uv[d * 2 + 1] = uv[src * 2 + 1]
+    })
+    for (let r = 0; r < ring.length; r++) {
+      const a = ring[r]
+      const b = ring[(r + 1) % ring.length]
+      const a2 = v + r
+      const b2 = v + ((r + 1) % ring.length)
+      idx.push(a, b, a2, b, b2, a2, a, a2, b, b, a2, b2)
+    }
     const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
-    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+    geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3))
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
     geo.setIndex(idx)
-    geo.computeVertexNormals()
+    geo.computeBoundingSphere()
     return geo
   }
 
@@ -276,6 +450,25 @@ export class Terrain {
     const hit = this.rockCache.get(count)
     if (hit) return hit
     const rnd = seeded(this.seed + 99)
+    const out = this.scatter(rnd, count, () => {
+      const ang = rnd() * Math.PI * 2
+      const dist = 3 + rnd() ** 1.6 * 420
+      return [Math.cos(ang) * dist, Math.sin(ang) * dist]
+    })
+    this.rockCache.set(count, out)
+    return out
+  }
+
+  /**
+   * タイル（北西の角 (tx, tz)・一辺 size m）の岩。決まりは rocks() と同じ。タイルの番号から種を作るので、
+   * 何度作っても同じ岩が同じ場所に出る（離れて戻ってきても変わらない）
+   */
+  tileRocks(tx: number, tz: number, size: number, count: number): Rock[] {
+    const rnd = seeded(this.seed * 7919 + (tx / size + 4096) * 9973 + (tz / size + 4096) * 7)
+    return this.scatter(rnd, count, () => [tx + rnd() * size, tz + rnd() * size])
+  }
+
+  private scatter(rnd: () => number, count: number, pick: () => [number, number]): Rock[] {
     const out: Rock[] = []
     const steep = (x: number, z: number) => Math.min(1, Math.max(0, (1 - this.normal(x, z).y - 0.07) / 0.18))
     /** 岩の出やすさ：近く（5 m）に崖があるか、クレーターのふちか */
@@ -302,10 +495,7 @@ export class Terrain {
     let tries = 0
     while (out.length < count && tries < count * 20) {
       tries++
-      const ang = rnd() * Math.PI * 2
-      const dist = 3 + rnd() ** 1.6 * 420
-      const x = Math.cos(ang) * dist
-      const z = Math.sin(ang) * dist
+      const [x, z] = pick()
       if (this.flat(x, z) > 0.3 || rnd() > rockiness(x, z)) continue
       const big = 0.08 + 1.7 * rnd() ** 4
       const sy = 0.65 + rnd() * 0.35
@@ -319,7 +509,6 @@ export class Terrain {
         place(x + Math.cos(a) * r + n.x * r * 1.5, z + Math.sin(a) * r + n.z * r * 1.5, Math.max(0.06, big * (0.12 + 0.45 * rnd() ** 1.8)), sy * (0.9 + rnd() * 0.2))
       }
     }
-    this.rockCache.set(count, out)
     return out
   }
 }

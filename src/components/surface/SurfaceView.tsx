@@ -9,7 +9,8 @@ import { useOptionalTexture } from '../../hooks/useOptionalTexture'
 import { haloTexture } from '../ship/ShipModel'
 import { dprFor, lowMemory, useLevel } from '../../state/quality'
 import { ASCENT, DESCENT, FADE, landingNow, skipDescent, startTakeoff, useLanding } from '../../state/landing'
-import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded } from './terrain'
+import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded, type Rock } from './terrain'
+import { WideWorld, isWide, wideNow, withHole } from './wideGround'
 import { named, t, useLang } from '../../i18n/lang'
 import { AirParams, ApUniforms, SkyLut, airFor, airUniforms, apUniforms, autoExposure, luminance, skyLookupGlsl, sunTransmittance, withAir } from './atmosphere'
 import { SurfacePost } from './SurfacePost'
@@ -118,7 +119,10 @@ function Sky({ def, lut, sky }: { def: SurfaceDef; lut: THREE.Texture; sky: SkyN
   useEffect(() => {
     mat.uniforms.uGlow.value = glow
   }, [mat, glow])
-  useFrame(() => {
+  const sphere = useRef<THREE.Mesh>(null)
+  useFrame(({ camera }) => {
+    // 空の球はカメラといっしょに動かす（ローバーで遠くへ行くと、球の向こう側がカメラの描く距離の外に出て、黒く抜けるため）
+    sphere.current?.position.copy(camera.position)
     // 暗い場所で目が慣れたときの夜空：天の川がはっきり見える
     mat.uniforms.uStars.value = glow ? sky.starVis : 0
     mat.uniforms.uAirglow.value = def.sky && !def.sunHidden ? sky.night : 0
@@ -128,7 +132,7 @@ function Sky({ def, lut, sky }: { def: SurfaceDef; lut: THREE.Texture; sky: SkyN
   })
   useEffect(() => () => mat.dispose(), [mat])
   return (
-    <mesh material={mat} renderOrder={-10} frustumCulled={false}>
+    <mesh ref={sphere} material={mat} renderOrder={-10} frustumCulled={false}>
       <sphereGeometry args={[SKY_R, 48, 24]} />
     </mesh>
   )
@@ -143,7 +147,7 @@ function SunDisc({ def, sky }: { def: SurfaceDef; sky: SkyNow }) {
   const angle = 0.533 / def.au
   // 光のにじみを含めて、少し大きめに（遠い星でも点として見えるように下限をつける）
   const size = Math.max(2 * SKY_R * Math.tan(((angle * Math.PI) / 180) / 2) * 7, 60)
-  useFrame(() => {
+  useFrame(({ camera }) => {
     const sp = sprite.current
     if (!sp) return
     const tint = sky.sunT
@@ -153,7 +157,7 @@ function SunDisc({ def, sky }: { def: SurfaceDef; sky: SkyNow }) {
     mat.color.setRGB((tint.x / m) * k, (tint.y / m) * k * 0.94, (tint.z / m) * k * 0.85)
     mat.opacity = Math.min(1, luminance(tint) * 6)
     sp.visible = !def.sunHidden && sky.sunDir.y > -0.02
-    sp.position.copy(sky.sunDir).multiplyScalar(SKY_R * 0.95)
+    sp.position.copy(sky.sunDir).multiplyScalar(SKY_R * 0.95).add(camera.position)
   })
   useEffect(() => () => mat.dispose(), [mat])
   return <sprite ref={sprite} material={mat} scale={[size, size, 1]} renderOrder={-9} />
@@ -261,12 +265,12 @@ function SkyPlanet({ def, sky }: { def: SurfaceDef; sky: SkyNow }) {
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), n)
     return { geo, q }
   }, [sb.ringOpen, sb.id, r, dir])
-  useFrame(() => {
+  useFrame(({ camera }) => {
     const g = group.current
     if (!g) return
     if (appDir) sky.bodyDir.copy(appDir).applyMatrix4(sky.frame.toLocal)
     else sky.bodyDir.copy(dir)
-    g.position.copy(sky.bodyDir).multiplyScalar(dist)
+    g.position.copy(sky.bodyDir).multiplyScalar(dist).add(camera.position)
     mat.uniforms.uSun.value.copy(sky.sunDir)
     // 日の当たった面の明るさ：地面と同じ太陽の強さと露出（アルベドは模様の色）
     // 夜は目が暗さに慣れているので、月は白く輝いて見える
@@ -395,7 +399,12 @@ function Clouds({ terrain, ap, sky, clock }: { terrain: Terrain; ap: ApUniforms;
 /** 地平線の山並み（本物の地形の遠くの地図） */
 function FarTerrain({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const eyeY = terrain.height(0, 0) + EYE
-  const geo = useMemo(() => farTerrainGeometry(terrain.def, terrain.dem!.far, eyeY, 2900), [terrain, eyeY])
+  // 広い天体では、ローバーが着陸地点から 2 km 離れると、近くの地面（ローバーのまわり 3.2 km）と山並みの内側のふちの間が
+  // あいてしまう（着陸地点の反対側）。山並みを内側（700 m）から作って、そのすき間を遠くの地図でふさぐ。近くの地面の下は上から塗られて見えない
+  const geo = useMemo(
+    () => (isWide(terrain) ? farTerrainGeometry(terrain.def, terrain.dem!.far, eyeY, 700, 150) : farTerrainGeometry(terrain.def, terrain.dem!.far, eyeY, 2900)),
+    [terrain, eyeY],
+  )
   const mesh = useRef<THREE.Mesh>(null)
   // 山並みは、着陸地点の目の高さを中心に 1/FAR_SHRINK に縮めて置いてある。カメラが動いたら（ローバーで走るとき）
   // 縮める中心もカメラへずらす：そうしないと、山の見える向きがずれて、近くの地面との間に隙間ができる
@@ -444,16 +453,80 @@ function contactShadowMaterial() {
   return contactMat
 }
 
+/** 岩を並べる（地面の傾きに沿わせ、明るさを少しずつ変え、根元に影の円を置く） */
+function layRocks(rocks: Rock[], inst: (THREE.InstancedMesh | null)[], contact: THREE.InstancedMesh | null, terrain: Terrain, shadowAt: { x: number; z: number; r: number }) {
+  const m = new THREE.Matrix4()
+  const q = new THREE.Quaternion()
+  const qy = new THREE.Quaternion()
+  const up = new THREE.Vector3(0, 1, 0)
+  const n = new THREE.Vector3()
+  const s = new THREE.Vector3()
+  const p = new THREE.Vector3()
+  const counts = [0, 0, 0]
+  const tone = new THREE.Color()
+  let shadows = 0
+  for (const r of rocks) {
+    const mesh = inst[r.v]
+    if (!mesh || counts[r.v] >= mesh.instanceMatrix.count) continue
+    // 地面の傾きに沿わせて寝かせ、向きはばらばらに
+    n.set(r.nx, 1, r.nz).normalize()
+    q.setFromUnitVectors(up, n)
+    qy.setFromAxisAngle(up, r.rot)
+    q.multiply(qy)
+    s.set(r.s, r.s * r.sy, r.s * (0.7 + 0.3 * r.sy))
+    p.set(r.x, r.y, r.z)
+    m.compose(p, q, s)
+    // 岩ごとに少し明るさを変える（同じ色の岩が並ばないように）
+    mesh.setColorAt(counts[r.v], tone.setScalar(0.78 + 0.4 * ((r.rot * 977) % 1)))
+    mesh.setMatrixAt(counts[r.v]++, m)
+    // 根元の影（地面に接している所が暗い）：岩より少し大きい、ぼかした円
+    if (contact && r.s > 0.15 && Math.hypot(r.x - shadowAt.x, r.z - shadowAt.z) < shadowAt.r && shadows < contact.instanceMatrix.count) {
+      s.set(r.s * 1.5, 1, r.s * 1.5)
+      p.set(r.x, terrain.height(r.x, r.z) + 0.03, r.z)
+      m.compose(p, q, s)
+      contact.setMatrixAt(shadows++, m)
+    }
+  }
+  inst.forEach((mesh, i) => {
+    if (!mesh) return
+    mesh.count = counts[i]
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    mesh.computeBoundingSphere()
+  })
+  if (contact) {
+    contact.count = shadows
+    contact.instanceMatrix.needsUpdate = true
+  }
+}
+
 function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const def = terrain.def
-  const geo = useMemo(() => terrain.geometry(), [terrain])
-  const rocks = useMemo(() => terrain.rocks(Math.round(def.relief.rocks * 1400)), [terrain, def.relief.rocks])
+  const level = useLevel()
+  const light = level === 'low' || lowMemory()
+  const wide = isWide(terrain)
+  // 広い天体：ローバーのまわりのタイルと、作り直す粗い地面（軽くするときはタイルを減らし、間隔を広く）
+  const world = useMemo(
+    () => (wide ? new WideWorld(terrain, light ? { n: 3, step: 2, rocks: 70 } : { n: 5, step: 1, rocks: 110 }) : null),
+    [terrain, wide, light],
+  )
+  useEffect(() => {
+    wideNow.world = world
+    return () => {
+      if (wideNow.world === world) wideNow.world = null
+      world?.dispose()
+    }
+  }, [world])
+  const geo = useMemo(() => (world ? null : terrain.geometry()), [terrain, world])
+  const rocks = useMemo(() => (world ? [] : terrain.rocks(Math.round(def.relief.rocks * 1400))), [terrain, def.relief.rocks, world])
+  const rockCap = world ? world.opt.n ** 2 * world.opt.rocks : rocks.length
   const round = def.id === 'titan'
   const rockGeos = useMemo(() => [0, 1, 2].map((k) => rockGeometry(terrain.seed + k * 17, round)), [terrain.seed, round])
   const grain = grainTexture()
   // 地面の素材（砂・レゴリス・氷・火山岩）の細かい凹凸と粗さ、斜面の岩肌
-  const level = useLevel()
-  const groundMat = useMemo(() => cloudy(def, withAir(groundMaterial(def, level === 'low' || lowMemory()), ap)), [def, level, ap])
+  const groundMat = useMemo(() => cloudy(def, withAir(groundMaterial(def, light), ap)), [def, light, ap])
+  // 広い天体の粗い地面：タイルの下を沈める
+  const coarseMat = useMemo(() => (world ? cloudy(def, withAir(withHole(groundMaterial(def, light), world.hole), ap)) : null), [def, light, ap, world])
   const rockMat = useMemo(
     () =>
       cloudy(
@@ -473,74 +546,75 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const contact = useRef<THREE.InstancedMesh>(null)
   const contactGeo = useMemo(() => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), [])
   useEffect(() => {
-    const m = new THREE.Matrix4()
-    const q = new THREE.Quaternion()
-    const qy = new THREE.Quaternion()
-    const up = new THREE.Vector3(0, 1, 0)
-    const n = new THREE.Vector3()
-    const s = new THREE.Vector3()
-    const p = new THREE.Vector3()
-    const counts = [0, 0, 0]
-    const tone = new THREE.Color()
-    let shadows = 0
-    for (const r of rocks) {
-      const mesh = inst.current[r.v]
-      if (!mesh) continue
-      // 地面の傾きに沿わせて寝かせ、向きはばらばらに
-      n.set(r.nx, 1, r.nz).normalize()
-      q.setFromUnitVectors(up, n)
-      qy.setFromAxisAngle(up, r.rot)
-      q.multiply(qy)
-      s.set(r.s, r.s * r.sy, r.s * (0.7 + 0.3 * r.sy))
-      p.set(r.x, r.y, r.z)
-      m.compose(p, q, s)
-      // 岩ごとに少し明るさを変える（同じ色の岩が並ばないように）
-      mesh.setColorAt(counts[r.v], tone.setScalar(0.78 + 0.4 * ((r.rot * 977) % 1)))
-      mesh.setMatrixAt(counts[r.v]++, m)
-      // 根元の影（地面に接している所が暗い）：岩より少し大きい、ぼかした円
-      const sh = contact.current
-      if (sh && r.s > 0.15 && Math.hypot(r.x, r.z) < 160) {
-        s.set(r.s * 1.5, 1, r.s * 1.5)
-        p.set(r.x, terrain.height(r.x, r.z) + 0.03, r.z)
-        m.compose(p, q, s)
-        sh.setMatrixAt(shadows++, m)
-      }
-    }
-    inst.current.forEach((mesh, i) => {
-      if (!mesh) return
-      mesh.count = counts[i]
-      mesh.instanceMatrix.needsUpdate = true
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-      mesh.computeBoundingSphere()
-    })
-    if (contact.current) {
-      contact.current.count = shadows
-      contact.current.instanceMatrix.needsUpdate = true
-    }
+    if (world) return
+    layRocks(rocks, inst.current, contact.current, terrain, { x: 0, z: 0, r: 160 })
     // 素材が変わると（画質の自動切り替えなど）instancedMesh が作り直されるので、そのたびに並べ直す。
     // 並べ直さないと、岩がすべて原点に重なって見えなくなる（ローバーの当たり判定だけが残る）
-  }, [rocks, rockMat, rockGeos, terrain])
+  }, [rocks, rockMat, rockGeos, terrain, world])
+
+  // ---- 広い天体：見ている場所に合わせてタイルを入れ替える ----
+  const tiles = useRef<THREE.Group>(null)
+  const coarse = useRef<THREE.Mesh>(null)
+  const shown = useRef({ version: -1, coarse: -1, mats: null as unknown })
+  useFrame(() => {
+    if (!world) return
+    const rv = useRover.getState().phase !== 'none'
+    world.update(rv ? roverFocus.x : 0, rv ? roverFocus.z : 0, light ? 3 : 4)
+    const sh = shown.current
+    // 素材が作り直されたとき（画質の切り替え）も並べ直す
+    const mats = rockMat
+    if (sh.version !== world.version || sh.mats !== mats) {
+      sh.version = world.version
+      sh.mats = mats
+      const g = tiles.current
+      if (g) {
+        g.clear()
+        for (const t of world.active) {
+          const mesh = new THREE.Mesh(t.geo, groundMat)
+          mesh.receiveShadow = true
+          mesh.matrixAutoUpdate = false
+          g.add(mesh)
+        }
+      }
+      layRocks(world.rocks(), inst.current, contact.current, terrain, { x: world.patch.x, z: world.patch.z, r: 160 })
+    }
+    if (sh.coarse !== world.coarseVersion && coarse.current) {
+      sh.coarse = world.coarseVersion
+      coarse.current.geometry = world.coarse
+    }
+  })
+  useEffect(() => {
+    // タイルの材質を変えたら、次のフレームで作り直す
+    shown.current.version = -1
+  }, [groundMat])
   useEffect(
     () => () => {
-      geo.dispose()
+      geo?.dispose()
       contactGeo.dispose()
       rockGeos.forEach((g) => g.dispose())
       groundMat.dispose()
+      coarseMat?.dispose()
       rockMat.dispose()
     },
-    [geo, contactGeo, rockGeos, groundMat, rockMat],
+    [geo, contactGeo, rockGeos, groundMat, coarseMat, rockMat],
   )
   return (
     <>
-      <mesh geometry={geo} material={groundMat} receiveShadow />
-      <instancedMesh ref={contact} args={[contactGeo, contactShadowMaterial(), rocks.length]} frustumCulled={false} renderOrder={1} />
+      {geo && <mesh geometry={geo} material={groundMat} receiveShadow />}
+      {world && coarseMat && (
+        <>
+          <mesh ref={coarse} geometry={world.coarse} material={coarseMat} receiveShadow frustumCulled={false} />
+          <group ref={tiles} />
+        </>
+      )}
+      <instancedMesh ref={contact} args={[contactGeo, contactShadowMaterial(), rockCap]} frustumCulled={false} renderOrder={1} />
       {rockGeos.map((g, i) => (
         <instancedMesh
           key={i}
           ref={(el) => {
             inst.current[i] = el
           }}
-          args={[g, rockMat, rocks.length]}
+          args={[g, rockMat, rockCap]}
           castShadow
           receiveShadow
           frustumCulled={false}
@@ -1241,6 +1315,9 @@ function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
   )
 }
 
+/** 200 → "200 m"、3000 → "3 km" */
+const sizeLabel = (m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`)
+
 function RoverPanel({ bodyId }: { bodyId: string }) {
   useLang()
   const phase = useRover((r) => r.phase)
@@ -1248,6 +1325,7 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
   const sampling = useRover((r) => r.sampling)
   const result = useRover((r) => r.result)
   const edge = useRover((r) => r.edge)
+  const range = useRover((r) => r.range)
   const next = useRover((r) => r.next)
   const got = useSampleLog((l) => l.log[bodyId]?.length ?? 0)
   const total = samplesFor(bodyId).length
@@ -1270,7 +1348,7 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
       {drive && edge && (
         <div className="rover-edge">
           {t('これ以上は遠くへ行けません', "Can't go any farther")}
-          <small>{t('探査できるのは着陸地点のまわり 200 m 四方です', 'The rover can explore a 200 m square around the landing site')}</small>
+          <small>{t(`探査できるのは着陸地点のまわり ${sizeLabel(range * 2)} 四方です`, `The rover can explore a ${sizeLabel(range * 2)} square around the landing site`)}</small>
         </div>
       )}
       {drive && result && <SampleCard bodyId={bodyId} id={result} />}
