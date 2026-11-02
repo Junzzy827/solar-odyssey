@@ -61,7 +61,7 @@ export class WideWorld {
   private want: string[] = []
   private wantAt = { x: NaN, z: NaN }
   private frame = 0
-  private building: { key: string; it: Generator<void, THREE.BufferGeometry, void> } | null = null
+  private building: { key: string; it: Generator<void, Tile, void> } | null = null
   private nextId = 1
 
   constructor(readonly terrain: Terrain, readonly opt: WideOptions) {
@@ -91,7 +91,7 @@ export class WideWorld {
       if (this.building && this.building.key !== key) this.building = null // もう要らないタイルは作りかけでやめる
       if (!this.building) {
         const [i, j] = key.split(',').map(Number)
-        this.building = { key, it: this.terrain.tileJob(i * TILE, j * TILE, TILE, this.opt.step) }
+        this.building = { key, it: this.tileJob(key, i, j) }
       }
       let r = this.building.it.next()
       while (!r.done && performance.now() - t0 < budget) r = this.building.it.next()
@@ -99,7 +99,7 @@ export class WideWorld {
         ready = false
         break
       }
-      this.tiles.set(key, this.finish(key, r.value))
+      this.tiles.set(key, r.value)
       this.building = null
       if (performance.now() - t0 > budget) {
         ready = this.want.every((k) => this.tiles.has(k))
@@ -149,16 +149,24 @@ export class WideWorld {
   /** タイルを一度に作る（確認用） */
   build(key: string): Tile {
     const [i, j] = key.split(',').map(Number)
-    return this.finish(key, this.terrain.tile(i * TILE, j * TILE, TILE, this.opt.step))
+    const job = this.tileJob(key, i, j)
+    let r = job.next()
+    while (!r.done) r = job.next()
+    return r.value
   }
 
-  /** 地面ができたタイルに岩と当たり判定を足す */
-  private finish(key: string, geo: THREE.BufferGeometry): Tile {
-    const [i, j] = key.split(',').map(Number)
+  /** タイルを少しずつ作る：地面、岩、当たり判定 */
+  private *tileJob(key: string, i: number, j: number): Generator<void, Tile, void> {
     const tx = i * TILE
     const tz = j * TILE
+    const geo = yield* this.terrain.tileJob(tx, tz, TILE, this.opt.step)
+    const rocks = yield* this.terrain.tileRocksJob(tx, tz, TILE, this.opt.rocks)
+    return this.finish(key, tx, tz, geo, rocks)
+  }
+
+  /** 地面ができたタイルに当たり判定を足す */
+  private finish(key: string, tx: number, tz: number, geo: THREE.BufferGeometry, rocks: Rock[]): Tile {
     const terrain = this.terrain
-    const rocks = terrain.tileRocks(tx, tz, TILE, this.opt.rocks)
     const bodies: RockBody[] = []
     for (const r of rocks) {
       // 岩のてっぺんが地面からどれだけ出ているか。埋まった岩は当たらない

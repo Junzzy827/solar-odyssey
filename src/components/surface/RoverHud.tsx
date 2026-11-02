@@ -163,6 +163,7 @@ export function RoverMap() {
   // 地形の陰影と等高線。広い天体では範囲全体の 1 枚と、近くを見るときのローバーのまわり 600 m の細かい 1 枚。
   // 細かいほうは 100 m ごとの位置に合わせて作るので、ローバーが 50 m 以上動いたときだけ作り直す
   const terrain = useMapTerrain((m) => m.terrain)
+  const pois = wide ? (terrain?.pois ?? []) : []
   const coarse = useRelief(terrain, wide ? { cx: 0, cz: 0, half: R * 1.04 } : { cx: LANDER_POS.x, cz: LANDER_POS.y, half: V })
   const fine = useRelief(terrain, wide && !whole ? { cx: Math.round(hud.x / 100) * 100, cz: Math.round(hud.z / 100) * 100, half: 300 } : null)
   const relief = (l: ReliefLayer | null) =>
@@ -202,6 +203,32 @@ export function RoverMap() {
         <rect x={mx(-R)} y={mz(-R)} width={(R * 2) / k} height={(R * 2) / k} className="m-range" />
         <circle cx={lx} cy={lz} r={6} className="m-lander" />
         <path d={`M ${lx} ${lz - 11} L ${lx + 9} ${lz + 7} L ${lx - 9} ${lz + 7} Z`} className="m-lander-mark" />
+        {/* 見どころ：広さの円と名前。近くの地図で範囲の外にあるときは、地図のふちに向きの三角だけ */}
+        {pois.map((p) => {
+          const x = mx(p.x)
+          const z = mz(p.z)
+          const rr = Math.max(p.r / k, 6)
+          const inside = Math.abs(x) < V - 8 && Math.abs(z) < V - 8
+          // 円が地図にかかっているか（地図の四角から円の中心までの距離 < 半径）
+          const near = Math.hypot(Math.max(0, Math.abs(x) - V), Math.max(0, Math.abs(z) - V)) < rr
+          const a = Math.atan2(z, x)
+          const e = (V - 9) / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)))
+          return (
+            <g key={p.id}>
+              {near && <circle cx={x} cy={z} r={rr} className="m-poi-area" />}
+              {inside ? (
+                <>
+                  <circle cx={x} cy={z} r={4} className="m-poi" />
+                  <text x={x} y={z + 19} className="m-poi-name">
+                    {t(p.name.ja, p.name.en)}
+                  </text>
+                </>
+              ) : (
+                <path d="M 0 -8 L 6 4 L -6 4 Z" className="m-poi-edge" transform={`translate(${Math.cos(a) * e} ${Math.sin(a) * e}) rotate(${(a * 180) / Math.PI + 90})`} />
+              )}
+            </g>
+          )
+        })}
         {sites.map((p, i) => {
           const x = mx(p.x)
           const z = mz(p.z)
