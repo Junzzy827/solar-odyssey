@@ -21,9 +21,9 @@ export const labUniforms: LabUniforms = {
 }
 
 const PALETTE = {
-  sand: new THREE.Color('#946246'),
-  rock: new THREE.Color('#8a6248'),
-  dust: new THREE.Color('#c08a60'),
+  sand: new THREE.Color('#8c6a50'),
+  rock: new THREE.Color('#8a6e5a'),
+  dust: new THREE.Color('#b89070'),
 }
 
 /** 3 方向から貼る・上から貼るを切り替えて、世界の法線（xyz）と模様の高さ（w）を返す */
@@ -71,13 +71,14 @@ export function groundLabMaterial() {
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms)
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aFill;\nvarying vec3 vLW;\nvarying vec3 vLN;\nvarying float vFill;')
+      .replace('#include <common>', '#include <common>\nattribute float aFill;\nattribute vec2 aRock;\nvarying vec3 vLW;\nvarying vec3 vLN;\nvarying float vFill;\nvarying vec2 vRock;')
       .replace(
         '#include <project_vertex>',
         `#include <project_vertex>
         vLW = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vLN = normalize(mat3(modelMatrix) * objectNormal);
-        vFill = aFill;`,
+        vFill = aFill;
+        vRock = aRock;`,
       )
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -86,7 +87,7 @@ export function groundLabMaterial() {
         uniform sampler2D uSandT; uniform sampler2D uRockT; uniform sampler2D uFineT;
         uniform float uTri; uniform float uBlend; uniform float uView;
         uniform vec3 uSandC; uniform vec3 uRockC; uniform vec3 uDustC;
-        varying vec3 vLW; varying vec3 vLN; varying float vFill;
+        varying vec3 vLW; varying vec3 vLN; varying float vFill; varying vec2 vRock;
         vec3 gN; float gRock; float gDust; float gSlope; float gRough;
         ${SAMPLE}`,
       )
@@ -100,7 +101,7 @@ export function groundLabMaterial() {
           float dist = length(p - cameraPosition);
           gSlope = 1.0 - clamp(n.y, 0.0, 1.0);
           // 平らな所の地面（小石まじりの砂礫）：近くの細かい模様と、遠くの大きな模様
-          vec4 sN = labSample(uSandT, p, n, 2.2, 0.45, tri);
+          vec4 sN = labSample(uSandT, p, n, 2.2, 0.25, tri);
           vec4 sF = labSample(uSandT, p + 0.37, n, 14.0, 0.7, tri);
           float farK = smoothstep(6.0, 40.0, dist);
           vec4 S = mix(sN, sF, farK);
@@ -115,10 +116,11 @@ export function groundLabMaterial() {
           // 塗り分け
           gRock = 0.0;
           gDust = 0.0;
-          float fill = clamp(vFill, 0.0, 1.0) * (1.0 - smoothstep(0.06, 0.16, gSlope));
+          // 浸食でたまった砂・くぼみ・岩の風下にできる砂の尾
+          float fill = clamp(max(vFill, vRock.y), 0.0, 1.2) * (1.0 - smoothstep(0.06, 0.16, gSlope));
           if (uBlend > 1.5) {
             // 高さで切替：傾きで決まる割合に、模様の高さを足して比べる。境目は岩の凹凸に沿ってぎざぎざ
-            float r = clamp((gSlope - 0.2) / 0.16 + 0.5, 0.0, 1.0);
+            float r = clamp((gSlope - 0.15) / 0.14 + 0.5, 0.0, 1.0);
             float a1 = S.w + (1.0 - r);
             float a2 = rockH + r;
             float ma = max(a1, a2) - 0.07;
@@ -142,6 +144,8 @@ export function groundLabMaterial() {
           vec3 dustCol = uDustC * (0.94 + 0.1 * D.w);
           vec3 col = mix(mix(sandCol, rockCol, gRock), dustCol, gDust);
           if (uView > 1.5) col = mix(mix(vec3(0.85, 0.7, 0.3), vec3(0.32, 0.38, 0.5), gRock), vec3(0.6, 0.2, 0.12), gDust);
+          // 岩の根元は暗く（地面に接している影）
+          if (uView < 1.5) col *= 1.0 - 0.55 * clamp(vRock.x, 0.0, 1.0);
           diffuseColor.rgb = col;
 
           vec3 sandNrm = S.xyz;
@@ -156,11 +160,11 @@ export function groundLabMaterial() {
         '#include <dithering_fragment>',
         `#include <dithering_fragment>
         if (uView > 0.5 && uView < 1.5) {
-          // 傾きの白黒：0°（平ら）＝黒 〜 60° 以上＝白。赤い線＝岩肌に切り替わる角度（約 37°）
+          // 傾きの白黒：0°（平ら）＝黒 〜 60° 以上＝白。赤い線＝岩肌に切り替わる角度（約 32°）
           float ang = acos(1.0 - gSlope);
           float g = clamp(ang / 1.0472, 0.0, 1.0);
           vec3 c = vec3(g);
-          float line = abs(gSlope - 0.2);
+          float line = abs(gSlope - 0.15);
           float w = fwidth(gSlope) * 1.2;
           if (line < w) c = vec3(0.95, 0.15, 0.1);
           gl_FragColor = vec4(c, 1.0);

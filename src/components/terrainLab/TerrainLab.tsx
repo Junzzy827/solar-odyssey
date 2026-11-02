@@ -6,7 +6,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { create } from 'zustand'
 import { blurGrid, buildFields, CELL, type Field, heightAt, N, SIZE, slopeGrid } from './heightfield'
 import { groundLabMaterial, labUniforms, rockLabMaterial } from './labMaterial'
-import { labRockGeometry, type Rock, ruleRocks, scatterRocks } from './rocks'
+import { labRockGeometry, type Rock, rockContact, ruleRocks, scatterRocks } from './rocks'
 import './terrainLab.css'
 
 // 地形ラボ（URL の末尾に #terrain-lab）。地形 1 枚で、地面の作り方を 1 つずつ切り替えて見比べる試作ページ。
@@ -50,61 +50,88 @@ const PHOTOS = [
   { src: 'terrain-lab/ref-kimberley.jpg', name: 'キンバリー（砂に半分埋まった板状の岩）', id: 'PIA19839' },
 ]
 
-const SKY = new THREE.Color('#c6a081')
+const SKY = new THREE.Color('#cdb4a0')
+const NO_ROCKS: Rock[] = []
 
 // ---- 地形・岩を作る ---------------------------------------------------------------------------
 
 type Built = { raw: Field; eroded: Field; ms: number; spot: { x: number; z: number; dx: number; dz: number } }
 
-/** ローバー目線のカメラを置く場所：中央付近でいちばん崖らしい所を、ふもとの側から見る */
+/**
+ * ローバー目線のカメラを置く場所：崖らしい所の候補をいくつか選び、まわり 24 方向から
+ * 「足もとが平ら」「崖まで見通せる（手前の丘で隠れない）」「太陽の側から見る（崖が日に照らされる）」
+ * をいちばん満たす向きを選ぶ
+ */
 function findSpot(f: Field) {
-  const s = slopeGrid(f)
+  const sl = slopeGrid(f)
   const steep = new Float32Array(N * N)
-  for (let k = 0; k < N * N; k++) steep[k] = s[k] > 0.2 ? 1 : 0
-  const mass = blurGrid(steep, 10)
-  let best = -1
-  let bx = 0
-  let bz = 0
+  for (let k = 0; k < N * N; k++) steep[k] = sl[k] > 0.15 ? 1 : 0
+  const mass = blurGrid(steep, 8)
   const half = SIZE / 2
-  for (let j = 0; j < N; j += 2)
-    for (let i = 0; i < N; i += 2) {
+  const slopeAt = (x: number, z: number) => {
+    const i = Math.round((x + half) / CELL)
+    const j = Math.round((z + half) / CELL)
+    if (i < 0 || j < 0 || i >= N || j >= N) return 1
+    return sl[j * N + i]
+  }
+  // 候補：崖の多い所を、互いに 25 m 以上離して 24 か所
+  const cands: { x: number; z: number; v: number }[] = []
+  for (let j = 0; j < N; j += 4)
+    for (let i = 0; i < N; i += 4) {
       const x = i * CELL - half
       const z = j * CELL - half
-      if (Math.hypot(x, z) > 90) continue
-      const v = mass[j * N + i] - Math.hypot(x, z) / 900
-      if (v > best) {
-        best = v
-        bx = x
-        bz = z
+      if (Math.hypot(x, z) > 110) continue
+      cands.push({ x, z, v: mass[j * N + i] })
+    }
+  cands.sort((p, q) => q.v - p.v)
+  const picks: typeof cands = []
+  for (const c of cands) {
+    if (picks.length >= 24) break
+    if (picks.every((p) => Math.hypot(p.x - c.x, p.z - c.z) > 25)) picks.push(c)
+  }
+  const sunX = Math.sin((235 * Math.PI) / 180)
+  const sunZ = Math.cos((235 * Math.PI) / 180)
+  /** 目の高さ 1.9 m から、崖の 2 m 上まで見通せる割合 */
+  const sight = (px: number, pz: number, tx: number, tz: number) => {
+    const y0 = heightAt(f, px, pz) + 1.9
+    const y1 = heightAt(f, tx, tz) + 2
+    let ok = 0
+    for (let k = 1; k < 20; k++) {
+      const t = k / 20
+      const y = heightAt(f, px + (tx - px) * t, pz + (tz - pz) * t)
+      if (y < y0 + (y1 - y0) * t - 0.3) ok++
+    }
+    return ok / 19
+  }
+  let best = { x: 0, z: 0, dx: 1, dz: 0 }
+  let top = -Infinity
+  for (const c of picks)
+    for (let a = 0; a < 24; a++) {
+      const dx = Math.cos((a / 24) * Math.PI * 2)
+      const dz = Math.sin((a / 24) * Math.PI * 2)
+      const px = c.x + dx * 40
+      const pz = c.z + dz * 40
+      const qx = c.x + dx * 14 + dz * 4
+      const qz = c.z + dz * 14 - dx * 4
+      if (Math.abs(px) > half - 20 || Math.abs(pz) > half - 20) continue
+      let flat = 0
+      for (let k = 0; k < 8; k++) flat += slopeAt(px + Math.cos(k) * 5, pz + Math.sin(k) * 5)
+      const score = c.v * 2 + sight(px, pz, c.x, c.z) * 3 + sight(qx, qz, c.x, c.z) * 2 - flat * 3 + (dx * sunX + dz * sunZ) * 1.2 - (heightAt(f, px, pz) - heightAt(f, c.x, c.z)) * 0.15
+      if (score > top) {
+        top = score
+        best = { x: c.x, z: c.z, dx, dz }
       }
     }
-  // 崖のまわり 16 方向のうち、40 m 先がいちばん低くて平らな方向（谷床）から崖を見る
-  let bestDir = { dx: 1, dz: 0 }
-  let low = Infinity
-  const sl = slopeGrid(f)
-  for (let a = 0; a < 16; a++) {
-    const dx = Math.cos((a / 16) * Math.PI * 2)
-    const dz = Math.sin((a / 16) * Math.PI * 2)
-    const px = bx + dx * 40
-    const pz = bz + dz * 40
-    const i = Math.round((px + half) / CELL)
-    const j = Math.round((pz + half) / CELL)
-    if (i < 0 || j < 0 || i >= N || j >= N) continue
-    const score = heightAt(f, px, pz) + sl[j * N + i] * 40
-    if (score < low) {
-      low = score
-      bestDir = { dx, dz }
-    }
-  }
-  return { x: bx, z: bz, ...bestDir }
+  return best
 }
 
-function Ground({ field }: { field: Field }) {
+function Ground({ field, rocks }: { field: Field; rocks: Rock[] }) {
   const material = useMemo(() => groundLabMaterial(), [])
   const geo = useMemo(() => {
     const g = new THREE.PlaneGeometry(SIZE, SIZE, N - 1, N - 1)
     g.rotateX(-Math.PI / 2)
     g.setAttribute('aFill', new THREE.Float32BufferAttribute(new Float32Array(N * N), 1))
+    g.setAttribute('aRock', new THREE.Float32BufferAttribute(new Float32Array(N * N * 2), 2))
     return g
   }, [])
   useEffect(() => {
@@ -117,6 +144,17 @@ function Ground({ field }: { field: Field }) {
     geo.computeVertexNormals()
     geo.computeBoundingSphere()
   }, [field, geo])
+  useEffect(() => {
+    // 岩の根元の暗さと、風下の砂の尾
+    const { occ, tail } = rockContact(rocks)
+    const r = geo.attributes.aRock as THREE.BufferAttribute
+    const arr = r.array as Float32Array
+    for (let k = 0; k < N * N; k++) {
+      arr[k * 2] = occ[k]
+      arr[k * 2 + 1] = tail[k]
+    }
+    r.needsUpdate = true
+  }, [rocks, geo])
   return <mesh geometry={geo} material={material} receiveShadow castShadow />
 }
 
@@ -132,7 +170,8 @@ function Rocks({ rocks }: { rocks: Rock[] }) {
     const up = new THREE.Vector3(0, 1, 0)
     const n = new THREE.Vector3()
     const c = new THREE.Color()
-    const base = new THREE.Color('#6a5446')
+    const base = new THREE.Color('#4e423b')
+    const slab = new THREE.Color('#b09478')
     groups.forEach((list, v) => {
       const mesh = refs.current[v]
       if (!mesh) return
@@ -143,7 +182,7 @@ function Rocks({ rocks }: { rocks: Rock[] }) {
         q.multiply(qy)
         m.compose(new THREE.Vector3(r.x, r.y, r.z), q, new THREE.Vector3(r.s, r.s * r.sy, r.s * (0.8 + 0.2 * r.tone)))
         mesh.setMatrixAt(i, m)
-        mesh.setColorAt(i, c.copy(base).multiplyScalar(r.tone))
+        mesh.setColorAt(i, c.copy(r.kind === 1 ? slab : base).multiplyScalar(r.tone))
       })
       mesh.count = list.length
       mesh.instanceMatrix.needsUpdate = true
@@ -280,7 +319,7 @@ function Scene({ built, setFps }: { built: Built; setFps: (v: number) => void })
   return (
     <>
       <Sun target={controls} />
-      <Ground field={field} />
+      <Ground field={field} rocks={st.rocks === 2 ? rocks : NO_ROCKS} />
       <Rocks rocks={rocks} />
       <OrbitControls ref={controls} makeDefault enableDamping dampingFactor={0.12} maxPolarAngle={Math.PI * 0.495} onStart={() => useTerrainLab.getState().cam !== 'free' && useTerrainLab.setState({ cam: 'free' })} />
       <CameraRig built={built} field={field} controls={controls} />
@@ -358,7 +397,7 @@ function Panel({ fps, ms }: { fps: number; ms: number }) {
               ))}
             </div>
           </div>
-          {st.view === 1 && <div className="tl-note">黒＝平ら、白＝60°以上。赤い線から上が岩肌、オレンジは岩。岩が崖と崖のふもとに集まっていれば正しい置き方です。</div>}
+          {st.view === 1 && <div className="tl-note">黒＝平ら、白＝60°以上。赤い線（約 32°）から上が岩肌、オレンジは岩。岩が崖と崖のふもとに集まっていれば正しい置き方です。</div>}
         </>
       )}
     </div>
