@@ -22,6 +22,27 @@ const smooth = (e0: number, e1: number, x: number) => {
   return t * t * (3 - 2 * t)
 }
 
+/** ボロノイの境目までの近さ（2 番目に近い点との距離の差。0 で境目の上） */
+function cellEdge(x: number, z: number, seed: number) {
+  const xi = Math.floor(x)
+  const zi = Math.floor(z)
+  let d1 = 9
+  let d2 = 9
+  for (let j = -1; j <= 1; j++)
+    for (let i = -1; i <= 1; i++) {
+      const a = Math.sin((xi + i) * 127.1 + (zi + j) * 311.7 + seed * 17.3) * 43758.5453
+      const b = Math.sin((xi + i) * 269.5 + (zi + j) * 183.3 + seed * 41.9) * 43758.5453
+      const cx = xi + i + (a - Math.floor(a))
+      const cz = zi + j + (b - Math.floor(b))
+      const d = Math.hypot(x - cx, z - cz)
+      if (d < d1) {
+        d2 = d1
+        d1 = d
+      } else if (d < d2) d2 = d
+    }
+  return d2 - d1
+}
+
 /** もとの地形（浸食なし） */
 function baseHeights(seed: number) {
   const h = new Float32Array(N * N)
@@ -35,9 +56,17 @@ function baseHeights(seed: number) {
       const wx = (fbm(x / 160, z / 160, seed + 11, 3) - 0.5) * 90
       const wz = (fbm(x / 160 + 7, z / 160, seed + 12, 3) - 0.5) * 90
       const m = fbm((x + wx) / 120, (z + wz) / 120, seed + 3, 5)
-      y += smooth(0.5, 0.56, m) * 13 + smooth(0.62, 0.655, m) * 6
-      // 地層の段（崖の途中に小さな棚）
-      y += smooth(0.535, 0.545, m) * 1.2
+      const mesa = smooth(0.5, 0.56, m) * 8 + smooth(0.62, 0.655, m) * 4
+      // 地層の段：1.4 m ごとの層。層の上は平らな棚、層の端は急な段差（なめらかな壁にしない）
+      const t = mesa / 1.4
+      const fl = Math.floor(t)
+      const terr = (fl + smooth(0.55, 1, t - fl)) * 1.4
+      let ym = mesa * 0.1 + terr * 0.9
+      // 台地の縁を割れ目で塊に割る（割れ目は 1.5 m ほど落ちこむ）
+      const rim = smooth(0.48, 0.53, m) * (1 - smooth(0.6, 0.68, m))
+      const crack = cellEdge(x / 7 + wx * 0.02, z / 7, seed)
+      ym -= rim * (1 - smooth(0.02, 0.07, crack)) * 2.4
+      y += ym
       // 中くらいのでこぼこ
       y += (fbm(x / 26, z / 26, seed + 7, 3) - 0.5) * 2.2
       h[j * N + i] = y
@@ -235,7 +264,7 @@ export function buildFields(seed = 4) {
   const rawFill = hollows(raw)
 
   const er = new Float32Array(base)
-  thermal(er, 28, 37)
+  thermal(er, 5, 40)
   const dep = hydraulic(er, 90000, seed)
   thermal(er, 3, 42)
   addFine(er, seed)

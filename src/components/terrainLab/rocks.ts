@@ -10,7 +10,8 @@ import { blurGrid, CELL, type Field, heightAt, N, normalAt, SIZE, slopeGrid } fr
 //   3. 大きさはべき分布：大岩は少しだけ、小石はたくさん
 //   4. 3〜5 割を地面に埋め、地面の傾きに沿わせて寝かせる（平たい岩は平たく）
 
-export type Rock = { x: number; y: number; z: number; s: number; sy: number; yaw: number; nx: number; nz: number; v: number; tone: number }
+/** kind：0＝岩のかたまり（暗い玄武岩）、1＝岩盤の板（明るい砂岩。砂からのぞく） */
+export type Rock = { x: number; y: number; z: number; s: number; sy: number; yaw: number; nx: number; nz: number; v: number; tone: number; kind?: 0 | 1 }
 
 const HALF = SIZE / 2
 const AREA = HALF - 6
@@ -76,27 +77,27 @@ export function ruleRocks(f: Field, avoid: Spot[] = [], seed = 9): Rock[] {
   // 群れの中心：岩の出やすさに比例して選ぶ
   let clusters = 0
   let tries = 0
-  while (clusters < 750 && tries < 600000) {
+  while (clusters < 1500 && tries < 1200000) {
     tries++
     const x = (rnd() * 2 - 1) * AREA
     const z = (rnd() * 2 - 1) * AREA
     if (rnd() > pAt(x, z)) continue
     clusters++
     // 親の岩：べき分布（0.25〜2.6 m、ほとんどは小さい）
-    const big = 0.25 + 2.4 * rnd() ** 3.2
+    const big = 0.2 + 2.2 * rnd() ** 2.6
     const flat = rnd() < 0.5 ? 0.45 + rnd() * 0.2 : 0.7 + rnd() * 0.25 // 板状の岩と、塊の岩
     place(x, z, big, flat)
     // かけら：親が大きいほど多く、下り坂の方へ
     const n = normalAt(f, x, z)
     const downX = n.x
     const downZ = n.z
-    const kids = 3 + Math.floor(rnd() * 6 + big * 5)
+    const kids = 4 + Math.floor(rnd() * 8 + big * 9)
     for (let c = 0; c < kids; c++) {
       const r = (0.6 + big * 1.6) * Math.sqrt(-2 * Math.log(1 - rnd() * 0.98)) * 0.8
       const a = rnd() * 6.28
       const cx = x + Math.cos(a) * r + downX * r * 1.5
       const cz = z + Math.sin(a) * r + downZ * r * 1.5
-      if (rnd() > 0.25 + pAt(cx, cz)) continue
+      if (rnd() > 0.4 + pAt(cx, cz)) continue
       const s = big * (0.12 + 0.45 * rnd() ** 1.8)
       place(cx, cz, Math.max(0.06, s), flat * (0.9 + rnd() * 0.2))
     }
@@ -104,7 +105,7 @@ export function ruleRocks(f: Field, avoid: Spot[] = [], seed = 9): Rock[] {
   // 小石：岩の出やすい所に細かく
   let pebbles = 0
   tries = 0
-  while (pebbles < 9000 && tries < 900000) {
+  while (pebbles < 14000 && tries < 1400000) {
     tries++
     const x = (rnd() * 2 - 1) * AREA
     const z = (rnd() * 2 - 1) * AREA
@@ -112,7 +113,72 @@ export function ruleRocks(f: Field, avoid: Spot[] = [], seed = 9): Rock[] {
     pebbles++
     place(x, z, 0.05 + 0.18 * rnd() ** 2, 0.6 + rnd() * 0.3)
   }
+  // 岩盤の板：平らな所のところどころで、割れた板状の岩盤が砂からのぞく（タイルを敷いたように並ぶ）
+  const fbmMask = (x: number, z: number) => Math.sin(x * 0.031 + Math.sin(z * 0.023) * 2) * Math.sin(z * 0.027 + Math.sin(x * 0.019) * 2)
+  let patches = 0
+  tries = 0
+  while (patches < 70 && tries < 20000) {
+    tries++
+    const cx = (rnd() * 2 - 1) * AREA
+    const cz = (rnd() * 2 - 1) * AREA
+    if (fbmMask(cx, cz) < 0.25 || normalAt(f, cx, cz).y < 0.97 || blocked(avoid, cx, cz)) continue
+    patches++
+    const R = 4 + rnd() * 9
+    const cell = 1.3 + rnd() * 0.9
+    const yaw = rnd() * 6.28
+    const ca = Math.cos(yaw)
+    const sa = Math.sin(yaw)
+    for (let gx = -R; gx <= R; gx += cell)
+      for (let gz = -R; gz <= R; gz += cell) {
+        const fall = Math.hypot(gx, gz) / R
+        if (fall > 1 || rnd() < fall * 0.8) continue
+        const lx = gx + (rnd() - 0.5) * cell * 0.3
+        const lz = gz + (rnd() - 0.5) * cell * 0.3
+        const x = cx + lx * ca - lz * sa
+        const z = cz + lx * sa + lz * ca
+        if (Math.abs(x) > AREA || Math.abs(z) > AREA || blocked(avoid, x, z)) continue
+        const n = normalAt(f, x, z)
+        const s = cell * (0.42 + rnd() * 0.12)
+        const sy = 0.22 + rnd() * 0.12
+        out.push({ x, y: heightAt(f, x, z) - s * sy * (0.45 + fall * 0.4), z, s, sy, yaw: yaw + (rnd() - 0.5) * 0.25, nx: n.x * 0.8 + (rnd() - 0.5) * 0.08, nz: n.z * 0.8 + (rnd() - 0.5) * 0.08, v: 1, tone: 0.85 + rnd() * 0.3, kind: 1 })
+      }
+  }
   return out
+}
+
+/** 岩のまわりの地面：根元の暗さ（接地の影）と、風下にできる砂の尾。格子ごとに 0〜1 */
+export function rockContact(rocks: Rock[]) {
+  const occ = new Float32Array(N * N)
+  const tail = new Float32Array(N * N)
+  const WX = 0.8
+  const WZ = 0.6 // 風の向き（風下）
+  for (const r of rocks) {
+    if (r.s < 0.12) continue
+    const reach = r.s * 1.5
+    const len = r.kind === 1 ? 0 : r.s * 4.5
+    const ext = Math.max(reach, len) + CELL
+    const i0 = Math.max(0, Math.floor((r.x - ext + HALF) / CELL))
+    const i1 = Math.min(N - 1, Math.ceil((r.x + ext + HALF) / CELL))
+    const j0 = Math.max(0, Math.floor((r.z - ext + HALF) / CELL))
+    const j1 = Math.min(N - 1, Math.ceil((r.z + ext + HALF) / CELL))
+    for (let j = j0; j <= j1; j++)
+      for (let i = i0; i <= i1; i++) {
+        const dx = i * CELL - HALF - r.x
+        const dz = j * CELL - HALF - r.z
+        const d = Math.hypot(dx, dz) / reach
+        const k = j * N + i
+        if (d < 1) occ[k] = Math.min(1, occ[k] + (1 - d) * (1 - d) * (r.kind === 1 ? 0.5 : 1))
+        if (len > 0) {
+          const along = dx * WX + dz * WZ
+          const side = Math.abs(-dx * WZ + dz * WX)
+          if (along > 0 && along < len) {
+            const wdt = r.s * 0.7 * (1 - along / len)
+            if (side < wdt) tail[k] = Math.max(tail[k], (1 - side / wdt) * (1 - along / len) * 1.2)
+          }
+        }
+      }
+  }
+  return { occ, tail }
 }
 
 /** 岩の形：細かく分けた多面体を、大小の凹凸で崩す。底は平たく（地面に埋まる側） */
@@ -121,16 +187,16 @@ export function labRockGeometry(seed: number, slab: boolean) {
   const p = geo.attributes.position as THREE.BufferAttribute
   const rnd = seeded(seed)
   // ランダムな向きの平面で何回か削って、割れた面を作る
-  const cuts = Array.from({ length: 7 }, () => {
+  const cuts = Array.from({ length: 10 }, () => {
     const v = new THREE.Vector3(rnd() * 2 - 1, rnd() * 2 - 1, rnd() * 2 - 1).normalize()
-    return { v, d: 0.62 + rnd() * 0.3 }
+    return { v, d: 0.5 + rnd() * 0.35 }
   })
   const v = new THREE.Vector3()
   const ph = [rnd() * 10, rnd() * 10, rnd() * 10]
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i)
     // 大きなゆがみ＋小さなでこぼこ
-    const bump = 1 + 0.16 * Math.sin(v.x * 2.1 + ph[0]) * Math.sin(v.y * 2.7 + ph[1]) + 0.05 * Math.sin(v.z * 7.3 + ph[2]) * Math.sin(v.x * 6.1)
+    const bump = 1 + 0.1 * Math.sin(v.x * 2.1 + ph[0]) * Math.sin(v.y * 2.7 + ph[1]) + 0.05 * Math.sin(v.z * 7.3 + ph[2]) * Math.sin(v.x * 6.1)
     v.multiplyScalar(bump)
     for (const c of cuts) {
       const d = v.dot(c.v)
