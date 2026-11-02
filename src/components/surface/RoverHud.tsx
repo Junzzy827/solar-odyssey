@@ -149,8 +149,8 @@ export function RoverMap() {
     cx = 0
     cz = 0
     k = (R * 1.04) / V
-    gridStep = 500
-    label = `${(R * 2) / 1000} km`
+    gridStep = R >= 1000 ? 500 : 100
+    label = R * 2 >= 1000 ? `${(R * 2) / 1000} km` : `${R * 2} m`
   } else if (wide) {
     cx = hud.x
     cz = hud.z

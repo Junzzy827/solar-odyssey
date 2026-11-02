@@ -507,8 +507,13 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const wide = isWide(terrain)
   // 広い天体：ローバーのまわりのタイルと、作り直す粗い地面（軽くするときはタイルを減らし、間隔を広く）
   const world = useMemo(
-    () => (wide ? new WideWorld(terrain, light ? { n: 3, step: 2, rocks: 70 } : { n: 5, step: 1, rocks: 110 }) : null),
-    [terrain, wide, light],
+    () => {
+      if (!wide) return null
+      // 岩の数は天体ごとの岩の多さ（火星 0.85 で 1 枚 110 個）に合わせる
+      const k = def.relief.rocks / 0.85
+      return new WideWorld(terrain, light ? { n: 3, step: 2, rocks: Math.round(70 * k) } : { n: 5, step: 1, rocks: Math.round(110 * k) })
+    },
+    [terrain, wide, light, def.relief.rocks],
   )
   useEffect(() => {
     wideNow.world = world

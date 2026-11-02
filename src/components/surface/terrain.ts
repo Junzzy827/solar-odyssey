@@ -86,16 +86,10 @@ export class Terrain {
     this.dem = dem
     const rnd = seeded(this.seed + 7)
     const n = dem ? 0 : Math.round(def.relief.craters * 260)
-    for (let i = 0; i < n; i++) {
-      // 小さいクレーターほど多い（べき分布）
-      const r = Math.max(2.5, def.relief.craterMax * rnd() ** 3.2)
-      const ang = rnd() * Math.PI * 2
-      const dist = Math.sqrt(rnd()) * 2200
-      const x = Math.cos(ang) * dist
-      const z = Math.sin(ang) * dist
+    const add = (r: number, x: number, z: number) => {
       // 立つ場所と着陸船の下には大きなクレーターを置かない
       const clear = Math.min(Math.hypot(x, z), Math.hypot(x - LANDER_POS.x, z - LANDER_POS.y))
-      if (clear < r * 1.6 + 20) continue
+      if (clear < r * 1.6 + 20) return
       const c = { x, z, r }
       this.craters.push(c)
       const reach = r * 3
@@ -107,6 +101,23 @@ export class Terrain {
           else this.grid.set(key, [c])
         }
       }
+    }
+    for (let i = 0; i < n; i++) {
+      // 小さいクレーターほど多い（べき分布）
+      const r = Math.max(2.5, def.relief.craterMax * rnd() ** 3.2)
+      const ang = rnd() * Math.PI * 2
+      const dist = Math.sqrt(rnd()) * 2200
+      add(r, Math.cos(ang) * dist, Math.sin(ang) * dist)
+    }
+    // ローバーで走れる範囲（3 km 四方）と、その先に見える所にも、同じ密度でクレーターを足す（2.2〜4.2 km の輪）。
+    // 着陸地点のまわりの並びは今までと同じ
+    const rnd2 = seeded(this.seed + 8)
+    const n2 = Math.round(n * ((4200 / 2200) ** 2 - 1))
+    for (let i = 0; i < n2; i++) {
+      const r = Math.max(2.5, def.relief.craterMax * rnd2() ** 3.2)
+      const ang = rnd2() * Math.PI * 2
+      const dist = Math.sqrt(2200 ** 2 + rnd2() * (4200 ** 2 - 2200 ** 2))
+      add(r, Math.cos(ang) * dist, Math.sin(ang) * dist)
     }
     this.settle()
   }
@@ -182,7 +193,8 @@ export class Terrain {
       h += crack * 0.6
     }
     const r = Math.hypot(x, z)
-    if (R.mountains) h += smooth(900, 2600, r) * fbm(x / 700, z / 700, s + 77, 4) ** 1.6 * R.mountains * 2.2
+    // 遠くの山並み。ローバーで走れる範囲（着陸地点から 1.5 km）の外から立ち上がる
+    if (R.mountains) h += smooth(1700, 3300, r) * fbm(x / 700, z / 700, s + 77, 4) ** 1.6 * R.mountains * 2.2
     if (raw) return { h, ejecta, crack }
     const a = 1 - smooth(4, 12, Math.hypot(x, z))
     const b = 1 - smooth(14, 30, Math.hypot(x - LANDER_POS.x, z - LANDER_POS.y))

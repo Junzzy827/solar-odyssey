@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { Rock, Terrain } from './terrain'
 
-// 広い範囲を走れる天体（いまは火星）の地面。
+// 広い範囲を走れる天体の地面（火星から始めて、いまはすべての天体）。
 //  ・ローバーのまわりだけ、64 m 四方のタイルで細かく作る（ふつう 5×5 枚＝320 m 四方、1 m 間隔）。
 //    ローバーが真ん中のタイルから出ると、足りないタイルを 1 フレームに少しずつ作り、そろったら一度に入れ替える。
 //  ・その外は今までの円形の粗い地面。ローバーが 400 m 以上離れたら、ローバーのそばを中心に作り直す（これも少しずつ）。
@@ -16,11 +16,20 @@ const RECENTER = 400
 /** タイルの下に沈める粗い地面の、タイルのふちからの余白（粗い格子の 1 マスより広く） */
 const HOLE_MARGIN = 16
 
-/** 広い範囲を走れる天体か：細かい本物の地形がある火星 */
-export const isWide = (terrain: Terrain) => !!terrain.dem && terrain.def.id === 'mars'
+/**
+ * 走れる範囲（正方形の半分の幅、m）。ふつうは 1.5 km。とても小さな星（フォボス・ダイモス）は、
+ * 遠くへ行くほど地面が丸みで傾いていく（重力は真下のまま）ので、傾きが 3° 以内に収まる広さまで
+ */
+export function wideRange(terrain: Terrain) {
+  const byCurve = Math.floor((terrain.radiusM * 0.05) / 50) * 50
+  return Math.max(100, Math.min(WIDE_RANGE, byCurve))
+}
+
+/** 広い範囲を走れる天体か（ローバーのまわりをタイルで作る）。いまはすべての天体 */
+export const isWide = (terrain: Terrain) => wideRange(terrain) > 100
 
 /** 走れる範囲 */
-export const roverRangeFor = (terrain: Terrain, base: number) => (isWide(terrain) ? WIDE_RANGE : base)
+export const roverRangeFor = (terrain: Terrain, base: number) => (isWide(terrain) ? wideRange(terrain) : base)
 
 /** 当たり判定の岩。t：岩のてっぺんの高さ（世界の y）、h：地面からの高さ */
 export type RockBody = { id: number; x: number; z: number; r: number; h: number; t: number }
