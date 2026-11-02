@@ -13,6 +13,9 @@ import { formatDate, simDate, SIM_SECONDS_PER_HOUR } from '../data/ephemeris'
 import { closeMissions, openMissions, useMission } from '../state/mission'
 import { closeEclipses, openEclipses, useEclipse } from '../state/eclipse'
 import { openStamps, useStamps } from '../state/stamps'
+import { openRocks, useRockBook } from '../state/rockBook'
+import { ROCK_TOTAL, rockCount } from '../data/rockCollection'
+import { useSampleLog } from '../state/rover'
 import { NATURAL } from '../data/stamps'
 import { ui } from '../i18n'
 import { ShipSection } from './ShipPicker'
@@ -319,6 +322,8 @@ export function NavPanel() {
   const probesOpen = useProbes((p) => p.open)
   const eclipsesOpen = useEclipse((e) => e.open)
   const stampsOpen = useStamps((b) => b.open)
+  const rocksOpen = useRockBook((r) => r.open)
+  const rocksGot = useSampleLog((l) => rockCount(l.log))
   const stampCount = useStamps((b) => NATURAL.filter((id) => id in b.stamps).length)
   const missionPhase = useMission((m) => m.phase)
   const onMission = missionPhase === 'active'
@@ -438,6 +443,9 @@ export function NavPanel() {
       </button>
       <button className={`secondary stamp-start${stampsOpen ? ' on' : ''}`} onClick={() => (pick(), openStamps())}>
         {t('訪問スタンプ帳', 'Stamp book')} <span className="muted">{stampCount}/{NATURAL.length}</span>
+      </button>
+      <button className={`secondary rock-start${rocksOpen ? ' on' : ''}`} onClick={() => (pick(), openRocks())}>
+        {t('岩石コレクション', 'Rock collection')} <span className="muted">{rocksGot}/{ROCK_TOTAL}</span>
       </button>
       <button className={`secondary probe-start${probesOpen ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), openProbes())} disabled={busy}>
         {t('探査機の旅（ボイジャーなど）', 'Probe journeys (Voyager and more)')}
