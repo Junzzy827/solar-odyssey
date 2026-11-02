@@ -95,6 +95,16 @@ function facing(from: THREE.Vector3, to: THREE.Vector3, upRef: THREE.Vector3) {
   return qLook.setFromRotationMatrix(look)
 }
 
+/** 影を使わない画質で、影の地図を描き直す間隔（秒） */
+const SHADOW_REFRESH = 2
+
+/** 光の影の地図（深さのテクスチャ）が、今の GPU に載っているか */
+function shadowMapReady(gl: THREE.WebGLRenderer, light: THREE.SpotLight) {
+  const depth = light.shadow.map?.depthTexture
+  if (!depth) return false
+  return (gl.properties.get(depth) as { __webglTexture?: WebGLTexture }).__webglTexture !== undefined
+}
+
 export function Ship() {
   const group = useRef<THREE.Group>(null!)
   const bank = useRef<THREE.Group>(null!)
@@ -105,7 +115,10 @@ export function Ship() {
   // 影を使わない画質でも、影の地図は一度だけ描いておく。一度も描かないと影の地図（深さのテクスチャ）が作られず、
   // 影を受ける材質の描画が GPU に断られて、船体などが消えてしまう（光るナセルだけが残る）
   useEffect(() => {
-    if (shadowSize === 0 && sunSpot.current) sunSpot.current.shadow.needsUpdate = true
+    if (!sunSpot.current) return
+    // 影の細かさが変わると光を作り直すので、照らす先（自機）も付け直す（付け直さないと太陽の方を向いてしまう）
+    sunSpot.current.target = group.current
+    if (shadowSize === 0) sunSpot.current.shadow.needsUpdate = true
   }, [shadowSize])
 
   // 周回待機：天体と一緒に動く（ワープ到着や自動航行の後）
@@ -114,6 +127,7 @@ export function Ship() {
   const telemetryClock = useRef(0)
   // 太陽の方向から自機だけを照らして影を落とす光（惑星には届かない狭い円錐）
   const sunSpot = useRef<THREE.SpotLight>(null!)
+  const shadowRefresh = useRef(0)
   // 輪郭を立たせる弱い逆光（カメラから見て船の向こう側から、青白く）
   const rimSpot = useRef<THREE.SpotLight>(null!)
   const prevTarget = useRef<{ id: string; pos: THREE.Vector3 } | null>(null)
@@ -432,6 +446,18 @@ export function Ship() {
     sunSpot.current.position.copy(ship.position).addScaledVector(v.normalize(), 2 * zoomIn)
     // 影を落とす光も、船と一緒に縮める
     const spot = sunSpot.current
+    // 影を使わない画質では影の地図を描き直さないので、地図（深さのテクスチャ）が GPU から消えていたら一度だけ描き直す。
+    // 地表から戻ったとき（スマホ・タブレットは地表にいるあいだ GPU のメモリを空ける）や、GPU が描画をやり直したとき、
+    // 画質が地表で切り替わって光が作り直されたときなどに、地図が無いまま影を受ける材質を描こうとすると、
+    // GPU に断られて船体が消える（光る部分だけが残る）
+    // 念のため、そのほかの理由で地図が使えなくなっていても戻るよう、2 秒に一度は描き直す（16 ピクセル四方なので軽い）
+    if (!spot.shadow.autoUpdate) {
+      shadowRefresh.current -= dt
+      if (shadowRefresh.current <= 0 || !shadowMapReady(gl, spot)) {
+        spot.shadow.needsUpdate = true
+        shadowRefresh.current = SHADOW_REFRESH
+      }
+    }
     if (spot.distance !== 4 * zoomIn) {
       spot.distance = 4 * zoomIn
       spot.shadow.camera.near = zoomIn

@@ -25,8 +25,8 @@ export function SurfaceMemory() {
     const geometries = new Set<THREE.BufferGeometry>()
     const addTex = (v: unknown) => {
       const t = v as THREE.Texture | null
-      // 描き込み先（後処理・影・映りこみ）のテクスチャは、持ち主の RenderTarget が管理するので触らない
-      if (t?.isTexture && !(t as THREE.Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture) textures.add(t)
+      // 描き込み先（後処理・影・映りこみ）のテクスチャと影の深さのテクスチャは、持ち主の RenderTarget が管理するので触らない
+      if (t?.isTexture && !(t as THREE.Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture && !(t as THREE.DepthTexture).isDepthTexture) textures.add(t)
     }
     addTex(scene.background)
     scene.traverse((o) => {
