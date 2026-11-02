@@ -38,8 +38,8 @@ function poleOf(id: string) {
 /** 太陽の方向（2026 年 10 月末：黄経およそ 218°） */
 const SUN_APP = ecl(218, 0)
 
-/** 時間の速さ（1 秒に進む時間）。'day' は 1 日を 1 分で */
-export type TimeRate = 0 | 1 | 'day'
+/** 時間の速さ（1 秒に進む時間）。0.1 は 1 秒で 6 分。'day' は 1 日を 1 分で */
+export type TimeRate = 0 | 0.1 | 'day'
 
 type ClockState = {
   rate: TimeRate
@@ -55,7 +55,7 @@ type ClockState = {
 }
 
 export const useSkyClock = create<ClockState>((set) => ({
-  rate: 1,
+  rate: 0.1,
   hours: 0,
   clock: 9,
   bodyLit: 0,
@@ -68,7 +68,8 @@ export const useSkyClock = create<ClockState>((set) => ({
 export function hoursPerSecond(rate: TimeRate, id: string) {
   if (rate === 0) return 0
   if (rate === 'day') return Math.abs(dayHours(id)) / 60
-  return 1
+  // 数のときは、そのまま 1 秒に進む時間（動作確認の道具から rate: 1 を入れれば、前と同じ 1 秒 = 1 時間になる）
+  return rate
 }
 
 /** その天体の空の回り方 */

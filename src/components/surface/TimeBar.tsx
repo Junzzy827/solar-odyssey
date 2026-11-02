@@ -147,7 +147,7 @@ function DayGraph({ p, clock, extraLux, dim = 1 }: { p: DayProfile; clock: numbe
 
 const RATES: { r: TimeRate; ja: string; en: string }[] = [
   { r: 0, ja: '止める', en: 'Pause' },
-  { r: 1, ja: '1秒=1時間', en: '1 s = 1 h' },
+  { r: 0.1, ja: '1秒=6分', en: '1 s = 6 min' },
   { r: 'day', ja: '1日を1分で', en: '1 day / min' },
 ]
 

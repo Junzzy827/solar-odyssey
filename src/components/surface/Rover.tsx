@@ -265,8 +265,18 @@ function landerFeet(yaw: number) {
   ].map(([x, z]) => new THREE.Vector2(LANDER_POS.x + x * c + z * s, LANDER_POS.y - x * s + z * c))
 }
 
-/** これより高い岩は乗り越えられない（m） */
-const BIG_ROCK = 0.42
+/** これより高い岩は乗り越えられない（m）。6 輪のロッカー・ボギーなので、車輪の直径の倍よりも高い岩まで登れる */
+const BIG_ROCK = 1.1
+/** これより高い岩は、まるい丘として車輪で乗り上げる（m）。低い岩は、車輪が当たってぴょんと跳ねるだけ */
+const CLIMB_ROCK = 0.15
+/** 車輪の位置（前後, 左右）。前後は ±0.72、左右は ±0.5 */
+const WHEELS: [number, number][] = [
+  [0.72, -0.5], [0.72, 0.5],
+  [0, -0.5], [0, 0.5],
+  [-0.72, -0.5], [-0.72, 0.5],
+]
+/** 車体の腹の高さ（車輪の下から）。車輪のあいだの岩も、これより高ければ車体を持ち上げる */
+const BELLY = 0.38
 const CELL = 5
 
 /** t：岩のてっぺんの高さ（世界の y） */
@@ -296,16 +306,66 @@ const nearOut: RockBody[] = []
 const siteBody: RockBody = { id: 0, x: 0, z: 0, r: 0, h: 0, t: 0 }
 const siteBodies: RockBody[] = []
 /** (x, z) のまわりの岩（採集用の岩も、まだ採っていなければ小石として入れる） */
-/** 大きな岩の上に乗ったときの地面の高さ（岩をまるい丘とみなす）。岩の外なら base のまま */
-function onBigRocks(grid: RockGrid, x: number, z: number, base: number) {
+/** 岩をまるい丘とみなしたときの、丘の広さ。高い岩ほど裾を広くして、なだらかに登る */
+const hillR = (r: RockBody) => r.r + 0.3 + 0.25 * r.h
+
+/** 岩の上に乗ったときの地面の高さ（岩をまるい丘とみなす）。岩の外なら base のまま */
+function onRocks(rocks: RockBody[], x: number, z: number, base: number) {
   let y = base
-  for (const r of nearRocks(grid, x, z)) {
-    if (r.h < BIG_ROCK) continue
-    const R = r.r + 0.3
+  for (const r of rocks) {
+    const R = hillR(r)
     const d = Math.hypot(x - r.x, z - r.z)
     if (d < R) y = Math.max(y, r.t - r.h * (d / R) ** 2)
   }
   return y
+}
+
+const climbOut: RockBody[] = []
+/**
+ * (x, z) のまわりの、乗り上げる岩（CLIMB_ROCK より高い岩）。
+ * 乗り越えられない大岩は、跳んで上に乗ったとき（車体 y が岩の根もとより十分高いとき）だけ入れる。
+ * 下から近づくときに入れると、ぶつかって止まった大岩に前輪が登ってしまう
+ */
+function climbRocks(grid: RockGrid, x: number, z: number, y: number) {
+  climbOut.length = 0
+  for (const r of nearRocks(grid, x, z)) {
+    if (r.h < CLIMB_ROCK || Math.hypot(x - r.x, z - r.z) > hillR(r) + 1) continue
+    if (r.h >= BIG_ROCK && y < r.t - r.h + 0.3) continue
+    climbOut.push(r)
+  }
+  return climbOut
+}
+
+const wheelH = new Float32Array(6)
+/**
+ * 岩に乗り上げて、車体がどれだけ持ち上がるか（m）と、6 つの車輪の下の高さ（wheelH）。
+ * 今のかたむき（tanP：前が上がる向き、tanR：右が上がる向き）のまま、どの車輪も岩にめり込まない高さまで車体を上げる。
+ * 岩の無い地面だけで同じように測った高さとの差なので、岩が無ければ 0（地面の上の動きは今までどおり）
+ */
+function rockLift(
+  grid: RockGrid, terrain: Terrain, x: number, z: number, y: number,
+  fx: number, fz: number, tanP: number, tanR: number,
+) {
+  const rocks = climbRocks(grid, x, z, y)
+  const sx = -fz
+  const sz = fx
+  let withRocks = -Infinity
+  let bare = -Infinity
+  for (let i = 0; i < 6; i++) {
+    const [wf, sd] = WHEELS[i]
+    const wx = x + fx * wf + sx * sd
+    const wz = z + fz * wf + sz * sd
+    const m = meshHeight(terrain, wx, wz)
+    const h = rocks.length ? onRocks(rocks, wx, wz, m) : m
+    wheelH[i] = h
+    const off = wf * tanP + sd * tanR
+    withRocks = Math.max(withRocks, h - off)
+    bare = Math.max(bare, m - off)
+  }
+  if (!rocks.length) return 0
+  // 車輪のあいだの岩：腹がこすらない高さまで
+  withRocks = Math.max(withRocks, onRocks(rocks, x, z, -Infinity) - BELLY)
+  return Math.max(0, withRocks - bare)
 }
 
 function nearRocks(grid: RockGrid, x: number, z: number, sites?: { x: number; z: number; size: number }[], taken?: Set<number>) {
@@ -631,7 +691,10 @@ export function Rover({
         }
       }
       inp.jump = false
-      const prevGround = onBigRocks(bodies, s.x, s.z, meshHeight(terrain, s.x, s.z))
+      const tanP = Math.tan(s.pitch)
+      const tanR = Math.tan(s.roll)
+      const prevBase = meshHeight(terrain, s.x, s.z)
+      const prevLift = rockLift(bodies, terrain, s.x, s.z, s.y, fwd.x, fwd.z, tanP, tanR)
       let nx = s.x + fwd.x * s.speed * dt
       let nz = s.z + fwd.z * s.speed * dt
       // 範囲の端と、着陸船の脚
@@ -643,7 +706,7 @@ export function Rover({
       }
       const atEdge = roverNow() - s.edgeT < 2.5
       if (atEdge !== useRover.getState().edge) useRover.setState({ edge: atEdge })
-      // 大きな岩は走っては乗り越えられない（ぶつかって止まる）。ジャンプで岩のてっぺんより高く跳んでいれば越えられる
+      // とても大きな岩（BIG_ROCK より高い）は走っては乗り越えられない（ぶつかって止まる）。ジャンプで岩のてっぺんより高く跳んでいれば越えられる
       for (const r of nearRocks(bodies, nx, nz)) {
         if (r.h < BIG_ROCK || s.y > r.t - 0.12 || Math.hypot(s.x - r.x, s.z - r.z) < r.r + 0.3) continue
         const dx = nx - r.x
@@ -669,9 +732,12 @@ export function Rover({
       }
       s.x = nx
       s.z = nz
-      // 地面（大きな岩の上に乗っていれば、岩のてっぺん）
-      const ground = onBigRocks(bodies, s.x, s.z, meshHeight(terrain, s.x, s.z))
-      const groundVy = (ground - prevGround) / Math.max(dt, 1e-3)
+      // 地面（岩に乗り上げていれば、そのぶん持ち上がる）
+      const base = meshHeight(terrain, s.x, s.z)
+      const lift = rockLift(bodies, terrain, s.x, s.z, s.y, fwd.x, fwd.z, tanP, tanR)
+      const ground = base + lift
+      // 地面の起伏の速さ。岩に乗り上げるぶんは入れない（車輪とサスペンションが受け止めるので、岩で上に飛ばされない）
+      const groundVy = (base - prevBase) / Math.max(dt, 1e-3)
       // 縦の動き：地面が落ちていく速さより遅く落ちれば宙に浮く（坂の頂上で飛び出す）
       s.vy -= g * dt
       s.y += s.vy * dt
@@ -685,15 +751,23 @@ export function Rover({
           s.burst = Math.min(1, impact / 5)
         }
         s.grounded = true
+      } else if (!wasAir && s.vy < 1 && prevLift > lift && s.y - ground < prevLift - lift + 0.05) {
+        // 岩から降りるときは、車輪が岩をなぞって下りる（岩のてっぺんから飛び出さない）
+        s.y = ground
+        s.vy = Math.min(s.vy, 0)
+        s.grounded = true
       } else s.grounded = s.y - ground < 0.03
-      // 地面の傾き（前後・左右の 4 点）
+      // 岩に登るぶん、少し遅くなる
+      if (s.grounded && lift > prevLift) s.speed *= 1 - Math.min(0.1, (lift - prevLift) * 0.3)
+      // 地面の傾き（6 つの車輪の下の高さ。岩に乗っていれば、岩の上の高さ）
       const sideX = -fwd.z
       const sideZ = fwd.x
       if (s.grounded) {
-        const hF = meshHeight(terrain, s.x + fwd.x * 0.72, s.z + fwd.z * 0.72)
-        const hB = meshHeight(terrain, s.x - fwd.x * 0.72, s.z - fwd.z * 0.72)
-        const hR = meshHeight(terrain, s.x + sideX * 0.5, s.z + sideZ * 0.5)
-        const hL = meshHeight(terrain, s.x - sideX * 0.5, s.z - sideZ * 0.5)
+        // wheelH は、いま測った rockLift の車輪の下の高さ
+        const hF = (wheelH[0] + wheelH[1]) / 2
+        const hB = (wheelH[4] + wheelH[5]) / 2
+        const hR = (wheelH[1] + wheelH[3] + wheelH[5]) / 3
+        const hL = (wheelH[0] + wheelH[2] + wheelH[4]) / 3
         const k = Math.min(1, dt * 14)
         s.pitch += (Math.atan2(hF - hB, 1.44) - s.pitch) * k
         s.roll += (Math.atan2(hR - hL, 1.0) - s.roll) * k
@@ -702,27 +776,35 @@ export function Rover({
         s.pitch += (Math.min(0.25, Math.max(-0.35, s.vy * 0.04)) - s.pitch) * Math.min(1, dt * 1.2)
         s.roll *= 1 - Math.min(1, dt * 1.5)
       }
-      // 小さな岩：車輪が乗り上げると、ぴょんと跳ねる（速いほど、岩が高いほど高く）。かたむきも少し
+      // 小さな岩：車輪が乗り上げると、ぴょんと跳ねる（速いほど、岩が高いほど高く。でも飛び上がるほどではない）。かたむきも少し
+      // 丘として登る岩（CLIMB_ROCK より高い）は、車輪が触れたときに車体が少し沈んで、ことんと揺れるだけ
       s.bumpT += dt
       if (s.grounded && Math.abs(s.speed) > 0.6) {
-        hit: for (const wf of [0.72, 0, -0.72]) {
-          for (const sd of [-0.5, 0.5]) {
-            const wx = s.x + fwd.x * wf + sideX * sd
-            const wz = s.z + fwd.z * wf + sideZ * sd
-            for (const r of nearRocks(bodies, wx, wz, sites, taken.current)) {
-              if (r.h >= BIG_ROCK || (r.id === s.bumpRock && s.bumpT < 0.6)) continue
-              if (Math.hypot(wx - r.x, wz - r.z) > r.r * 0.85 + 0.08) continue
-              const kick = Math.min(5, r.h * (2.4 + Math.abs(s.speed) * 0.45))
-              if (kick < 0.25) continue
-              s.vy = Math.max(s.vy, kick)
-              s.grounded = false
-              s.roll += sd * 2 * Math.min(0.35, r.h * 0.9) * (1 - Math.abs(wf))
-              s.pitch += Math.sign(wf) * Math.min(0.3, r.h * 0.7) * Math.sign(s.speed)
-              s.squashV = Math.min(s.squashV, -0.3 - r.h)
+        hit: for (const [wf, sd] of WHEELS) {
+          const wx = s.x + fwd.x * wf + sideX * sd
+          const wz = s.z + fwd.z * wf + sideZ * sd
+          for (const r of nearRocks(bodies, wx, wz, sites, taken.current)) {
+            if (r.h >= BIG_ROCK || (r.id === s.bumpRock && s.bumpT < 0.6)) continue
+            if (r.h >= CLIMB_ROCK && r.id > -10) {
+              if (Math.hypot(wx - r.x, wz - r.z) > hillR(r) * 0.8) continue
+              s.squashV = Math.min(s.squashV, -0.15 - 0.2 * r.h)
+              s.pitch += Math.sign(wf) * Math.min(0.06, r.h * 0.06) * Math.sign(s.speed)
+              s.speed *= 1 - Math.min(0.12, 0.1 * r.h)
               s.bumpRock = r.id
               s.bumpT = 0
               break hit
             }
+            if (Math.hypot(wx - r.x, wz - r.z) > r.r * 0.85 + 0.08) continue
+            const kick = Math.min(1.2, Math.min(0.3, r.h) * (2.2 + Math.abs(s.speed) * 0.25))
+            if (kick < 0.25) continue
+            s.vy = Math.max(s.vy, kick)
+            s.grounded = false
+            s.roll += sd * 2 * Math.min(0.35, r.h * 0.9) * (1 - Math.abs(wf))
+            s.pitch += Math.sign(wf) * Math.min(0.3, r.h * 0.7) * Math.sign(s.speed)
+            s.squashV = Math.min(s.squashV, -0.3 - r.h)
+            s.bumpRock = r.id
+            s.bumpT = 0
+            break hit
           }
         }
       }
