@@ -24,6 +24,7 @@ import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
 import { ThrottleMeter } from './Throttle'
 import { toggleObserve, useObserve } from '../state/observe'
+import { startEva } from '../state/eva'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -431,6 +432,9 @@ export function NavPanel() {
       </button>
       <button className={`secondary quiz-start${quizOpen ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), startQuiz())} disabled={racing}>
         {t(`連続クイズ（${QUIZ_LENGTH}問）`, `Quiz run (${QUIZ_LENGTH} questions)`)}
+      </button>
+      <button className="secondary eva-start" onClick={() => (pick(), closeEclipses(), startEva())} disabled={busy || racing || s.mode !== 'flight'}>
+        {t('船外活動（ロボット「ツムギ」を出す）', 'Spacewalk (send out the Tsumugi robot)')} <kbd>K</kbd>
       </button>
       <button className={`secondary stamp-start${stampsOpen ? ' on' : ''}`} onClick={() => (pick(), openStamps())}>
         {t('訪問スタンプ帳', 'Stamp book')} <span className="muted">{stampCount}/{NATURAL.length}</span>

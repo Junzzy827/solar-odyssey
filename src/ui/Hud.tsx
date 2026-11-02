@@ -12,6 +12,7 @@ import { launchLander, useLaunchBusy } from '../state/launch'
 import { getLang, t, useLang } from '../i18n/lang'
 import { landableBody, landed, startLanding } from '../state/landing'
 import { toggleObserve } from '../state/observe'
+import { canStartEva, evaActive, startEva } from '../state/eva'
 
 /** 全体のキー操作：M 全体マップ／V 鑑賞モード／Enter ワープ／G 自動航行／C カメラ／1〜9 ワープ速度 */
 export function useGlobalKeys() {
@@ -19,7 +20,7 @@ export function useGlobalKeys() {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.repeat) return
       // 着陸しているあいだは、宇宙の操作を受けつけない
-      if (landed()) return
+      if (landed() || evaActive()) return
       const s = useStore.getState()
       // 望遠鏡の写真を見ているあいだは、T と Esc（閉じる）だけ
       if (s.scope) {
@@ -44,6 +45,10 @@ export function useGlobalKeys() {
       if (e.code === 'KeyT') {
         if (s.scopeNear && !raceActive()) openScope(s.scopeNear)
         else if (s.targetId && isTelescope(s.targetId)) s.showToast(TELESCOPE_TEXT.tooFar(scopeName(s.targetId)))
+        return
+      }
+      if (e.code === 'KeyK') {
+        if (canStartEva(landed())) startEva()
         return
       }
       if (e.code === 'KeyJ') {
