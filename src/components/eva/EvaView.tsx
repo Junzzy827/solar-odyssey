@@ -26,7 +26,7 @@ import { EvaWorld } from './EvaWorld'
 import { EvaJobs } from './EvaJobs'
 import { JOBS, JOB_TYPES, rackRt, useEvaJobs, useEvaLog } from '../../state/evaJobs'
 import { Tsumugi } from './Tsumugi'
-import { HULL_R } from './hull'
+import { ARC_W, HULL_R, SITE_NAME, arcTaper, evaSite } from './hull'
 
 // 船外活動の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 
@@ -128,6 +128,7 @@ function EvaHud() {
   return (
     <div className="eva-hud">
       <div className="eva-badge">EVR-1 TSUMUGI</div>
+      <div className="eva-site">{t(...SITE_NAME[evaSite.id])}</div>
       <div className="eh-speed">
         {hud.speed.toFixed(2)}
         <small> m/s</small>
@@ -170,12 +171,16 @@ function EvaMap() {
   const jobs = useEvaJobs((j) => j.ui.jobs)
   const focus = useEvaJobs((j) => j.ui.focus)
   const H = TETHER_M + 6
-  const halfW = HULL_R * 0.98
+  const site = evaSite.id
+  const halfW = site === 'hull' ? HULL_R * 0.98 : site === 'dock' ? 110 : ARC_W
+  // アルカディアの発進路は前へ行くほど広い
+  const trench = `M ${-ARC_W - arcTaper(-H)} ${-H} L ${ARC_W + arcTaper(-H)} ${-H} L ${ARC_W + arcTaper(H)} ${H} L ${-ARC_W - arcTaper(H)} ${H} Z`
+  const seams = site === 'arcadia' ? [-4.5, 4.5] : [-20, -10, 0, 10, 20]
   return (
     <div className={`eva-map${taut ? ' edge' : ''}`}>
       <svg viewBox={`${-H} ${-H} ${H * 2} ${H * 2}`} aria-label={t('ミニマップ', 'Minimap')}>
-        <rect x={-halfW} y={-H} width={halfW * 2} height={H * 2} className="m-hull" />
-        {[-20, -10, 0, 10, 20].map((x) => (
+        {site === 'arcadia' ? <path d={trench} className="m-hull" /> : <rect x={-halfW} y={-H} width={halfW * 2} height={H * 2} className="m-hull" />}
+        {seams.map((x) => (
           <line key={x} x1={x} y1={-H} x2={x} y2={H} className="m-seam" />
         ))}
         <circle cx={0} cy={0} r={TETHER_M} className="m-range" />
@@ -191,7 +196,7 @@ function EvaMap() {
           <path d="M 0 -4.2 L 2.8 3 L 0 1.6 L -2.8 3 Z" className="m-bot" />
         </g>
       </svg>
-      <span className="m-fwd">{t('船首', 'BOW')} ▲</span>
+      <span className="m-fwd">{site === 'dock' ? t('リングの向き', 'ALONG RING') : t('船首', 'BOW')} ▲</span>
     </div>
   )
 }

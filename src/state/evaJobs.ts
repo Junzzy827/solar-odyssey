@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import * as THREE from 'three'
 import type { EvaTool } from './eva'
-import { HULL_R, hullNormal, hullPoint } from '../components/eva/hull'
+import { evaSite, hullNormal, hullPoint, hullRoll, type EvaSiteId } from '../components/eva/hull'
 
 // 修理ミッション：船外に出るたびに、外壁のあちこちに故障が 3 つ出る（光の柱が目印）。
 // それぞれ 2〜4 手順で、手順ごとに正しいツールに付け替えて E 長押しで作業する。
@@ -108,7 +108,7 @@ export const JOBS: Record<JobType, JobDef> = {
 export type JobSite = { th: number; z: number }
 
 /** 種類ごとの置き場所の候補（手すり・窓・アンテナ・放熱板にかぶらない所） */
-const SITES: Record<JobType, JobSite[]> = {
+const HULL_SITES: Record<JobType, JobSite[]> = {
   hole: [
     { th: 0.16, z: -9 },
     { th: -0.22, z: 7 },
@@ -136,8 +136,74 @@ const SITES: Record<JobType, JobSite[]> = {
   ],
 }
 
-/** 部品棚（エアロックの左） */
-export const RACK: JobSite = { th: -0.13, z: 1.8 }
+/** 平らな場所（th は x の m）。アルカディア：レール（x ±3.7〜5.3）と誘導灯（±7.2）をよけ、壁（±15〜18）の手前 */
+const ARCADIA_SITES: Record<JobType, JobSite[]> = {
+  hole: [
+    { th: 10.5, z: -9 },
+    { th: -11, z: 7 },
+  ],
+  panel: [
+    { th: 1.8, z: -18 },
+    { th: -11.5, z: 19 },
+  ],
+  cable: [
+    { th: 2.2, z: 5 },
+    { th: -2.2, z: -11 },
+  ],
+  antenna: [
+    { th: 11.5, z: -6 },
+    { th: -11.5, z: 28 },
+  ],
+  // 壁ぎわに立てた放熱板（EvaWorld が置く）
+  radiator: [
+    { th: 12.5, z: 13 },
+    { th: -12.5, z: 22 },
+  ],
+  sensor: [
+    { th: -10, z: 13 },
+    { th: 10.5, z: -27 },
+  ],
+}
+
+/** 天の湊のリングの下面（x は外へ向かう m、ふちは ±110） */
+const DOCK_SITES: Record<JobType, JobSite[]> = {
+  hole: [
+    { th: 7, z: -9 },
+    { th: -9, z: 7 },
+  ],
+  panel: [
+    { th: -6, z: -20 },
+    { th: 9, z: 19 },
+  ],
+  cable: [
+    { th: 3, z: 4.5 },
+    { th: -3, z: -11 },
+  ],
+  antenna: [
+    { th: 12, z: -6 },
+    { th: -12, z: 24 },
+  ],
+  radiator: [
+    { th: -14, z: 12 },
+    { th: 14, z: 22 },
+  ],
+  sensor: [
+    { th: -5, z: 13 },
+    { th: 6, z: -27 },
+  ],
+}
+
+const SITE_JOBS: Record<EvaSiteId, { jobs: Record<JobType, JobSite[]>; rack: JobSite }> = {
+  hull: { jobs: HULL_SITES, rack: { th: -0.13, z: 1.8 } },
+  arcadia: { jobs: ARCADIA_SITES, rack: { th: -2.3, z: 2.2 } },
+  dock: { jobs: DOCK_SITES, rack: { th: -3.4, z: 1.8 } },
+}
+
+/** いまの作業場所の、依頼の置き場所の候補 */
+export const jobSites = () => SITE_JOBS[evaSite.id].jobs
+
+/** 放熱板の置き場所（外壁の場面では、もとからある放熱板を使う） */
+export const radiatorFins = () => (evaSite.id === 'hull' ? [] : SITE_JOBS[evaSite.id].jobs.radiator)
 
 /** 種類ごとの、作業する点（局所座標）、近づく向き（局所）、ツムギの上の向き（局所） */
 export function workSpot(type: JobType, site: JobSite) {
@@ -164,7 +230,7 @@ export const RACK_SPOT = { p: new THREE.Vector3(0, 0.62, 0.15), a: new THREE.Vec
 /** 外壁の上の局所座標 → 世界の座標の行列 */
 export function hullFrame(site: JobSite, out = new THREE.Matrix4()) {
   const p = hullPoint(site.th, site.z)
-  return out.makeRotationZ(-site.th).setPosition(p)
+  return out.makeRotationZ(hullRoll(site.th)).setPosition(p)
 }
 
 // ---- 進み具合（毎フレーム書き換えるので React の外） --------------------------------------------
@@ -210,12 +276,19 @@ function makeRt(type: JobType, site: JobSite): JobRt {
   }
 }
 
-export const rackRt = (() => {
-  const m = hullFrame(RACK)
+/** 部品棚（エアロックの左）。作業場所が決まったら置き直す */
+export const rackRt = { site: { th: -0.13, z: 1.8 } as JobSite, P: new THREE.Vector3(), A: new THREE.Vector3(), U: new THREE.Vector3() }
+
+function placeRack() {
+  const site = SITE_JOBS[evaSite.id].rack
+  const m = hullFrame(site)
   const q = new THREE.Quaternion().setFromRotationMatrix(m)
-  return { P: RACK_SPOT.p.clone().applyMatrix4(m), A: RACK_SPOT.a.clone().applyQuaternion(q), U: hullNormal(RACK.th) }
-})()
-void HULL_R
+  rackRt.site = site
+  rackRt.P.copy(RACK_SPOT.p).applyMatrix4(m)
+  rackRt.A.copy(RACK_SPOT.a).applyQuaternion(q)
+  hullNormal(site.th, rackRt.U)
+}
+placeRack()
 
 // ---- ツムギとのやりとり（Tsumugi が書く：ツールの先・体。EvaJobs が書く：寄せる先・作業中か） ----------
 
@@ -302,8 +375,9 @@ export function newShift(rnd = Math.random) {
   const fresh = JOB_TYPES.filter((t) => !log[t]).sort(() => rnd() - 0.5)
   const old = JOB_TYPES.filter((t) => log[t]).sort(() => rnd() - 0.5)
   const types = [...fresh, ...old].slice(0, 3)
+  placeRack()
   jobsRt.list = types.map((t) => {
-    const c = SITES[t]
+    const c = jobSites()[t]
     return makeRt(t, c[Math.floor(rnd() * c.length)])
   })
   jobsRt.carrying = null
@@ -317,7 +391,8 @@ export const evaJobsDebug = {
   rack: () => rackRt.P.toArray(),
   /** 依頼を選んで当番を作り直す */
   set: (types: JobType[], siteIdx = 0) => {
-    jobsRt.list = types.map((t) => makeRt(t, SITES[t][siteIdx % SITES[t].length]))
+    placeRack()
+    jobsRt.list = types.map((t) => makeRt(t, jobSites()[t][siteIdx % jobSites()[t].length]))
     jobsRt.carrying = null
     jobsRt.rackTaken = { patch: 0, sensor: 0 }
     useEvaJobs.setState({ ui: emptyUi, carrying: null, card: null, shift: useEvaJobs.getState().shift + 1 })
