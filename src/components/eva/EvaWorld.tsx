@@ -125,7 +125,8 @@ function hullPatch(th0: number, th1: number, z0: number, z1: number, nTh: number
   for (let j = 0; j < nZ; j++)
     for (let i = 0; i < nTh; i++) {
       const a = j * row + i
-      idx.push(a, a + 1, a + row, a + 1, a + row + 1, a + row)
+      // 外から見て表になる向き（反対だと外側の面が描かれず、向こう側の内側が透けて見える）
+      idx.push(a, a + row, a + 1, a + 1, a + row, a + row + 1)
     }
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
@@ -496,8 +497,8 @@ export function EvaWorld({ spec }: { spec: ShipSpec }) {
       <SunGlow dir={out.sun} />
       <SunLight dir={out.sun} />
       {/* 船の中から漏れる明かりのような、ごく弱い光（影の側が真っ黒にならないように） */}
-      <ambientLight intensity={0.06} />
-      <hemisphereLight args={['#9fb6d8', '#262018', 0.12]} />
+      <ambientLight intensity={0.14} />
+      <hemisphereLight args={['#9fb6d8', '#262018', 0.3]} />
       {out.planet && planetLight && (
         <>
           <Planet p={out.planet} sun={out.sun} />
