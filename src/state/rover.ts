@@ -8,7 +8,7 @@ export type RoverPhase = 'none' | 'drop' | 'deploy' | 'drive'
 export type RoverView = 'chase' | 'cam'
 
 export const DEPLOY_SEC = 6
-/** 走り回れる範囲（着陸地点を中心にした正方形の半分の幅、m） */
+/** 走り回れる範囲（着陸地点を中心にした正方形の半分の幅、m）。広い天体（火星）は wideGround.ts の WIDE_RANGE */
 export const ROVER_RANGE = 100
 /** 最高速度（m/s）。時速 60 km */
 export const ROVER_TOP = 60 / 3.6
@@ -21,6 +21,8 @@ type RoverState = {
   kmh: number
   /** 計器の表示（ときどき書き換える）：向き（度、0〜359）、前後・左右の傾き（度）、着陸船からの距離（m）、宙に浮いているか */
   hud: { hdg: number; pitch: number; roll: number; dist: number; air: boolean; x: number; z: number }
+  /** 走れる範囲（正方形の半分の幅、m）。天体で変わる */
+  range: number
   /** 走れる範囲の端に当たっている（メッセージを出す） */
   edge: boolean
   /** ミニマップ用：採集の岩の位置と、採ったものの番号 */
@@ -46,6 +48,7 @@ export const useRover = create<RoverState>((set) => ({
   kmh: 0,
   hud: { hdg: 0, pitch: 0, roll: 0, dist: 0, air: false, x: 0, z: 0 },
   edge: false,
+  range: ROVER_RANGE,
   sites: [],
   taken: [],
   menu: false,

@@ -9,6 +9,7 @@ import type { SkyNow } from './skyNow'
 import { lowMemory, useLevel } from '../../state/quality'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { useLanding } from '../../state/landing'
+import { isWide, roverRangeFor, wideNow } from './wideGround'
 import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverFocus, roverInput, roverDebug, roverNow, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
 import { samplesFor, type RockSample } from '../../data/rockSamples'
 
@@ -116,6 +117,8 @@ function applyPose(rig: Rig, p: Pose, squash = 0) {
  * 車輪が地面に浮いたり沈んだりしないよう、格子の 4 つの頂点から求める。
  */
 function meshHeight(terrain: Terrain, x: number, z: number) {
+  // 広い天体：ローバーのまわりは 1〜2 m 間隔のタイルなので、本当の高さとほぼ同じ
+  if (isWide(terrain)) return terrain.height(x, z)
   const RINGS = terrain.dem ? 190 : 150
   const SEG = terrain.dem ? 360 : 240
   const r = Math.hypot(x, z)
@@ -272,6 +275,8 @@ type RockGrid = Map<string, RockBody[]>
 
 function rockBodies(terrain: Terrain): RockGrid {
   const grid: RockGrid = new Map()
+  // 広い天体の岩は、地面のタイルといっしょに持つ（wideNow.world.cells）
+  if (isWide(terrain)) return grid
   const rocks = terrain.rocks(Math.round(terrain.def.relief.rocks * 1400))
   rocks.forEach((r, i) => {
     if (Math.abs(r.x) > ROVER_RANGE + 4 || Math.abs(r.z) > ROVER_RANGE + 4) return
@@ -507,7 +512,12 @@ export function Rover({
   const lights = useRef<THREE.SpotLight>(null)
   const farLight = useRef<THREE.SpotLight>(null)
   // 地面の岩（SurfaceView の Ground と同じ並び）。走れる範囲の中のものだけ、5 m 四方のマスに分けて当たり判定に使う
-  const bodies = useMemo(() => rockBodies(terrain), [terrain])
+  const staticBodies = useMemo(() => rockBodies(terrain), [terrain])
+  /** 当たり判定の岩：広い天体ではローバーのまわりのタイルの岩 */
+  const bodiesNow = () => (isWide(terrain) && wideNow.world ? wideNow.world.cells : staticBodies)
+  const range = roverRangeFor(terrain, ROVER_RANGE)
+  // 本物の地形を読み終えると地形が作り直され、範囲が変わることがある（走っている途中でも）
+  useEffect(() => useRover.setState({ range }), [range])
 
   // 走りの状態。落とすたびに着陸船の真下から
   const st = useRef<Drive | null>(null)
@@ -521,16 +531,16 @@ export function Rover({
     }
     roverDebug.sites = () => sites.map(({ x, z }) => ({ x, z }))
     roverDebug.place = (x, z, heading) => {
-      if (st.current) Object.assign(st.current, { x, z, speed: 0, heading: heading ?? st.current.heading })
+      if (st.current) Object.assign(st.current, { x, z, y: meshHeight(terrain, x, z), vy: 0, speed: 0, heading: heading ?? st.current.heading })
     }
-    roverDebug.rocks = () => [...bodies.values()].flat().map(({ x, z, r, h }) => ({ x, z, r, h }))
+    roverDebug.rocks = () => [...bodiesNow().values()].flat().map(({ x, z, r, h }) => ({ x, z, r, h }))
     return () => {
       roverDebug.moveTo = undefined
       roverDebug.sites = undefined
       roverDebug.place = undefined
       roverDebug.rocks = undefined
     }
-  }, [sites, bodies])
+  }, [sites, staticBodies, terrain])
   useEffect(() => {
     if (phase !== 'drop') return
     const x = LANDER_POS.x
@@ -561,8 +571,8 @@ export function Rover({
       bumpT: 9,
     }
     taken.current.clear()
-    useRover.setState({ sites: sites.map(({ x, z }) => ({ x, z })), taken: [] })
-  }, [phase, terrain, landerYaw, sites])
+    useRover.setState({ sites: sites.map(({ x, z }) => ({ x, z })), taken: [], range })
+  }, [phase, terrain, landerYaw, sites, range])
 
   useFrame((state, rawDt) => {
     const grp = group.current
@@ -575,6 +585,7 @@ export function Rover({
     const T = roverNow() - since
     const rig = built.rig
     const fwd = PROPS.fwd.set(-Math.sin(s.heading), 0, -Math.cos(s.heading))
+    const bodies = bodiesNow()
 
     // ---- 動き ----
     let pose: Pose
@@ -624,9 +635,9 @@ export function Rover({
       let nx = s.x + fwd.x * s.speed * dt
       let nz = s.z + fwd.z * s.speed * dt
       // 範囲の端と、着陸船の脚
-      if (Math.abs(nx) > ROVER_RANGE || Math.abs(nz) > ROVER_RANGE) {
-        nx = THREE.MathUtils.clamp(nx, -ROVER_RANGE, ROVER_RANGE)
-        nz = THREE.MathUtils.clamp(nz, -ROVER_RANGE, ROVER_RANGE)
+      if (Math.abs(nx) > range || Math.abs(nz) > range) {
+        nx = THREE.MathUtils.clamp(nx, -range, range)
+        nz = THREE.MathUtils.clamp(nz, -range, range)
         s.speed *= 0.5
         s.edgeT = roverNow()
       }

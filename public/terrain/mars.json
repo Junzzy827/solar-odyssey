@@ -23,5 +23,13 @@
   "licence": [
     "USGS Astrogeology / NASA PDS Annex product. Metadata: Use Constraints \"None\"; Access Constraints \"Please credit authors\". USGS-produced data are U.S. public domain.",
     "USGS Astrogeology product (originators DLR, NASA Goddard Space Flight Center). FGDC metadata: Use Constraints \"None\"; Access Constraints \"Please cite authors\". HRSC input data courtesy ESA/DLR/FU Berlin."
-  ]
+  ],
+  "detail": {
+    "size": 2048,
+    "extent_m": 3200.0,
+    "step": 0.01,
+    "zero": 128,
+    "decode": "height_m = near_map_height(x, z) + (value - 128) * step  (8-bit grayscale, same orientation as near)",
+    "source": "MSL_Gale_DEM_Mosaic_1m_v3, GDAL average 1 m -> 1.5625 m"
+  }
 }
