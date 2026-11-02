@@ -4620,3 +4620,244 @@ body.touch .eva-actions button {
   padding: 7px 14px;
   font-size: 13px;
 }
+
+/* ---- 船外活動：修理の依頼 ---- */
+.eva-jobs {
+  position: absolute;
+  left: 18px;
+  top: 52px;
+  width: 290px;
+  padding: 8px 12px 10px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(14, 22, 34, 0.78), rgba(6, 10, 16, 0.66));
+  border: 1px solid rgba(255, 168, 68, 0.35);
+  box-shadow: 0 0 16px rgba(255, 168, 68, 0.1);
+  color: #d6e6f8;
+  font-size: 12px;
+  pointer-events: auto;
+}
+
+.ej-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ej-kicker {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #ffb45e;
+}
+
+.ej-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: #ffd9a8;
+}
+
+.ej-fold {
+  color: #8fb3d6;
+}
+
+.ej-list,
+.ej-steps,
+.ec-steps {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.ej-list li {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  color: #a9bdd4;
+}
+
+.ej-list li.on {
+  color: #ffe2b8;
+  font-weight: 600;
+}
+
+.ej-list li.done {
+  color: #7fd9a0;
+  text-decoration: line-through;
+  text-decoration-color: rgba(127, 217, 160, 0.5);
+}
+
+.ej-mark {
+  width: 12px;
+  flex: none;
+  text-align: center;
+}
+
+.ej-steps {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 180, 94, 0.2);
+}
+
+.ej-steps li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  column-gap: 4px;
+  padding: 2px 0;
+  color: #7f93aa;
+}
+
+.ej-steps li.done {
+  color: #7fd9a0;
+}
+
+.ej-steps li.on {
+  color: #f2f6ff;
+}
+
+.ej-tool {
+  font-size: 14px;
+  text-align: center;
+}
+
+.ej-bar {
+  grid-column: 2;
+  display: block;
+  margin-top: 3px;
+}
+
+.ej-hint {
+  margin-top: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(255, 168, 68, 0.12);
+  color: #ffd9a8;
+}
+
+.ej-hint b {
+  font-variant-numeric: tabular-nums;
+}
+
+.ej-hint.go {
+  background: rgba(95, 212, 255, 0.16);
+  color: #bfefff;
+}
+
+.ej-hint.warn {
+  background: rgba(255, 106, 74, 0.18);
+  color: #ffd2c4;
+}
+
+.ej-hint.ok {
+  background: rgba(127, 217, 160, 0.16);
+  color: #c4f5d6;
+}
+
+.eva-card {
+  left: 50%;
+  right: auto;
+  top: 60px;
+  transform: translateX(-50%);
+  width: 360px;
+  border-color: rgba(127, 217, 160, 0.5);
+}
+
+.ec-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(127, 217, 160, 0.18);
+  border: 1px solid rgba(127, 217, 160, 0.6);
+  color: #9ff0bf;
+  font-size: 18px;
+}
+
+.ec-steps {
+  margin: 10px 0 8px;
+}
+
+.ec-steps li {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  color: #c8d4e4;
+}
+
+.ec-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  background: rgba(255, 196, 107, 0.16);
+  color: #ffc46b;
+}
+
+.eva-map .m-rack {
+  fill: rgba(95, 212, 255, 0.45);
+  stroke: #9fe8ff;
+  stroke-width: 0.5;
+}
+
+.eva-map .m-job path {
+  fill: rgba(255, 168, 68, 0.55);
+  stroke: #ffc46b;
+  stroke-width: 0.5;
+}
+
+.eva-map .m-job.on path {
+  fill: #ffa844;
+  stroke: #fff0d0;
+}
+
+.eva-map .m-job.done circle {
+  fill: rgba(127, 217, 160, 0.7);
+}
+
+/* スマホ：依頼は左上のボタンの下に小さく。一覧は畳んで、今の手順だけ */
+body.touch .eva-jobs {
+  top: calc(env(safe-area-inset-top) + 132px);
+  left: 10px;
+  width: 210px;
+  padding: 6px 9px 7px;
+  font-size: 11px;
+}
+
+body.touch .ej-list {
+  display: none;
+}
+
+body.touch .ej-steps {
+  border-top: none;
+  margin-top: 2px;
+  padding-top: 0;
+}
+
+body.touch .ej-steps li:not(.on) {
+  display: none;
+}
+
+body.touch .ej-hint {
+  margin-top: 4px;
+  padding: 3px 6px;
+}
+
+body.touch .eva-card {
+  left: 10px;
+  right: 10px;
+  top: calc(env(safe-area-inset-top) + 8px);
+  bottom: auto;
+  transform: none;
+  width: auto;
+  max-height: calc(100% - 110px);
+  z-index: 5;
+}
