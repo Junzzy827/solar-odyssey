@@ -61,6 +61,8 @@ import { useLanding } from './state/landing'
 import { BridgePanel } from './ui/BridgePanel'
 import { BridgeLabels } from './ui/BridgeLabels'
 import { PhotoNote } from './ui/PhotoNote'
+import { EvaView } from './components/eva/EvaView'
+import { evaScene, useEva } from './state/eva'
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -79,7 +81,10 @@ export default function App() {
   useThrottleWheel()
   const level = useLevel()
   // 地表にいるあいだは、宇宙の場面を止める（暗転している最中は動かしておく）
-  const onSurface = useLanding((l) => l.phase === 'descent' || l.phase === 'surface' || l.phase === 'ascent')
+  const onLand = useLanding((l) => l.phase === 'descent' || l.phase === 'surface' || l.phase === 'ascent')
+  // 船外活動のあいだも同じく止める
+  const onEva = useEva((e) => evaScene(e.phase))
+  const onSurface = onLand || onEva
 
   // 地表にいるあいだは、止めた宇宙の場面の最後の1枚を見えなくしておく。
   // 地表の Canvas が一瞬描けなかったフレーム（画面サイズの変化・画質の切り替え・GPU の都合）に、
@@ -153,6 +158,7 @@ export default function App() {
       <PhotoNote />
       <ContextLost />
       <SurfaceView />
+      <EvaView />
       <LabelDeclutter />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}

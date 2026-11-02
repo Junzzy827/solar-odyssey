@@ -21,6 +21,9 @@ junji さんの設定資料（「EVA WORK ROBOT」、正面・側面・背面と
   POSE=rest|work  腕の姿勢（rest：設定資料の正面図のように左右へ開く、work：前へ伸ばして作業）
   TOOL_R, TOOL_L  腕先のツール（hand|drill|cutter|welder|pad）
   TOOLS=1         ツール 5 種の並びを PREVIEW_DIR/tools-*.png に書き出す
+  FACES=1         表情 6 つを PREVIEW_DIR/face-*.png に
+  ANIM=1          展開・ツール交換・表情の動画の連番を PREVIEW_DIR/anim に
+  EXPORT=1        アプリ用の public/models/eva-tsumugi.glb を書き出す
 """
 
 import math
@@ -757,6 +760,28 @@ def animate(objs):
         print(f'  frame {f}/{n}', flush=True)
 
 
+
+def export(objs):
+    """
+    public/models/eva-tsumugi.glb に書き出す。関節はすべて 0（腕はまっすぐ下へ）、ツール 5 種と表情 6 つも全部入れる。
+    姿勢・ツールの付け替え・表情の切り替えは three.js 側（src/components/eva/Tsumugi.tsx）で、同じ関節を回して作る。
+    """
+    preview_materials()
+    for o in objs.values():
+        o.rotation_euler = (0, 0, 0)
+        o.hide_render = o.hide_viewport = False
+        o.hide_set(False)
+    objs['Head'].location = NECK
+    for o in bpy.context.scene.objects:
+        o.select_set(o.name in objs)
+    out = os.environ.get('OUT', os.path.join(bf.OUT_DIR, 'eva-tsumugi.glb'))
+    bpy.ops.export_scene.gltf(
+        filepath=out, export_format='GLB', use_selection=True, export_vertex_color='NONE',
+        export_normals=True, export_texcoords=False, export_tangents=False, export_materials='EXPORT', export_yup=True,
+    )
+    print('wrote', out, os.path.getsize(out) // 1024, 'KB', flush=True)
+
+
 def main():
     bf.reset_scene()
     for m in MATS:
@@ -769,6 +794,9 @@ def main():
     apply_pose(objs, POSE, tools)
     show_face(objs, os.environ.get('FACE', 'none' if POSE == 'folded' else 'normal'))
     print(f'  {POSE} (m):', measure(objs))
+    if os.environ.get('EXPORT'):
+        export(objs)
+        return
     if any(os.environ.get(k) for k in ('PREVIEW', 'TOOLS', 'FACES', 'ANIM')):
         preview_materials()
         setup_preview()

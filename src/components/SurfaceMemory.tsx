@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useLanding } from '../state/landing'
+import { evaScene, useEva } from '../state/eva'
 import { isTouchDevice } from '../state/input'
 import { lowMemory } from '../state/quality'
 
@@ -15,7 +16,9 @@ import { lowMemory } from '../state/quality'
 export function SurfaceMemory() {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
-  const onSurface = useLanding((l) => l.phase === 'descent' || l.phase === 'surface' || l.phase === 'ascent')
+  const onLand = useLanding((l) => l.phase === 'descent' || l.phase === 'surface' || l.phase === 'ascent')
+  const onEva = useEva((e) => evaScene(e.phase))
+  const onSurface = onLand || onEva
   useEffect(() => {
     if (!onSurface || !(isTouchDevice() || lowMemory())) return
     const textures = new Set<THREE.Texture>()

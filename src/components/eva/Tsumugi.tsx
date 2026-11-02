@@ -1,0 +1,710 @@
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { useGLTF } from '@react-three/drei'
+import * as THREE from 'three'
+import { haloTexture } from '../ship/ShipModel'
+import {
+  DEPLOY_SEC,
+  EVA_FADE,
+  EVA_TOP,
+  LAUNCH_SEC,
+  RECALL_SEC,
+  TETHER_M,
+  evaDebug,
+  evaInput,
+  evaNow,
+  finishEva,
+  setEvaPhase,
+  useEva,
+  type EvaFace,
+  type EvaTool,
+  EVA_TOOLS,
+} from '../../state/eva'
+import { AIRLOCK, HULL_R, hullClearance } from './hull'
+
+// 船外活動ロボット EVR-1「ツムギ」（全幅 0.8 m）。模型は tools/blender/build_eva_robot.py の eva-tsumugi.glb。
+// 関節（肩・ひじ・手首・スラスター・首）は模型ではすべて 0 で、ここで回して「たたんだ姿 → 展開」、
+// 作業・ツールの付け替えの姿勢を作る（角度は build_eva_robot.py の POSES と同じ。Blender の度で書く）。
+// ツール 5 種と表情 6 つは模型に全部入っていて、1 つだけ見せる。
+
+const url = (file: string) => `${import.meta.env.BASE_URL}models/${file}`
+const D = Math.PI / 180
+
+// ---- 姿勢（build_eva_robot.py の POSES と同じ数字） ------------------------------------------------
+
+type V3 = [number, number, number]
+type Arm = { S: V3; F: V3; W: V3 }
+type Pose = { R: Arm; L: Arm; pod: number; head: number }
+
+const arm = (S: V3, F: V3, W: V3): Arm => ({ S, F, W })
+const REST = arm([12, -55, 0], [28, 48, 0], [12, 0, 0])
+const WORK = arm([72, -12, 0], [22, 6, 0], [8, 0, 0])
+const SWAP = arm([-42, -8, 0], [-88, 0, 0], [-25, 0, 0])
+const FOLD = arm([-8, 4, 38], [118, 0, 0], [75, 0, 0])
+const pose = (R: Arm, L: Arm, pod = 0, head = 0): Pose => ({ R, L, pod, head })
+const P_FOLDED = pose(FOLD, FOLD, -80, -0.03)
+const P_REST = pose(REST, REST)
+
+const ease = (a: number, b: number, t: number) => {
+  const u = Math.min(1, Math.max(0, (t - a) / (b - a)))
+  return u * u * (3 - 2 * u)
+}
+const lerp3 = (a: V3, b: V3, u: number): V3 => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]
+const mixArm = (a: Arm, b: Arm, u: number): Arm => ({ S: lerp3(a.S, b.S, u), F: lerp3(a.F, b.F, u), W: lerp3(a.W, b.W, u) })
+const mixPose = (a: Pose, b: Pose, u: number): Pose => ({ R: mixArm(a.R, b.R, u), L: mixArm(a.L, b.L, u), pod: a.pod + (b.pod - a.pod) * u, head: a.head + (b.head - a.head) * u })
+const copyPose = (p: Pose): Pose => mixPose(p, p, 0)
+
+// Blender の回転（XYZ のオイラー角：X を回してから Y、Z）を three.js の向きに。
+// 軸は Blender X → three X、Blender Y → three -Z、Blender Z → three Y
+const AX = new THREE.Vector3(1, 0, 0)
+const AY = new THREE.Vector3(0, 0, -1)
+const AZ = new THREE.Vector3(0, 1, 0)
+const qx = new THREE.Quaternion()
+const qy = new THREE.Quaternion()
+const qz = new THREE.Quaternion()
+function setBlenderEuler(o: THREE.Object3D, [x, y, z]: V3, mirror: boolean) {
+  const s = mirror ? -1 : 1
+  qz.setFromAxisAngle(AZ, z * s * D)
+  qy.setFromAxisAngle(AY, y * s * D)
+  qx.setFromAxisAngle(AX, x * D)
+  o.quaternion.copy(qz).multiply(qy).multiply(qx)
+}
+
+type Rig = {
+  root: THREE.Object3D
+  head: THREE.Object3D
+  headY: number
+  joints: Record<'R' | 'L', { S: THREE.Object3D; F: THREE.Object3D; W: THREE.Object3D }>
+  pods: THREE.Object3D[]
+  jet: THREE.Object3D
+  tools: Record<'R' | 'L', Record<EvaTool, THREE.Object3D>>
+  faces: Record<string, THREE.Object3D>
+}
+
+function applyPose(rig: Rig, p: Pose) {
+  for (const side of ['R', 'L'] as const) {
+    const j = rig.joints[side]
+    const a = p[side]
+    const m = side === 'L'
+    setBlenderEuler(j.S, a.S, m)
+    setBlenderEuler(j.F, a.F, m)
+    setBlenderEuler(j.W, a.W, m)
+  }
+  for (const pod of rig.pods) pod.rotation.x = p.pod * D
+  rig.head.position.y = rig.headY + p.head
+}
+
+function showFace(rig: Rig, face: EvaFace) {
+  for (const [k, o] of Object.entries(rig.faces)) o.visible = k === face
+}
+
+function showTool(rig: Rig, side: 'R' | 'L', tool: EvaTool) {
+  for (const k of EVA_TOOLS) rig.tools[side][k].visible = k === tool
+}
+
+// ---- 粒（スラスターのガス・溶接の火花） ---------------------------------------------------------
+
+class Particles {
+  readonly points: THREE.Points
+  private pos: Float32Array
+  private col: Float32Array
+  private vel: Float32Array
+  private life: Float32Array
+  private max: Float32Array
+  private base: THREE.Color[]
+  private next = 0
+  constructor(
+    readonly n: number,
+    size: number,
+    private drag: number,
+  ) {
+    this.pos = new Float32Array(n * 3)
+    this.col = new Float32Array(n * 3)
+    this.vel = new Float32Array(n * 3)
+    this.life = new Float32Array(n)
+    this.max = new Float32Array(n).fill(1)
+    this.base = Array.from({ length: n }, () => new THREE.Color())
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3))
+    g.setAttribute('color', new THREE.BufferAttribute(this.col, 3))
+    const m = new THREE.PointsMaterial({ size, map: haloTexture(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, toneMapped: false })
+    this.points = new THREE.Points(g, m)
+    this.points.frustumCulled = false
+  }
+  emit(p: THREE.Vector3, v: THREE.Vector3, life: number, color: THREE.Color) {
+    const i = this.next
+    this.next = (this.next + 1) % this.n
+    p.toArray(this.pos, i * 3)
+    v.toArray(this.vel, i * 3)
+    this.life[i] = life
+    this.max[i] = life
+    this.base[i].copy(color)
+  }
+  update(dt: number) {
+    const k = Math.exp(-this.drag * dt)
+    for (let i = 0; i < this.n; i++) {
+      const o = i * 3
+      if (this.life[i] <= 0) {
+        this.col[o] = this.col[o + 1] = this.col[o + 2] = 0
+        continue
+      }
+      this.life[i] -= dt
+      this.vel[o] *= k
+      this.vel[o + 1] *= k
+      this.vel[o + 2] *= k
+      this.pos[o] += this.vel[o] * dt
+      this.pos[o + 1] += this.vel[o + 1] * dt
+      this.pos[o + 2] += this.vel[o + 2] * dt
+      const f = Math.max(0, this.life[i] / this.max[i])
+      const c = this.base[i]
+      this.col[o] = c.r * f
+      this.col[o + 1] = c.g * f
+      this.col[o + 2] = c.b * f
+    }
+    this.points.geometry.attributes.position.needsUpdate = true
+    this.points.geometry.attributes.color.needsUpdate = true
+  }
+  dispose() {
+    this.points.geometry.dispose()
+    ;(this.points.material as THREE.Material).dispose()
+  }
+}
+
+// ---- 命綱：エアロックからツムギの背中までの、たるんだ細い管 -------------------------------------------
+
+const TETHER_SEG = 48
+const TETHER_RAD = 6
+
+class Tether {
+  readonly mesh: THREE.Mesh
+  private pos: Float32Array
+  private curve = new THREE.CubicBezierCurve3(new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3())
+  constructor(radius: number) {
+    const n = (TETHER_SEG + 1) * TETHER_RAD
+    this.pos = new Float32Array(n * 3)
+    const idx: number[] = []
+    for (let i = 0; i < TETHER_SEG; i++)
+      for (let j = 0; j < TETHER_RAD; j++) {
+        const a = i * TETHER_RAD + j
+        const b = i * TETHER_RAD + ((j + 1) % TETHER_RAD)
+        idx.push(a, a + TETHER_RAD, b, b, a + TETHER_RAD, b + TETHER_RAD)
+      }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3))
+    g.setIndex(idx)
+    this.radius = radius
+    this.mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#d9822b', roughness: 0.7, metalness: 0.05 }))
+    this.mesh.frustumCulled = false
+    this.mesh.castShadow = true
+  }
+  private radius: number
+  private t = new THREE.Vector3()
+  private n = new THREE.Vector3()
+  private b = new THREE.Vector3()
+  private p = new THREE.Vector3()
+  update(a: THREE.Vector3, aDir: THREE.Vector3, b: THREE.Vector3, bDir: THREE.Vector3, slack: number, side: THREE.Vector3) {
+    const d = a.distanceTo(b)
+    const c = this.curve
+    c.v0.copy(a)
+    c.v1.copy(a).addScaledVector(aDir, Math.min(2.5, d * 0.35 + 0.3)).addScaledVector(side, slack * d * 0.35)
+    c.v2.copy(b).addScaledVector(bDir, Math.min(2, d * 0.3 + 0.2)).addScaledVector(side, -slack * d * 0.2)
+    c.v3.copy(b)
+    const up = new THREE.Vector3(0, 1, 0)
+    for (let i = 0; i <= TETHER_SEG; i++) {
+      const u = i / TETHER_SEG
+      c.getPoint(u, this.p)
+      c.getTangent(u, this.t)
+      this.n.crossVectors(this.t, up)
+      if (this.n.lengthSq() < 1e-6) this.n.set(1, 0, 0)
+      this.n.normalize()
+      this.b.crossVectors(this.t, this.n).normalize()
+      for (let j = 0; j < TETHER_RAD; j++) {
+        const ang = (j / TETHER_RAD) * Math.PI * 2
+        const o = (i * TETHER_RAD + j) * 3
+        this.pos[o] = this.p.x + (this.n.x * Math.cos(ang) + this.b.x * Math.sin(ang)) * this.radius
+        this.pos[o + 1] = this.p.y + (this.n.y * Math.cos(ang) + this.b.y * Math.sin(ang)) * this.radius
+        this.pos[o + 2] = this.p.z + (this.n.z * Math.cos(ang) + this.b.z * Math.sin(ang)) * this.radius
+      }
+    }
+    const g = this.mesh.geometry
+    g.attributes.position.needsUpdate = true
+    g.computeVertexNormals()
+  }
+  dispose() {
+    this.mesh.geometry.dispose()
+    ;(this.mesh.material as THREE.Material).dispose()
+  }
+}
+
+// ---- 炎（スラスターの青い噴射） -----------------------------------------------------------
+
+function flameGeometry() {
+  // 先が細い円すい。根元が原点、-Y へ長さ 1
+  const g = new THREE.ConeGeometry(1, 1, 14, 1, true)
+  g.rotateX(Math.PI)
+  g.translate(0, -0.5, 0)
+  return g
+}
+
+// ---- 場所の決まり（three.js の座標。メートル。ツムギの前が -Z、上が +Y、右が +X） -----------------------
+
+/** エアロックの中の待機位置（たたんだ姿）と、押し出された先 */
+const INSIDE = new THREE.Vector3(AIRLOCK.x, -0.75, AIRLOCK.z)
+const OUTSIDE = new THREE.Vector3(AIRLOCK.x, 1.15, AIRLOCK.z)
+/** 命綱をつなぐ場所：エアロックの縁（外壁）と、ツムギの背中 */
+const TETHER_A = new THREE.Vector3(AIRLOCK.x + 0.55, 0.08, AIRLOCK.z + 0.75)
+const TETHER_BACK = new THREE.Vector3(0, 0.02, 0.29)
+/** ツールの先（手首の座標で）。Blender (0, 0.02, -0.225) */
+const TOOL_TIP = new THREE.Vector3(0, -0.225, -0.02)
+/** ツムギの体の大きさ（外壁に当たる距離） */
+const BODY_R = 0.42
+/** 背中の小さな姿勢制御の噴射口（体の座標）。Blender (±0.145, -0.27, 0.19 / -0.08) */
+const RCS = [
+  [0.15, 0.19, 0.27],
+  [-0.15, 0.19, 0.27],
+  [0.15, -0.08, 0.27],
+  [-0.15, -0.08, 0.27],
+].map((v) => new THREE.Vector3(...v))
+
+const ACC = 0.9 // m/s²
+const TURN = 1.1 // rad/s
+
+export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
+  const { scene } = useGLTF(url('eva-tsumugi.glb'))
+  const group = useRef<THREE.Group>(null)
+  const phase = useEva((e) => e.phase)
+  void shipTint
+
+  const built = useMemo(() => {
+    const model = scene.clone(true)
+    const owned: { dispose: () => void }[] = []
+    const glowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.9, 2.2), toneMapped: false })
+    const hotMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.5, 0.9, 0.3), toneMapped: false })
+    const screenMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.55, 1.6, 2.8), toneMapped: false })
+    const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.7, 1.5, 2.4), toneMapped: false })
+    owned.push(glowMat, hotMat, screenMat, lampMat)
+    const special: Record<string, THREE.Material> = { Glow: glowMat, Hot: hotMat, Screen: screenMat, Lamp: lampMat }
+    const mats = new Map<THREE.Material, THREE.Material>()
+    model.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+      const src = mesh.material as THREE.MeshStandardMaterial
+      if (!mats.has(src)) {
+        if (special[src.name]) mats.set(src, special[src.name])
+        else {
+          const m = src.clone()
+          m.envMapIntensity = 1
+          owned.push(m)
+          mats.set(src, m)
+        }
+      }
+      mesh.material = mats.get(src)!
+    })
+    const get = (n: string) => {
+      const o = model.getObjectByName(n)
+      if (!o) throw new Error(`eva-tsumugi.glb: ${n} がない`)
+      return o
+    }
+    const side = (s: 'R' | 'L') => ({ S: get(`Shoulder_${s}`), F: get(`Fore_${s}`), W: get(`Wrist_${s}`) })
+    const tools = (s: 'R' | 'L') => Object.fromEntries(EVA_TOOLS.map((k) => [k, get(`Tool_${k}_${s}`)])) as Record<EvaTool, THREE.Object3D>
+    const head = get('Head')
+    const rig: Rig = {
+      root: get('Body'),
+      head,
+      headY: head.position.y,
+      joints: { R: side('R'), L: side('L') },
+      pods: [get('Pod_R'), get('Pod_L')],
+      jet: get('MainJet'),
+      tools: { R: tools('R'), L: tools('L') },
+      faces: Object.fromEntries(['normal', 'happy', 'focus', 'sweat', 'ouch', 'boot'].map((k) => [k, get(`Face_${k}`)])),
+    }
+    // 炎：下向きの 2 基と、後ろ向きのメイン
+    const flameGeo = flameGeometry()
+    const flameMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 0.75, 1.8), transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })
+    owned.push(flameGeo, flameMat)
+    const podFlames = rig.pods.map((pod) => {
+      const f = new THREE.Mesh(flameGeo, flameMat)
+      f.position.set(0, -0.1, 0)
+      f.scale.set(0.024, 0.001, 0.024)
+      pod.add(f)
+      return f
+    })
+    const jetFlame = new THREE.Mesh(flameGeo, flameMat)
+    jetFlame.position.set(0, -0.06, 0.115)
+    jetFlame.rotation.x = -Math.PI / 2
+    jetFlame.scale.set(0.035, 0.001, 0.035)
+    rig.jet.add(jetFlame)
+    // 溶接・カッターの光
+    const arc = new THREE.PointLight('#bfe0ff', 0, 3, 2)
+    model.add(arc)
+    showTool(rig, 'L', 'hand')
+    showTool(rig, 'R', useEva.getState().tool)
+    showFace(rig, 'none')
+    applyPose(rig, P_FOLDED)
+    return { model, rig, owned, glowMat, hotMat, podFlames, jetFlame, arc }
+  }, [scene])
+  useEffect(() => () => built.owned.forEach((m) => m.dispose()), [built])
+
+  const puffs = useMemo(() => new Particles(220, 0.09, 1.2), [])
+  const sparks = useMemo(() => new Particles(160, 0.035, 0.6), [])
+  const tether = useMemo(() => new Tether(0.011), [])
+  useEffect(
+    () => () => {
+      puffs.dispose()
+      sparks.dispose()
+      tether.dispose()
+    },
+    [puffs, sparks, tether],
+  )
+
+  // 動きの状態（毎フレーム書き換えるので React の外に置く）
+  const sim = useMemo(
+    () => ({
+      pos: INSIDE.clone(),
+      vel: new THREE.Vector3(),
+      quat: new THREE.Quaternion(),
+      spin: new THREE.Vector3(),
+      cur: copyPose(P_FOLDED),
+      recallFrom: new THREE.Vector3(),
+      recallQuat: new THREE.Quaternion(),
+      swapT: -1,
+      swapTo: 'hand' as EvaTool,
+      happyUntil: 0,
+      ouchUntil: 0,
+      gas: 100,
+      battery: 100,
+      hudAt: 0,
+      face: 'none' as EvaFace,
+      camPos: new THREE.Vector3(2.6, 1.9, 3.4),
+      camLook: new THREE.Vector3(0, 0.8, 0),
+      camUp: new THREE.Vector3(0, 1, 0),
+      hatch: 0,
+    }),
+    [],
+  )
+  useEffect(() => {
+    evaDebug.place = (x, y, z, yawDeg = 0) => {
+      sim.pos.set(x, y, z)
+      sim.vel.set(0, 0, 0)
+      sim.quat.setFromAxisAngle(AZ, yawDeg * D)
+    }
+    evaDebug.state = () => ({ pos: sim.pos.toArray(), vel: sim.vel.toArray() })
+    return () => {
+      evaDebug.place = undefined
+      evaDebug.state = undefined
+    }
+  }, [sim])
+
+  // 船外の場面から、ハッチの開き具合を読む
+  useEffect(() => {
+    hatchState.get = () => sim.hatch
+  }, [sim])
+
+  const tmp = useMemo(
+    () => ({
+      a: new THREE.Vector3(),
+      b: new THREE.Vector3(),
+      c: new THREE.Vector3(),
+      d: new THREE.Vector3(),
+      q: new THREE.Quaternion(),
+      m: new THREE.Matrix4(),
+      col: new THREE.Color(),
+    }),
+    [],
+  )
+
+  useFrame((state, rawDt) => {
+    const dt = Math.min(rawDt, 0.05)
+    const g = group.current
+    if (!g) return
+    const { rig } = built
+    const s = useEva.getState()
+    const T = evaNow() - s.since
+    const now = evaNow()
+    let target: Pose = P_REST
+    let thrustLocal = tmp.d.set(0, 0, 0)
+    let face: EvaFace = 'normal'
+    let podPuff = 0
+
+    if (s.phase === 'launch') {
+      // ハッチが開いて（0〜0.9 秒）、たたんだまま押し出される
+      sim.hatch = ease(0.0, 0.9, T)
+      sim.pos.lerpVectors(INSIDE, OUTSIDE, ease(0.7, LAUNCH_SEC, T))
+      sim.quat.identity()
+      sim.vel.set(0, 0, 0)
+      target = P_FOLDED
+      face = 'none'
+      if (T >= LAUNCH_SEC) setEvaPhase('deploy')
+    } else if (s.phase === 'deploy') {
+      // スラスターを振り出し、腕を広げ、頭を上げ、画面がちらついて起動する
+      sim.hatch = 1 - ease(1.6, DEPLOY_SEC, T)
+      const p = copyPose(P_FOLDED)
+      p.pod = -80 * (1 - ease(0.0, 0.8, T))
+      const a = ease(0.6, 2.4, T)
+      p.R = mixArm(FOLD, REST, a)
+      p.L = mixArm(FOLD, REST, a)
+      p.head = -0.03 * (1 - ease(0.6, 1.6, T))
+      target = p
+      podPuff = ease(0.2, 0.5, T) * (1 - ease(0.9, 1.3, T))
+      sim.pos.y = OUTSIDE.y + 0.05 * Math.sin(T * 1.4)
+      const flick = T > 2.0 && T < 2.9 && Math.sin(T * 40) > -0.2
+      face = T < 2.0 ? 'none' : T < 3.0 ? (flick ? 'boot' : 'none') : 'normal'
+      if (T >= DEPLOY_SEC) {
+        sim.happyUntil = now + 1.4
+        setEvaPhase('fly')
+      }
+    } else if (s.phase === 'fly') {
+      sim.hatch = 0
+      // ---- 入力 → 力（体の向きで） ----
+      const fwd = THREE.MathUtils.clamp(evaInput.fwd - evaInput.stickY, -1, 1)
+      const right = THREE.MathUtils.clamp(evaInput.right + evaInput.stickX, -1, 1)
+      const up = THREE.MathUtils.clamp(evaInput.up + evaInput.padUp, -1, 1)
+      thrustLocal = tmp.d.set(right, up, -fwd)
+      const thrusting = thrustLocal.lengthSq() > 0.01
+      const power = sim.gas > 0 ? 1 : 0.25
+      tmp.a.copy(thrustLocal).applyQuaternion(sim.quat).multiplyScalar(ACC * power * dt)
+      sim.vel.add(tmp.a)
+      sim.gas = Math.max(0, sim.gas - thrustLocal.length() * dt * 0.42)
+      // 手を離すと、ゆっくり止まる（自動ブレーキ）。X で強く止める
+      if (evaInput.brake) sim.vel.multiplyScalar(Math.exp(-dt * 3))
+      else if (s.assist && !thrusting) sim.vel.multiplyScalar(Math.exp(-dt * 0.8))
+      if (sim.vel.length() > EVA_TOP) sim.vel.setLength(EVA_TOP)
+      // ---- 向き ----
+      sim.spin.x += (evaInput.pitch * TURN - sim.spin.x) * (1 - Math.exp(-dt * 6))
+      sim.spin.y += (-evaInput.yaw * TURN - sim.spin.y) * (1 - Math.exp(-dt * 6))
+      sim.spin.z += (-evaInput.roll * TURN - sim.spin.z) * (1 - Math.exp(-dt * 6))
+      tmp.q.setFromEuler(new THREE.Euler(sim.spin.x * dt - evaInput.lookY, sim.spin.y * dt - evaInput.lookX, sim.spin.z * dt, 'YXZ'))
+      sim.quat.multiply(tmp.q).normalize()
+      evaInput.lookX = 0
+      evaInput.lookY = 0
+      sim.pos.addScaledVector(sim.vel, dt)
+      // ---- 外壁に当たる ----
+      const hit = hullClearance(sim.pos, BODY_R, tmp.b)
+      if (hit > 0) {
+        sim.pos.addScaledVector(tmp.b, hit)
+        const into = sim.vel.dot(tmp.b)
+        if (into < 0) {
+          if (into < -0.6) sim.ouchUntil = now + 1.2
+          sim.vel.addScaledVector(tmp.b, -into * 1.3)
+        }
+      }
+      // ---- 命綱 ----
+      tmp.a.subVectors(sim.pos, TETHER_A)
+      const dist = tmp.a.length()
+      const taut = dist > TETHER_M
+      if (taut) {
+        tmp.a.setLength(TETHER_M)
+        sim.pos.copy(TETHER_A).add(tmp.a)
+        const out = sim.vel.dot(tmp.a.normalize())
+        if (out > 0) sim.vel.addScaledVector(tmp.a, -out * 1.2)
+      }
+      if (taut !== s.taut) useEva.setState({ taut })
+      // ---- 腕：作業・ツールの付け替え ----
+      if (evaInput.swapTo && sim.swapT < 0) {
+        sim.swapTo = evaInput.swapTo
+        sim.swapT = 0
+        useEva.setState({ swapping: true })
+      }
+      evaInput.swapTo = null
+      const working = evaInput.work && sim.swapT < 0
+      if (working !== s.working) useEva.setState({ working })
+      let R = working ? WORK : REST
+      if (sim.swapT >= 0) {
+        sim.swapT += dt
+        if (sim.swapT < 0.7) R = SWAP
+        if (sim.swapT >= 0.62 && s.tool !== sim.swapTo) {
+          useEva.setState({ tool: sim.swapTo })
+          showTool(rig, 'R', sim.swapTo)
+        }
+        if (sim.swapT > 1.3) {
+          sim.swapT = -1
+          sim.happyUntil = now + 1.2
+          useEva.setState({ swapping: false })
+        }
+      }
+      // ゆっくり漂う腕
+      const sway = Math.sin(now * 0.8) * 3
+      target = pose(R, arm([REST.S[0] + sway, REST.S[1], 0], [REST.F[0] - sway, REST.F[1], 0], REST.W))
+      sim.battery = Math.max(0, sim.battery - dt * (100 / (8 * 3600)) * 20)
+      face = now < sim.ouchUntil ? 'ouch' : taut || sim.gas < 15 ? 'sweat' : working ? 'focus' : now < sim.happyUntil ? 'happy' : 'normal'
+    } else if (s.phase === 'recall') {
+      // 命綱を巻き取って、たたみながらエアロックへ
+      if (T < 0.05 || sim.recallFrom.lengthSq() === 0) {
+        sim.recallFrom.copy(sim.pos)
+        sim.recallQuat.copy(sim.quat)
+      }
+      const u = ease(0.3, RECALL_SEC - 0.6, T)
+      tmp.a.lerpVectors(sim.recallFrom, OUTSIDE, u)
+      if (T > RECALL_SEC - 0.9) tmp.a.lerp(INSIDE, ease(RECALL_SEC - 0.9, RECALL_SEC, T))
+      sim.pos.copy(tmp.a)
+      sim.quat.slerpQuaternions(sim.recallQuat, tmp.q.identity(), u)
+      sim.vel.set(0, 0, 0)
+      sim.hatch = ease(RECALL_SEC - 1.4, RECALL_SEC - 1.0, T)
+      target = mixPose(P_REST, P_FOLDED, ease(RECALL_SEC - 1.6, RECALL_SEC - 0.8, T))
+      face = T < RECALL_SEC - 1.0 ? 'happy' : 'none'
+      if (T >= RECALL_SEC + EVA_FADE) {
+        sim.recallFrom.set(0, 0, 0)
+        finishEva()
+      }
+    }
+
+    // ---- 姿勢：めざす姿勢へなめらかに ----
+    const k = s.phase === 'deploy' || s.phase === 'launch' ? 1 : 1 - Math.exp(-dt * 7)
+    sim.cur = mixPose(sim.cur, target, k)
+    applyPose(rig, sim.cur)
+    if (face !== sim.face) {
+      sim.face = face
+      showFace(rig, face)
+      useEva.setState({ face })
+    }
+    g.position.copy(sim.pos)
+    g.quaternion.copy(sim.quat)
+    g.updateMatrixWorld(true)
+
+    // ---- 噴射：前へ進むときはメイン、上へはスラスター 2 基、ほかは背中の小さな噴射口からガス ----
+    const main = Math.max(0, -thrustLocal.z)
+    const lift = Math.max(0, thrustLocal.y, podPuff)
+    built.jetFlame.scale.y = 0.001 + main * (0.18 + 0.04 * Math.sin(now * 60))
+    for (const f of built.podFlames) f.scale.y = 0.001 + lift * (0.14 + 0.03 * Math.sin(now * 53 + 1))
+    const glow = 0.6 + 2.2 * Math.max(main, lift)
+    built.glowMat.color.setRGB(0.3 * glow, 0.9 * glow, 2.2 * glow)
+    const side = Math.abs(thrustLocal.x) + Math.max(0, thrustLocal.z) + Math.max(0, -thrustLocal.y) + (evaInput.yaw || evaInput.pitch || evaInput.roll ? 0.6 : 0)
+    if (side > 0.05 && s.phase === 'fly') {
+      for (let i = 0; i < 2; i++) {
+        const nz = RCS[Math.floor(Math.random() * RCS.length)]
+        tmp.a.copy(nz).applyMatrix4(g.matrixWorld)
+        // ガスは押したい向きと反対へ
+        tmp.b.set(-thrustLocal.x + (Math.random() - 0.5) * 0.6, -thrustLocal.y * 0.5 + (Math.random() - 0.5) * 0.6, 0.6 + Math.random() * 0.5).applyQuaternion(sim.quat).multiplyScalar(1.4)
+        puffs.emit(tmp.a, tmp.b, 0.45 + Math.random() * 0.3, tmp.col.setRGB(0.55, 0.6, 0.68))
+      }
+    }
+    puffs.update(dt)
+
+    // ---- ツールを使う：ドリルは回る、溶接とカッターは光って、外壁の近くなら火花 ----
+    const wrist = rig.joints.R.W
+    tmp.c.copy(TOOL_TIP).applyMatrix4(wrist.matrixWorld)
+    const working = s.phase === 'fly' && useEva.getState().working
+    const tool = useEva.getState().tool
+    rig.tools.R.drill.rotation.y += working && tool === 'drill' ? dt * 32 : 0
+    const hot = working && (tool === 'welder' || tool === 'cutter')
+    const flick = 0.6 + 0.4 * Math.sin(now * 97) * Math.sin(now * 61)
+    built.hotMat.color.setRGB(hot ? 6 * flick : 2.5, hot ? 5 * flick : 0.9, hot ? 4 * flick : 0.3)
+    built.arc.position.copy(tmp.c)
+    g.worldToLocal(built.arc.position)
+    built.arc.intensity = hot ? 3.5 * flick : 0
+    built.arc.color.set(tool === 'welder' ? '#bfe0ff' : '#ffb070')
+    const nearHull = hullClearance(tmp.c, 0.35, tmp.b) > 0
+    if (hot && nearHull) {
+      for (let i = 0; i < 4; i++) {
+        tmp.a.copy(tmp.b).multiplyScalar(0.6 + Math.random()).add(tmp.d.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(2.4))
+        sparks.emit(tmp.c, tmp.a, 0.25 + Math.random() * 0.35, tool === 'welder' ? tmp.col.setRGB(2.2, 2.0, 1.6) : tmp.col.setRGB(2.4, 1.2, 0.35))
+      }
+    }
+    sparks.update(dt)
+
+    // ---- 命綱 ----
+    const back = tmp.a.copy(TETHER_BACK).applyMatrix4(g.matrixWorld)
+    const backDir = tmp.b.set(0, 0, 1).applyQuaternion(sim.quat)
+    const span = back.distanceTo(TETHER_A)
+    const slack = Math.max(0, 1 - span / TETHER_M)
+    tether.update(TETHER_A, UPV, back, backDir, slack, SIDE)
+    tether.mesh.visible = s.phase !== 'launch' || T > 0.8
+
+    // ---- カメラ ----
+    const cam = state.camera as THREE.PerspectiveCamera
+    if (s.phase === 'fly' && s.view === 'head') {
+      cam.position.set(0, 0.17, -0.17).applyMatrix4(g.matrixWorld)
+      cam.quaternion.copy(sim.quat)
+      cam.near = 0.02
+      sim.camPos.copy(cam.position)
+    } else {
+      cam.near = 0.05
+      let wantPos: THREE.Vector3
+      let wantLook: THREE.Vector3
+      let wantUp: THREE.Vector3
+      if (s.phase === 'fly') {
+        wantPos = tmp.a.set(0.35, 0.5, 1.65).applyQuaternion(sim.quat).add(sim.pos)
+        wantLook = tmp.b.set(0.1, 0.2, -1.2).applyQuaternion(sim.quat).add(sim.pos)
+        wantUp = tmp.c.set(0, 1, 0).applyQuaternion(sim.quat)
+      } else {
+        // 発進・展開・回収：エアロックを斜め上から
+        wantPos = tmp.a.set(AIRLOCK.x + 2.4, 1.7, AIRLOCK.z + 3.3)
+        wantLook = tmp.b.copy(sim.pos).lerp(OUTSIDE, 0.5)
+        wantUp = tmp.c.set(0, 1, 0)
+      }
+      const f = 1 - Math.exp(-dt * (s.phase === 'fly' ? 5 : 2.5))
+      sim.camPos.lerp(wantPos, f)
+      sim.camLook.lerp(wantLook, f)
+      sim.camUp.lerp(wantUp, f).normalize()
+      cam.position.copy(sim.camPos)
+      cam.up.copy(sim.camUp)
+      cam.lookAt(sim.camLook)
+      if (evaDebug.cam) {
+        const [r, u, b] = evaDebug.cam
+        cam.position.set(r, u, b).applyQuaternion(sim.quat).add(sim.pos)
+        cam.lookAt(sim.pos)
+      }
+    }
+    cam.updateProjectionMatrix()
+    focus.copy(sim.pos)
+
+    // ---- 計器（ときどき） ----
+    if (now - sim.hudAt > 0.15) {
+      sim.hudAt = now
+      tmp.a.set(0, 0, -1).applyQuaternion(sim.quat)
+      const hdg = ((Math.atan2(tmp.a.x, -tmp.a.z) / D) % 360 + 360) % 360
+      useEva.setState({
+        hud: {
+          speed: Math.round(sim.vel.length() * 100) / 100,
+          dist: Math.round(sim.pos.distanceTo(TETHER_A) * 10) / 10,
+          alt: Math.max(0, Math.round((Math.hypot(sim.pos.x, sim.pos.y + HULL_R) - HULL_R) * 10) / 10),
+          gas: Math.round(sim.gas),
+          battery: Math.round(sim.battery),
+          x: Math.round(sim.pos.x * 10) / 10,
+          z: Math.round(sim.pos.z * 10) / 10,
+          hdg: Math.round(hdg),
+        },
+      })
+    }
+  })
+
+  // 新しく出すたびに、最初の位置・姿勢から
+  useEffect(() => {
+    if (phase !== 'launch') return
+    sim.pos.copy(INSIDE)
+    sim.vel.set(0, 0, 0)
+    sim.quat.identity()
+    sim.cur = copyPose(P_FOLDED)
+    sim.gas = 100
+    sim.battery = 100
+    sim.swapT = -1
+    sim.recallFrom.set(0, 0, 0)
+    sim.camPos.set(AIRLOCK.x + 2.4, 1.7, AIRLOCK.z + 3.3)
+    sim.camLook.set(AIRLOCK.x, 0.6, AIRLOCK.z)
+    sim.camUp.set(0, 1, 0)
+    showTool(built.rig, 'R', useEva.getState().tool)
+  }, [phase, sim, built])
+
+  return (
+    <>
+      <group ref={group}>
+        <primitive object={built.model} />
+      </group>
+      <primitive object={puffs.points} />
+      <primitive object={sparks.points} />
+      <primitive object={tether.mesh} />
+    </>
+  )
+}
+
+const UPV = new THREE.Vector3(0, 1, 0)
+const SIDE = new THREE.Vector3(1, 0, 0.3).normalize()
+
+/** ツムギのいる場所（日の光の影を描く範囲を合わせるため） */
+export const focus = new THREE.Vector3()
+/** ハッチの開き具合（0 = 閉、1 = 開）。Tsumugi が書き、外壁の場面が読む */
+export const hatchState = { get: () => 0 }
+
+useGLTF.preload(url('eva-tsumugi.glb'))
