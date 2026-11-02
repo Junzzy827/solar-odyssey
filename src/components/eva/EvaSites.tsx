@@ -275,7 +275,8 @@ export function ArcadiaDeck() {
               <boxGeometry args={[0.8, 0.4, 1.4]} />
               <meshBasicMaterial color={new THREE.Color(2.2, 2.1, 1.9)} toneMapped={false} />
             </mesh>
-            <pointLight intensity={30} distance={45} decay={1.4} color="#f2ecdf" position={[-sx * 1.5, -1, 0]} />
+            {/* 光を出すのはまんなかの 2 つだけ（点光源が多いと、スマホで重い） */}
+            {z === 0 && <pointLight intensity={40} distance={60} decay={1.3} color="#f2ecdf" position={[-sx * 1.5, -1, 0]} />}
           </group>
         )),
       )}
@@ -289,7 +290,7 @@ export function ArcadiaDeck() {
 const DOCK_GLB_M = 5000
 
 /** 作業灯（下面に吊った四角い灯と、まわりを照らす光） */
-function WorkLamp({ x, z }: { x: number; z: number }) {
+function WorkLamp({ x, z, lit }: { x: number; z: number; lit: boolean }) {
   const p = hullPoint(x, z)
   return (
     <group position={p}>
@@ -301,7 +302,7 @@ function WorkLamp({ x, z }: { x: number; z: number }) {
         <boxGeometry args={[0.75, 0.02, 0.36]} />
         <meshBasicMaterial color={new THREE.Color(2.4, 2.2, 1.9)} toneMapped={false} />
       </mesh>
-      <pointLight position={[0, 1.2, 0]} intensity={14} distance={26} decay={1.6} color="#ffe9cc" />
+      {lit && <pointLight position={[0, 1.2, 0]} intensity={18} distance={34} decay={1.5} color="#ffe9cc" />}
     </group>
   )
 }
@@ -373,7 +374,7 @@ export function DockUnderside() {
         [9, -24],
         [-9, 20],
       ].map(([x, z], i) => (
-        <WorkLamp key={i} x={x} z={z} />
+        <WorkLamp key={i} x={x} z={z} lit={i < 2} />
       ))}
       <mesh position={[0, 0.15, -34]}>
         <sphereGeometry args={[0.12, 12, 8]} />
