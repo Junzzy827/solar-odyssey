@@ -24,6 +24,8 @@ junji さんの設定資料（「EVA WORK ROBOT」、正面・側面・背面と
   FACES=1         表情 6 つを PREVIEW_DIR/face-*.png に
   ANIM=1          展開・ツール交換・表情の動画の連番を PREVIEW_DIR/anim に
   EXPORT=1        アプリ用の public/models/eva-tsumugi.glb を書き出す
+  BAKE=1          質感を焼き込む（TEX=2048、AO_SAMPLES=64、TEX_DIR）。EXPORT=1 と一緒なら焼いた glb を書き出す。
+                  PREVIEW=1 と一緒なら焼いた質感で確認用の画像を描く
 """
 
 import math
@@ -788,6 +790,300 @@ def export(objs):
     print('wrote', out, os.path.getsize(out) // 1024, 'KB', flush=True)
 
 
+# ---- 質感の焼き込み（BAKE=1） ---------------------------------------------------------------
+#
+# ローバー（build_rover.py）と同じやり方：部品を 1 枚の UV にならべ、Cycles で位置・向き・材質・角・すき間の暗さ（AO）を
+# 焼いて、numpy で「塗装のむら・パネルの継ぎ目・留め具・すき間の黒ずみ・角のはげ・金属のヘアライン・噴射口の焼け・
+# 細かな傷（微小なちりの当たった跡）」を描く。宇宙なので砂ぼこりはなく、使い込んだ傷と焦げで現場感を出す。
+# glb の材質は「Baked」1 つと、光る Lamp・Glow・Hot・Screen（three.js で置きかえる）だけ。
+# 表情の板（Face_*）は焼かない。ツール 10 個は手首の同じ場所に重なっているので、焼くあいだだけ離して置く。
+
+BAKE_PALETTE = {  # 色, ラフネス, メタリック
+    'Hull': ('#e2e0da', 0.5, 0.0),
+    'Hull2': ('#a6aab0', 0.36, 0.75),
+    'Dark': ('#26282d', 0.58, 0.15),
+    'Mech': ('#474b53', 0.42, 0.7),
+    'Metal': ('#a3a8af', 0.25, 1.0),
+    'Glass': ('#05080e', 0.06, 0.0),
+    'Lamp': ('#6fc0ff', 0.3, 0.0),
+    'Accent': ('#df7a1e', 0.46, 0.0),
+    'Glow': ('#55b4ff', 0.3, 0.0),
+    'Hot': ('#ff8a3a', 0.3, 0.0),
+    'Screen': ('#4fb8ff', 0.3, 0.0),
+    'Rubber': ('#18191b', 0.9, 0.0),
+}
+LIVE = ('Lamp', 'Glow', 'Hot', 'Screen')
+
+
+def node_edge_s(nt, m):
+    """角の強さ。ツムギは小さいので半径 4 mm"""
+    node = rv.node_edge_m(nt, m)
+    for n in nt.nodes:
+        if n.bl_idname == 'ShaderNodeBevel':
+            n.inputs['Radius'].default_value = 0.004
+    return node
+
+
+def compose_eva(P, N, ID, AO, EDGE, parts):
+    import build_amatsukaze as ba
+    srgb = bl.srgb
+    valid = ID[..., 3] > 0.5
+    mid = np.clip((ID[..., 0] * 32).astype(int), 0, 31)
+    pidx = np.clip(np.round(ID[..., 1] * 32).astype(int), 0, 31)
+    pos = P[..., :3] - 1
+    nrm = N[..., :3] * 2 - 1
+    x, y, z = pos[..., 0], pos[..., 1], pos[..., 2]
+    ao = np.clip(ba.soft_blur(AO[..., 0], valid, 1.2), 0, 1)
+    edge = np.clip(ba.soft_blur(EDGE[..., 0], valid, 0.8) * 5, 0, 1)
+    is_m = lambda name: valid & (mid == MATS.index(name))  # noqa: E731
+    part_name = np.array(['?'] + parts + ['?'] * (32 - len(parts) - 1))[pidx]
+    on = lambda pre: valid & np.char.startswith(part_name, pre)  # noqa: E731
+
+    base = np.zeros(pos.shape, dtype=np.float32)
+    rough = np.zeros(x.shape, dtype=np.float32)
+    metal = np.zeros(x.shape, dtype=np.float32)
+    height = np.zeros(x.shape, dtype=np.float32)
+    for m, (col, r, mt) in BAKE_PALETTE.items():
+        sel = is_m(m)
+        base[sel] = srgb(col)
+        rough[sel] = r
+        metal[sel] = mt
+    white = is_m('Hull')
+    alu = is_m('Hull2')
+    dark = is_m('Dark') | is_m('Accent')
+    bare = is_m('Metal') | is_m('Mech') | alu
+    painted = white | dark
+
+    # 1. むら（小さいロボットなので細かめ）
+    n_big = ba.value_noise(pos, 6.0, 31)
+    n_mid = ba.value_noise(pos, 24.0, 32)
+    n_fine = ba.value_noise(pos, 90.0, 33)
+    base *= (1 + (n_big - 0.5) * 0.07 + (n_mid - 0.5) * 0.04)[..., None]
+    rough += (n_mid - 0.5) * 0.12 + (n_fine - 0.5) * 0.08
+
+    # 2. 金属のヘアライン
+    axis = np.argmax(np.abs(nrm), axis=-1)
+    hair = ba.value_noise(np.stack([x * 5, y * 200, z * 5], -1), 1.0, 34)
+    hair2 = ba.value_noise(np.stack([x * 200, y * 5, z * 5], -1), 1.0, 35)
+    brushed = np.where(axis == 0, hair, hair2)
+    rough[bare] += ((brushed - 0.5) * 0.22)[bare]
+    base[bare] *= (1 + (brushed[bare] - 0.5) * 0.12)[..., None]
+
+    # 3. パネルの継ぎ目と留め具（白い外装）
+    a = np.where(axis == 1, x, y)
+    b = np.where(axis == 2, x, z)
+    pan = bl.Panels(91, lo=-1.5, hi=1.5, along=1.5)
+    k = 7.0
+    da, db, pid = pan.sample(a * k, b * k + axis * 0.37)
+    da, db = da / k, db / k
+    dist = np.minimum(da, db)
+    G = 0.0018
+    groove = np.clip(1 - dist / (G * 2.2), 0, 1) * white
+    height -= groove * 0.8
+    hp = ba.hash2(pid, axis * 1.0, 2.0)
+    base[white] *= (1 + (hp[white] - 0.5) * 0.05)[..., None]
+    base *= (1 - 0.55 * groove)[..., None]
+    PITCH = 0.018
+    fa = np.abs(np.mod(a, PITCH) / PITCH - 0.5)
+    fb = np.abs(np.mod(b, PITCH) / PITCH - 0.5)
+    rivet = white & (((np.abs(db - 0.006) < 0.0014) & (fa < 0.08)) | ((np.abs(da - 0.006) < 0.0014) & (fb < 0.08)))
+    rivet &= ba.hash2(pid, 3.0, 9.0) < 0.6
+    height[rivet] += 0.6
+    base[rivet] = base[rivet] * 0.55 + srgb('#8f949b') * 0.45
+    metal[rivet] = 0.8
+    rough[rivet] = 0.35
+    # 読めない短い棒の列（識別の印。どの国の文字でもない）：胴の横と背中
+    import random
+    rr = random.Random(11)
+    body = on('Body')
+    for (u0, v0, face) in ((-0.12, 0.08, 'x+'), (-0.12, 0.08, 'x-'), (-0.08, -0.14, 'y-')):
+        uu = u0
+        for _ in range(7):
+            w_ = rr.choice([0.004, 0.006, 0.008, 0.011])
+            if face[0] == 'x':
+                m_, _ = bl.rect_mask(y, z, uu, uu + w_, v0, v0 + 0.014)
+                m_ &= body & white & ((nrm[..., 0] > 0.6) if face[1] == '+' else (nrm[..., 0] < -0.6))
+            else:
+                m_, _ = bl.rect_mask(x, z, uu, uu + w_, v0, v0 + 0.014)
+                m_ &= body & white & (nrm[..., 1] < -0.6)
+            base[m_] *= 0.3
+            uu += w_ + rr.choice([0.002, 0.002, 0.005])
+
+    # 4. 使い込んだ跡
+    grime = srgb('#2f2a25')
+    soot = srgb('#17140f')
+    # すき間の黒ずみ（AO の暗いところに、すすと油）
+    cav = np.clip((0.8 - ao) * 2.4, 0, 1) * valid * (0.55 + 0.45 * n_fine)
+    base = base * (1 - cav[..., None] * 0.55) + grime * cav[..., None] * 0.55
+    rough += cav * 0.12
+    # 噴射口のまわりの焼け：下向きスラスター（Pod）の先、メインスラスターの後ろ、胴の下と背中の下
+    burn = np.zeros(x.shape, dtype=np.float32)
+    burn += on('Pod') * np.clip((-0.15 - z) / 0.06, 0, 1)
+    burn += on('MainJet') * np.clip((-0.24 - y) / 0.06, 0, 1)
+    burn += body * np.clip((-0.08 - z) / 0.1, 0, 1) * np.clip((-0.12 - y) / 0.12, 0, 1) * 0.7
+    burn *= (0.55 + 0.45 * n_mid) * valid * ~is_m('Glow')
+    burn = np.clip(burn, 0, 1)
+    base = base * (1 - burn[..., None] * 0.75) + soot * burn[..., None] * 0.75
+    rough += burn * 0.25
+    metal *= 1 - burn * 0.5
+    # 焼けた金属の青みと茶色（ノズルの金属だけ）
+    tint = burn * bare
+    base = base * (1 - tint[..., None] * 0.35) + srgb('#4a3a5a') * tint[..., None] * 0.35
+    # 細かな傷：外を向いた白い面に、小さなちりの当たった点と、こすれた筋
+    pits = white & (ba.value_noise(pos, 260.0, 36) > 0.86) & (n_mid > 0.45)
+    base[pits] *= 0.55
+    height[pits] -= 0.5
+    scratch_n = ba.value_noise(np.stack([x * 40 + z * 40, y * 300, z * 8], -1), 1.0, 37)
+    scratch = white & (np.abs(scratch_n - 0.5) < 0.012) & (n_big > 0.5)
+    base[scratch] *= 0.8
+    # 手で（ほかのロボットの腕で）さわる所の手あか：腕の白い殻、ツールの付け根
+    touch_ = (on('Fore') | on('Tool') | on('Shoulder')) & painted
+    smudge = np.clip((n_mid - 0.45) * 3, 0, 1) * touch_ * 0.35
+    base = base * (1 - smudge[..., None]) + grime * smudge[..., None]
+    # ツールの先はよく使うので金属がすり減って光る
+    toolwear = on('Tool') & bare
+    base[toolwear] *= 1.08
+    rough[toolwear] -= 0.08
+    # 角の塗装のはげ：白は下地の金属、暗い色とオレンジは明るくすれる
+    wear = edge * np.clip((n_fine - 0.35) * 2.6, 0, 1)
+    ww = wear * white
+    base = base * (1 - ww[..., None] * 0.7) + srgb('#9aa0a8') * ww[..., None] * 0.7
+    metal += ww * 0.85
+    rough -= ww * 0.3
+    wd = wear * dark
+    base *= (1 + 0.55 * wd)[..., None]
+    metal += wd * 0.45
+    wb = edge * bare
+    base *= (1 + 0.25 * wb)[..., None]
+    rough -= wb * 0.15
+    # 日の当たる上の面は、白がほんの少し黄ばむ
+    sun = np.clip(nrm[..., 2], 0, 1) * white * (0.5 + 0.5 * n_big) * 0.08
+    base = base * (1 - sun[..., None]) + srgb('#d8cfb4') * sun[..., None]
+    # AO
+    base *= (0.5 + 0.5 * ao)[..., None]
+
+    # 5. ノーマル
+    nrm_map = np.zeros(pos.shape, dtype=np.float32)
+    nrm_map[..., 2] = 1
+    hs = bl.ndimage_gauss(height, 0.6)
+    texel = ba.estimate_texel(pos, valid)
+    cont_x = valid & np.roll(valid, -1, 1) & (np.linalg.norm(np.roll(pos, -1, 1) - pos, axis=-1) < texel * 3)
+    cont_y = valid & np.roll(valid, -1, 0) & (np.linalg.norm(np.roll(pos, -1, 0) - pos, axis=-1) < texel * 3)
+    gx = np.where(cont_x, np.roll(hs, -1, 1) - hs, 0)
+    gy = np.where(cont_y, np.roll(hs, -1, 0) - hs, 0)
+    nrm_map[..., 0] = -gx * 0.9
+    nrm_map[..., 1] = -gy * 0.9
+    nrm_map /= np.linalg.norm(nrm_map, axis=-1, keepdims=True)
+    print(f'  texel ≈ {texel * 1000:.2f} mm', flush=True)
+    return base, np.clip(rough, 0.05, 1), np.clip(metal, 0, 1), nrm_map, valid
+
+
+def zero_pose(objs):
+    for o in objs.values():
+        o.rotation_euler = (0, 0, 0)
+        o.hide_render = o.hide_viewport = False
+        o.hide_set(False)
+    objs['Head'].location = NECK
+
+
+def bake(objs):
+    import time
+    import build_amatsukaze as ba
+    tex = int(os.environ.get('TEX', '2048'))
+    ba.TEX = tex
+    ba.MATS = MATS
+    zero_pose(objs)
+    # ツールを離して置く（焼くあいだだけ）
+    keep = {}
+    for i, t in enumerate(TOOLS):
+        for j, side in enumerate(('R', 'L')):
+            o = objs[f'Tool_{t}_{side}']
+            keep[o.name] = tuple(o.location)
+            o.location = (o.location[0] + (i - 2) * 0.6, o.location[1] + 2.0 + j * 0.6, o.location[2])
+    bpy.context.view_layer.update()
+    scene = bpy.context.scene
+    scene.render.engine = 'CYCLES'
+    scene.cycles.device = 'CPU'
+    scene.world = bpy.data.worlds.new('bakeworld')
+    scene.world.use_nodes = True
+    scene.world.light_settings.distance = 0.08
+    olist = [o for n, o in objs.items() if not n.startswith('Face_')]
+    parts = [o.name for o in olist]
+    for i, o in enumerate(olist):
+        o.pass_index = i + 1
+    ba.unwrap(olist)
+    t = time.time()
+    Pm = ba.bake_pass(olist, 'P', 'EMIT', ba.node_position)
+    Nm = ba.bake_pass(olist, 'N', 'EMIT', ba.node_normal)
+    IDm = ba.bake_pass(olist, 'ID', 'EMIT', ba.node_ids)
+    Em = ba.bake_pass(olist, 'EDGE', 'EMIT', node_edge_s, samples=8)
+    AOm = ba.bake_pass(olist, 'AO', 'AO', None, samples=int(os.environ.get('AO_SAMPLES', '64')))
+    print(f'  bakes {time.time() - t:.0f}s', flush=True)
+    for n, loc in keep.items():
+        objs[n].location = loc
+    base, rough, metal, nrm, valid = compose_eva(Pm, Nm, IDm, AOm, Em, parts)
+    orm = np.stack([np.ones_like(rough), rough, metal], -1)
+    base, orm = ba.dilate(base, valid), ba.dilate(orm, valid)
+    nrm_rgb = ba.dilate(nrm * 0.5 + 0.5, valid)
+    tex_dir = os.environ.get('TEX_DIR', '/tmp/claude-0/eva-tex')
+    os.makedirs(tex_dir, exist_ok=True)
+    black = np.zeros_like(base)
+    images = {
+        'base': ba.save_image('eva_base', ba.to_srgb(base), 'sRGB', os.path.join(tex_dir, 'base.png')),
+        'orm': ba.save_image('eva_orm', orm, 'Non-Color', os.path.join(tex_dir, 'orm.png')),
+        'normal': ba.save_image('eva_normal', nrm_rgb, 'Non-Color', os.path.join(tex_dir, 'normal.png')),
+        'emit': ba.save_image('eva_emit', black, 'sRGB', os.path.join(tex_dir, 'emit.png')),
+    }
+    baked = ba.final_material(images)
+    for link in list(baked.node_tree.links):
+        if link.to_socket.name == 'Emission Color':
+            baked.node_tree.links.remove(link)
+    baked.node_tree.nodes.get('Principled BSDF').inputs['Emission Strength'].default_value = 0.0
+    # 光る材質は焼いた材質に入れず、名前のまま残す（three.js で置きかえる）。焼くときに中身を書きかえたので作り直す
+    live = {}
+    for name in LIVE:
+        old = bpy.data.materials[name]
+        old.name = name + '_bake'
+        m = bpy.data.materials.new(name)
+        m.use_nodes = True
+        bsdf = m.node_tree.nodes.get('Principled BSDF')
+        col = (*bl.srgb(PREVIEW_COLORS[name]), 1)
+        bsdf.inputs['Base Color'].default_value = col
+        bsdf.inputs['Emission Color'].default_value = col
+        bsdf.inputs['Emission Strength'].default_value = EMIT[name]
+        live[name + '_bake'] = m
+    for o in olist:
+        mesh = o.data
+        old = [m.name for m in mesh.materials]
+        slots = ['Baked'] + [n for n in old if n in live]
+        remap = np.array([slots.index(n) if n in live else 0 for n in old], dtype=np.int32)
+        idx = np.empty(len(mesh.polygons), dtype=np.int32)
+        mesh.polygons.foreach_get('material_index', idx)
+        mesh.materials.clear()
+        for n in slots:
+            mesh.materials.append(baked if n == 'Baked' else live[n])
+        mesh.polygons.foreach_set('material_index', remap[idx])
+    # 表情の板は Screen（光る材質）のまま
+    for n, o in objs.items():
+        if n.startswith('Face_'):
+            o.data.materials.clear()
+            o.data.materials.append(live['Screen_bake'])
+    return images
+
+
+def export_baked(objs):
+    zero_pose(objs)
+    for o in bpy.context.scene.objects:
+        o.select_set(o.name in objs)
+    out = os.environ.get('OUT', os.path.join(bf.OUT_DIR, 'eva-tsumugi.glb'))
+    bpy.ops.export_scene.gltf(
+        filepath=out, export_format='GLB', use_selection=True, export_vertex_color='NONE',
+        export_normals=True, export_texcoords=True, export_tangents=False, export_materials='EXPORT',
+        export_image_format='JPEG', export_jpeg_quality=88, export_yup=True,
+    )
+    print('wrote', out, os.path.getsize(out) // 1024, 'KB', flush=True)
+
+
 def main():
     bf.reset_scene()
     for m in MATS:
@@ -800,11 +1096,19 @@ def main():
     apply_pose(objs, POSE, tools)
     show_face(objs, os.environ.get('FACE', 'none' if POSE == 'folded' else 'normal'))
     print(f'  {POSE} (m):', measure(objs))
-    if os.environ.get('EXPORT'):
+    if os.environ.get('BAKE'):
+        bake(objs)
+        if os.environ.get('EXPORT'):
+            export_baked(objs)
+            return
+        apply_pose(objs, POSE, tools)
+        show_face(objs, os.environ.get('FACE', 'none' if POSE == 'folded' else 'normal'))
+    elif os.environ.get('EXPORT'):
         export(objs)
         return
     if any(os.environ.get(k) for k in ('PREVIEW', 'TOOLS', 'FACES', 'ANIM')):
-        preview_materials()
+        if not os.environ.get('BAKE'):
+            preview_materials()
         setup_preview()
     if os.environ.get('PREVIEW'):
         preview(objs, f's{STAGE}-{POSE}')

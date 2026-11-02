@@ -3,6 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { haloTexture } from '../ship/ShipModel'
+import { lowMemory } from '../../state/quality'
+import { MAP_KEYS, shrinkTexture } from '../surface/shrinkTexture'
 import {
   DEPLOY_SEC,
   EVA_FADE,
@@ -297,8 +299,20 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       if (!mats.has(src)) {
         if (special[src.name]) mats.set(src, special[src.name])
         else {
+          // 焼き込んだ質感（色・ラフネス/メタリック・ノーマル）。スマホではテクスチャを 1024 に縮める
           const m = src.clone()
-          m.envMapIntensity = 1
+          m.envMapIntensity = 1.1
+          if (lowMemory()) {
+            for (const key of MAP_KEYS) {
+              const tex = m[key]
+              if (!tex) continue
+              const small = shrinkTexture(tex, 1024)
+              if (small) {
+                m[key] = small
+                owned.push(small)
+              }
+            }
+          }
           owned.push(m)
           mats.set(src, m)
         }
