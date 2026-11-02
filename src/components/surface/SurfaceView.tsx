@@ -478,7 +478,7 @@ function layRocks(rocks: Rock[], inst: (THREE.InstancedMesh | null)[], contact: 
     p.set(r.x, r.y, r.z)
     m.compose(p, q, s)
     // 岩ごとに少し明るさを変える（同じ色の岩が並ばないように）
-    mesh.setColorAt(counts[r.v], tone.setScalar(0.78 + 0.4 * ((r.rot * 977) % 1)))
+    mesh.setColorAt(counts[r.v], tone.setScalar((0.78 + 0.4 * ((r.rot * 977) % 1)) * (r.k ?? 1)))
     mesh.setMatrixAt(counts[r.v]++, m)
     // 根元の影（地面に接している所が暗い）：岩より少し大きい、ぼかした円
     if (contact && r.s > 0.15 && Math.hypot(r.x - shadowAt.x, r.z - shadowAt.z) < shadowAt.r && shadows < contact.instanceMatrix.count) {
@@ -525,7 +525,8 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   }, [world])
   const geo = useMemo(() => (world ? null : terrain.geometry()), [terrain, world])
   const rocks = useMemo(() => (world ? [] : terrain.rocks(Math.round(def.relief.rocks * 1400))), [terrain, def.relief.rocks, world])
-  const rockCap = world ? world.opt.n ** 2 * world.opt.rocks : rocks.length
+  // 広い天体：岩塊の野のタイルは岩が 8 倍になるので、余裕をもたせる（1 種類あたりの上限）
+  const rockCap = world ? world.opt.n ** 2 * world.opt.rocks * 2 : rocks.length
   const round = def.id === 'titan'
   const rockGeos = useMemo(() => [0, 1, 2].map((k) => rockGeometry(terrain.seed + k * 17, round)), [terrain.seed, round])
   const grain = grainTexture()

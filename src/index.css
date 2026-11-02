@@ -4153,6 +4153,33 @@ body.touch .sample-card ~ .sample-status {
   fill: #ffc46b;
 }
 
+.rover-map .m-poi-area {
+  fill: rgba(255, 150, 90, 0.1);
+  stroke: rgba(255, 170, 110, 0.75);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.rover-map .m-poi {
+  fill: #ff9a5c;
+  stroke: #2a1006;
+  stroke-width: 1.5;
+}
+
+.rover-map .m-poi-edge {
+  fill: #ff9a5c;
+  opacity: 0.85;
+}
+
+.rover-map .m-poi-name {
+  fill: #ffd2b0;
+  font-size: 14px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgba(10, 6, 4, 0.85);
+  stroke-width: 3px;
+}
+
 .rover-map .m-rock.taken {
   fill: rgba(200, 210, 225, 0.35);
 }

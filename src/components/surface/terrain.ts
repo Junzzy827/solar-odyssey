@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { SurfaceDef } from '../../data/surfaces'
 import { detailAt, heightAt, type Dem } from './dem'
+import { poisFor, poiWeight, type Poi } from './pois'
 
 // 地表の地形：なだらかな起伏・クレーター・砂丘・遠くの山並み・天体の丸み（小さな星ほど地平線が近い）。
 // 立つ場所（原点）と着陸船の場所は平らにならす。
@@ -67,6 +68,9 @@ const smooth = (e0: number, e1: number, x: number) => {
   return t * t * (3 - 2 * t)
 }
 
+const DUNE_SAND = new THREE.Color('#4a3a32')
+const BOULDER_GROUND = new THREE.Color('#5a3a28')
+
 export class Terrain {
   readonly seed: number
   readonly craters: Crater[] = []
@@ -79,9 +83,27 @@ export class Terrain {
 
   /** 本物の地形（観測された標高）。あれば起伏・クレーター・砂丘・山並みは作らず、これを使う */
   readonly dem: Dem | null
+  /** 見どころ（地層の丘・岩塊の野・砂丘）と、地層の丘ひとつひとつ */
+  readonly pois: Poi[]
+  private buttes = new Map<string, { x: number; z: number; a: number; h: number }[]>()
 
   constructor(readonly def: SurfaceDef, dem: Dem | null = null) {
     this.seed = idSeed(def.id)
+    this.pois = poisFor(def.id)
+    this.pois.forEach((p, i) => {
+      if (p.kind !== 'buttes') return
+      const rnd = seeded(this.seed + 300 + i)
+      const list: { x: number; z: number; a: number; h: number }[] = []
+      for (let k = 0; k < 40 && list.length < 8; k++) {
+        const ang = rnd() * Math.PI * 2
+        const d = Math.sqrt(rnd()) * p.r * 0.62
+        const b = { x: p.x + Math.cos(ang) * d, z: p.z + Math.sin(ang) * d, a: 40 + rnd() * 55, h: 10 + rnd() * 20 }
+        // 丘どうしは少し離す（あいだに通り道ができるように）
+        if (list.some((o) => Math.hypot(o.x - b.x, o.z - b.z) < (o.a + b.a) * 0.9)) continue
+        list.push(b)
+      }
+      this.buttes.set(p.id, list)
+    })
     this.radiusM = def.radiusKm * 1000
     this.dem = dem
     const rnd = seeded(this.seed + 7)
@@ -156,6 +178,7 @@ export class Terrain {
       let real = heightAt(this.dem.near, x, z) ?? heightAt(this.dem.far, x, z) ?? 0
       if (this.dem.detail) real += detailAt(this.dem.detail, x, z)
       if (this.def.id === 'mars') real += this.marsRelief(x, z)
+      if (this.pois.length) real += this.poiRelief(x, z)
       let h = real + (fbm(x / 22, z / 22, s + 50, 3) - 0.5) * 0.5 + (fbm(x / 5, z / 5, s + 51, 2) - 0.5) * 0.15
       if (raw) return { h, ejecta: 0, crack: 0 }
       const a = 1 - smooth(4, 12, Math.hypot(x, z))
@@ -193,6 +216,7 @@ export class Terrain {
       crack = Math.max(1 - smooth(0.0, 0.018, n1), 0.6 * (1 - smooth(0.0, 0.012, n2))) * R.cracks
       h += crack * 0.6
     }
+    if (this.pois.length) h += this.poiRelief(x, z)
     const r = Math.hypot(x, z)
     // 遠くの山並み。ローバーで走れる範囲（着陸地点から 1.5 km）の外から立ち上がる
     if (R.mountains) h += smooth(1700, 3300, r) * fbm(x / 700, z / 700, s + 77, 4) ** 1.6 * R.mountains * 2.2
@@ -203,6 +227,66 @@ export class Terrain {
     const base = a >= b ? this.baseEye : this.baseLander
     h = h * (1 - f) + base * f
     return { h, ejecta: ejecta * (1 - f), crack }
+  }
+
+  /**
+   * 見どころの地形：
+   *  地層の丘 … 平らな頂き・急な崖・ふもとのなだらかな崖錐（がいすい）。高さ 2.2 m ごとの段（地層）で崖を刻む
+   *  岩塊の野 … ゆるいこぶ（岩は scatter() で増やす）
+   *  砂丘     … 風下にゆるく風上に急な、高さ 4〜8 m の砂丘の列
+   */
+  private poiRelief(x: number, z: number) {
+    let h = 0
+    const s = this.seed
+    for (const p of this.pois) {
+      const w = poiWeight(p, x, z, 0.25)
+      if (w <= 0) continue
+      if (p.kind === 'buttes') {
+        // 丘のふちを不ぞろいに（崖が円に見えないように）
+        const jag = (fbm(x / 28, z / 28, s + 70, 3) - 0.5) * 0.5 + (fbm(x / 9, z / 9, s + 71, 2) - 0.5) * 0.12
+        let top = 0
+        for (const b of this.buttes.get(p.id) ?? []) {
+          const d = Math.hypot(x - b.x, z - b.z) / b.a + jag
+          if (d > 1.9) continue
+          // 層が少しずつ後ろへ下がった、段々の斜面（平均 25〜30°、段の立ち上がりは急）と、ふもとの崖錐
+          const prof = 0.8 * (1 - smooth(0.25, 0.95, d)) + 0.2 * (1 - smooth(0.95, 1.85, d))
+          let hh = b.h * prof
+          const q = hh / 2.2
+          const fl = Math.floor(q)
+          hh = (fl + smooth(0.45, 0.8, q - fl)) * 2.2
+          top = Math.max(top, hh)
+        }
+        h += (top + 3) * w
+      } else if (p.kind === 'boulders') {
+        h += (fbm(x / 55, z / 55, s + 80, 3) - 0.5) * 7 * w
+      } else {
+        // 風は北西から：列は北東〜南西に伸びる
+        const u = x * 0.6 - z * 0.8 + (fbm(x / 160, z / 160, s + 82, 3) - 0.5) * 90
+        const ph = (((u / 64) % 1) + 1) % 1
+        const prof = ph < 0.72 ? ph / 0.72 : (1 - ph) / 0.28
+        const amp = 4 + 4 * fbm(x / 220, z / 220, s + 83, 2)
+        h += prof * prof * (3 - 2 * prof) * amp * w
+      }
+    }
+    return h
+  }
+
+  /** 見どころの岩の決まり：more（出やすさの倍率）、big（大岩の野か）、k（明るさ） */
+  private poiRocks(x: number, z: number) {
+    let more = 1
+    let big = 0
+    let k = 1
+    for (const p of this.pois) {
+      const w = poiWeight(p, x, z, 0.3)
+      if (w <= 0) continue
+      if (p.kind === 'boulders') {
+        more *= 1 + 8 * w
+        big = Math.max(big, w)
+        k = Math.min(k, 1 - 0.38 * w)
+      } else if (p.kind === 'dunes') more *= 1 - w
+      else more *= 1 + 0.5 * w
+    }
+    return { more, big, k }
   }
 
   /**
@@ -252,6 +336,12 @@ export class Terrain {
       c.copy(g1).lerp(g2, m)
       c.lerp(ej, Math.min(1, ejecta * 0.75))
       c.lerp(crackCol, Math.min(1, crack))
+      // 見どころ：砂丘は黒っぽい玄武岩の砂、岩塊の野は少し暗く
+      for (const p of this.pois) {
+        if (p.kind === 'buttes') continue
+        const w = poiWeight(p, x, z, 0.3)
+        if (w > 0) c.lerp(p.kind === 'dunes' ? DUNE_SAND : BOULDER_GROUND, w * (p.kind === 'dunes' ? 0.7 : 0.25))
+      }
       // 小さなむら
       c.multiplyScalar(0.9 + 0.2 * fbm(x / 9, z / 9, this.seed + 8, 3))
       return c
@@ -505,11 +595,34 @@ export class Terrain {
    * 何度作っても同じ岩が同じ場所に出る（離れて戻ってきても変わらない）
    */
   tileRocks(tx: number, tz: number, size: number, count: number): Rock[] {
+    const job = this.tileRocksJob(tx, tz, size, count)
+    let r = job.next()
+    while (!r.done) r = job.next()
+    return r.value
+  }
+
+  /** tileRocks() を少しずつ（岩塊の野のタイルは岩が多く、一度に作ると 1 フレームが長くなるので） */
+  *tileRocksJob(tx: number, tz: number, size: number, count: number): Generator<void, Rock[], void> {
     const rnd = seeded(this.seed * 7919 + (tx / size + 4096) * 9973 + (tz / size + 4096) * 7)
-    return this.scatter(rnd, count, () => [tx + rnd() * size, tz + rnd() * size])
+    let more = 1
+    for (const p of this.pois) {
+      if (p.kind !== 'boulders') continue
+      const cx = Math.max(tx, Math.min(tx + size, p.x))
+      const cz = Math.max(tz, Math.min(tz + size, p.z))
+      if (Math.hypot(cx - p.x, cz - p.z) < p.r) more = Math.max(more, 8)
+    }
+    return yield* this.scatterJob(rnd, Math.round(count * more), () => [tx + rnd() * size, tz + rnd() * size])
   }
 
   private scatter(rnd: () => number, count: number, pick: () => [number, number]): Rock[] {
+    const job = this.scatterJob(rnd, count, pick)
+    let r = job.next()
+    while (!r.done) r = job.next()
+    return r.value
+  }
+
+  /** 岩を置く（40 回試すごとに一休み） */
+  private *scatterJob(rnd: () => number, count: number, pick: () => [number, number]): Generator<void, Rock[], void> {
     const out: Rock[] = []
     const steep = (x: number, z: number) => Math.min(1, Math.max(0, (1 - this.normal(x, z).y - 0.07) / 0.18))
     /** 岩の出やすさ：近く（5 m）に崖があるか、クレーターのふちか */
@@ -518,7 +631,7 @@ export class Terrain {
       for (let k = 0; k < 4; k++) st = Math.max(st, steep(x + Math.cos(k * 1.57 + 0.4) * 5, z + Math.sin(k * 1.57 + 0.4) * 5))
       return 0.35 + 0.65 * st + 0.6 * this.sample(x, z).ejecta
     }
-    const place = (x0: number, z0: number, s: number, sy: number) => {
+    const place = (x0: number, z0: number, s: number, sy: number, k = 1) => {
       let x = x0
       let z = z0
       const hold = s > 0.45 ? 0.9 : s > 0.2 ? 0.82 : 0.7
@@ -531,30 +644,48 @@ export class Terrain {
       }
       if (n.y < hold || this.flat(x, z) > 0.3) return
       const bury = 0.15 + rnd() * 0.2
-      out.push({ x, y: this.height(x, z) - s * sy * bury, z, s, sy, rot: rnd() * 6.28, tilt: 0, nx: n.x * 0.8, nz: n.z * 0.8, v: Math.floor(rnd() * 3) })
+      const rock: Rock = { x, y: this.height(x, z) - s * sy * bury, z, s, sy, rot: rnd() * 6.28, tilt: 0, nx: n.x * 0.8, nz: n.z * 0.8, v: Math.floor(rnd() * 3) }
+      if (k !== 1) rock.k = k
+      out.push(rock)
     }
     let tries = 0
     while (out.length < count && tries < count * 20) {
       tries++
+      if (tries % 40 === 0) yield
       const [x, z] = pick()
-      if (this.flat(x, z) > 0.3 || rnd() > rockiness(x, z)) continue
-      const big = 0.08 + 1.7 * rnd() ** 4
-      const sy = 0.65 + rnd() * 0.35
-      place(x, z, big, sy)
+      const pr = this.pois.length ? this.poiRocks(x, z) : null
+      const more = pr?.more ?? 1
+      if (this.flat(x, z) > 0.3) continue
+      if (more <= 0.02) {
+        rnd()
+        continue
+      }
+      // 岩塊の野の中はいつも置く（崖の近さを調べる手間をはぶく）
+      if (more >= 3) rnd()
+      else if (rnd() > rockiness(x, z) * more) continue
+      // 岩塊の野：1 m 前後の大岩が多い（ほとんどはローバーで乗り越えられる高さ）
+      const u = rnd()
+      const field = !!pr && pr.big > 0.3
+      const big = field ? 0.12 + 1.15 * u ** 2.2 : 0.08 + 1.7 * u ** 4
+      // 岩塊の野の岩は背が高めの角ばった塊
+      const sy = field ? 0.85 + rnd() * 0.45 : 0.65 + rnd() * 0.35
+      const k = pr?.k ?? 1
+      place(x, z, big, sy, k)
       // かけら：親が大きいほど多く、下り坂の方へ
       const n = this.normal(x, z)
       const kids = Math.floor(rnd() * 3 + big * 6)
       for (let c = 0; c < kids && out.length < count; c++) {
         const r = (0.5 + big * 1.5) * Math.sqrt(-2 * Math.log(1 - rnd() * 0.98)) * 0.7
         const a = rnd() * 6.28
-        place(x + Math.cos(a) * r + n.x * r * 1.5, z + Math.sin(a) * r + n.z * r * 1.5, Math.max(0.06, big * (0.12 + 0.45 * rnd() ** 1.8)), sy * (0.9 + rnd() * 0.2))
+        place(x + Math.cos(a) * r + n.x * r * 1.5, z + Math.sin(a) * r + n.z * r * 1.5, Math.max(0.06, big * (0.12 + 0.45 * rnd() ** 1.8)), sy * (0.9 + rnd() * 0.2), k)
       }
     }
     return out
   }
 }
 
-export type Rock = { x: number; y: number; z: number; s: number; sy: number; rot: number; tilt: number; nx: number; nz: number; v: number }
+/** k：明るさの倍率（岩塊の野の黒っぽい岩。なければ 1） */
+export type Rock = { x: number; y: number; z: number; s: number; sy: number; rot: number; tilt: number; nx: number; nz: number; v: number; k?: number }
 
 /**
  * 岩の形。round = true は丸い小石（タイタンの氷）。ふだんは割れた角ばった岩：
