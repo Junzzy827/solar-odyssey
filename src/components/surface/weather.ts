@@ -44,7 +44,9 @@ export const STORM_KIND: Record<string, { haze: number; dim: number; tint?: THRE
   earth: { haze: 30, dim: 0.5, tint: new THREE.Vector3(1.0, 0.72, 0.42) },
 }
 
-/** 自動の砂嵐の強さ：数日おきに砂嵐が来て、半日ほど吹き荒れて、また晴れる（着陸したときは晴れ。1 秒 = 1 時間なら 1 分半ほどで最初の砂嵐） */
+/** 自動の砂嵐の強さ：数日おきに砂嵐が来て、半日ほど吹き荒れて、また晴れる（着陸したときは晴れ。
+ * 地表の時間で決まるので、ふだんの速さ（1 秒 = 6 分）なら最初の砂嵐は 10 分ほどあと（火星。地表の 61 時間め）で、4 分ほど続く。
+ * 1 日を 1 分にすると 2 分半ほどで来る） */
 export function stormTarget(id: string, hours: number) {
   if (!WEATHER_BODIES.has(id)) return 0
   // タイタンの雨はめったに降らない（季節の変わり目の大雨と、ときどきの霧雨）。降り出しまでは火星の砂嵐より少し早め

@@ -86,16 +86,10 @@ export class Terrain {
     this.dem = dem
     const rnd = seeded(this.seed + 7)
     const n = dem ? 0 : Math.round(def.relief.craters * 260)
-    for (let i = 0; i < n; i++) {
-      // 小さいクレーターほど多い（べき分布）
-      const r = Math.max(2.5, def.relief.craterMax * rnd() ** 3.2)
-      const ang = rnd() * Math.PI * 2
-      const dist = Math.sqrt(rnd()) * 2200
-      const x = Math.cos(ang) * dist
-      const z = Math.sin(ang) * dist
+    const add = (r: number, x: number, z: number) => {
       // 立つ場所と着陸船の下には大きなクレーターを置かない
       const clear = Math.min(Math.hypot(x, z), Math.hypot(x - LANDER_POS.x, z - LANDER_POS.y))
-      if (clear < r * 1.6 + 20) continue
+      if (clear < r * 1.6 + 20) return
       const c = { x, z, r }
       this.craters.push(c)
       const reach = r * 3
@@ -107,6 +101,23 @@ export class Terrain {
           else this.grid.set(key, [c])
         }
       }
+    }
+    for (let i = 0; i < n; i++) {
+      // 小さいクレーターほど多い（べき分布）
+      const r = Math.max(2.5, def.relief.craterMax * rnd() ** 3.2)
+      const ang = rnd() * Math.PI * 2
+      const dist = Math.sqrt(rnd()) * 2200
+      add(r, Math.cos(ang) * dist, Math.sin(ang) * dist)
+    }
+    // ローバーで走れる範囲（3 km 四方）と、その先に見える所にも、同じ密度でクレーターを足す（2.2〜4.2 km の輪）。
+    // 着陸地点のまわりの並びは今までと同じ
+    const rnd2 = seeded(this.seed + 8)
+    const n2 = Math.round(n * ((4200 / 2200) ** 2 - 1))
+    for (let i = 0; i < n2; i++) {
+      const r = Math.max(2.5, def.relief.craterMax * rnd2() ** 3.2)
+      const ang = rnd2() * Math.PI * 2
+      const dist = Math.sqrt(2200 ** 2 + rnd2() * (4200 ** 2 - 2200 ** 2))
+      add(r, Math.cos(ang) * dist, Math.sin(ang) * dist)
     }
     this.settle()
   }
@@ -144,6 +155,7 @@ export class Terrain {
       // 本物の地形 ＋ 地図より細かい足もとのでこぼこ
       let real = heightAt(this.dem.near, x, z) ?? heightAt(this.dem.far, x, z) ?? 0
       if (this.dem.detail) real += detailAt(this.dem.detail, x, z)
+      if (this.def.id === 'mars') real += this.marsRelief(x, z)
       let h = real + (fbm(x / 22, z / 22, s + 50, 3) - 0.5) * 0.5 + (fbm(x / 5, z / 5, s + 51, 2) - 0.5) * 0.15
       if (raw) return { h, ejecta: 0, crack: 0 }
       const a = 1 - smooth(4, 12, Math.hypot(x, z))
@@ -182,7 +194,8 @@ export class Terrain {
       h += crack * 0.6
     }
     const r = Math.hypot(x, z)
-    if (R.mountains) h += smooth(900, 2600, r) * fbm(x / 700, z / 700, s + 77, 4) ** 1.6 * R.mountains * 2.2
+    // 遠くの山並み。ローバーで走れる範囲（着陸地点から 1.5 km）の外から立ち上がる
+    if (R.mountains) h += smooth(1700, 3300, r) * fbm(x / 700, z / 700, s + 77, 4) ** 1.6 * R.mountains * 2.2
     if (raw) return { h, ejecta, crack }
     const a = 1 - smooth(4, 12, Math.hypot(x, z))
     const b = 1 - smooth(14, 30, Math.hypot(x - LANDER_POS.x, z - LANDER_POS.y))
@@ -190,6 +203,34 @@ export class Terrain {
     const base = a >= b ? this.baseEye : this.baseLander
     h = h * (1 - f) + base * f
     return { h, ejecta: ejecta * (1 - f), crack }
+  }
+
+  /**
+   * 火星の走れる範囲に足す起伏。本物の着陸地点（ゲール・クレーターの底）は 3 km で高低差 20 m ほどの平原なので、
+   * 写真に出てくる地形を重ねる：ゆるい丘、段になった低い台地（ふちは急な崖）、くねくね曲がる川の跡の溝。
+   * 着陸地点から 2.4 km より外では弱めて、3.4 km で 0（遠くの山並みの本物の地形とつながるように）
+   */
+  private marsRelief(x: number, z: number) {
+    const fade = 1 - smooth(2400, 3400, Math.hypot(x, z))
+    if (fade <= 0) return 0
+    const s = this.seed
+    // ゆるい丘（数百 m の大きさ、高さ ±10 m ほど）
+    let h = (fbm(x / 330, z / 330, s + 60, 4) - 0.5) * 45
+    // 台地：大きなむらの高い所を、2 段の平らな段にする（段のふちは幅 20〜30 m の急な斜面）
+    const m = fbm(x / 560 + 3.1, z / 560 - 1.7, s + 61, 4) + (fbm(x / 90, z / 90, s + 65, 2) - 0.5) * 0.04
+    h += smooth(0.53, 0.55, m) * 8 + smooth(0.6, 0.615, m) * 6
+    // 川の跡の溝：ゆがめた雑音の「0.5 の線」に沿って掘る。断面は U 字（深さ 6 m・幅 40〜60 m）。
+    // 線は輪になりやすいので、別の雑音で半分ほど途切れさせ、ところどころに残る涸れ川にする
+    const wx = x + (fbm(x / 420, z / 420, s + 62, 3) - 0.5) * 520
+    const wz = z + (fbm(x / 420 + 7.3, z / 420, s + 63, 3) - 0.5) * 520
+    const c = Math.abs(fbm(wx / 1300, wz / 1300, s + 64, 3) - 0.5)
+    const w = 0.026
+    if (c < w) {
+      const keep = smooth(0.46, 0.52, fbm(x / 700 + 5, z / 700, s + 67, 2))
+      const u = c / w
+      h -= 7 * (1 - u * u) * keep
+    }
+    return h * fade
   }
 
   /** 丸みを含めた高さ：遠いほど地平線の下へ沈む（r² / 2R） */
