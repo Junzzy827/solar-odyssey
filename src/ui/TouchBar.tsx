@@ -9,6 +9,8 @@ import { setWorld, useSF } from '../data/sf'
 import { useRace } from '../state/race'
 import { t, useLang } from '../i18n/lang'
 import { ScaleSheet } from './ScaleToggle'
+import { canStartEva, startEva } from '../state/eva'
+import { landed } from '../state/landing'
 
 /** 中で指を動かすとスクロールしてよい画面（ほかの場所では、なぞってもページは動かさない） */
 const SCROLLABLE = '.nav-panel, .log-panel, .quiz-run, .probe-panel, .stamp-book, .scope-view, .lang-picker, .bridge-panel, .race-bar, .notice-panel'
@@ -80,7 +82,7 @@ function Icon(props: { glyph: string; label: string; on?: boolean; badge?: numbe
 }
 
 /**
- * スマホ・タブレットの画面の上のアイコン列：マップ・航法・スケール・日誌・お知らせ・船を見る・現実｜SF。
+ * スマホ・タブレットの画面の上のアイコン列：マップ・航法・スケール・日誌・お知らせ・船を見る・船外（ツムギ）・現実｜SF。
  * 押すとその下にメニューが開く。ふだんの画面には、これと操縦のボタンだけを出す
  */
 export function TouchBar() {
@@ -150,6 +152,18 @@ export function TouchBar() {
                 <Icon glyph="⌂" label={t('ブリッジ', 'Bridge')} disabled={racing} onClick={() => (setSheet(null), enterBridge())} />
               ))}
             {mode === 'flight' && <Icon glyph="◇" label={t('船を見る', 'Ship')} disabled={warpPhase !== 'idle' || !canOpenGallery()} onClick={openGallery} />}
+            {mode === 'flight' && (
+              <Icon
+                glyph="◉"
+                label={t('船外', 'EVA')}
+                disabled={warpPhase !== 'idle' || racing}
+                onClick={() => {
+                  if (!canStartEva(landed())) return
+                  setSheet(null)
+                  startEva()
+                }}
+              />
+            )}
           </>
         )}
         <button className={`bar-world${sf ? ' sf' : ''}`} onClick={() => setWorld(sf ? 'real' : 'sf')} disabled={racing} aria-label={t('現実とSFの切りかえ', 'Switch Real / SF')}>

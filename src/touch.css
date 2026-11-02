@@ -96,6 +96,20 @@ body.touch .bar-label {
   white-space: nowrap;
 }
 
+/* 縦の細い画面：アイコンが 8 つ並ぶので、名前を少し小さくして、はみ出しは切る */
+@media (max-width: 420px) {
+  body.touch .bar-label {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 9px;
+    letter-spacing: -0.5px;
+  }
+
+  body.touch .bar-glyph {
+    font-size: 17px;
+  }
+}
+
 /* まだ見ていないお知らせ・読める航海日誌の印 */
 body.touch .bar-badge {
   position: absolute;
