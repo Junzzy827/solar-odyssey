@@ -102,7 +102,8 @@ const BASE: Record<string, Base> = {
   },
   moon: airless('#8e8b86', '#6f6c68', '#5d5a56', { craters: 0.8, craterMax: 200, hills: 16, mountains: 300 }, { ejecta: '#b3afa8' }),
   mars: {
-    ground: '#a5582c', ground2: '#7d4220', rock: '#4f3426',
+    // 写真（キュリオシティ）に合わせた、くすんだ茶色の砂と、黒っぽい岩
+    ground: '#9a6446', ground2: '#7a4c34', rock: '#40312a',
     relief: { hills: 12, hillScale: 380, craters: 0.15, craterMax: 90, rocks: 0.85, mountains: 380 },
     sky: { zenith: '#b88a62', horizon: '#e0b48a' }, haze: 0.35, hazeColor: '#d4a07a', stars: 0.05,
     sunEl: 24, sunAz: 150, dust: true,

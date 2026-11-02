@@ -526,8 +526,8 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   }, [world])
   const geo = useMemo(() => (world ? null : terrain.geometry()), [terrain, world])
   const rocks = useMemo(() => (world ? [] : terrain.rocks(Math.round(def.relief.rocks * 1400))), [terrain, def.relief.rocks, world])
-  // 広い天体：岩塊の野のタイルは岩が 8 倍になるので、余裕をもたせる（1 種類あたりの上限）
-  const rockCap = world ? world.opt.n ** 2 * world.opt.rocks * 2 : rocks.length
+  // 広い天体：岩塊の野のタイルは岩が 14 倍になるので、余裕をもたせる（1 種類あたりの上限）
+  const rockCap = world ? world.opt.n ** 2 * world.opt.rocks * 3 : rocks.length
   const round = def.id === 'titan'
   const rockGeos = useMemo(() => [0, 1, 2].map((k) => rockGeometry(terrain.seed + k * 17, round)), [terrain.seed, round])
   const grain = grainTexture()

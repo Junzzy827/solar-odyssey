@@ -69,7 +69,9 @@ const smooth = (e0: number, e1: number, x: number) => {
 }
 
 const DUNE_SAND = new THREE.Color('#4a3a32')
-const BOULDER_GROUND = new THREE.Color('#5a3a28')
+const BOULDER_GROUND = new THREE.Color('#5a4232')
+const BUTTE_LIGHT = new THREE.Color('#b8957a')
+const BUTTE_DARK = new THREE.Color('#6e5040')
 
 export class Terrain {
   readonly seed: number
@@ -94,12 +96,12 @@ export class Terrain {
       if (p.kind !== 'buttes') return
       const rnd = seeded(this.seed + 300 + i)
       const list: { x: number; z: number; a: number; h: number }[] = []
-      for (let k = 0; k < 40 && list.length < 8; k++) {
+      // 小さめの丘をたくさん、あいだに谷を残して（ひとつの山に見えないように）
+      for (let k = 0; k < 160 && list.length < 14; k++) {
         const ang = rnd() * Math.PI * 2
-        const d = Math.sqrt(rnd()) * p.r * 0.62
-        const b = { x: p.x + Math.cos(ang) * d, z: p.z + Math.sin(ang) * d, a: 40 + rnd() * 55, h: 10 + rnd() * 20 }
-        // 丘どうしは少し離す（あいだに通り道ができるように）
-        if (list.some((o) => Math.hypot(o.x - b.x, o.z - b.z) < (o.a + b.a) * 0.9)) continue
+        const d = Math.sqrt(rnd()) * p.r * 0.7
+        const b = { x: p.x + Math.cos(ang) * d, z: p.z + Math.sin(ang) * d, a: 25 + rnd() * 45, h: 8 + rnd() * 18 }
+        if (list.some((o) => Math.hypot(o.x - b.x, o.z - b.z) < (o.a + b.a) * 1.05)) continue
         list.push(b)
       }
       this.buttes.set(p.id, list)
@@ -242,21 +244,7 @@ export class Terrain {
       const w = poiWeight(p, x, z, 0.25)
       if (w <= 0) continue
       if (p.kind === 'buttes') {
-        // 丘のふちを不ぞろいに（崖が円に見えないように）
-        const jag = (fbm(x / 28, z / 28, s + 70, 3) - 0.5) * 0.5 + (fbm(x / 9, z / 9, s + 71, 2) - 0.5) * 0.12
-        let top = 0
-        for (const b of this.buttes.get(p.id) ?? []) {
-          const d = Math.hypot(x - b.x, z - b.z) / b.a + jag
-          if (d > 1.9) continue
-          // 層が少しずつ後ろへ下がった、段々の斜面（平均 25〜30°、段の立ち上がりは急）と、ふもとの崖錐
-          const prof = 0.8 * (1 - smooth(0.25, 0.95, d)) + 0.2 * (1 - smooth(0.95, 1.85, d))
-          let hh = b.h * prof
-          const q = hh / 2.2
-          const fl = Math.floor(q)
-          hh = (fl + smooth(0.45, 0.8, q - fl)) * 2.2
-          top = Math.max(top, hh)
-        }
-        h += (top + 3) * w
+        h += (this.butteTop(p, x, z) + 3) * w
       } else if (p.kind === 'boulders') {
         h += (fbm(x / 55, z / 55, s + 80, 3) - 0.5) * 7 * w
       } else {
@@ -271,6 +259,26 @@ export class Terrain {
     return h
   }
 
+  /** 地層の丘の高さ（見どころの外側へのぼかしの前） */
+  private butteTop(p: Poi, x: number, z: number) {
+    const s = this.seed
+    // 丘のふちを不ぞろいに（崖が円に見えないように）
+    const jag = (fbm(x / 28, z / 28, s + 70, 3) - 0.5) * 0.5 + (fbm(x / 9, z / 9, s + 71, 2) - 0.5) * 0.12
+    let top = 0
+    for (const b of this.buttes.get(p.id) ?? []) {
+      const d = Math.hypot(x - b.x, z - b.z) / b.a + jag
+      if (d > 1.9) continue
+      // 層が少しずつ後ろへ下がった、段々の斜面（平均 25〜30°、段の立ち上がりは急）と、ふもとの崖錐
+      const prof = 0.8 * (1 - smooth(0.25, 0.95, d)) + 0.2 * (1 - smooth(0.95, 1.85, d))
+      let hh = b.h * prof
+      const q = hh / 2.2
+      const fl = Math.floor(q)
+      hh = (fl + smooth(0.45, 0.8, q - fl)) * 2.2
+      top = Math.max(top, hh)
+    }
+    return top
+  }
+
   /** 見どころの岩の決まり：more（出やすさの倍率）、big（大岩の野か）、k（明るさ） */
   private poiRocks(x: number, z: number) {
     let more = 1
@@ -280,7 +288,7 @@ export class Terrain {
       const w = poiWeight(p, x, z, 0.3)
       if (w <= 0) continue
       if (p.kind === 'boulders') {
-        more *= 1 + 8 * w
+        more *= 1 + 14 * w
         big = Math.max(big, w)
         k = Math.min(k, 1 - 0.38 * w)
       } else if (p.kind === 'dunes') more *= 1 - w
@@ -338,7 +346,16 @@ export class Terrain {
       c.lerp(crackCol, Math.min(1, crack))
       // 見どころ：砂丘は黒っぽい玄武岩の砂、岩塊の野は少し暗く
       for (const p of this.pois) {
-        if (p.kind === 'buttes') continue
+        if (p.kind === 'buttes') {
+          // 地層の縞：段ごとに明るい層と暗い層をかわりばんこに
+          const w = poiWeight(p, x, z, 0.25)
+          if (w <= 0) continue
+          const top = this.butteTop(p, x, z)
+          if (top < 0.6) continue
+          const band = Math.floor(top / 2.2) % 2
+          c.lerp(band ? BUTTE_LIGHT : BUTTE_DARK, w * Math.min(1, top / 3) * (band ? 0.35 : 0.2))
+          continue
+        }
         const w = poiWeight(p, x, z, 0.3)
         if (w > 0) c.lerp(p.kind === 'dunes' ? DUNE_SAND : BOULDER_GROUND, w * (p.kind === 'dunes' ? 0.7 : 0.25))
       }
@@ -609,7 +626,7 @@ export class Terrain {
       if (p.kind !== 'boulders') continue
       const cx = Math.max(tx, Math.min(tx + size, p.x))
       const cz = Math.max(tz, Math.min(tz + size, p.z))
-      if (Math.hypot(cx - p.x, cz - p.z) < p.r) more = Math.max(more, 8)
+      if (Math.hypot(cx - p.x, cz - p.z) < p.r) more = Math.max(more, 14)
     }
     return yield* this.scatterJob(rnd, Math.round(count * more), () => [tx + rnd() * size, tz + rnd() * size])
   }
@@ -666,7 +683,7 @@ export class Terrain {
       // 岩塊の野：1 m 前後の大岩が多い（ほとんどはローバーで乗り越えられる高さ）
       const u = rnd()
       const field = !!pr && pr.big > 0.3
-      const big = field ? 0.12 + 1.15 * u ** 2.2 : 0.08 + 1.7 * u ** 4
+      const big = field ? 0.1 + 1.1 * u ** 1.7 : 0.08 + 1.7 * u ** 4
       // 岩塊の野の岩は背が高めの角ばった塊
       const sy = field ? 0.85 + rnd() * 0.45 : 0.65 + rnd() * 0.35
       const k = pr?.k ?? 1

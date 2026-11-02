@@ -348,8 +348,8 @@ export function withRockDetail<T extends THREE.MeshStandardMaterial>(
           gRkDust = 0.0;
           if (uRockDustOn > 0.5) {
             float up = (vec4(gRkN, 0.0) * viewMatrix).y;
-            gRkDust = smoothstep(-0.05, 0.05, smoothstep(0.45, 0.9, up) * 0.8 - h);
-            diffuseColor.rgb = mix(diffuseColor.rgb, uRockDust, gRkDust * 0.6);
+            gRkDust = smoothstep(-0.15, 0.15, smoothstep(0.45, 0.9, up) * 0.8 - h);
+            diffuseColor.rgb = mix(diffuseColor.rgb, uRockDust, gRkDust * 0.45);
           }
         }`,
       )
