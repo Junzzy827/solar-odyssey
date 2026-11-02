@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import Hangar from './Hangar'
@@ -9,7 +9,11 @@ import { setupMusic } from './audio/music'
 // 録画・動作確認用
 if (location.hash.includes('debug')) void import('./debugHooks')
 
-if (!location.hash.startsWith('#hangar')) setupMusic()
+// 地形ラボ（#terrain-lab）：地面の作り方を見比べる試作ページ。ふだんの画面とは別に、必要なときだけ読み込む
+const terrainLab = location.hash.startsWith('#terrain-lab')
+const TerrainLab = lazy(() => import('./components/terrainLab/TerrainLab'))
+
+if (!location.hash.startsWith('#hangar') && !terrainLab) setupMusic()
 
 // マウスや指で押したボタンからは、すぐにフォーカスを外す。残っていると、そのあと Enter（ワープ）や Space（上昇）を押したときに
 // 同じボタンがもう一度押されてしまう（「ブリッジに入る」を押してから Enter でワープすると、ブリッジから出てしまうなど）。
@@ -21,6 +25,14 @@ document.addEventListener('click', (e) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {location.hash.startsWith('#hangar') ? <Hangar /> : <App />}
+    {terrainLab ? (
+      <Suspense fallback={null}>
+        <TerrainLab />
+      </Suspense>
+    ) : location.hash.startsWith('#hangar') ? (
+      <Hangar />
+    ) : (
+      <App />
+    )}
   </StrictMode>,
 )

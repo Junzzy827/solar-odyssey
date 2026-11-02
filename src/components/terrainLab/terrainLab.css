@@ -1,0 +1,28 @@
+/* 地形ラボ（#terrain-lab） */
+.tl-root { position: fixed; inset: 0; background: #c6a081; color: #f3ece4; font-family: system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif; }
+.tl-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #3a2416; }
+.tl-panel { position: absolute; top: 12px; right: 12px; width: 330px; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); overflow: auto; padding: 10px 12px; border-radius: 10px; background: rgba(18, 14, 12, 0.82); backdrop-filter: blur(6px); font-size: 13px; box-sizing: border-box; }
+.tl-panel.closed { width: auto; }
+.tl-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.tl-head b { font-size: 14px; color: #f2a65a; }
+.tl-muted { color: #a99e93; font-size: 12px; font-variant-numeric: tabular-nums; }
+.tl-fold { margin-left: auto; }
+.tl-row { display: grid; grid-template-columns: 84px 1fr auto; align-items: center; gap: 6px; margin: 6px 0; }
+.tl-row b { font-weight: 500; font-variant-numeric: tabular-nums; min-width: 32px; text-align: right; }
+.tl-label { color: #cfc4b8; font-size: 12px; }
+.tl-seg { grid-column: 2 / 4; display: flex; flex-wrap: wrap; gap: 4px; }
+.tl-panel button { font: inherit; font-size: 12px; color: #e8ded4; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
+.tl-panel button.on { background: #f2a65a; border-color: #f2a65a; color: #20140c; font-weight: 600; }
+.tl-quick { display: flex; gap: 6px; }
+.tl-quick button { flex: 1; padding: 6px 8px; }
+.tl-thumbs { grid-column: 2 / 4; display: flex; gap: 4px; }
+.tl-thumbs button { padding: 2px; flex: 1; }
+.tl-thumbs img { display: block; width: 100%; height: 38px; object-fit: cover; border-radius: 4px; }
+.tl-note { font-size: 12px; color: #d8cfc5; line-height: 1.5; margin-top: 6px; }
+.tl-photo { position: absolute; left: 12px; bottom: 12px; width: min(46vw, 720px); background: rgba(18, 14, 12, 0.85); border-radius: 8px; padding: 6px; font-size: 11px; color: #cfc4b8; cursor: pointer; }
+.tl-photo img { display: block; width: 100%; border-radius: 4px; }
+.tl-photo div { margin-top: 4px; }
+@media (max-width: 640px) {
+  .tl-panel { top: auto; bottom: 8px; right: 8px; left: 8px; width: auto; max-height: 52vh; }
+  .tl-photo { top: 8px; bottom: auto; left: 8px; width: calc(100vw - 16px); }
+}
