@@ -168,6 +168,42 @@ export function detailTexture(kind: SurfaceKind | 'rock', small = false) {
 // ---- 材質 ------------------------------------------------------------------------------------
 
 /**
+ * 模様の貼り方（GLSL）。世界の法線（xyz）と模様の高さ（w）を返す。
+ *  tri = false：上から（x, z）貼る。急な斜面では模様が縦に伸びる
+ *  tri = true ：トライプラナー。3 方向から貼って面の向きで混ぜる（崖でも模様が伸びない）
+ * 地形ラボ（components/terrainLab）と着陸地表で同じものを使う
+ */
+export const TRIPLANAR_GLSL = /* glsl */ `
+vec3 labPlanar(vec3 tn, vec3 n) {
+  vec3 T = normalize(vec3(1.0, 0.0, 0.0) - n * n.x);
+  vec3 B = normalize(cross(T, n));
+  return normalize(T * tn.x + B * tn.y + n * tn.z);
+}
+vec4 labSample(sampler2D t, vec3 p, vec3 n, float tile, float k, bool tri) {
+  if (!tri) {
+    vec4 s = texture2D(t, p.xz / tile);
+    vec3 tn = s.xyz * 2.0 - 1.0;
+    tn.xy *= k;
+    return vec4(labPlanar(normalize(tn), n), s.a);
+  }
+  vec3 w = pow(abs(n), vec3(4.0));
+  w /= (w.x + w.y + w.z);
+  vec4 sx = texture2D(t, p.zy / tile);
+  vec4 sy = texture2D(t, p.xz / tile);
+  vec4 sz = texture2D(t, p.xy / tile);
+  vec3 tx = sx.xyz * 2.0 - 1.0; tx.xy *= k;
+  vec3 ty = sy.xyz * 2.0 - 1.0; ty.xy *= k;
+  vec3 tz = sz.xyz * 2.0 - 1.0; tz.xy *= k;
+  // whiteout 合成：それぞれの面の凹凸を、世界の向きに直して重ねる
+  tx = vec3(tx.xy + n.zy, abs(tx.z) * n.x);
+  ty = vec3(ty.xy + n.xz, abs(ty.z) * n.y);
+  tz = vec3(tz.xy + n.xy, abs(tz.z) * n.z);
+  vec3 wn = normalize(tx.zyx * w.x + ty.xzy * w.y + tz.xyz * w.z);
+  return vec4(wn, sx.a * w.x + sy.a * w.y + sz.a * w.z);
+}
+`
+
+/**
  * 地面の材質（頂点の色はそのまま。凹凸と粗さと岩肌を足す）。
  * small：スマホなどメモリの少ないときは模様を小さく
  */
@@ -182,8 +218,8 @@ export function groundMaterial(def: SurfaceDef, small: boolean) {
     uNormalK: { value: new THREE.Vector2(look.normal, rock.normal) },
     uRough: { value: new THREE.Vector2(look.rough, rock.rough) },
     uRockColor: { value: new THREE.Color(def.rock) },
-    // 斜面の傾き（1 - 法線の上向き成分）で岩肌に変わる範囲
-    uSlope: { value: new THREE.Vector2(0.16, 0.34) },
+    // 斜面の傾き（1 - 法線の上向き成分）で岩肌に変わる範囲（真ん中＝約 37°）
+    uSlope: { value: new THREE.Vector2(0.13, 0.27) },
   }
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: look.rough, metalness: 0 })
   m.onBeforeCompile = (shader) => {
@@ -209,52 +245,124 @@ export function groundMaterial(def: SurfaceDef, small: boolean) {
         uniform vec2 uSlope;
         varying vec3 vGWorld;
         varying vec3 vGNormal;
-        vec4 gNear; vec4 gFar; vec4 gRock; float gFarK; float gRockK;`,
+        vec4 gNear; vec4 gFar; vec4 gRock; float gFarK; float gRockK; vec3 gWN;
+        ${TRIPLANAR_GLSL}`,
       )
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
         {
-          vec2 wuv = vGWorld.xz;
-          float dist = length(vGWorld - cameraPosition);
-          gNear = texture2D(uDetail, wuv / uTile.x);
-          gFar = texture2D(uDetail, wuv / uTile.y + 0.37);
-          gRock = texture2D(uRockDetail, wuv / uTile.z);
+          vec3 p = vGWorld;
+          vec3 n = normalize(vGNormal);
+          float dist = length(p - cameraPosition);
+          // 斜面は 3 方向から貼る（スマホなど軽くするときは上からだけ）
+          bool tri = ${small ? 'false' : 'true'};
+          float fade = 1.0 - 0.6 * smoothstep(40.0, 220.0, dist);
+          gNear = labSample(uDetail, p, n, uTile.x, uNormalK.x * fade, tri);
+          gFar = labSample(uDetail, p + 0.37, n, uTile.y, uNormalK.x * fade, tri);
+          gRock = labSample(uRockDetail, p, n, uTile.z, uNormalK.y, tri);
           gFarK = smoothstep(5.0, 30.0, dist);
-          float slope = 1.0 - clamp(normalize(vGNormal).y, 0.0, 1.0);
-          // 斜面の岩肌は、模様で境目をぎざぎざに
-          gRockK = smoothstep(uSlope.x, uSlope.y, slope + (gFar.a - 0.5) * 0.12);
-          float hgt = mix(gNear.a, gFar.a, gFarK);
+          float slope = 1.0 - clamp(n.y, 0.0, 1.0);
+          float hgt = mix(gNear.w, gFar.w, gFarK);
+          // 砂と岩肌の境目：傾きで決まる割合に模様の高さを足して比べる（ぼかさず、岩の凹凸に沿ってくっきり）
+          float r = clamp((slope - (uSlope.x + uSlope.y) * 0.5) / (uSlope.y - uSlope.x) + 0.5, 0.0, 1.0);
+          float a1 = hgt + (1.0 - r);
+          float a2 = gRock.w + r;
+          float ma = max(a1, a2) - 0.08;
+          float b1 = max(a1 - ma, 0.0);
+          float b2 = max(a2 - ma, 0.0);
+          gRockK = b2 / (b1 + b2 + 1e-5);
           // くぼみは少し暗く、出っ張りは少し明るく（細かい影の代わり）
           diffuseColor.rgb *= mix(0.82, 1.12, hgt);
-          vec3 rockCol = uRockColor * mix(0.7, 1.15, gRock.a);
+          vec3 rockCol = uRockColor * mix(0.7, 1.15, gRock.w);
           diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, gRockK * 0.85);
+          gWN = normalize(mix(mix(gNear.xyz, gFar.xyz, gFarK), gRock.xyz, gRockK));
         }`,
       )
       .replace(
         '#include <roughnessmap_fragment>',
         `#include <roughnessmap_fragment>
-        roughnessFactor = clamp(mix(uRough.x, uRough.y, gRockK) + (0.5 - mix(gNear.a, gFar.a, gFarK)) * 0.12, 0.05, 1.0);`,
+        roughnessFactor = clamp(mix(uRough.x, uRough.y, gRockK) + (0.5 - mix(gNear.w, gFar.w, gFarK)) * 0.12, 0.05, 1.0);`,
+      )
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n        normal = normalize((viewMatrix * vec4(gWN, 0.0)).xyz);')
+  }
+  m.customProgramCacheKey = () => `ground-${kind}-${small ? 'flat' : 'tri'}`
+  return m
+}
+
+/**
+ * 岩の質感：岩肌の模様（角ばった割れ目と段）の凹凸を、岩の形に沿って 3 方向から貼る。
+ * 割れ目は暗く、出っ張りは明るく。上を向いた面のくぼみには砂がたまる（dust の色、境目はくっきり）。
+ * 模様は岩そのものの座標で貼るので、岩を動かしても（採集で持ち上げても）模様がずれない。
+ * 地面の岩・採集する岩・地形ラボの岩で共通。ほかの onBeforeCompile（空気・雲の影）より先に呼ぶ
+ */
+export function withRockDetail<T extends THREE.MeshStandardMaterial>(
+  m: T,
+  opts: { dust?: THREE.Color | null; dustOn?: { value: number }; tile?: number; strength?: number } = {},
+): T {
+  const uniforms = {
+    uRockT: { value: detailTexture('rock') },
+    uRockTile: { value: opts.tile ?? 0.9 },
+    uRockK: { value: opts.strength ?? 1.4 },
+    uRockDust: { value: opts.dust ?? new THREE.Color(0, 0, 0) },
+    uRockDustOn: opts.dustOn ?? { value: opts.dust ? 1 : 0 },
+  }
+  const prev = m.onBeforeCompile
+  m.onBeforeCompile = (shader, renderer) => {
+    prev.call(m, shader, renderer)
+    Object.assign(shader.uniforms, uniforms)
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vRkP;\nvarying vec3 vRkN;\nvarying mat3 vRkM;')
+      .replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>
+        vRkP = position;
+        vRkN = normal;
+        #ifdef USE_INSTANCING
+          vRkM = mat3(viewMatrix) * mat3(modelMatrix) * mat3(instanceMatrix);
+        #else
+          vRkM = mat3(viewMatrix) * mat3(modelMatrix);
+        #endif`,
+      )
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        uniform sampler2D uRockT; uniform float uRockTile; uniform float uRockK; uniform vec3 uRockDust; uniform float uRockDustOn;
+        varying vec3 vRkP; varying vec3 vRkN; varying mat3 vRkM;
+        vec3 gRkN; float gRkDust;
+        ${TRIPLANAR_GLSL}`,
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        {
+          vec3 on = normalize(vRkN);
+          vec4 a = labSample(uRockT, vRkP, on, uRockTile, uRockK, true);
+          vec4 b = labSample(uRockT, vRkP * 2.7 + 1.3, on, uRockTile, uRockK * 0.6, true);
+          float h = a.w * 0.65 + b.w * 0.35;
+          vec3 objN = normalize(a.xyz + b.xyz * 0.5);
+          gRkN = normalize(vRkM * objN);
+          // 割れ目は暗く、出っ張りは明るく（細かい影の代わり）
+          diffuseColor.rgb *= mix(0.55, 1.18, h);
+          gRkDust = 0.0;
+          if (uRockDustOn > 0.5) {
+            float up = (vec4(gRkN, 0.0) * viewMatrix).y;
+            gRkDust = smoothstep(-0.05, 0.05, smoothstep(0.45, 0.9, up) * 0.8 - h);
+            diffuseColor.rgb = mix(diffuseColor.rgb, uRockDust, gRkDust * 0.6);
+          }
+        }`,
       )
       .replace(
         '#include <normal_fragment_maps>',
         `#include <normal_fragment_maps>
-        {
-          float dist = length(vGWorld - cameraPosition);
-          vec3 tn = mix(gNear.xyz, gFar.xyz, gFarK) * 2.0 - 1.0;
-          tn.xy *= uNormalK.x * (1.0 - 0.6 * smoothstep(40.0, 220.0, dist));
-          vec3 rn = gRock.xyz * 2.0 - 1.0;
-          rn.xy *= uNormalK.y;
-          tn = normalize(mix(normalize(tn), normalize(rn), gRockK));
-          // 地面は上から見た座標（x, z）で模様を貼っているので、その向きで世界の法線に直す
-          vec3 N = normalize(vGNormal);
-          vec3 T = normalize(vec3(1.0, 0.0, 0.0) - N * N.x);
-          vec3 B = normalize(cross(T, N));
-          vec3 wn = normalize(T * tn.x + B * tn.y + N * tn.z);
-          normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz);
-        }`,
+        normal = normalize(mix(gRkN, normal, gRkDust * 0.6));
+        #ifdef DOUBLE_SIDED
+          normal *= faceDirection;
+        #endif`,
       )
   }
-  m.customProgramCacheKey = () => `ground-${kind}`
+  const key = m.customProgramCacheKey.bind(m)
+  m.customProgramCacheKey = () => key() + '|rock-detail'
   return m
 }

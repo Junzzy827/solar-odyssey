@@ -1,5 +1,4 @@
-import * as THREE from 'three'
-import { seeded } from '../surface/terrain'
+import { rockGeometry, seeded } from '../surface/terrain'
 import { blurGrid, CELL, type Field, heightAt, N, normalAt, SIZE, slopeGrid } from './heightfield'
 
 // 岩の置き方を 2 通り作る。
@@ -181,31 +180,9 @@ export function rockContact(rocks: Rock[]) {
   return { occ, tail }
 }
 
-/** 岩の形：細かく分けた多面体を、大小の凹凸で崩す。底は平たく（地面に埋まる側） */
-export function labRockGeometry(seed: number, slab: boolean) {
-  const geo = new THREE.IcosahedronGeometry(1, 3)
-  const p = geo.attributes.position as THREE.BufferAttribute
-  const rnd = seeded(seed)
-  // ランダムな向きの平面で何回か削って、割れた面を作る
-  const cuts = Array.from({ length: 10 }, () => {
-    const v = new THREE.Vector3(rnd() * 2 - 1, rnd() * 2 - 1, rnd() * 2 - 1).normalize()
-    return { v, d: 0.5 + rnd() * 0.35 }
-  })
-  const v = new THREE.Vector3()
-  const ph = [rnd() * 10, rnd() * 10, rnd() * 10]
-  for (let i = 0; i < p.count; i++) {
-    v.fromBufferAttribute(p, i)
-    // 大きなゆがみ＋小さなでこぼこ
-    const bump = 1 + 0.1 * Math.sin(v.x * 2.1 + ph[0]) * Math.sin(v.y * 2.7 + ph[1]) + 0.05 * Math.sin(v.z * 7.3 + ph[2]) * Math.sin(v.x * 6.1)
-    v.multiplyScalar(bump)
-    for (const c of cuts) {
-      const d = v.dot(c.v)
-      if (d > c.d) v.addScaledVector(c.v, c.d - d)
-    }
-    if (slab) v.y *= 0.55
-    if (v.y < -0.25) v.y = -0.25 - (v.y + 0.25) * 0.25
-    p.setXYZ(i, v.x, v.y, v.z)
-  }
-  geo.computeVertexNormals()
-  return geo
+/** 岩の形（着陸地表と同じもの） */
+export const labRockGeometry = (seed: number, slab: boolean) => {
+  const g = rockGeometry(seed, false)
+  if (slab) g.scale(1, 0.55, 1)
+  return g
 }

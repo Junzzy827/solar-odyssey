@@ -252,42 +252,104 @@ export class Terrain {
     return geo
   }
 
-  /** 岩：大きさはべき分布（小石が多く、大岩は少し）。平らにした場所には置かない */
-  rocks(count: number) {
+  /** 上向きの法線（丸みを含む） */
+  normal(x: number, z: number) {
+    const e = 1.2
+    const hx = this.height(x + e, z) - this.height(x - e, z)
+    const hz = this.height(x, z + e) - this.height(x, z - e)
+    const l = Math.hypot(hx, 2 * e, hz)
+    return { x: -hx / l, y: (2 * e) / l, z: -hz / l }
+  }
+
+  private rockCache = new Map<number, Rock[]>()
+
+  /**
+   * 岩の置き方（地形ラボで決めた決まり）：
+   *  1. 岩は崖（急な斜面）やクレーターのふちから来るので、その近くに多い
+   *  2. 群れで置く：親の岩のまわりに、割れたかけらが下り坂の方へ散らばる
+   *  3. 大きさはべき分布（大岩は少しだけ、小石はたくさん）
+   *  4. 急な斜面には大きな岩は留まれないので、留まれる傾きまで転がして置く（崖のふもとにたまる）
+   *  5. 2〜4 割を地面に埋め、地面の傾きに沿わせる
+   * 同じ数なら同じ並び（ローバーの当たり判定も同じものを使う）
+   */
+  rocks(count: number): Rock[] {
+    const hit = this.rockCache.get(count)
+    if (hit) return hit
     const rnd = seeded(this.seed + 99)
-    const out: { x: number; y: number; z: number; s: number; sy: number; rot: number; tilt: number; v: number }[] = []
+    const out: Rock[] = []
+    const steep = (x: number, z: number) => Math.min(1, Math.max(0, (1 - this.normal(x, z).y - 0.07) / 0.18))
+    /** 岩の出やすさ：近く（5 m）に崖があるか、クレーターのふちか */
+    const rockiness = (x: number, z: number) => {
+      let st = steep(x, z)
+      for (let k = 0; k < 4; k++) st = Math.max(st, steep(x + Math.cos(k * 1.57 + 0.4) * 5, z + Math.sin(k * 1.57 + 0.4) * 5))
+      return 0.35 + 0.65 * st + 0.6 * this.sample(x, z).ejecta
+    }
+    const place = (x0: number, z0: number, s: number, sy: number) => {
+      let x = x0
+      let z = z0
+      const hold = s > 0.45 ? 0.9 : s > 0.2 ? 0.82 : 0.7
+      let n = this.normal(x, z)
+      for (let step = 0; step < 30 && n.y < hold; step++) {
+        const l = Math.hypot(n.x, n.z) || 1
+        x += (n.x / l) * 0.8
+        z += (n.z / l) * 0.8
+        n = this.normal(x, z)
+      }
+      if (n.y < hold || this.flat(x, z) > 0.3) return
+      const bury = 0.15 + rnd() * 0.2
+      out.push({ x, y: this.height(x, z) - s * sy * bury, z, s, sy, rot: rnd() * 6.28, tilt: 0, nx: n.x * 0.8, nz: n.z * 0.8, v: Math.floor(rnd() * 3) })
+    }
     let tries = 0
-    while (out.length < count && tries < count * 4) {
+    while (out.length < count && tries < count * 20) {
       tries++
       const ang = rnd() * Math.PI * 2
       const dist = 3 + rnd() ** 1.6 * 420
       const x = Math.cos(ang) * dist
       const z = Math.sin(ang) * dist
-      if (this.flat(x, z) > 0.3) continue
-      const s = 0.08 + 1.7 * rnd() ** 4.5
-      out.push({ x, y: this.height(x, z) - s * 0.35, z, s, sy: 0.5 + rnd() * 0.5, rot: rnd() * 6.28, tilt: (rnd() - 0.5) * 0.6, v: Math.floor(rnd() * 3) })
+      if (this.flat(x, z) > 0.3 || rnd() > rockiness(x, z)) continue
+      const big = 0.08 + 1.7 * rnd() ** 4
+      const sy = 0.65 + rnd() * 0.35
+      place(x, z, big, sy)
+      // かけら：親が大きいほど多く、下り坂の方へ
+      const n = this.normal(x, z)
+      const kids = Math.floor(rnd() * 3 + big * 6)
+      for (let c = 0; c < kids && out.length < count; c++) {
+        const r = (0.5 + big * 1.5) * Math.sqrt(-2 * Math.log(1 - rnd() * 0.98)) * 0.7
+        const a = rnd() * 6.28
+        place(x + Math.cos(a) * r + n.x * r * 1.5, z + Math.sin(a) * r + n.z * r * 1.5, Math.max(0.06, big * (0.12 + 0.45 * rnd() ** 1.8)), sy * (0.9 + rnd() * 0.2))
+      }
     }
+    this.rockCache.set(count, out)
     return out
   }
 }
 
-/** でこぼこした岩の形（いくつかの種類） */
+export type Rock = { x: number; y: number; z: number; s: number; sy: number; rot: number; tilt: number; nx: number; nz: number; v: number }
+
+/**
+ * 岩の形。round = true は丸い小石（タイタンの氷）。ふだんは割れた角ばった岩：
+ * 細かく分けた多面体を大小の凹凸で崩し、何本かの平面で削って割れた面を作る。底は平たく（地面に埋まる側）
+ */
 export function rockGeometry(seed: number, round: boolean) {
-  const geo = new THREE.IcosahedronGeometry(1, round ? 2 : 1)
+  const geo = new THREE.IcosahedronGeometry(1, round ? 2 : 3)
   const p = geo.attributes.position as THREE.BufferAttribute
   const rnd = seeded(seed)
-  const map = new Map<string, number>()
+  const cuts = round
+    ? []
+    : Array.from({ length: 10 }, () => ({ v: new THREE.Vector3(rnd() * 2 - 1, rnd() * 2 - 1, rnd() * 2 - 1).normalize(), d: 0.5 + rnd() * 0.35 }))
+  const ph = [rnd() * 10, rnd() * 10, rnd() * 10]
   const v = new THREE.Vector3()
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i)
-    const key = `${v.x.toFixed(3)},${v.y.toFixed(3)},${v.z.toFixed(3)}`
-    let k = map.get(key)
-    if (k === undefined) {
-      k = round ? 0.9 + rnd() * 0.15 : 0.7 + rnd() * 0.5
-      map.set(key, k)
+    const bump = round
+      ? 0.9 + 0.12 * Math.sin(v.x * 2.3 + ph[0]) * Math.sin(v.z * 2.1 + ph[1])
+      : 1 + 0.1 * Math.sin(v.x * 2.1 + ph[0]) * Math.sin(v.y * 2.7 + ph[1]) + 0.05 * Math.sin(v.z * 7.3 + ph[2]) * Math.sin(v.x * 6.1)
+    v.multiplyScalar(bump)
+    for (const c of cuts) {
+      const d = v.dot(c.v)
+      if (d > c.d) v.addScaledVector(c.v, c.d - d)
     }
-    v.multiplyScalar(k)
-    if (!round && v.y < -0.2) v.y = -0.2 - (v.y + 0.2) * 0.3 // 底は平たく
+    if (!round && v.y < -0.25) v.y = -0.25 - (v.y + 0.25) * 0.25 // 底は平たく
     p.setXYZ(i, v.x, v.y, v.z)
   }
   geo.computeVertexNormals()

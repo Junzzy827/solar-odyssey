@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { FAR, LANDER_POS, Terrain, rockGeometry, seeded } from './terrain'
+import { withRockDetail } from './groundMaterial'
 import { dustFragment, dustVertex, puffTexture, windFor } from './landerFx'
 import type { SkyNow } from './skyNow'
 import { lowMemory, useLevel } from '../../state/quality'
@@ -471,13 +472,21 @@ export function Rover({
     const beaconMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.0, 0.45), transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })
     const items = sites.map((site) => {
       const geo = rockGeometry(site.seed, !!site.kind.round)
-      const mat = prepare(new THREE.MeshStandardMaterial({ color: site.kind.color, roughness: 0.85 - (site.kind.gloss ?? 0) * 0.6, metalness: (site.kind.gloss ?? 0) * 0.3 }))
+      // 地面の岩と同じ岩肌の凹凸（模様は岩の座標で貼るので、持ち上げてもずれない）。つやのある岩は凹凸を控えめに
+      const gloss = site.kind.gloss ?? 0
+      const mat = prepare(
+        withRockDetail(new THREE.MeshStandardMaterial({ color: site.kind.color, roughness: 0.85 - gloss * 0.6, metalness: gloss * 0.3 }), {
+          dust: site.kind.round ? null : new THREE.Color(def.ground),
+          strength: site.kind.round ? 0.5 : 1.4 - gloss * 0.8,
+          tile: 0.8,
+        }),
+      )
       return { geo, mat }
     })
-    const chipMat = new THREE.MeshStandardMaterial({ color: '#888', roughness: 0.7 })
+    const chipMat = withRockDetail(new THREE.MeshStandardMaterial({ color: '#888', roughness: 0.7 }), { tile: 0.8 })
     const chipGeo = rockGeometry(7, false)
     return { beaconGeo, beaconMat, items, chipMat, chipGeo }
-  }, [sites, prepare])
+  }, [sites, prepare, def.ground])
   useEffect(
     () => () => {
       rocks.beaconGeo.dispose()
