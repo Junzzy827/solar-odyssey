@@ -33,6 +33,7 @@ import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 import { Rover } from './Rover'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { RoverHud, RoverMap } from './RoverHud'
+import { useMapTerrain } from './mapRelief'
 import { bindRoverKeys, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
 import { samplesFor } from '../../data/rockSamples'
 
@@ -1043,6 +1044,13 @@ function Scene({ def }: { def: SurfaceDef }) {
   // 本物の地形（火星・地球）。読み終わるまでは今までの作った地形
   const dem = useDem(def.id)
   const terrain = useMemo(() => new Terrain(def, dem || null), [def, dem])
+  // ミニマップ（HTML）にも同じ地形を渡す
+  useEffect(() => {
+    useMapTerrain.setState({ terrain })
+    return () => {
+      if (useMapTerrain.getState().terrain === terrain) useMapTerrain.setState({ terrain: null })
+    }
+  }, [terrain])
   const level = useLevel()
   const haze = useSurfaceLab((l) => l.haze)
   const { scene, gl } = useThree()

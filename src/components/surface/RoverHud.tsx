@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
+import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
 import { t, useLang } from '../../i18n/lang'
 
 // ローバーの計器：速度計（0〜60 km/h の弧）と、向き・傾き・着陸船からの距離・宙に浮いているかの表示
@@ -159,6 +160,13 @@ export function RoverMap() {
   }
   const mx = (x: number) => (x - cx) / k
   const mz = (z: number) => (z - cz) / k
+  // 地形の陰影と等高線。広い天体では範囲全体の 1 枚と、近くを見るときのローバーのまわり 600 m の細かい 1 枚。
+  // 細かいほうは 100 m ごとの位置に合わせて作るので、ローバーが 50 m 以上動いたときだけ作り直す
+  const terrain = useMapTerrain((m) => m.terrain)
+  const coarse = useRelief(terrain, wide ? { cx: 0, cz: 0, half: R * 1.04 } : { cx: LANDER_POS.x, cz: LANDER_POS.y, half: V })
+  const fine = useRelief(terrain, wide && !whole ? { cx: Math.round(hud.x / 100) * 100, cz: Math.round(hud.z / 100) * 100, half: 300 } : null)
+  const relief = (l: ReliefLayer | null) =>
+    l && <image href={l.url} x={mx(l.x0)} y={mz(l.z0)} width={l.size / k} height={l.size / k} preserveAspectRatio="none" opacity={0.9} />
   const half = V * k
   const lines: number[] = []
   if (wide) {
@@ -172,6 +180,8 @@ export function RoverMap() {
   return (
     <div className={`rover-map${edge ? ' edge' : ''}`}>
       <svg viewBox={`${-V} ${-V} ${V * 2} ${V * 2}`} aria-label={t('ミニマップ', 'Minimap')}>
+        {relief(coarse)}
+        {wide && !whole && relief(fine)}
         {wide ? (
           <>
             {lines.map((g) => (
