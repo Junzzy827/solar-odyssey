@@ -99,12 +99,6 @@ def build_head(g):
     cbox(g, (0, 0.01, 0.1325), (0.21, 0.22, 0.205), 0.026, 'Hull')
     cbox(g, (0, 0.114, 0.13), (0.19, 0.012, 0.168), 0.024, 'Dark')
     cbox(g, (0, 0.121, 0.13), (0.172, 0.006, 0.148), 0.02, 'Glass')
-    y = 0.1255
-    for sx in (1, -1):
-        ex = sx * 0.05
-        box(g, (ex, y, 0.135), (0.007, 0.002, 0.04), 'Screen')  # たて棒（外側）
-        box(g, (ex - sx * 0.012, y, 0.1185), (0.03, 0.002, 0.007), 'Screen')  # よこ棒
-    box(g, (0, y, 0.107), (0.03, 0.002, 0.006), 'Screen')  # 口
     # 頭の上：通気口の箱と、うしろの段
     cbox(g, (0, 0.0, 0.243), (0.10, 0.09, 0.024), 0.008, 'Mech')
     for k in range(4):
@@ -124,6 +118,60 @@ def build_head(g):
     # 顔の横のふちの細い溝
     for sx in (1, -1):
         box(g, (sx * 0.106, 0.06, 0.06), (0.004, 0.06, 0.006), 'Dark')
+
+
+# ---- 顔の表情（画面の青い線。表情ごとに別のオブジェクトにして、1 つだけ見せる） ----------------
+
+FACE_Y = 0.1255
+FACES = ['normal', 'happy', 'focus', 'sweat', 'ouch', 'boot']
+
+
+def stroke(g, p, q, t=0.007):
+    """画面の上の線（p, q は (x, z)）"""
+    (px, pz), (qx, qz) = p, q
+    L = math.hypot(qx - px, qz - pz)
+    box(g, ((px + qx) / 2, FACE_Y, (pz + qz) / 2), (L + t * 0.6, 0.002, t), 'Screen', rot_y=-math.atan2(qz - pz, qx - px))
+
+
+def build_face(g, kind):
+    ez = 0.135
+    for sx in (1, -1):
+        ex = sx * 0.045
+        if kind == 'normal':  # └ _ ┘（いつもの顔）
+            stroke(g, (ex + sx * 0.006, ez + 0.017), (ex + sx * 0.006, ez - 0.017))
+            stroke(g, (ex + sx * 0.006, ez - 0.017), (ex - sx * 0.018, ez - 0.017))
+        elif kind == 'happy':  # ^ ^（にっこり）
+            stroke(g, (ex - 0.014, ez - 0.006), (ex, ez + 0.01))
+            stroke(g, (ex, ez + 0.01), (ex + 0.014, ez - 0.006))
+        elif kind == 'focus':  # 内側が下がった細い目（真剣）
+            stroke(g, (ex + sx * 0.017, ez + 0.002), (ex - sx * 0.014, ez - 0.008), 0.008)
+        elif kind == 'sweat':  # 小さな点の目
+            box(g, (ex, FACE_Y, ez - 0.004), (0.013, 0.002, 0.013), 'Screen')
+        elif kind == 'ouch':  # > <（ぶつかった）
+            tip = (ex - sx * 0.011, ez)
+            stroke(g, (ex + sx * 0.011, ez + 0.014), tip)
+            stroke(g, tip, (ex + sx * 0.011, ez - 0.014))
+    if kind == 'normal':
+        stroke(g, (-0.013, 0.106), (0.013, 0.106), 0.006)
+    elif kind == 'happy':  # 口角の上がった口
+        stroke(g, (-0.018, 0.112), (-0.012, 0.103), 0.006)
+        stroke(g, (-0.012, 0.103), (0.012, 0.103), 0.006)
+        stroke(g, (0.012, 0.103), (0.018, 0.112), 0.006)
+    elif kind == 'focus':
+        stroke(g, (-0.007, 0.106), (0.007, 0.106), 0.006)
+    elif kind == 'sweat':  # 波の口と汗のしずく
+        for k, x in enumerate((-0.018, -0.006, 0.006)):
+            stroke(g, (x, 0.104 + 0.004 * (k % 2)), (x + 0.012, 0.104 + 0.004 * ((k + 1) % 2)), 0.005)
+        box(g, (-0.068, FACE_Y, 0.163), (0.011, 0.002, 0.011), 'Screen', rot_y=math.pi / 4)
+        stroke(g, (-0.068, 0.170), (-0.068, 0.177), 0.004)
+    elif kind == 'ouch':  # 小さく開いた口
+        for a, b in (((-0.007, 0.099), (0.007, 0.099)), ((0.007, 0.099), (0.007, 0.111)),
+                     ((0.007, 0.111), (-0.007, 0.111)), ((-0.007, 0.111), (-0.007, 0.099))):
+            stroke(g, a, b, 0.004)
+    elif kind == 'boot':  # 起動中：横線と 3 つの点
+        stroke(g, (-0.06, 0.14), (0.06, 0.14), 0.005)
+        for x in (-0.02, 0.0, 0.02):
+            box(g, (x, FACE_Y, 0.118), (0.008, 0.002, 0.008), 'Screen')
 
 
 # ---- 胴とバックパック ---------------------------------------------------------------
@@ -373,7 +421,7 @@ TOOL_BUILD = {'hand': build_hand, 'drill': build_drill, 'cutter': build_cutter, 
 #         └ MainJet（メインスラスターの首振り）
 # ツールは 5 つとも手首の子で、見せるのは 1 つだけ（アプリでもこれを切り替える）。
 
-POSES = {  # 右腕の関節の角度（x, y, z、度）。左は y と z の符号を反転
+POSES = {  # 右腕の関節の角度（x, y, z、度）。左は y と z の符号を反転。pod はスラスターの振り（度）、head は頭の沈み（m）
     # 設定資料の正面図：肩から外へ開き、前腕は下へ、少し前に曲げる
     'rest': {'Shoulder': (12, -55, 0), 'Fore': (28, 48, 0), 'Wrist': (12, 0, 0)},
     # 作業：右腕は前へ伸ばしてツール、左腕も前へ出して手を開く
@@ -381,19 +429,59 @@ POSES = {  # 右腕の関節の角度（x, y, z、度）。左は y と z の符
              'L': {'Shoulder': (58, -28, 0), 'Fore': (40, 10, 0), 'Wrist': (18, 0, 0)}},
     # ツール紹介：右腕を真横へ水平に
     'show': {'Shoulder': (0, -90, 0), 'Fore': (0, 0, 0), 'Wrist': (0, 0, 90)},
+    # たたんだ姿：腕を胸の前に抱え、スラスターは後ろへ倒し、頭は肩に沈める（エアロックから押し出される姿）
+    'folded': {'Shoulder': (-8, 4, 38), 'Fore': (118, 0, 0), 'Wrist': (75, 0, 0), 'pod': -80, 'head': -0.03},
+    # ツール交換：右腕を背中の工具入れへ回す（左腕は作業の姿のまま）
+    'swap': {'Shoulder': (-42, -8, 0), 'Fore': (-88, 0, 0), 'Wrist': (-25, 0, 0),
+             'L': {'Shoulder': (58, -28, 0), 'Fore': (40, 10, 0), 'Wrist': (18, 0, 0)}},
 }
+JOINTS = ('Shoulder', 'Fore', 'Wrist')
 
 
-def apply_pose(objs, name, tools):
+def pose_state(name):
     p = POSES[name]
+    st = {side: {j: tuple(p.get(side, p)[j]) for j in JOINTS} for side in ('R', 'L')}
+    st['pod'] = p.get('pod', 0.0)
+    st['head'] = p.get('head', 0.0)
+    return st
+
+
+def mix(a, b, u):
+    """2 つの姿勢の間（u = 0..1）"""
+    out = {}
+    for k in a:
+        if isinstance(a[k], dict):
+            out[k] = {j: tuple(x + (y - x) * u for x, y in zip(a[k][j], b[k][j])) for j in a[k]}
+        else:
+            out[k] = a[k] + (b[k] - a[k]) * u
+    return out
+
+
+def apply_state(objs, st):
     for sx, side in ((1, 'R'), (-1, 'L')):
-        q = p.get(side, p)
-        for j in ('Shoulder', 'Fore', 'Wrist'):
-            x, y, z = q[j]
+        for j in JOINTS:
+            x, y, z = st[side][j]
             objs[f'{j}_{side}'].rotation_euler = (math.radians(x), math.radians(y * sx), math.radians(z * sx))
+        objs[f'Pod_{side}'].rotation_euler.x = math.radians(st['pod'])
+    objs['Head'].location = (NECK[0], NECK[1], NECK[2] + st['head'])
+
+
+def show_tools(objs, tools):
+    for side in ('R', 'L'):
         for t in TOOLS:
             o = objs[f'Tool_{t}_{side}']
             o.hide_render = o.hide_viewport = t != tools[side]
+
+
+def show_face(objs, kind):
+    for f in FACES:
+        o = objs[f'Face_{f}']
+        o.hide_render = o.hide_viewport = f != kind
+
+
+def apply_pose(objs, name, tools):
+    apply_state(objs, pose_state(name))
+    show_tools(objs, tools)
 
 
 PIVOTS = {}
@@ -415,6 +503,8 @@ def build_all():
 
     add('Body', build_body, local=False)
     add('Head', build_head, NECK, 'Body', local=False)
+    for f in FACES:
+        add(f'Face_{f}', lambda g: build_face(g, f), NECK, 'Head', local=False)
     add('MainJet', build_main_jet, MAIN_JET, 'Body')
     for sx, side in ((1, 'R'), (-1, 'L')):
         sh = np.array((sx * SHOULDER[0], SHOULDER[1], SHOULDER[2]))
@@ -505,6 +595,8 @@ SHOTS = {
     'rear': ((0, -4, 0.0), None, 'ORTHO', 1.55),
     'top': ((0, 0, 4), None, 'ORTHO', 1.55),
     'face': ((-0.25, 0.75, 0.2), (0.0, 0.05, 0.1), 'PERSP', 60),
+    'face2': ((-0.12, 0.62, 0.17), (0.0, 0.1, 0.13), 'PERSP', 70),
+    'anim': ((1.45, 1.7, 0.5), (0.0, 0.0, 0.0), 'PERSP', 58),
 }
 
 
@@ -560,6 +652,111 @@ def tool_shots(objs):
         render(os.path.join(PREVIEW_DIR, f'tools-{t}.png'))
 
 
+def face_shots(objs):
+    scene = bpy.context.scene
+    scene.render.resolution_x, scene.render.resolution_y = 640, 480
+    aim('face2')
+    for f in FACES:
+        show_face(objs, f)
+        render(os.path.join(PREVIEW_DIR, f'face-{f}.png'))
+
+
+# ---- 動画（ANIM=1）：押し出されて、展開して、起動して、ツールを 2 回付け替えて、表情を見せる -----------------
+
+def smooth(a, b, t):
+    return rv.ease(a, b, t)
+
+
+TIMELINE = [  # (始め, 終わり, 姿勢 A, 姿勢 B)
+    (2.2, 4.0, 'folded', 'rest'),
+    (4.8, 6.2, 'rest', 'work'),
+    (7.0, 8.0, 'work', 'swap'),
+    (8.4, 9.4, 'swap', 'work'),
+    (10.6, 11.6, 'work', 'swap'),
+    (12.0, 13.0, 'swap', 'work'),
+]
+FACE_TIMES = [(0, 'none'), (3.6, 'boot'), (3.75, 'none'), (3.9, 'boot'), (4.0, 'none'), (4.1, 'boot'),
+              (4.6, 'normal'), (6.2, 'happy'), (7.0, 'focus'), (13.0, 'focus'), (14.6, 'happy'), (15.4, 'sweat'),
+              (16.2, 'ouch'), (16.8, 'normal')]
+TOOL_TIMES = [(0, 'hand'), (8.2, 'drill'), (11.8, 'welder')]
+ANIM_LEN = 17.6
+
+
+def at_time(table, t):
+    v = table[0][1]
+    for t0, x in table:
+        if t >= t0:
+            v = x
+    return v
+
+
+def state_at(t):
+    st = pose_state('folded')
+    for t0, t1, a, b in TIMELINE:
+        if t >= t0:
+            st = mix(pose_state(a), pose_state(b), smooth(t0, t1, t))
+    # スラスターを下へ振り出す（1.6〜2.4 秒）
+    if t < 2.4:
+        st['pod'] = -80 * (1 - smooth(1.6, 2.4, t))
+    return st
+
+
+def animate(objs):
+    from mathutils import Vector
+    scene = bpy.context.scene
+    fps = int(os.environ.get('FPS', '24'))
+    scene.render.resolution_x, scene.render.resolution_y = (int(v) for v in os.environ.get('ANIM_RES', '960x540').split('x'))
+    scene.cycles.samples = int(os.environ.get('ANIM_SAMPLES', '16'))
+    out = os.path.join(PREVIEW_DIR, 'anim')
+    os.makedirs(out, exist_ok=True)
+    glow = bpy.data.materials['Glow'].node_tree.nodes['Principled BSDF']
+    hot = bpy.data.materials['Hot'].node_tree.nodes['Principled BSDF']
+    arc = bpy.data.objects.new('arc', bpy.data.lights.new('arc', 'POINT'))
+    arc.data.color = (0.7, 0.85, 1.0)
+    arc.data.shadow_soft_size = 0.005
+    scene.collection.objects.link(arc)
+    cam = scene.camera
+    # 動画は右前から撮るので、日の光とふちの光も左右反対に
+    bpy.data.objects['sun'].rotation_euler.z = 2.6
+    bpy.data.objects['rim'].rotation_euler.z = -0.5
+    body = objs['Body']
+    n = int(ANIM_LEN * fps)
+    step = int(os.environ.get('ANIM_STEP', '1'))
+    first = int(os.environ.get('ANIM_FIRST', '0'))
+    for f in range(first, n, step):
+        t = f / fps
+        # エアロックから押し出されて、ゆっくり回りながら画面の真ん中へ流れてきて止まる
+        u = smooth(0.0, 2.6, t)
+        body.location = (-0.55 * (1 - u), -0.25 * (1 - u), 0.12 * (1 - u))
+        body.rotation_euler = (0.0, 0.0, math.radians(50) * (1 - u) + math.radians(4) * math.sin(t * 0.6))
+        apply_state(objs, state_at(t))
+        tool = at_time(TOOL_TIMES, t)
+        show_tools(objs, {'R': tool, 'L': 'hand'})
+        show_face(objs, at_time(FACE_TIMES, t))
+        # ドリルは回る
+        objs['Tool_drill_R'].rotation_euler.z = t * 40 if 9.4 <= t < 10.6 else 0.0
+        # スラスターの光：振り出すときと、腕を動かすときに噴く
+        puff = max(smooth(1.7, 1.9, t) * (1 - smooth(2.3, 2.7, t)), 0.0)
+        moving = any(t0 <= t < t1 for t0, t1, _, _ in TIMELINE)
+        glow.inputs['Emission Strength'].default_value = 2 + 26 * puff + (6 * (0.5 + 0.5 * math.sin(t * 40)) if moving else 0)
+        # 溶接（13.2〜14.4 秒）：先が白く光ってちらつく
+        weld = 13.2 <= t < 14.4
+        flick = 0.6 + 0.4 * math.sin(t * 97) * math.sin(t * 61)
+        hot.inputs['Emission Strength'].default_value = 60 * flick if weld else 6
+        bpy.context.view_layer.update()
+        tip = objs['Wrist_R'].matrix_world @ Vector((0, 0.02, -0.225))
+        arc.location = tip
+        arc.data.energy = 6 * flick if weld else 0.0
+        # カメラ：少しずつ寄る
+        c = smooth(0.0, ANIM_LEN, t)
+        aim('anim')
+        cam.location = Vector((1.45 - 0.3 * c, 1.7 - 0.4 * c, 0.5 - 0.1 * c))  # 右前から（ツール交換の腕が見える側）
+        cam.rotation_euler = (Vector((0.06, 0.05 * c, 0.02)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
+        scene.render.filepath = os.path.join(out, f'f{f:04d}.png')
+        bpy.ops.render.render(write_still=True)
+        print(f'  frame {f}/{n}', flush=True)
+
+
 def main():
     bf.reset_scene()
     for m in MATS:
@@ -570,14 +767,19 @@ def main():
     tools = {'R': os.environ.get('TOOL_R', 'welder' if POSE == 'work' else 'hand'),
              'L': os.environ.get('TOOL_L', 'hand')}
     apply_pose(objs, POSE, tools)
+    show_face(objs, os.environ.get('FACE', 'none' if POSE == 'folded' else 'normal'))
     print(f'  {POSE} (m):', measure(objs))
-    if os.environ.get('PREVIEW') or os.environ.get('TOOLS'):
+    if any(os.environ.get(k) for k in ('PREVIEW', 'TOOLS', 'FACES', 'ANIM')):
         preview_materials()
         setup_preview()
     if os.environ.get('PREVIEW'):
         preview(objs, f's{STAGE}-{POSE}')
     if os.environ.get('TOOLS'):
         tool_shots(objs)
+    if os.environ.get('FACES'):
+        face_shots(objs)
+    if os.environ.get('ANIM'):
+        animate(objs)
 
 
 if __name__ == '__main__':
