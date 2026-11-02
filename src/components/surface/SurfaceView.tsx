@@ -35,6 +35,7 @@ import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { RoverHud, RoverMap } from './RoverHud'
 import { useMapTerrain } from './mapRelief'
 import { bindRoverKeys, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
+import { openRocks } from '../../state/rockBook'
 import { samplesFor } from '../../data/rockSamples'
 
 // 着陸した天体の地表の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
@@ -1368,9 +1369,9 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
       {drive && result && <SampleCard bodyId={bodyId} id={result} />}
       {drive && (
         <div className="sample-status">
-          <span className="sample-count" title={t('この天体で集めた試料の種類', 'Sample types collected here')}>
-            ◆ {t('試料', 'Samples')} {got}/{total}
-          </span>
+          <button className="sample-count" onClick={openRocks} title={t('岩石コレクションを開く', 'Open the rock collection')}>
+            ◆ {t('試料', 'Samples')} {got}/{total} <span className="sample-book">{t('図鑑', 'Book')} ▸</span>
+          </button>
           {sampling ? (
             <span className="sample-busy">{t('アームで採集中…', 'Arm collecting…')}</span>
           ) : canSample ? (

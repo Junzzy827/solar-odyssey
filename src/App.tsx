@@ -54,6 +54,7 @@ import { EclipsePanel } from './ui/EclipsePanel'
 import { ObservePanel } from './ui/ObservePanel'
 import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
+import { RockBook } from './ui/RockBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
 import { SurfaceView } from './components/surface/SurfaceView'
 import { SurfaceMemory } from './components/SurfaceMemory'
@@ -159,6 +160,7 @@ export default function App() {
       <ContextLost />
       <SurfaceView />
       <EvaView />
+      <RockBook />
       <LabelDeclutter />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}
