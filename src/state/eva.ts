@@ -2,7 +2,12 @@ import { create } from 'zustand'
 import { useStore } from './store'
 import { raceActive } from './race'
 import { t } from '../i18n/lang'
+import * as THREE from 'three'
 import { jobsRt, newShift, useEvaJobs } from './evaJobs'
+import { bodies } from './registry'
+import { ship } from './flight'
+import { DOCK_ID } from '../data/sf'
+import { DOCK_CLEAR_SEGMENTS, dockSiteMatrix, setEvaSite, type EvaSiteId } from '../components/eva/hull'
 
 // 船外活動ロボット EVR-1「ツムギ」。乗っている船の背中のエアロックから、たたんだまま押し出され、
 // 外で展開して、命綱の届く範囲を 6 方向に飛び回る。宇宙の場面は止めて、船の外壁のまわりの場面（EvaView）を出す。
@@ -78,7 +83,54 @@ export function canStartEva(landed: boolean) {
   return s.mode === 'flight' && s.warpPhase === 'idle' && !raceActive() && !landed && !evaActive()
 }
 
-export function startEva() {
+const v1 = new THREE.Vector3()
+const v2 = new THREE.Vector3()
+const q1 = new THREE.Quaternion()
+
+/**
+ * 作業場所を決める：天の湊のそば（SF の世界）ならリングの下面、アルカディアに乗っていれば発進路、ほかは船の外壁。
+ * want で決め打ちもできる（テスト用）
+ */
+function pickSite(want?: EvaSiteId) {
+  const s = useStore.getState()
+  const dock = s.settings.world === 'sf' ? bodies.get(DOCK_ID) : undefined
+  let id: EvaSiteId = s.settings.ship === 'arcadia' ? 'arcadia' : 'hull'
+  if (dock) {
+    dock.object.getWorldPosition(v1)
+    if (ship.position.distanceTo(v1) < dock.radius * 5) id = 'dock'
+  }
+  if (want && (want !== 'dock' || dock)) id = want
+  if (id !== 'dock' || !dock) {
+    setEvaSite(id, ship.quaternion)
+    return
+  }
+  // 地球の見える側：リングの下面に立つと、地球は外へ向かって 45° 見上げたところ。外向きが地球の方角に近い区画を選ぶ
+  const dq = dock.object.getWorldQuaternion(q1)
+  const e = bodies.get('earth')
+  let az = 0
+  if (e) {
+    e.object.getWorldPosition(v2).sub(v1).applyQuaternion(dq.clone().invert())
+    az = Math.atan2(-v2.z, v2.x)
+  }
+  const seg = Math.PI / 8
+  let best = DOCK_CLEAR_SEGMENTS[0]
+  let bestD = Infinity
+  for (const k of DOCK_CLEAR_SEGMENTS) {
+    const a = (k + 0.5) * seg
+    const d = Math.abs(Math.atan2(Math.sin(a - az), Math.cos(a - az)))
+    if (d < bestD) {
+      bestD = d
+      best = k
+    }
+  }
+  const a = (best + 0.5) * seg
+  const local = new THREE.Quaternion().setFromRotationMatrix(dockSiteMatrix(a))
+  setEvaSite('dock', dq.clone().multiply(local), a)
+  s.showToast(t('天の湊のリングの下面で作業します。リングの外側を見上げると地球が見えます', 'Working on the underside of the Amano-Minato ring. Look up past the outer edge to see Earth'))
+}
+
+export function startEva(want?: EvaSiteId) {
+  pickSite(typeof want === 'string' ? want : undefined)
   if (document.pointerLockElement) document.exitPointerLock()
   useEva.setState({ view: 'chase', swapping: false, working: false, face: 'none', taut: false, hud: { speed: 0, dist: 0, alt: 0, gas: 100, battery: 100, x: 0, z: 0, hdg: 0 } })
   resetEvaInput()

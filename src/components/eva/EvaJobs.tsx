@@ -6,7 +6,6 @@ import { hullPoint } from './hull'
 import { ARM_K } from './Tsumugi'
 import {
   JOBS,
-  RACK,
   hullFrame,
   jobDone,
   jobsRt,
@@ -490,7 +489,7 @@ function Rack() {
   const W = 0.8
   const D = 0.45
   return (
-    <group {...siteProps(RACK)}>
+    <group {...siteProps(rackRt.site)}>
       {[
         [-W / 2, -D / 2],
         [W / 2, -D / 2],

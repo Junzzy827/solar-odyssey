@@ -4318,6 +4318,13 @@ body.touch .sample-btn {
   border: 1px solid rgba(120, 200, 255, 0.35);
 }
 
+.eva-site {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #8fb3d0;
+  margin: 2px 0 2px;
+}
+
 .eh-speed {
   font-size: 30px;
   font-weight: 600;

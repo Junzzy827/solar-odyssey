@@ -22,7 +22,7 @@ import {
   type EvaTool,
   EVA_TOOLS,
 } from '../../state/eva'
-import { AIRLOCK, HULL_R, hullClearance } from './hull'
+import { AIRLOCK, hullAlt, hullClearance } from './hull'
 import { workLink } from '../../state/evaJobs'
 
 // 船外活動ロボット EVR-1「ツムギ」（全幅 0.8 m）。模型は tools/blender/build_eva_robot.py の eva-tsumugi.glb。
@@ -700,7 +700,7 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
         hud: {
           speed: Math.round(sim.vel.length() * 100) / 100,
           dist: Math.round(sim.pos.distanceTo(TETHER_A) * 10) / 10,
-          alt: Math.max(0, Math.round((Math.hypot(sim.pos.x, sim.pos.y + HULL_R) - HULL_R) * 10) / 10),
+          alt: Math.max(0, Math.round(hullAlt(sim.pos) * 10) / 10),
           gas: Math.round(sim.gas),
           battery: Math.round(sim.battery),
           x: Math.round(sim.pos.x * 10) / 10,
