@@ -54,7 +54,10 @@ TOOLS = ['hand', 'drill', 'cutter', 'welder', 'pad']
 NECK = (0.0, 0.01, 0.03)
 SHOULDER = (0.19, 0.0, 0.02)
 ARM_OUT = 0.05  # 肩の関節から外へずらして腕を吊る
-UA, FA = 0.17, 0.17  # 上腕・前腕の長さ
+UA, FA = 0.17, 0.17  # 上腕・前腕の長さ（ARM_K をかける前）
+# 腕とツールの大きさ。設定資料どおりの 1.0 では作業できそうに見えない（junji 2026-11-02）ので、
+# 肩から先を、形はそのままで太さも長さも 1.4 倍にする
+ARM_K = float(os.environ.get('ARM_K', '1.4'))
 WRIST_LEN = 0.025  # 手首の継ぎ手（ここから先がツール）
 POD = (0.10, 0.03, -0.13)  # 姿勢制御スラスター（下向き）の付け根
 MAIN_JET = (0.0, -0.19, -0.095)  # メインスラスター（後ろ向き）の付け根
@@ -493,9 +496,11 @@ PIVOTS = {}
 def build_all():
     objs = {}
 
-    def add(name, fn, origin=(0, 0, 0), parent=None, local=True):
+    def add(name, fn, origin=(0, 0, 0), parent=None, local=True, k=1.0):
         g = Part()
         fn(g)
+        if k != 1.0:
+            g.verts = [(x * k, y * k, z * k) for x, y, z in g.verts]
         o = rv.make_object(name, g, origin, local)
         if parent:
             o.parent = objs[parent]
@@ -511,13 +516,14 @@ def build_all():
     add('MainJet', build_main_jet, MAIN_JET, 'Body')
     for sx, side in ((1, 'R'), (-1, 'L')):
         sh = np.array((sx * SHOULDER[0], SHOULDER[1], SHOULDER[2]))
-        add(f'Shoulder_{side}', lambda g: build_shoulder(g, sx), tuple(sh), 'Body')
-        el = sh + (sx * ARM_OUT, 0, -UA)
-        add(f'Fore_{side}', lambda g: build_fore(g, sx), tuple(el), f'Shoulder_{side}')
-        wr = el + (0, 0, -FA)
-        add(f'Wrist_{side}', build_wrist, tuple(wr), f'Fore_{side}')
+        K = ARM_K
+        add(f'Shoulder_{side}', lambda g: build_shoulder(g, sx), tuple(sh), 'Body', k=K)
+        el = sh + (sx * ARM_OUT * K, 0, -UA * K)
+        add(f'Fore_{side}', lambda g: build_fore(g, sx), tuple(el), f'Shoulder_{side}', k=K)
+        wr = el + (0, 0, -FA * K)
+        add(f'Wrist_{side}', build_wrist, tuple(wr), f'Fore_{side}', k=K)
         for t in TOOLS:
-            add(f'Tool_{t}_{side}', lambda g: TOOL_BUILD[t](g, sx), tuple(wr), f'Wrist_{side}')
+            add(f'Tool_{t}_{side}', lambda g: TOOL_BUILD[t](g, sx), tuple(wr), f'Wrist_{side}', k=K)
         add(f'Pod_{side}', lambda g: build_pod(g, sx), (sx * POD[0], POD[1], POD[2]), 'Body')
     for o in objs.values():
         o.rotation_mode = 'XYZ'
@@ -747,7 +753,7 @@ def animate(objs):
         flick = 0.6 + 0.4 * math.sin(t * 97) * math.sin(t * 61)
         hot.inputs['Emission Strength'].default_value = 60 * flick if weld else 6
         bpy.context.view_layer.update()
-        tip = objs['Wrist_R'].matrix_world @ Vector((0, 0.02, -0.225))
+        tip = objs['Wrist_R'].matrix_world @ Vector((0, 0.02 * ARM_K, -0.225 * ARM_K))
         arc.location = tip
         arc.data.energy = 6 * flick if weld else 0.0
         # カメラ：少しずつ寄る

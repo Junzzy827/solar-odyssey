@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { evaNow, useEva, evaInput } from '../../state/eva'
 import { hullPoint } from './hull'
+import { ARM_K } from './Tsumugi'
 import {
   JOBS,
   RACK,
@@ -529,7 +530,8 @@ function Carried() {
   const M = useMats()
   const patch = useRef<THREE.Mesh>(null)
   const sensor = useRef<THREE.Group>(null)
-  const off = useMemo(() => ({ patch: new THREE.Matrix4().makeTranslation(0, -0.245, -0.02), sensor: new THREE.Matrix4().makeTranslation(0, -0.33, -0.02), m: new THREE.Matrix4() }), [])
+  // 手首からツールの先まで（腕とツールは ARM_K 倍の大きさ）
+  const off = useMemo(() => ({ patch: new THREE.Matrix4().makeTranslation(0, -0.245 * ARM_K, -0.02 * ARM_K), sensor: new THREE.Matrix4().makeTranslation(0, -0.33 * ARM_K, -0.02 * ARM_K), m: new THREE.Matrix4() }), [])
   useFrame(() => {
     const c = jobsRt.carrying
     for (const [k, o] of [
@@ -541,6 +543,7 @@ function Carried() {
       if (!o.visible) continue
       off.m.multiplyMatrices(workLink.wrist, off[k])
       off.m.decompose(o.position, o.quaternion, o.scale)
+      o.scale.set(1, 1, 1)
     }
   })
   return (

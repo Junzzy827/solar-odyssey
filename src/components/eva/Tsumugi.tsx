@@ -255,8 +255,10 @@ const OUTSIDE = new THREE.Vector3(AIRLOCK.x, 1.15, AIRLOCK.z)
 /** 命綱をつなぐ場所：エアロックの縁（外壁）と、ツムギの背中 */
 const TETHER_A = new THREE.Vector3(AIRLOCK.x + 0.55, 0.08, AIRLOCK.z + 0.75)
 const TETHER_BACK = new THREE.Vector3(0, 0.02, 0.29)
-/** ツールの先（手首の座標で）。Blender (0, 0.02, -0.225) */
-const TOOL_TIP = new THREE.Vector3(0, -0.225, -0.02)
+/** 腕とツールの大きさ（build_eva_robot.py の ARM_K と同じ） */
+export const ARM_K = 1.4
+/** ツールの先（手首の座標で）。Blender (0, 0.02, -0.225) × ARM_K */
+const TOOL_TIP = new THREE.Vector3(0, -0.225 * ARM_K, -0.02 * ARM_K)
 /** ツムギの体の大きさ（外壁に当たる距離） */
 const BODY_R = 0.42
 /** 背中の小さな姿勢制御の噴射口（体の座標）。Blender (±0.145, -0.27, 0.19 / -0.08) */
