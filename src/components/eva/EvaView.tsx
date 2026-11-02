@@ -23,6 +23,8 @@ import {
   useEva,
 } from '../../state/eva'
 import { EvaWorld } from './EvaWorld'
+import { EvaJobs } from './EvaJobs'
+import { JOBS, JOB_TYPES, rackRt, useEvaJobs, useEvaLog } from '../../state/evaJobs'
 import { Tsumugi } from './Tsumugi'
 import { HULL_R } from './hull'
 
@@ -43,6 +45,7 @@ const EvaCanvas = memo(function EvaCanvas() {
       <Suspense fallback={null}>
         <EvaWorld spec={spec} />
         <Tsumugi shipTint={tint} />
+        <EvaJobs />
       </Suspense>
       <QualityGovernor />
     </Canvas>
@@ -164,6 +167,8 @@ function EvaMap() {
   useLang()
   const hud = useEva((e) => e.hud)
   const taut = useEva((e) => e.taut)
+  const jobs = useEvaJobs((j) => j.ui.jobs)
+  const focus = useEvaJobs((j) => j.ui.focus)
   const H = TETHER_M + 6
   const halfW = HULL_R * 0.98
   return (
@@ -175,6 +180,12 @@ function EvaMap() {
         ))}
         <circle cx={0} cy={0} r={TETHER_M} className="m-range" />
         <rect x={-1.6} y={-1.6} width={3.2} height={3.2} className="m-lock" />
+        <rect x={rackRt.P.x - 1.1} y={rackRt.P.z - 1.1} width={2.2} height={2.2} className="m-rack" />
+        {jobs.map((j, i) => (
+          <g key={i} transform={`translate(${j.x} ${j.z})`} className={j.done ? 'm-job done' : i === focus ? 'm-job on' : 'm-job'}>
+            {j.done ? <circle r={2} /> : <path d="M 0 -3 L 3 0 L 0 3 L -3 0 Z" />}
+          </g>
+        ))}
         <line x1={0} y1={0} x2={hud.x} y2={hud.z} className="m-tether" />
         <g transform={`translate(${hud.x} ${hud.z}) rotate(${hud.hdg})`}>
           <path d="M 0 -4.2 L 2.8 3 L 0 1.6 L -2.8 3 Z" className="m-bot" />
@@ -197,6 +208,121 @@ function ToolBar() {
           <kbd>{i + 1}</kbd>
         </button>
       ))}
+    </div>
+  )
+}
+
+const toolLabel = (k: keyof typeof TOOL_NAME, lang: string) => `${TOOL_ICON[k]} ${lang === 'en' ? TOOL_NAME[k][1] : TOOL_NAME[k][0]}`
+
+/** 修理の依頼：3 つの一覧と、いま向かっている依頼の手順 */
+function JobPanel() {
+  const lang = useLang()
+  const ui = useEvaJobs((j) => j.ui)
+  const carrying = useEvaJobs((j) => j.carrying)
+  const [open, setOpen] = useState(true)
+  if (!ui.jobs.length) return null
+  const L = (p: [string, string]) => (lang === 'en' ? p[1] : p[0])
+  const done = ui.jobs.filter((j) => j.done).length
+  const fj = ui.jobs[ui.focus]
+  const def = fj ? JOBS[fj.type] : null
+  return (
+    <div className={`eva-jobs${open ? '' : ' shut'}`}>
+      <button className="ej-head" onClick={() => setOpen(!open)}>
+        <span className="ej-kicker">{t('修理の依頼', 'REPAIR ORDERS')}</span>
+        <span className="ej-count">
+          {done} / {ui.jobs.length}
+        </span>
+        <span className="ej-fold">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <>
+          <ul className="ej-list">
+            {ui.jobs.map((j, i) => (
+              <li key={i} className={j.done ? 'done' : i === ui.focus ? 'on' : ''}>
+                <span className="ej-mark">{j.done ? '✓' : i === ui.focus ? '▶' : '・'}</span>
+                {L(JOBS[j.type].name)}
+              </li>
+            ))}
+          </ul>
+          {fj && def && !fj.done && (
+            <ol className="ej-steps">
+              {def.steps.map((st, k) => (
+                <li key={k} className={k < fj.step ? 'done' : k === fj.step ? 'on' : ''}>
+                  <span className="ej-tool">{TOOL_ICON[st.tool]}</span>
+                  <span className="ej-text">{L(st.text)}</span>
+                  {k === fj.step && (
+                    <span className="eva-bar ej-bar">
+                      <span style={{ width: `${ui.prog * 100}%` }} />
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
+      )}
+      {fj && def && !fj.done && <JobHint ui={ui} carrying={!!carrying} lang={lang} />}
+      {done === ui.jobs.length && <div className="ej-hint ok">{t('今日の修理はすべて終わりました。回収して船にもどりましょう', 'All repairs done for today. Recall Tsumugi and head back in')}</div>}
+    </div>
+  )
+}
+
+function JobHint({ ui, carrying, lang }: { ui: ReturnType<typeof useEvaJobs.getState>['ui']; carrying: boolean; lang: string }) {
+  const blockedAt = useEvaJobs((j) => j.blockedAt)
+  const fj = ui.jobs[ui.focus]
+  const st = JOBS[fj.type].steps[fj.step]
+  const key = EVA_TOOLS.indexOf(st.tool) + 1
+  if (carrying && evaNow() - blockedAt < 2.5) return <div className="ej-hint warn">{t('部品を運んでいるあいだは、ツールを付け替えられません', 'You can’t swap tools while carrying a part')}</div>
+  if (ui.need) return <div className="ej-hint warn">{t(`${toolLabel(ui.need, lang)}に付け替えてください（${key} キー）`, `Switch to the ${toolLabel(ui.need, lang)} (key ${key})`)}</div>
+  if (ui.near) return <div className="ej-hint go">{t('E を長押しして作業（体が自動で寄ります）', 'Hold E to work — Tsumugi lines up by itself')}</div>
+  const where = ui.toRack ? t('青い光の部品棚へ', 'Go to the parts rack (blue light)') : carrying ? t('部品をオレンジの光の所へ運ぶ', 'Carry the part to the orange light') : t('オレンジの光の柱へ', 'Head for the orange light')
+  return (
+    <div className="ej-hint">
+      {where} <b>{ui.dist.toFixed(0)} m</b>
+    </div>
+  )
+}
+
+/** 修理が終わったときのカード：作業の中身と、本当の宇宙の船外作業の豆知識 */
+function JobCard() {
+  const lang = useLang()
+  const card = useEvaJobs((j) => j.card)
+  const ui = useEvaJobs((j) => j.ui)
+  const log = useEvaLog((l) => l.log)
+  const j = card !== null ? ui.jobs[card] : null
+  if (!j) return null
+  const def = JOBS[j.type]
+  const L = (p: [string, string]) => (lang === 'en' ? p[1] : p[0])
+  const kinds = JOB_TYPES.filter((k) => log[k]).length
+  return (
+    <div className="sample-card eva-card">
+      <div className="sample-head">
+        <span className="ec-check">✓</span>
+        <div>
+          <div className="sample-kicker">{t('修理完了 ・ 作業記録', 'REPAIR COMPLETE · WORK LOG')}</div>
+          <div className="sample-name">{L(def.name)}</div>
+        </div>
+      </div>
+      <ol className="ec-steps">
+        {def.steps.map((st, k) => (
+          <li key={k}>
+            <span className="ej-tool">{TOOL_ICON[st.tool]}</span>
+            {L(st.text)}
+          </li>
+        ))}
+      </ol>
+      <p className="sample-note">
+        <span className="ec-tag">{t('本当の宇宙では', 'In real space')}</span>
+        {L(def.note)}
+      </p>
+      <div className="sample-foot">
+        <span>
+          {t('作業記録', 'Work log')} {kinds} / {JOB_TYPES.length} {t('種類', 'kinds')} ・ {t('この種類', 'this kind')} ×{log[j.type] ?? 0}
+        </span>
+        <button className="secondary" onClick={() => useEvaJobs.setState({ card: null })}>
+          {t('閉じる', 'Close')}
+        </button>
+      </div>
     </div>
   )
 }
@@ -226,6 +352,8 @@ function EvaPanel() {
           </div>
           <EvaHud />
           <EvaMap />
+          <JobPanel />
+          <JobCard />
           <ToolBar />
           <div className="eva-status">
             {swapping ? (

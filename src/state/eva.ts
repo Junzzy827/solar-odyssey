@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { useStore } from './store'
 import { raceActive } from './race'
 import { t } from '../i18n/lang'
+import { jobsRt, newShift, useEvaJobs } from './evaJobs'
 
 // 船外活動ロボット EVR-1「ツムギ」。乗っている船の背中のエアロックから、たたんだまま押し出され、
 // 外で展開して、命綱の届く範囲を 6 方向に飛び回る。宇宙の場面は止めて、船の外壁のまわりの場面（EvaView）を出す。
@@ -81,6 +82,7 @@ export function startEva() {
   if (document.pointerLockElement) document.exitPointerLock()
   useEva.setState({ view: 'chase', swapping: false, working: false, face: 'none', taut: false, hud: { speed: 0, dist: 0, alt: 0, gas: 100, battery: 100, x: 0, z: 0, hdg: 0 } })
   resetEvaInput()
+  newShift()
   setPhase('fadeIn')
   window.setTimeout(() => {
     if (useEva.getState().phase === 'fadeIn') setPhase('launch')
@@ -113,6 +115,11 @@ export const setEvaPhase = setPhase
 export function pickTool(tool: EvaTool) {
   const s = useEva.getState()
   if (s.phase !== 'fly' || s.swapping || s.tool === tool) return
+  // 部品を運んでいるあいだは、付け替えられない
+  if (jobsRt.carrying) {
+    useEvaJobs.setState({ blockedAt: evaNow() })
+    return
+  }
   evaInput.swapTo = tool
 }
 

@@ -16,6 +16,7 @@ import { skipDescent, startLanding, startTakeoff, useLanding } from './state/lan
 import { useSurfaceLab } from './state/surfaceLab'
 import { launchRover, recallRover, roverDebug, roverFocus, roverInput, useRover } from './state/rover'
 import { evaDebug, evaInput, recallEva, startEva, useEva } from './state/eva'
+import { evaJobsDebug, jobsRt, useEvaJobs } from './state/evaJobs'
 import { useSkyClock } from './components/surface/skyClock'
 import { weatherNow } from './components/surface/weather'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
@@ -37,7 +38,7 @@ const sv = {
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff },
   surfaceLab: useSurfaceLab,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus },
-  eva: { state: useEva, start: startEva, recall: recallEva, input: evaInput, debug: evaDebug },
+  eva: { state: useEva, start: startEva, recall: recallEva, input: evaInput, debug: evaDebug, jobs: evaJobsDebug, jobsRt, jobsState: useEvaJobs },
   skyClock: useSkyClock,
   weather: weatherNow,
   ship,

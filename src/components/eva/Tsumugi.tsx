@@ -21,6 +21,7 @@ import {
   EVA_TOOLS,
 } from '../../state/eva'
 import { AIRLOCK, HULL_R, hullClearance } from './hull'
+import { workLink } from '../../state/evaJobs'
 
 // 船外活動ロボット EVR-1「ツムギ」（全幅 0.8 m）。模型は tools/blender/build_eva_robot.py の eva-tsumugi.glb。
 // 関節（肩・ひじ・手首・スラスター・首）は模型ではすべて 0 で、ここで回して「たたんだ姿 → 展開」、
@@ -381,6 +382,7 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       camLook: new THREE.Vector3(0, 0.8, 0),
       camUp: new THREE.Vector3(0, 1, 0),
       hatch: 0,
+      close: 0,
     }),
     [],
   )
@@ -501,6 +503,14 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
         if (out > 0) sim.vel.addScaledVector(tmp.a, -out * 1.2)
       }
       if (taut !== s.taut) useEva.setState({ taut })
+      // ---- 作業：故障の所へ体を寄せる（ツールの先が作業する点に来るように） ----
+      if (workLink.assist && evaInput.work) {
+        alignToWork(sim.quat, sim.pos, dt)
+        sim.vel.multiplyScalar(Math.exp(-dt * 8))
+        sim.spin.set(0, 0, 0)
+      }
+      // エアロックのそばでは、ガスを補給できる
+      if (sim.pos.distanceTo(OUTSIDE) < 2.6 && sim.vel.length() < 0.6) sim.gas = Math.min(100, sim.gas + dt * 14)
       // ---- 腕：作業・ツールの付け替え ----
       if (evaInput.swapTo && sim.swapT < 0) {
         sim.swapTo = evaInput.swapTo
@@ -528,7 +538,8 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       const sway = Math.sin(now * 0.8) * 3
       target = pose(R, arm([REST.S[0] + sway, REST.S[1], 0], [REST.F[0] - sway, REST.F[1], 0], REST.W))
       sim.battery = Math.max(0, sim.battery - dt * (100 / (8 * 3600)) * 20)
-      face = now < sim.ouchUntil ? 'ouch' : taut || sim.gas < 15 ? 'sweat' : working ? 'focus' : now < sim.happyUntil ? 'happy' : 'normal'
+      const happy = now < Math.max(sim.happyUntil, workLink.happyUntil)
+      face = now < sim.ouchUntil ? 'ouch' : happy ? 'happy' : taut || sim.gas < 15 ? 'sweat' : working ? 'focus' : 'normal'
     } else if (s.phase === 'recall') {
       // 命綱を巻き取って、たたみながらエアロックへ
       if (T < 0.05 || sim.recallFrom.lengthSq() === 0) {
@@ -585,6 +596,11 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
     // ---- ツールを使う：ドリルは回る、溶接とカッターは光って、外壁の近くなら火花 ----
     const wrist = rig.joints.R.W
     tmp.c.copy(TOOL_TIP).applyMatrix4(wrist.matrixWorld)
+    workLink.tip.copy(tmp.c)
+    workLink.tipLocal.copy(tmp.c)
+    g.worldToLocal(workLink.tipLocal)
+    workLink.wrist.copy(wrist.matrixWorld)
+    workLink.body.copy(sim.pos)
     const working = s.phase === 'fly' && useEva.getState().working
     const tool = useEva.getState().tool
     rig.tools.R.drill.rotation.y += working && tool === 'drill' ? dt * 32 : 0
@@ -596,11 +612,17 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
     built.arc.intensity = hot ? 3.5 * flick : 0
     built.arc.color.set(tool === 'welder' ? '#bfe0ff' : '#ffb070')
     const nearHull = hullClearance(tmp.c, 0.35, tmp.b) > 0
-    if (hot && nearHull) {
+    if (!nearHull && workLink.contact) tmp.b.copy(workLink.A)
+    if (hot && (nearHull || workLink.contact)) {
       for (let i = 0; i < 4; i++) {
         tmp.a.copy(tmp.b).multiplyScalar(0.6 + Math.random()).add(tmp.d.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(2.4))
         sparks.emit(tmp.c, tmp.a, 0.25 + Math.random() * 0.35, tool === 'welder' ? tmp.col.setRGB(2.2, 2.0, 1.6) : tmp.col.setRGB(2.4, 1.2, 0.35))
       }
+    }
+    // ドリルの削りかす（作業が進んでいるとき）
+    if (working && tool === 'drill' && workLink.contact && Math.random() < 0.7) {
+      tmp.a.copy(workLink.A).multiplyScalar(0.4 + Math.random() * 0.5).add(tmp.d.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.9))
+      sparks.emit(tmp.c, tmp.a, 0.6 + Math.random() * 0.5, tmp.col.setRGB(0.55, 0.55, 0.6))
     }
     sparks.update(dt)
 
@@ -625,8 +647,11 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       let wantLook: THREE.Vector3
       let wantUp: THREE.Vector3
       if (s.phase === 'fly') {
-        wantPos = tmp.a.set(0.35, 0.5, 1.65).applyQuaternion(sim.quat).add(sim.pos)
-        wantLook = tmp.b.set(0.1, 0.2, -1.2).applyQuaternion(sim.quat).add(sim.pos)
+        // 作業中は手もとに寄る
+        sim.close += ((workLink.assist ? 1 : 0) - sim.close) * (1 - Math.exp(-dt * 2.5))
+        const c = sim.close
+        wantPos = tmp.a.set(0.35 + 0.35 * c, 0.5 - 0.05 * c, 1.65 - 0.6 * c).applyQuaternion(sim.quat).add(sim.pos)
+        wantLook = tmp.b.set(0.1 - 0.1 * c, 0.2 - 0.35 * c, -1.2 + 0.6 * c).applyQuaternion(sim.quat).add(sim.pos)
         wantUp = tmp.c.set(0, 1, 0).applyQuaternion(sim.quat)
       } else {
         // 発進・展開・回収：エアロックを斜め上から
@@ -700,6 +725,31 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
 }
 
 const UPV = new THREE.Vector3(0, 1, 0)
+
+// ---- 作業の姿勢へ寄せる ----
+const al = { f: new THREE.Vector3(), x: new THREE.Vector3(), z: new THREE.Vector3(), m: new THREE.Matrix4(), q: new THREE.Quaternion(), tilt: new THREE.Quaternion(), want: new THREE.Vector3() }
+/** 上の向き = workLink.U、前 = 作業する点のほう。真上から作業するときは少し前かがみ。ツールの先が点に来る位置へ */
+function alignToWork(quat: THREE.Quaternion, pos: THREE.Vector3, dt: number) {
+  const { U, A, P, tipLocal } = workLink
+  const f = al.f.copy(A).negate()
+  f.addScaledVector(U, -f.dot(U))
+  const fromAbove = Math.abs(A.dot(U)) > 0.9
+  if (f.lengthSq() < 0.01) {
+    f.set(0, 0, -1).applyQuaternion(quat)
+    f.addScaledVector(U, -f.dot(U))
+  }
+  if (f.lengthSq() < 1e-4) f.set(0, 0, -1)
+  f.normalize()
+  al.z.copy(f).negate()
+  al.x.crossVectors(U, al.z).normalize()
+  al.m.makeBasis(al.x, U, al.z)
+  al.q.setFromRotationMatrix(al.m)
+  if (fromAbove) al.q.multiply(al.tilt.setFromAxisAngle(AX, -0.55))
+  const k = 1 - Math.exp(-dt * 4)
+  quat.slerp(al.q, k).normalize()
+  al.want.copy(tipLocal).applyQuaternion(al.q).negate().add(P).addScaledVector(A, 0.03)
+  pos.lerp(al.want, 1 - Math.exp(-dt * 3))
+}
 const SIDE = new THREE.Vector3(1, 0, 0.3).normalize()
 
 /** ツムギのいる場所（日の光の影を描く範囲を合わせるため） */
