@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { detailTexture } from '../surface/groundMaterial'
+import { detailTexture, TRIPLANAR_GLSL as SAMPLE, withRockDetail } from '../surface/groundMaterial'
 
 // 地形ラボの地面と岩の材質。切り替えはすべて uniform（作り直さない）。
 //  uTri   0：上から貼る（x, z）／1：トライプラナー（3 方向から貼って、面の向きで混ぜる）
@@ -25,37 +25,6 @@ const PALETTE = {
   rock: new THREE.Color('#8a6e5a'),
   dust: new THREE.Color('#b89070'),
 }
-
-/** 3 方向から貼る・上から貼るを切り替えて、世界の法線（xyz）と模様の高さ（w）を返す */
-const SAMPLE = /* glsl */ `
-vec3 labPlanar(vec3 tn, vec3 n) {
-  vec3 T = normalize(vec3(1.0, 0.0, 0.0) - n * n.x);
-  vec3 B = normalize(cross(T, n));
-  return normalize(T * tn.x + B * tn.y + n * tn.z);
-}
-vec4 labSample(sampler2D t, vec3 p, vec3 n, float tile, float k, bool tri) {
-  if (!tri) {
-    vec4 s = texture2D(t, p.xz / tile);
-    vec3 tn = s.xyz * 2.0 - 1.0;
-    tn.xy *= k;
-    return vec4(labPlanar(normalize(tn), n), s.a);
-  }
-  vec3 w = pow(abs(n), vec3(4.0));
-  w /= (w.x + w.y + w.z);
-  vec4 sx = texture2D(t, p.zy / tile);
-  vec4 sy = texture2D(t, p.xz / tile);
-  vec4 sz = texture2D(t, p.xy / tile);
-  vec3 tx = sx.xyz * 2.0 - 1.0; tx.xy *= k;
-  vec3 ty = sy.xyz * 2.0 - 1.0; ty.xy *= k;
-  vec3 tz = sz.xyz * 2.0 - 1.0; tz.xy *= k;
-  // whiteout 合成：それぞれの面の凹凸を、世界の向きに直して重ねる
-  tx = vec3(tx.xy + n.zy, abs(tx.z) * n.x);
-  ty = vec3(ty.xy + n.xz, abs(ty.z) * n.y);
-  tz = vec3(tz.xy + n.xy, abs(tz.z) * n.z);
-  vec3 wn = normalize(tx.zyx * w.x + ty.xzy * w.y + tz.xyz * w.z);
-  return vec4(wn, sx.a * w.x + sy.a * w.y + sz.a * w.z);
-}
-`
 
 export function groundLabMaterial() {
   const uniforms = {
@@ -175,63 +144,20 @@ export function groundLabMaterial() {
   return m
 }
 
-/** 岩の材質：岩肌の模様は 3 方向から貼る。上を向いた面には砂が積もる（決まりどおりのとき） */
+/** 岩の材質：着陸地表と同じ岩の質感（withRockDetail）。決まりどおりのときだけ上の面に砂、傾き白黒ではオレンジ一色 */
 export function rockLabMaterial() {
-  const uniforms = {
-    uView: labUniforms.uView,
-    uDustTop: labUniforms.uDustTop,
-    uRockT: { value: detailTexture('rock') },
-    uSandC: { value: PALETTE.sand },
-  }
-  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82, metalness: 0 })
-  m.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms)
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vLW;\nvarying vec3 vLN;')
-      .replace(
-        '#include <project_vertex>',
-        `#include <project_vertex>
-        #ifdef USE_INSTANCING
-          vLW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
-          vLN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * objectNormal);
-        #else
-          vLW = (modelMatrix * vec4(transformed, 1.0)).xyz;
-          vLN = normalize(mat3(modelMatrix) * objectNormal);
-        #endif`,
-      )
+  const m = withRockDetail(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82, metalness: 0 }), {
+    dust: PALETTE.sand.clone().multiplyScalar(0.95),
+    dustOn: labUniforms.uDustTop,
+    tile: 0.9,
+  })
+  const prev = m.onBeforeCompile
+  m.onBeforeCompile = (shader, renderer) => {
+    prev.call(m, shader, renderer)
+    shader.uniforms.uView = labUniforms.uView
     shader.fragmentShader = shader.fragmentShader
-      .replace(
-        '#include <common>',
-        `#include <common>
-        uniform sampler2D uRockT; uniform float uView; uniform float uDustTop; uniform vec3 uSandC;
-        varying vec3 vLW; varying vec3 vLN;
-        vec3 gN;
-        ${SAMPLE}`,
-      )
-      .replace(
-        '#include <color_fragment>',
-        `#include <color_fragment>
-        {
-          vec3 n = normalize(vLN);
-          vec4 r = labSample(uRockT, vLW, n, 1.3, 1.4, true);
-          diffuseColor.rgb *= mix(0.65, 1.15, r.w);
-          gN = r.xyz;
-          if (uDustTop > 0.5) {
-            // 上を向いた面のくぼみに砂がたまる（境目は岩の凹凸でくっきり）
-            float up = smoothstep(0.35, 0.85, n.y);
-            float k = smoothstep(-0.04, 0.04, up * 0.9 - r.w);
-            diffuseColor.rgb = mix(diffuseColor.rgb, uSandC * 0.95, k * 0.85);
-            gN = normalize(mix(gN, n, k * 0.7));
-          }
-        }`,
-      )
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = normalize((viewMatrix * vec4(gN, 0.0)).xyz);')
-      .replace(
-        '#include <dithering_fragment>',
-        `#include <dithering_fragment>
-        if (uView > 0.5 && uView < 1.5) gl_FragColor = vec4(1.0, 0.55, 0.1, 1.0);`,
-      )
+      .replace('#include <common>', '#include <common>\nuniform float uView;')
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\nif (uView > 0.5 && uView < 1.5) gl_FragColor = vec4(1.0, 0.55, 0.1, 1.0);')
   }
-  m.customProgramCacheKey = () => 'terrain-lab-rock'
   return m
 }

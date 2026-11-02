@@ -16,7 +16,7 @@ import { SurfacePost } from './SurfacePost'
 import { SurfaceLab } from './SurfaceLab'
 import { SurfaceStars } from './SurfaceStars'
 import { TimeBar } from './TimeBar'
-import { groundMaterial } from './groundMaterial'
+import { groundMaterial, withRockDetail } from './groundMaterial'
 import { useDem } from './dem'
 import { FAR_SHRINK, farTerrainGeometry } from './farTerrain'
 import { STORM_HAZE, STORM_KIND, WEATHER_BODIES, WEATHER_FX, devilTarget, stepWeather, useWeather, stormTarget, weatherNow } from './weather'
@@ -424,6 +424,26 @@ function FarTerrain({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   return <mesh ref={mesh} geometry={geo} material={mat} renderOrder={-6.5} frustumCulled={false} />
 }
 
+/** 岩の根元の影：中心が暗く、外へ向かって消える円（掛け算で地面を暗くする） */
+let contactMat: THREE.MeshBasicMaterial | null = null
+function contactShadowMaterial() {
+  if (contactMat) return contactMat
+  const size = 64
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const g = c.getContext('2d')!
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  grad.addColorStop(0, 'rgb(90,90,90)')
+  grad.addColorStop(0.55, 'rgb(150,150,150)')
+  grad.addColorStop(1, 'rgb(255,255,255)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, size, size)
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  contactMat = new THREE.MeshBasicMaterial({ map: tex, blending: THREE.MultiplyBlending, premultipliedAlpha: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, fog: false, toneMapped: false })
+  return contactMat
+}
+
 function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const def = terrain.def
   const geo = useMemo(() => terrain.geometry(), [terrain])
@@ -435,48 +455,85 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const level = useLevel()
   const groundMat = useMemo(() => cloudy(def, withAir(groundMaterial(def, level === 'low' || lowMemory()), ap)), [def, level, ap])
   const rockMat = useMemo(
-    () => cloudy(def, withAir(new THREE.MeshStandardMaterial({ color: def.rock, roughness: round ? 0.7 : 0.92, metalness: 0, map: grain, bumpMap: grain, bumpScale: 1.5 }), ap)),
+    () =>
+      cloudy(
+        def,
+        withAir(
+          // 岩肌の割れ目と段の凹凸、上を向いた面にたまる砂（丸い氷の小石には砂を積もらせない）
+          withRockDetail(new THREE.MeshStandardMaterial({ color: def.rock, roughness: round ? 0.7 : 0.92, metalness: 0, map: grain }), {
+            dust: round ? null : new THREE.Color(def.ground),
+            strength: round ? 0.6 : 1.4,
+          }),
+          ap,
+        ),
+      ),
     [def, grain, round, ap],
   )
   const inst = useRef<(THREE.InstancedMesh | null)[]>([])
+  const contact = useRef<THREE.InstancedMesh>(null)
+  const contactGeo = useMemo(() => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), [])
   useEffect(() => {
     const m = new THREE.Matrix4()
     const q = new THREE.Quaternion()
-    const e = new THREE.Euler()
+    const qy = new THREE.Quaternion()
+    const up = new THREE.Vector3(0, 1, 0)
+    const n = new THREE.Vector3()
     const s = new THREE.Vector3()
     const p = new THREE.Vector3()
     const counts = [0, 0, 0]
+    const tone = new THREE.Color()
+    let shadows = 0
     for (const r of rocks) {
       const mesh = inst.current[r.v]
       if (!mesh) continue
-      e.set(r.tilt, r.rot, r.tilt * 0.5)
-      q.setFromEuler(e)
+      // 地面の傾きに沿わせて寝かせ、向きはばらばらに
+      n.set(r.nx, 1, r.nz).normalize()
+      q.setFromUnitVectors(up, n)
+      qy.setFromAxisAngle(up, r.rot)
+      q.multiply(qy)
       s.set(r.s, r.s * r.sy, r.s * (0.7 + 0.3 * r.sy))
       p.set(r.x, r.y, r.z)
       m.compose(p, q, s)
+      // 岩ごとに少し明るさを変える（同じ色の岩が並ばないように）
+      mesh.setColorAt(counts[r.v], tone.setScalar(0.78 + 0.4 * ((r.rot * 977) % 1)))
       mesh.setMatrixAt(counts[r.v]++, m)
+      // 根元の影（地面に接している所が暗い）：岩より少し大きい、ぼかした円
+      const sh = contact.current
+      if (sh && r.s > 0.15 && Math.hypot(r.x, r.z) < 160) {
+        s.set(r.s * 1.5, 1, r.s * 1.5)
+        p.set(r.x, terrain.height(r.x, r.z) + 0.03, r.z)
+        m.compose(p, q, s)
+        sh.setMatrixAt(shadows++, m)
+      }
     }
     inst.current.forEach((mesh, i) => {
       if (!mesh) return
       mesh.count = counts[i]
       mesh.instanceMatrix.needsUpdate = true
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
       mesh.computeBoundingSphere()
     })
+    if (contact.current) {
+      contact.current.count = shadows
+      contact.current.instanceMatrix.needsUpdate = true
+    }
     // 素材が変わると（画質の自動切り替えなど）instancedMesh が作り直されるので、そのたびに並べ直す。
     // 並べ直さないと、岩がすべて原点に重なって見えなくなる（ローバーの当たり判定だけが残る）
-  }, [rocks, rockMat, rockGeos])
+  }, [rocks, rockMat, rockGeos, terrain])
   useEffect(
     () => () => {
       geo.dispose()
+      contactGeo.dispose()
       rockGeos.forEach((g) => g.dispose())
       groundMat.dispose()
       rockMat.dispose()
     },
-    [geo, rockGeos, groundMat, rockMat],
+    [geo, contactGeo, rockGeos, groundMat, rockMat],
   )
   return (
     <>
       <mesh geometry={geo} material={groundMat} receiveShadow />
+      <instancedMesh ref={contact} args={[contactGeo, contactShadowMaterial(), rocks.length]} frustumCulled={false} renderOrder={1} />
       {rockGeos.map((g, i) => (
         <instancedMesh
           key={i}
