@@ -14,6 +14,7 @@ import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverFocus, roverInput, roverDebug,
 import { samplesFor, type RockSample } from '../../data/rockSamples'
 import { rockSpots } from '../../data/rockSpots'
 import type { Poi } from './pois'
+import { WheelTracks } from './wheelTracks'
 
 // 無人探査ローバー ORV-7（全長 1.8 m）。模型は tools/blender/build_rover.py で作った rover-orv7.glb。
 // 関節（脚・太陽電池・マスト・アンテナ・アーム）は模型ではすべて 0 で、ここで回して
@@ -143,6 +144,29 @@ function meshHeight(terrain: Terrain, x: number, z: number) {
   const h10 = at(i0 + 1, j0)
   const h11 = at(i0 + 1, j0 + 1)
   return (h00 * (1 - fa) + h01 * fa) * (1 - fr) + (h10 * (1 - fa) + h11 * fa) * fr
+}
+
+/**
+ * 描いている地面の三角形の上の高さ（轍を地面にぴったり沿わせる）。広い天体のタイルは step 間隔の格子で、
+ * 1 マスを (i+1, j)–(i, j+1) の対角線で 2 つの三角形に分けている（terrain.ts の tileJob）。それ以外は meshHeight
+ */
+function drawnHeight(terrain: Terrain, x: number, z: number) {
+  const world = isWide(terrain) ? wideNow.world : null
+  if (!world) return meshHeight(terrain, x, z)
+  const step = world.opt.step
+  const i = Math.floor(x / step)
+  const j = Math.floor(z / step)
+  const fx = x / step - i
+  const fz = z / step - j
+  const h = (a: number, b: number) => terrain.height((i + a) * step, (j + b) * step)
+  const h10 = h(1, 0)
+  const h01 = h(0, 1)
+  if (fx + fz <= 1) {
+    const h00 = h(0, 0)
+    return h00 + (h10 - h00) * fx + (h01 - h00) * fz
+  }
+  const h11 = h(1, 1)
+  return h11 + (h01 - h11) * (1 - fx) + (h10 - h11) * (1 - fz)
 }
 
 // ---- 車輪が巻き上げる砂ぼこり ---------------------------------------------------------------
@@ -511,6 +535,9 @@ export function Rover({
     [dustColor, level, hasAir, def],
   )
   useEffect(() => () => dust.dispose(), [dust])
+  // 轍：この着陸のあいだ残す（回収して出しなおしても、前に走った跡はそのまま）
+  const tracks = useMemo(() => new WheelTracks(def.id, level, (x, z) => drawnHeight(terrain, x, z)), [def.id, level, terrain])
+  useEffect(() => () => tracks.dispose(), [tracks])
   const dustBase = useMemo(() => new THREE.Color(dustColor), [dustColor])
   const feet = useMemo(() => landerFeet(landerYaw), [landerYaw])
 
@@ -656,8 +683,9 @@ export function Rover({
       bumpT: 9,
     }
     taken.current.clear()
+    tracks.lift()
     useRover.setState({ sites: sites.map(({ x, z, poi }) => ({ x, z, poi: poi?.id })), taken: [], range })
-  }, [phase, terrain, landerYaw, sites, range])
+  }, [phase, terrain, landerYaw, sites, range, tracks])
 
   useFrame((state, rawDt) => {
     const grp = group.current
@@ -834,6 +862,16 @@ export function Rover({
         }
       }
       s.spin -= (s.speed * dt) / WHEEL_R
+      // 轍：真ん中の車輪の下に。宙に浮いているときと、岩に乗っている車輪は跡を付けない
+      if (s.grounded) {
+        for (const side of [0, 1] as const) {
+          const sd = side === 0 ? -0.5 : 0.5
+          const wx = s.x + sideX * sd
+          const wz = s.z + sideZ * sd
+          if (wheelH[2 + side] - meshHeight(terrain, wx, wz) > 0.06) tracks.lift(side)
+          else tracks.touch(side, wx, wz)
+        }
+      } else tracks.lift()
       // 止まってしばらくするとアームを伸ばし、走り出すとたたむ
       s.still = Math.abs(s.speed) < 0.3 ? s.still + dt : 0
       s.arm += ((s.still > 1.5 ? 1 : 0) - s.arm) * Math.min(1, dt * (s.still > 1.5 ? 0.8 : 3))
@@ -1017,6 +1055,7 @@ export function Rover({
     const cam = state.camera as THREE.PerspectiveCamera
     dust.material.uniforms.uScale.value = (state.size.height * state.viewport.dpr) / (2 * Math.tan((cam.fov * Math.PI) / 360))
     dust.update(dt)
+    tracks.update(dt, sky.sunDir)
     const lit = Math.max(0.15, Math.min(1, sky.sunDir.y * 3 + 0.2))
     dust.material.uniforms.uColor.value.copy(dustBase).multiplyScalar(lit * 0.95)
     dust.material.uniforms.uShadow.value.copy(dustBase).multiplyScalar(lit * 0.4 + 0.04)
@@ -1095,6 +1134,7 @@ export function Rover({
       </group>
       <spotLight ref={lights} color="#fff1dc" angle={0.75} penumbra={0.6} distance={45} decay={1.6} intensity={0} />
       <spotLight ref={farLight} color="#f4f6ff" angle={0.34} penumbra={0.5} distance={150} decay={0} intensity={0} />
+      <primitive object={tracks.mesh} />
       <primitive object={dust.points} />
       {sites.map((site, i) => (
         <group key={i} position={[site.x, site.y, site.z]}>
