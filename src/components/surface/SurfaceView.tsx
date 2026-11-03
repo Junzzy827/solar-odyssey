@@ -526,8 +526,8 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   }, [world])
   const geo = useMemo(() => (world ? null : terrain.geometry()), [terrain, world])
   const rocks = useMemo(() => (world ? [] : terrain.rocks(Math.round(def.relief.rocks * 1400))), [terrain, def.relief.rocks, world])
-  // 広い天体：岩塊の野のタイルは岩が 8 倍になるので、余裕をもたせる（1 種類あたりの上限）
-  const rockCap = world ? world.opt.n ** 2 * world.opt.rocks * 2 : rocks.length
+  // 広い天体：岩塊の野のタイルは岩が 14 倍になるので、余裕をもたせる（1 種類あたりの上限）
+  const rockCap = world ? world.opt.n ** 2 * world.opt.rocks * 3 : rocks.length
   const round = def.id === 'titan'
   const rockGeos = useMemo(() => [0, 1, 2].map((k) => rockGeometry(terrain.seed + k * 17, round)), [terrain.seed, round])
   const grain = grainTexture()
@@ -1162,7 +1162,7 @@ function Scene({ def }: { def: SurfaceDef }) {
     const el = Math.asin(THREE.MathUtils.clamp(sky.sunDir.y, -1, 1))
     sky.sunT.copy(sunTransmittance(A.air, radiusM, el, hz))
     // 厚い雲の下は、目が慣れても薄暗く感じるくらいに
-    const ev = lab.ev + (def.sunHidden ? -0.9 : 0) - (kind?.dim ?? 0.8) * storm
+    const ev = lab.ev + (def.ev ?? 0) + (def.sunHidden ? -0.9 : 0) - (kind?.dim ?? 0.8) * storm
     sky.exposure = Math.min(autoExposure(sunI, sky.sunT, el, A.air, ev), dayExposure * 2 ** ev * 5)
     sky.night = THREE.MathUtils.smoothstep(-el, -0.05, 0.12)
     const twilight = THREE.MathUtils.smoothstep(-el, 0.0, 0.2)

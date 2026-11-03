@@ -48,6 +48,8 @@ export type SurfaceDef = {
   hazeColor: string
   /** 厚い雲やもやで、太陽の形が見えない */
   sunHidden?: boolean
+  /** 露出の補正（EV）。暗く沈みすぎる天体の地面を、少しだけ明るく見せる */
+  ev?: number
   /** 星の見え方（0〜1） */
   stars: number
   sunEl: number
@@ -88,7 +90,7 @@ const airless = (ground: string, ground2: string, rock: string, relief: Partial<
 const BASE: Record<string, Base> = {
   mercury: airless('#8c867e', '#6f6a64', '#5a5550', { craters: 0.75, craterMax: 220, hills: 20 }, { ejecta: '#a9a39a', sunEl: 14 }),
   venus: {
-    ground: '#8a6c48', ground2: '#5e4a34', rock: '#4a3d30',
+    ground: '#9c7a52', ground2: '#6e573d', rock: '#58493a',
     relief: { hills: 10, hillScale: 600, craters: 0.02, craterMax: 60, rocks: 0.7, mountains: 260 },
     sky: { zenith: '#8a5a1e', horizon: '#c9862e' }, haze: 0.75, hazeColor: '#b9772c', sunHidden: true, stars: 0,
     sunEl: 50, sunAz: 150, dust: false,
@@ -102,7 +104,8 @@ const BASE: Record<string, Base> = {
   },
   moon: airless('#8e8b86', '#6f6c68', '#5d5a56', { craters: 0.8, craterMax: 200, hills: 16, mountains: 300 }, { ejecta: '#b3afa8' }),
   mars: {
-    ground: '#a5582c', ground2: '#7d4220', rock: '#4f3426',
+    // 写真（キュリオシティ）に合わせた、くすんだ茶色の砂と、黒っぽい岩
+    ground: '#9a6446', ground2: '#7a4c34', rock: '#40312a',
     relief: { hills: 12, hillScale: 380, craters: 0.15, craterMax: 90, rocks: 0.85, mountains: 380 },
     sky: { zenith: '#b88a62', horizon: '#e0b48a' }, haze: 0.35, hazeColor: '#d4a07a', stars: 0.05,
     sunEl: 24, sunAz: 150, dust: true,
@@ -122,10 +125,10 @@ const BASE: Record<string, Base> = {
   dione: airless('#bdbdbd', '#9e9e9e', '#8a8a8a', { craters: 0.65, craterMax: 160, cracks: 0.25 }),
   rhea: airless('#b5b3b0', '#9a9894', '#878581', { craters: 0.85, craterMax: 180 }),
   titan: {
-    ground: '#a07038', ground2: '#6e5030', rock: '#d8c49a',
+    ground: '#bf9a68', ground2: '#957650', rock: '#e2d0a6',
     relief: { hills: 8, hillScale: 500, craters: 0.02, craterMax: 50, rocks: 0.45, dunes: 5 },
     sky: { zenith: '#a8692a', horizon: '#d99a4a' }, haze: 0.8, hazeColor: '#c98a3c', sunHidden: true, stars: 0,
-    sunEl: 30, sunAz: 150, dust: false,
+    sunEl: 30, sunAz: 150, dust: false, ev: 1,
   },
   iapetus: airless('#d8d2c4', '#3a2f26', '#6f665a', { craters: 0.8, craterMax: 190, mountains: 600 }),
   miranda: airless('#a8a49e', '#8f8b85', '#77736e', { craters: 0.35, craterMax: 100, cracks: 0.5, mountains: 700 }),
@@ -133,7 +136,7 @@ const BASE: Record<string, Base> = {
   umbriel: airless('#5f5c58', '#4b4845', '#3e3c39', { craters: 0.9, craterMax: 170 }, { ejecta: '#9a958e' }),
   titania: airless('#9e968d', '#857e76', '#6f6962', { craters: 0.6, craterMax: 150, cracks: 0.25 }),
   oberon: airless('#8f857b', '#766d64', '#625a52', { craters: 0.8, craterMax: 170 }),
-  proteus: airless('#58544f', '#46433f', '#3b3835', { craters: 0.7, craterMax: 110, rocks: 0.4 }),
+  proteus: airless('#686460', '#55524d', '#484540', { craters: 0.7, craterMax: 110, rocks: 0.4 }, { ev: 0.6 }),
   triton: airless('#c9b2a6', '#a8968c', '#8c7d75', { craters: 0.08, craterMax: 50, hills: 6, cracks: 0.4, rocks: 0.2 }, {
     sky: { zenith: '#000000', horizon: '#1a2033' }, haze: 0.08, hazeColor: '#3a4660', extras: ['geysers'], dust: false,
   }),
