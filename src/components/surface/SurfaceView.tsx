@@ -897,6 +897,13 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
 
 // ---- カメラ：立って見回す／着陸船のまわりを回る ---------------------------------------
 
+/**
+ * 木星より遠い天体の露出の補正（EV）。目は暗さに慣れるが、autoExposure の慣れ方だけでは
+ * 天王星・海王星・冥王星の地面が黒一色に沈んで、どの衛星も同じに見えてしまう。
+ * 遠いほど少し明るく（土星 +0.5、天王星 +1.1、海王星 +1.5、冥王星 +1.8）。天体どうしの明るさの差（白い氷と黒い砂）は残る
+ */
+const outerEv = (au: number) => Math.max(0, Math.log2(au / 5.2)) * 0.6
+
 function Look({ terrain }: { terrain: Terrain }) {
   const { camera, gl } = useThree()
   const cam = camera as THREE.PerspectiveCamera
@@ -1162,7 +1169,7 @@ function Scene({ def }: { def: SurfaceDef }) {
     const el = Math.asin(THREE.MathUtils.clamp(sky.sunDir.y, -1, 1))
     sky.sunT.copy(sunTransmittance(A.air, radiusM, el, hz))
     // 厚い雲の下は、目が慣れても薄暗く感じるくらいに
-    const ev = lab.ev + (def.ev ?? 0) + (def.sunHidden ? -0.9 : 0) - (kind?.dim ?? 0.8) * storm
+    const ev = lab.ev + (def.ev ?? 0) + outerEv(def.au) + (def.sunHidden ? -0.9 : 0) - (kind?.dim ?? 0.8) * storm
     sky.exposure = Math.min(autoExposure(sunI, sky.sunT, el, A.air, ev), dayExposure * 2 ** ev * 5)
     sky.night = THREE.MathUtils.smoothstep(-el, -0.05, 0.12)
     const twilight = THREE.MathUtils.smoothstep(-el, 0.0, 0.2)

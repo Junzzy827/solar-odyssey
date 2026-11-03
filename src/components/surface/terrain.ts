@@ -238,7 +238,13 @@ export class Terrain {
       const n1 = Math.abs(fbm(x / 160, z / 160, s + 21, 4) - 0.5)
       const n2 = Math.abs(fbm(x / 70 + 9, z / 70, s + 33, 3) - 0.5)
       crack = Math.max(1 - smooth(0.0, 0.018, n1), 0.6 * (1 - smooth(0.0, 0.012, n2))) * R.cracks
-      h += crack * 0.6
+      if (this.def.id === 'europa') {
+        // エウロパの二重尾根：2 本の低い尾根のあいだに溝。まわりに赤茶色の筋が広がる（ガリレオの写真）
+        const ridge = 1 - smooth(0.0, 0.03, n1)
+        const trough = 1 - smooth(0.0, 0.01, n1)
+        h += (ridge * 1.8 - trough * 1.2 + 0.5 * (1 - smooth(0.0, 0.012, n2))) * R.cracks
+        crack = Math.max(1 - smooth(0.0, 0.05, n1), 0.6 * (1 - smooth(0.0, 0.02, n2))) * R.cracks * 0.85
+      } else h += crack * 0.6
     }
     if (this.pois.length) h += this.poiRelief(x, z)
     for (const l of this.lakes) {

@@ -116,7 +116,7 @@ const BASE: Record<string, Base> = {
     ...airless('#c9b24a', '#a9822e', '#3b3128', { craters: 0, craterMax: 0, hills: 10, rocks: 0.3, mountains: 520 }),
     ground2: '#c97a2a', ejecta: '#e8dfa0', extras: ['volcano'],
   },
-  europa: airless('#cdbfa7', '#b5a07e', '#9b8f7d', { craters: 0.04, craterMax: 50, hills: 6, rocks: 0.35, cracks: 0.9 }, { ejecta: '#e9e4da' }),
+  europa: airless('#dbd5c8', '#c6b496', '#9b8f7d', { craters: 0.04, craterMax: 50, hills: 6, rocks: 0.35, cracks: 0.9 }, { ejecta: '#e9e4da' }),
   ganymede: airless('#8d8478', '#b2a998', '#6d665c', { craters: 0.45, craterMax: 160, hills: 12, cracks: 0.4 }, { ejecta: '#cfc7b8' }),
   callisto: airless('#5b5348', '#463f37', '#3a342e', { craters: 0.95, craterMax: 190, hills: 12 }, { ejecta: '#c7c0b4' }),
   mimas: airless('#a9a7a3', '#8f8d89', '#7b7976', { craters: 0.9, craterMax: 180 }),
@@ -132,12 +132,12 @@ const BASE: Record<string, Base> = {
   },
   iapetus: airless('#d8d2c4', '#3a2f26', '#6f665a', { craters: 0.8, craterMax: 190, mountains: 600 }),
   miranda: airless('#a8a49e', '#8f8b85', '#77736e', { craters: 0.35, craterMax: 100, cracks: 0.5, mountains: 700 }),
-  ariel: airless('#b8b4ad', '#9d9993', '#86827c', { craters: 0.45, craterMax: 120, cracks: 0.35 }),
+  ariel: airless('#c3c1bc', '#a8a6a1', '#86827c', { craters: 0.45, craterMax: 120, cracks: 0.35 }),
   umbriel: airless('#5f5c58', '#4b4845', '#3e3c39', { craters: 0.9, craterMax: 170 }, { ejecta: '#9a958e' }),
-  titania: airless('#9e968d', '#857e76', '#6f6962', { craters: 0.6, craterMax: 150, cracks: 0.25 }),
-  oberon: airless('#8f857b', '#766d64', '#625a52', { craters: 0.8, craterMax: 170 }),
+  titania: airless('#9e968d', '#857e76', '#6f6962', { craters: 0.6, craterMax: 150, cracks: 0.25, rocks: 0.75 }),
+  oberon: airless('#8e7f73', '#71655b', '#5f564e', { craters: 0.8, craterMax: 170 }),
   proteus: airless('#686460', '#55524d', '#484540', { craters: 0.7, craterMax: 110, rocks: 0.4 }, { ev: 0.6 }),
-  triton: airless('#c9b2a6', '#a8968c', '#8c7d75', { craters: 0.08, craterMax: 50, hills: 6, cracks: 0.4, rocks: 0.2 }, {
+  triton: airless('#d8c4b9', '#bca69c', '#8c7d75', { craters: 0.08, craterMax: 50, hills: 6, cracks: 0.4, rocks: 0.2 }, {
     sky: { zenith: '#000000', horizon: '#1a2033' }, haze: 0.08, hazeColor: '#3a4660', extras: ['geysers'], dust: false,
   }),
   pluto: airless('#d9c9b0', '#b78f6a', '#8a6c52', { craters: 0.1, craterMax: 70, hills: 6, rocks: 0.25, mountains: 900 }, {
