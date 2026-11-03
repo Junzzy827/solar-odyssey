@@ -129,7 +129,7 @@ export function RoverHud() {
 }
 
 /** ミニマップ：着陸船を中心に、走れる範囲（正方形）・採集の岩・ローバーの位置と向き。
- * 広い天体（3 km 四方）では、ローバーのまわり 400 m と、範囲全体を、地図の右上のボタンで切り替える */
+ * 広い天体（1.5 km 四方）では、ローバーのまわり 400 m と、範囲全体を、地図の右上のボタンで切り替える */
 export function RoverMap() {
   useLang()
   const hud = useRover((r) => r.hud)
