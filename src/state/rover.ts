@@ -26,7 +26,7 @@ type RoverState = {
   /** 走れる範囲の端に当たっている（メッセージを出す） */
   edge: boolean
   /** ミニマップ用：採集の岩の位置と、採ったものの番号 */
-  sites: { x: number; z: number }[]
+  sites: { x: number; z: number; poi?: string }[]
   taken: number[]
   /** 運転中に、時刻・天気などのメニューを開いているか（ふだんはたたんで景色を広く） */
   menu: boolean
@@ -35,7 +35,7 @@ type RoverState = {
   sampling: boolean
   result: string | null
   /** いちばん近い、まだ採っていない岩（距離 m と、ローバーの正面から右回りの角度） */
-  next: { dist: number; rel: number } | null
+  next: { dist: number; rel: number; where?: { ja: string; en: string } | null } | null
   setView: (v: RoverView) => void
 }
 

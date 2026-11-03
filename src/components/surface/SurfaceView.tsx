@@ -1383,7 +1383,9 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
               <span className="sg-arrow" style={{ transform: `rotate(${next.rel}deg)` }}>
                 ▲
               </span>
-              {t(`光の柱の岩まで ${next.dist} m・近くで止まると採集できます`, `Rock at the light beam: ${next.dist} m · stop next to it to collect`)}
+              {next.where
+                ? t(`見どころ「${next.where.ja}」の岩まで ${next.dist} m・光の柱が目印`, `Rock at ${next.where.en}: ${next.dist} m · follow the light beam`)
+                : t(`光の柱の岩まで ${next.dist} m・近くで止まると採集できます`, `Rock at the light beam: ${next.dist} m · stop next to it to collect`)}
             </span>
           ) : (
             <span className="sample-busy">{t('ここの岩はすべて採集しました', 'All rocks here collected')}</span>
