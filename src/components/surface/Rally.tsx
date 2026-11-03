@@ -3,7 +3,9 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Terrain } from './terrain'
-import { ARM_STOW, WheelDust, applyPose, deployPose, type Rig } from './Rover'
+import { ARM_STOW, WheelDust, applyPose, deployPose, drawnHeight, meshHeight, type Rig } from './Rover'
+import { WheelTracks } from './wheelTracks'
+import type { SkyNow } from './skyNow'
 import { PAINT_PARTS, paintUniforms, withPaint } from './paint'
 import { windFor } from './landerFx'
 import { RALLY_LINE } from '../../data/rallyCourse'
@@ -124,12 +126,16 @@ export function gridSlot(c: Course, i: number) {
 
 // ---- コンピューターのローバー ---------------------------------------------------------------
 
-/** 性格：最高速（m/s）、曲がるときの横の加速度の上限（m/s²）、走る位置のくせ */
+/**
+ * 性格。コースの線をなぞるのではなく、少し先の点をねらって自分でハンドルを切る（先をねらうほどカーブの内側を通る）。
+ * top：最高速（m/s）、lat：曲がるときの横の加速度の上限（m/s²）、look：どれだけ先をねらうか（m）、
+ * amp / wave：走る位置のくせ（線から左右にずれる幅 m と、その波の長さ m）、trip：岩につまずく間隔（秒）、hop：よく跳ぶ
+ */
 const TRAITS = [
-  { top: 16.2, lat: 3.6, wide: 1, cut: 0, hop: 0 }, // 赤：直線は速いが、カーブで外にふくらむ
-  { top: 15.0, lat: 5.2, wide: 0, cut: 0, hop: 0 }, // 青：慎重。カーブでも落とさない
-  { top: 15.6, lat: 4.4, wide: 0, cut: 0, hop: 1 }, // 黄：よく跳ぶ（跳んでいるあいだは少し遅い）
-  { top: 15.3, lat: 4.6, wide: 0, cut: 1, hop: 0 }, // 緑：カーブの内側を攻める
+  { top: 17.4, lat: 3.3, look: 12, amp: 3.5, wave: 160, trip: 9, hop: 0 }, // 赤：直線は速いが、カーブで外にふくらむ・つまずきやすい
+  { top: 14.8, lat: 5.6, look: 14, amp: 1.5, wave: 260, trip: 22, hop: 0 }, // 青：慎重。遅いがミスが少ない
+  { top: 15.9, lat: 4.3, look: 18, amp: 5.0, wave: 120, trip: 30, hop: 1 }, // 黄：あちこち走り、よく跳んで岩をよける
+  { top: 15.4, lat: 4.8, look: 34, amp: 2.5, wave: 200, trip: 14, hop: 0 }, // 緑：ずっと先をねらって、カーブの内側をショートカット
 ]
 /** コンピューター全体の速さ（ふつう）。自分の最高速は 16.7 m/s */
 const AI_SKILL = 0.93
@@ -140,10 +146,13 @@ type Bot = {
   model: THREE.Object3D
   rig: Rig
   paint: ReturnType<typeof paintUniforms>
+  tracks: WheelTracks
+  glow: THREE.Sprite
+  pool: THREE.Mesh
+  /** コースの道のり（m）と、線からのずれ（m） */
   s: number
+  off: number
   v: number
-  lane: number
-  laneGoal: number
   x: number
   z: number
   y: number
@@ -155,10 +164,34 @@ type Bot = {
   steer: number
   air: boolean
   hopT: number
+  /** その日の調子（0.95〜1.04）と、走る位置の波のずれ */
+  form: number
+  phase: number
+  /** つまずくまでの時間と、つまずいている残り時間 */
+  tripT: number
+  tripping: number
   finish: number | null
 }
 
-export function Rally({ terrain, prepare, dustColor }: { terrain: Terrain; prepare: (m: THREE.MeshStandardMaterial) => THREE.MeshStandardMaterial; dustColor: string }) {
+/** 光のにじみ（中心が明るい丸） */
+let glowTex: THREE.Texture | null = null
+function glowTexture() {
+  if (glowTex) return glowTex
+  const N = 64
+  const c = document.createElement('canvas')
+  c.width = c.height = N
+  const g = c.getContext('2d')!
+  const grd = g.createRadialGradient(N / 2, N / 2, 0, N / 2, N / 2, N / 2)
+  grd.addColorStop(0, 'rgba(255,255,255,1)')
+  grd.addColorStop(0.25, 'rgba(255,255,255,0.55)')
+  grd.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = grd
+  g.fillRect(0, 0, N, N)
+  glowTex = new THREE.CanvasTexture(c)
+  return glowTex
+}
+
+export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; prepare: (m: THREE.MeshStandardMaterial) => THREE.MeshStandardMaterial; dustColor: string; sky: SkyNow }) {
   const phase = useRally((r) => r.phase)
   const color = useRally((r) => r.color)
   const roverPhase = useRover((r) => r.phase)
@@ -183,6 +216,22 @@ export function Rally({ terrain, prepare, dustColor }: { terrain: Terrain; prepa
       w.__rallyGate = undefined
     }
   }, [course])
+  // 確認用（#debug）：コンピューターだけを sec 秒ぶん一気に走らせて、道のりとコースからのずれを返す
+  useEffect(() => {
+    if (!location.hash.includes('debug')) return
+    const w = window as unknown as { __rallySim?: (sec: number) => unknown }
+    let simT = 0
+    w.__rallySim = (sec: number) => {
+      for (let i = 0; i < sec * 60; i++) {
+        simT += 1 / 60
+        stepBots(1 / 60, simT, rallyNow() + simT, true, false)
+      }
+      return bots.list.map((b) => ({ c: b.color, s: Math.round(b.s), off: +b.off.toFixed(1), v: +b.v.toFixed(1), finish: b.finish && +b.finish.toFixed(1) }))
+    }
+    return () => {
+      w.__rallySim = undefined
+    }
+  })
 
   // ---- 門 ----
   const gateParts = useMemo(() => {
@@ -250,15 +299,22 @@ export function Rally({ terrain, prepare, dustColor }: { terrain: Terrain; prepa
   const { scene } = useGLTF(url('rover-orv7.glb'))
   const bots = useMemo(() => {
     const owned: { dispose: () => void }[] = []
-    const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.0, 1.7), toneMapped: false })
-    owned.push(lamp)
     const list: Bot[] = []
+    // 轍：ふつうは 1 台 210 m ぶん、軽い端末は 90 m ぶん
+    const trackLevel = lowMemory() || level === 'low' ? 'low' : 'medium'
+    const poolGeo = new THREE.PlaneGeometry(1, 1)
+    poolGeo.rotateX(-Math.PI / 2)
+    owned.push(poolGeo)
     let slot = 0
     for (let c = 0; c < RALLY_COLORS.length; c++) {
       if (c === color) continue
       if (slot === PLAYER_SLOT) slot++
       const model = scene.clone(true)
-      const paint = paintUniforms(RALLY_COLORS[c].hex)
+      const hex = RALLY_COLORS[c].hex
+      const paint = paintUniforms(hex)
+      // ランプ：その色に光る（夜に目立つ）
+      const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(2.4), toneMapped: false })
+      owned.push(lamp)
       const mats = new Map<string, THREE.Material>()
       model.traverse((o) => {
         const mesh = o as THREE.Mesh
@@ -309,14 +365,31 @@ export function Rally({ terrain, prepare, dustColor }: { terrain: Terrain; prepa
       const pose = deployPose(1)
       pose.arm = [...ARM_STOW]
       applyPose(rig, pose)
+      // 夜の目印：マストの上の色の光と、前の地面を照らす色の光だまり
+      const glowMat = new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(hex).multiplyScalar(1.6), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false })
+      const glow = new THREE.Sprite(glowMat)
+      glow.position.set(0, 2.05, 0.15)
+      glow.scale.setScalar(1.1)
+      glow.renderOrder = 4
+      model.add(glow)
+      const poolMat = new THREE.MeshBasicMaterial({ map: glowTexture(), color: new THREE.Color(hex), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })
+      const pool = new THREE.Mesh(poolGeo, poolMat)
+      pool.position.set(0, 0.12, -6)
+      pool.scale.set(5.5, 1, 10)
+      pool.renderOrder = 2
+      model.add(pool)
+      owned.push(glowMat, poolMat)
+      const tracks = new WheelTracks(terrain.def.id, trackLevel, (x, z) => drawnHeight(terrain, x, z))
+      owned.push(tracks)
       list.push({
-        color: c, slot, model, rig, paint, s: GRID_S, v: 0, lane: GRID_LANES[slot], laneGoal: GRID_LANES[slot],
-        x: 0, z: 0, y: 0, vy: 0, heading: 0, pitch: 0, roll: 0, spin: 0, steer: 0, air: false, hopT: 3 + slot, finish: null,
+        color: c, slot, model, rig, paint, tracks, glow, pool, s: GRID_S, off: GRID_LANES[slot], v: 0,
+        x: 0, z: 0, y: 0, vy: 0, heading: 0, pitch: 0, roll: 0, spin: 0, steer: 0, air: false, hopT: 3 + slot,
+        form: 1, phase: 0, tripT: 10, tripping: 0, finish: null,
       })
       slot++
     }
     return { list, owned }
-  }, [scene, color, prepare, level])
+  }, [scene, color, prepare, level, terrain])
   useEffect(() => () => bots.owned.forEach((m) => m.dispose()), [bots])
 
   const dust = useMemo(
@@ -331,8 +404,17 @@ export function Rally({ terrain, prepare, dustColor }: { terrain: Terrain; prepa
   const placeBots = () => {
     for (const b of bots.list) {
       const p = gridSlot(course, b.slot)
-      Object.assign(b, { s: GRID_S, v: 0, lane: GRID_LANES[b.slot], laneGoal: GRID_LANES[b.slot], x: p.x, z: p.z, heading: p.heading, vy: 0, air: false, finish: null, hopT: 3 + b.slot * 1.7 })
-      b.y = terrain.height(p.x, p.z)
+      const tr = TRAITS[b.color]
+      Object.assign(b, {
+        s: GRID_S, off: GRID_LANES[b.slot], v: 0, x: p.x, z: p.z, heading: p.heading, vy: 0, air: false, finish: null, hopT: 3 + b.slot * 1.7,
+        // 毎回ちがうレースに：調子・走る位置の波・つまずくまでの時間
+        form: 0.95 + Math.random() * 0.09,
+        phase: Math.random() * Math.PI * 2,
+        tripT: tr.trip * (0.5 + Math.random()),
+        tripping: 0,
+      })
+      b.y = meshHeight(terrain, p.x, p.z)
+      b.tracks.lift()
     }
   }
 
@@ -372,12 +454,204 @@ export function Rally({ terrain, prepare, dustColor }: { terrain: Terrain; prepa
     useRally.setState({ lost: false })
   }
 
+  /** コンピューターの 3 台を dt 秒すすめる */
+  const stepBots = (dt: number, t: number, now: number, moving: boolean, counting: boolean) => {
+    const r = run.current
+    const me = roverPose
+    const k = AI_SKILL
+    const night = sky.night
+    const last = course.gates[course.gates.length - 1].s
+    for (const b of bots.list) {
+      const tr = TRAITS[b.color]
+      const fx = -Math.sin(b.heading)
+      const fz = -Math.cos(b.heading)
+      if (moving) {
+        let target = 0
+        if (b.finish === null) {
+          // 先のカーブ（40 m 先まで）を見て、出せる速さを決める
+          target = tr.top * k * b.form
+          for (let a = 0; a <= 40; a += 10) {
+            const curv = Math.abs(pointAt(course, b.s + a).k)
+            if (curv > 1e-4) target = Math.min(target, Math.sqrt((tr.lat * k) / curv) + a * 0.08)
+          }
+          // 坂：登りは遅い
+          const hA = terrain.height(b.x, b.z)
+          const hB = terrain.height(b.x + fx * 10, b.z + fz * 10)
+          target *= 1 - THREE.MathUtils.clamp(((hB - hA) / 10) * 1.1, -0.08, 0.3)
+          // 自分と離れすぎない（ゆるく。順位が入れかわる余地を残す）
+          const gap = b.s - r.prog
+          if (gap > 120) target *= 0.95
+          else if (gap < -120) target *= 1.05
+          // 岩につまずく：しばらく遅くなってふらつく（ジャンプ好きは跳んでよける）
+          b.tripT -= dt
+          if (b.tripT < 0 && !b.air) {
+            b.tripT = tr.trip * (0.6 + Math.random() * 0.9)
+            if (tr.hop) {
+              b.vy = 3.4 + b.v * 0.08
+              b.air = true
+            } else {
+              b.tripping = 1.2 + Math.random() * 0.8
+              b.vy = 1.2
+              b.air = true
+              for (let i = 0; i < 6; i++) dust.puff(b.x, b.y, b.z, (Math.random() - 0.5) * 3, 0.8, (Math.random() - 0.5) * 3, 0.5)
+            }
+          }
+          if (b.tripping > 0) {
+            b.tripping -= dt
+            target *= 0.55
+          }
+          // ジャンプ好き：ときどき跳ぶ
+          if (tr.hop && !b.air) {
+            b.hopT -= dt
+            if (b.hopT < 0) {
+              b.vy = 3.4 + b.v * 0.08
+              b.air = true
+              b.hopT = 4 + Math.random() * 4
+            }
+          }
+          if (b.s >= last) b.finish = t
+        }
+        if (b.air) target = b.v
+        const acc = target > b.v ? 3.6 * Math.max(0.2, 1 - b.v / 18) * 2 : -5
+        b.v += THREE.MathUtils.clamp(target - b.v, -Math.abs(acc) * dt, Math.abs(acc) * dt)
+
+        // ハンドル：少し先の点（線から自分のくせでずらした所）をねらう。門の近くでは門の内側へ
+        const ahead = b.s + tr.look + b.v * 0.6
+        const p = pointAt(course, ahead)
+        const px = p.x
+        const pz = p.z
+        const pdx = p.dx
+        const pdz = p.dz
+        let want = tr.amp * Math.sin((ahead / tr.wave) * Math.PI * 2 + b.phase) + tr.amp * 0.4 * Math.sin((ahead / tr.wave) * 11 + b.phase * 2)
+        // スタートの列から、だんだん自分の走り方へ
+        const mix = THREE.MathUtils.clamp((b.s - GRID_S) / 120, 0, 1)
+        want = GRID_LANES[b.slot] * (1 - mix) + want * mix
+        let nearGate = Infinity
+        for (const gt of course.gates) nearGate = Math.min(nearGate, Math.abs(gt.s - ahead))
+        const lim = nearGate < 30 ? GATE_HALF - 3 : 9
+        want = THREE.MathUtils.clamp(want, -lim, lim)
+        const tx = px - pdz * want
+        const tz = pz + pdx * want
+        let dh = Math.atan2(-(tx - b.x), -(tz - b.z)) - b.heading
+        while (dh > Math.PI) dh -= Math.PI * 2
+        while (dh < -Math.PI) dh += Math.PI * 2
+        // 曲がれる速さは自分のローバーと同じ（速いほど大回り）。宙では曲がれず、つまずくと少しふらつく
+        const rate = b.air ? 0 : (Math.abs(b.v) / (2.6 + Math.abs(b.v) * 0.32)) * (b.tripping > 0 ? 0.35 : 1)
+        const turn = THREE.MathUtils.clamp(dh * 3, -rate, rate) + (b.tripping > 0 ? Math.sin(now * 9 + b.phase) * 0.25 : 0)
+        b.heading += turn * dt
+        b.steer += (THREE.MathUtils.clamp(dh * 4, -1, 1) - b.steer) * Math.min(1, dt * 5)
+        // 大きく向きを変えるときは減速
+        if (Math.abs(dh) > 0.4 && !b.air) b.v *= 1 - Math.min(0.5, dt * Math.abs(dh) * 0.8)
+      } else b.v = 0
+      b.x += -Math.sin(b.heading) * b.v * dt
+      b.z += -Math.cos(b.heading) * b.v * dt
+      const pr = progressOf(course, b.x, b.z, b.s)
+      b.s = pr.s
+      b.off = pr.off
+      // 自分とぶつかる：押し合う
+      const ex = me.x - b.x
+      const ez = me.z - b.z
+      const d = Math.hypot(ex, ez)
+      if (d < 1.9 && d > 1e-3 && !counting) {
+        const o = (1.9 - d) / d
+        roverCtl.push.x += ex * o * 0.6
+        roverCtl.push.z += ez * o * 0.6
+        b.x -= ex * o * 0.4
+        b.z -= ez * o * 0.4
+      }
+      // コンピューターどうし
+      for (const c of bots.list) {
+        if (c === b) continue
+        const cx = c.x - b.x
+        const cz = c.z - b.z
+        const cd = Math.hypot(cx, cz)
+        if (cd < 1.9 && cd > 1e-3) {
+          const o = ((1.9 - cd) / cd) * 0.5
+          b.x -= cx * o
+          b.z -= cz * o
+          c.x += cx * o
+          c.z += cz * o
+        }
+      }
+      // 縦：地面に沿う。坂の頂上や跳んだときは宙に
+      const ground = meshHeight(terrain, b.x, b.z)
+      if (b.air || b.y > ground + 0.03) {
+        b.vy -= g * dt
+        b.y += b.vy * dt
+        if (b.y <= ground) {
+          b.y = ground
+          b.vy = 0
+          if (b.air) for (let i = 0; i < 8; i++) dust.puff(b.x, ground, b.z, (Math.random() - 0.5) * 3, 0.6, (Math.random() - 0.5) * 3, 0.6)
+          b.air = false
+        }
+      } else {
+        const gv = (ground - b.y) / Math.max(dt, 1e-3)
+        // 下り坂の頂上で、地面が落ちていく速さより遅ければ飛び出す
+        if (gv < -6 && b.v > 8) {
+          b.air = true
+          b.vy = Math.min(0, b.vy)
+        } else {
+          b.y = ground
+          b.vy = gv
+        }
+      }
+      const gx = -Math.sin(b.heading)
+      const gz = -Math.cos(b.heading)
+      // 傾き：前後と左右の地面の高さ
+      if (!b.air) {
+        const hF = meshHeight(terrain, b.x + gx * 0.72, b.z + gz * 0.72)
+        const hBk = meshHeight(terrain, b.x - gx * 0.72, b.z - gz * 0.72)
+        const hR = meshHeight(terrain, b.x - gz * 0.5, b.z + gx * 0.5)
+        const hL = meshHeight(terrain, b.x + gz * 0.5, b.z - gx * 0.5)
+        const kk = Math.min(1, dt * 10)
+        b.pitch += (Math.atan2(hF - hBk, 1.44) - b.pitch) * kk
+        b.roll += (Math.atan2(hR - hL, 1.0) - b.roll) * kk
+      } else b.pitch += (Math.min(0.25, Math.max(-0.35, b.vy * 0.04)) - b.pitch) * Math.min(1, dt * 1.2)
+      b.spin -= (b.v * dt) / 0.2
+      b.model.position.set(b.x, b.y, b.z)
+      b.model.rotation.set(b.pitch, b.heading, b.roll, 'YXZ')
+      for (const key of Object.keys(b.rig.wheels)) {
+        const w = b.rig.wheels[key]
+        w.rotation.x = b.spin
+        w.rotation.y = key[0] === 'F' ? -b.steer * 0.35 : key[0] === 'R' ? b.steer * 0.35 : 0
+      }
+      // 轍：左右の真ん中の車輪の下。宙に浮いているあいだは切る
+      const sx = -gz
+      const sz = gx
+      if (!b.air && b.v > 0.3) {
+        b.tracks.touch(0, b.x - sx * 0.5, b.z - sz * 0.5)
+        b.tracks.touch(1, b.x + sx * 0.5, b.z + sz * 0.5)
+      } else if (b.air) b.tracks.lift()
+      b.tracks.update(dt, sky.sunDir)
+      // 夜の色の光
+      const on = night > 0.02
+      b.glow.visible = on
+      b.pool.visible = on
+      if (on) {
+        ;(b.glow.material as THREE.SpriteMaterial).opacity = Math.min(1, night * 1.2) * (0.85 + 0.15 * Math.sin(now * 6 + b.phase))
+        ;(b.pool.material as THREE.MeshBasicMaterial).opacity = night * 0.55
+      }
+      // 砂ぼこり
+      if (!b.air && b.v > 2 && terrain.def.dust) {
+        const kv = Math.min(1, b.v / 16.7)
+        const n = Math.floor(dt * (level === 'low' ? 14 : 36) * kv + Math.random())
+        for (let i = 0; i < n; i++) {
+          const sd = Math.random() < 0.5 ? 0.5 : -0.5
+          dust.puff(b.x - gz * sd - gx * 0.72, ground, b.z + gx * sd - gz * 0.72, -gx * b.v * 0.25, 0.6 + kv * 1.6, -gz * b.v * 0.25, 0.35 + kv * 0.6)
+        }
+      }
+    }
+  }
+
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05)
     const st = useRally.getState()
     const active = st.phase === 'count' || st.phase === 'run' || st.phase === 'done'
     for (const o of gateObjs) o.grp.visible = st.phase !== 'off'
-    for (const b of bots.list) b.model.visible = active
+    for (const b of bots.list) {
+      b.model.visible = active
+      b.tracks.mesh.visible = active
+    }
     if (st.phase === 'off' || st.phase === 'deploy') {
       roverInput.reset = false
       dust.update(dt)
@@ -429,128 +703,7 @@ export function Rally({ terrain, prepare, dustColor }: { terrain: Terrain; prepa
     }
 
     // ---- コンピューター ----
-    const k = AI_SKILL
-    for (const b of bots.list) {
-      if (b.finish === null && moving) {
-        const tr = TRAITS[b.color]
-        // 先のカーブ（40 m 先まで）を見て、出せる速さを決める
-        let target = tr.top * k
-        for (let a = 0; a <= 40; a += 10) {
-          const p = pointAt(course, b.s + a)
-          const curv = Math.abs(p.k)
-          if (curv > 1e-4) target = Math.min(target, Math.sqrt((tr.lat * k) / curv) + a * 0.08)
-        }
-        // 坂：登りは遅い
-        const hA = terrain.height(pointAt(course, b.s).x, tmpP.z)
-        const hB = terrain.height(pointAt(course, b.s + 10).x, tmpP.z)
-        const grade = (hB - hA) / 10
-        target *= 1 - THREE.MathUtils.clamp(grade * 1.1, -0.08, 0.3)
-        // 自分と離れすぎない（前に行きすぎたら少しゆっくり、後ろすぎたら少し速く）
-        const gap = b.s - r.prog
-        if (gap > 70) target *= 0.9
-        else if (gap < -90) target *= 1.06
-        if (b.air) target = b.v
-        const acc = target > b.v ? 3.6 * Math.max(0.2, 1 - b.v / 18) * 2 : -5
-        b.v += THREE.MathUtils.clamp(target - b.v, -Math.abs(acc) * dt, Math.abs(acc) * dt)
-        b.s += b.v * dt
-        // 走る位置：カーブで外にふくらむ・内側を攻める・ゆるくふらつく
-        const p = pointAt(course, b.s + 8)
-        let goal = GRID_LANES[b.slot] * Math.max(0.25, 1 - (b.s - GRID_S) / 300)
-        goal += Math.sin(b.s / 37 + b.slot * 2) * 1.2
-        goal += (tr.wide * 3.5 - tr.cut * 4) * THREE.MathUtils.clamp(-p.k * 40, -1, 1)
-        b.laneGoal = THREE.MathUtils.clamp(goal, -6, 6)
-        b.lane += (b.laneGoal - b.lane) * Math.min(1, dt * 0.8)
-        if (b.s >= course.gates[course.gates.length - 1].s) b.finish = t
-        // ジャンプ好き：ときどき跳ぶ
-        if (tr.hop && !b.air) {
-          b.hopT -= dt
-          if (b.hopT < 0) {
-            b.vy = 3.4 + b.v * 0.08
-            b.air = true
-            b.hopT = 4 + Math.random() * 4
-          }
-        }
-      } else if (b.finish !== null) {
-        b.v = Math.max(0, b.v - 4 * dt)
-        b.s += b.v * dt
-      }
-      // 位置と向き
-      const p = pointAt(course, b.s)
-      const nx = p.x - p.dz * b.lane
-      const nz = p.z + p.dx * b.lane
-      const moved = Math.hypot(nx - b.x, nz - b.z)
-      if (moved > 0.02) {
-        const h = Math.atan2(-(nx - b.x), -(nz - b.z))
-        let dh = h - b.heading
-        while (dh > Math.PI) dh -= Math.PI * 2
-        while (dh < -Math.PI) dh += Math.PI * 2
-        b.heading += dh * Math.min(1, dt * 8)
-        b.steer += (THREE.MathUtils.clamp(-dh * 6, -1, 1) - b.steer) * Math.min(1, dt * 5)
-      }
-      b.x = nx
-      b.z = nz
-      // 自分とぶつかる：押し合う
-      const ex = me.x - b.x
-      const ez = me.z - b.z
-      const d = Math.hypot(ex, ez)
-      if (d < 1.9 && d > 1e-3 && st.phase !== 'count') {
-        const o = (1.9 - d) / d
-        roverCtl.push.x += ex * o * 0.6
-        roverCtl.push.z += ez * o * 0.6
-        b.lane -= (-ex * p.dz + ez * p.dx) / d * (1.9 - d) * 0.4
-      }
-      // 縦：地面に沿う。坂の頂上や跳んだときは宙に
-      const ground = terrain.height(b.x, b.z)
-      if (b.air || b.y > ground + 0.03) {
-        b.vy -= g * dt
-        b.y += b.vy * dt
-        if (b.y <= ground) {
-          b.y = ground
-          b.vy = 0
-          if (b.air) for (let i = 0; i < 8; i++) dust.puff(b.x, ground, b.z, (Math.random() - 0.5) * 3, 0.6, (Math.random() - 0.5) * 3, 0.6)
-          b.air = false
-        }
-      } else {
-        const gv = (ground - b.y) / Math.max(dt, 1e-3)
-        // 下り坂の頂上で、地面が落ちていく速さより遅ければ飛び出す
-        if (gv < -6 && b.v > 8) {
-          b.air = true
-          b.vy = Math.min(0, b.vy)
-        } else {
-          b.y = ground
-          b.vy = gv
-        }
-      }
-      // 傾き：前後と左右の地面の高さ
-      const fx = -Math.sin(b.heading)
-      const fz = -Math.cos(b.heading)
-      if (!b.air) {
-        const hF = terrain.height(b.x + fx * 0.72, b.z + fz * 0.72)
-        const hBk = terrain.height(b.x - fx * 0.72, b.z - fz * 0.72)
-        const hR = terrain.height(b.x - fz * 0.5, b.z + fx * 0.5)
-        const hL = terrain.height(b.x + fz * 0.5, b.z - fx * 0.5)
-        const kk = Math.min(1, dt * 10)
-        b.pitch += (Math.atan2(hF - hBk, 1.44) - b.pitch) * kk
-        b.roll += (Math.atan2(hR - hL, 1.0) - b.roll) * kk
-      } else b.pitch += (Math.min(0.25, Math.max(-0.35, b.vy * 0.04)) - b.pitch) * Math.min(1, dt * 1.2)
-      b.spin -= (b.v * dt) / 0.2
-      b.model.position.set(b.x, b.y, b.z)
-      b.model.rotation.set(b.pitch, b.heading, b.roll, 'YXZ')
-      for (const key of Object.keys(b.rig.wheels)) {
-        const w = b.rig.wheels[key]
-        w.rotation.x = b.spin
-        w.rotation.y = key[0] === 'F' ? -b.steer * 0.35 : key[0] === 'R' ? b.steer * 0.35 : 0
-      }
-      // 砂ぼこり
-      if (!b.air && b.v > 2 && terrain.def.dust) {
-        const kv = Math.min(1, b.v / 16.7)
-        const n = Math.floor(dt * (level === 'low' ? 14 : 36) * kv + Math.random())
-        for (let i = 0; i < n; i++) {
-          const sd = Math.random() < 0.5 ? 0.5 : -0.5
-          dust.puff(b.x - fz * sd - fx * 0.72, ground, b.z + fx * sd - fz * 0.72, -fx * b.v * 0.25, 0.6 + kv * 1.6, -fz * b.v * 0.25, 0.35 + kv * 0.6)
-        }
-      }
-    }
+    stepBots(dt, t, now, moving, st.phase === 'count')
     dust.update(dt)
 
     // ---- 門の見た目：次の門は明るく、くぐった門は消す ----
@@ -607,6 +760,9 @@ export function Rally({ terrain, prepare, dustColor }: { terrain: Terrain; prepa
       ))}
       {bots.list.map((b) => (
         <primitive key={b.color} object={b.model} />
+      ))}
+      {bots.list.map((b) => (
+        <primitive key={'t' + b.color} object={b.tracks.mesh} />
       ))}
       <primitive object={dust.points} />
     </>

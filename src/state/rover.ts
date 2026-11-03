@@ -64,10 +64,15 @@ export const useRover = create<RoverState>((set) => ({
 
 export const roverActive = () => useRover.getState().phase !== 'none'
 
-export function launchRover() {
+/** quick：着陸船から降ろす場面を飛ばし、展開した姿ですぐ走れるように（レースのスタート） */
+export function launchRover(quick = false) {
   if (roverActive()) return
+  roverQuick.on = quick === true
   useRover.setState({ phase: 'drop', since: roverNow(), view: 'chase', kmh: 0, menu: false, canSample: false, sampling: false, result: null, next: null, edge: false })
 }
+
+/** 次の展開を飛ばすか（launchRover の quick） */
+export const roverQuick = { on: false }
 
 export function recallRover() {
   useRover.setState({ phase: 'none', since: roverNow(), kmh: 0, canSample: false, sampling: false, result: null, next: null, edge: false })

@@ -106,7 +106,7 @@ export function setRallyColor(color: number) {
 /** レースを始める。ローバーがまだ出ていなければ降ろして展開してから、スタートの列へ */
 export function startRally() {
   useRally.setState({ gate: 0, time: 0, place: 1, toGate: null, split: null, result: null, lost: false })
-  if (!roverActive()) launchRover()
+  if (!roverActive()) launchRover(true)
   setRallyPhase('deploy')
 }
 
