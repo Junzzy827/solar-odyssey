@@ -1,82 +1,100 @@
 # Solar Odyssey
 
-宇宙船で太陽系を旅しながら学べる、教育用の3Dウェブアプリです。
+**English** | [日本語](README.ja.md)
 
-**▶ ブラウザですぐ遊べます： https://junzzy827.github.io/solar-odyssey/**
-（インストール不要・無料。PC とスマホ・タブレットに対応）
+A free 3D web app for exploring the Solar System aboard your own starship. Fly between planets and moons, read the ship's log about each world, take quizzes, land and drive a rover on real terrain, and switch to SF mode for space colonies, black holes and a railway among the stars.
 
-[![Solar Odyssey](docs/images/hero.jpg)](https://junzzy827.github.io/solar-odyssey/)
+It started as a learning toy made for a 10-year-old, and it keeps growing.
 
-## スクリーンショット
+**▶ Play in your browser: https://junzzy827.github.io/solar-odyssey/**
+(Free, no install. Works on PC, phones and tablets. For English, pick it on the first screen or open [`?lang=en`](https://junzzy827.github.io/solar-odyssey/?lang=en).)
 
-### 太陽系を旅する
+> **Language note:** the app was made in Japanese first. An English mode is available, but some newer screens may still show Japanese text. Translations are being filled in.
 
-| | |
-| --- | --- |
-| ![土星の環のそばを飛ぶ](docs/images/saturn.jpg) | ![木星で航海日誌とクイズ](docs/images/jupiter-quiz.jpg) |
-| 惑星や衛星へワープして、自由に飛び回れます | 着いた天体の航海日誌を読んで、クイズに挑戦 |
-| ![地球と航海日誌](docs/images/earth-logbook.jpg) | ![ハッブル宇宙望遠鏡の画像](docs/images/hubble.jpg) |
-| 実際のデータをもとにした天体の解説 | 望遠鏡モードでハッブルの画像を見られます |
+[![Solar Odyssey](docs/images/hero.jpg)](https://junzzy827.github.io/solar-odyssey/?lang=en)
 
-### 宇宙船と艦橋
+## Screenshots
+
+### Travel the Solar System
 
 | | |
 | --- | --- |
-| ![選べる宇宙船](docs/images/fleet.jpg) | ![艦橋からの眺め](docs/images/bridge.jpg) |
-| 6隻のオリジナル宇宙船から選べます | 艦橋に入って窓から景色を眺められます |
+| ![Flying past Saturn's rings](docs/images/saturn.jpg) | ![Ship's log and quiz at Jupiter](docs/images/jupiter-quiz.jpg) |
+| Warp to any planet or moon and fly freely | Read the ship's log for each world and try the quiz |
+| ![Earth and the ship's log](docs/images/earth-logbook.jpg) | ![Hubble Space Telescope images](docs/images/hubble.jpg) |
+| Facts based on real data | Telescope mode shows real Hubble images |
 
-### SFモード
+### Ships and bridge
 
 | | |
 | --- | --- |
-| ![スペースコロニーの内部](docs/images/sf-colony.jpg) | ![ブラックホール](docs/images/sf-blackhole.jpg) |
-| 回転する円筒型スペースコロニー | 太陽系の外にあるブラックホール |
-| ![2つの太陽の惑星](docs/images/sf-two-suns.jpg) | ![宇宙を走る列車](docs/images/sf-railway.jpg) |
-| 2つの太陽が沈む砂の惑星 | 宇宙空間を走る銀河鉄道 |
+| ![Choose your ship](docs/images/fleet.jpg) | ![View from the bridge](docs/images/bridge.jpg) |
+| Choose from a fleet of original starships | Step onto the bridge and look out the window |
 
-### スマホでも
+### SF mode
 
-<img src="docs/images/mobile.jpg" alt="スマホでの操縦画面" width="300">
+| | |
+| --- | --- |
+| ![Inside a space colony](docs/images/sf-colony.jpg) | ![A black hole](docs/images/sf-blackhole.jpg) |
+| A rotating cylinder space colony | A black hole beyond the Solar System |
+| ![A planet with two suns](docs/images/sf-two-suns.jpg) | ![A train running through space](docs/images/sf-railway.jpg) |
+| A desert planet with two setting suns | A galactic railway running through space |
 
-## 開発
+### On your phone
+
+<img src="docs/images/mobile.jpg" alt="Flying on a phone" width="300">
+
+## Features
+
+- **Real Solar System:** planets sit at their real positions for today's date, with data from the NASA Planetary Fact Sheet. Real star catalog background and probe journeys (Voyager, Cassini, New Horizons, Hayabusa2).
+- **Free flight:** WASD + mouse, warp to any target, autopilot, overview map, bridge view and observation mode.
+- **Seven original ships** to choose from, from a small survey vessel to a 1,200 m mobile carrier.
+- **Landing:** take the lander down to 27 planets and moons, with weather, day/night and real Mars and Earth terrain.
+- **Rover:** drive the ORV-7 rover, collect rock samples and fill a rock collection book.
+- **EVA robot:** fly a work robot outside the ship and do repair missions.
+- **Learning:** ship's log for each body, quizzes, a visit stamp book and titles, story mode.
+- **SF mode:** space colonies, an orbital space dock, asteroid bases, black holes and more.
+
+## Controls
+
+| Action | Key |
+| --- | --- |
+| Toggle overview map / cockpit | M |
+| Start flying (lock mouse) / release | Click the screen / Esc |
+| Forward/back, left/right, up/down | W/S, A/D, Space/Shift |
+| Look, roll | Mouse, Q/E |
+| Set a target | Navigation panel on the right, or click a name on the map |
+| Warp speed | 1–9 |
+| Warp | Enter |
+| Autopilot | G |
+| View your ship (viewing mode) | V |
+
+On phones and tablets, use the stick at the bottom left to move, drag the screen to look around, and the buttons at the bottom right to rise, sink, roll and fire the beam.
+
+## Development
 
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # dist/ に出力
+npm run build    # output in dist/
 ```
 
-## 操作
+### Tech
 
-| 操作 | キー |
-| --- | --- |
-| 全体マップ／操縦席の切り替え | M |
-| 操縦開始（マウス固定）／解除 | 画面クリック／Esc |
-| 前後・左右・上下 | W/S・A/D・Space/Shift |
-| 向き・ロール | マウス・Q/E |
-| 目標設定 | 右の航法コンピュータ、またはマップ上の名前をクリック |
-| ワープ速度 | 1〜9 |
-| ワープ | Enter |
-| 自動航行 | G |
-| 船を眺める（鑑賞モード） | V |
+- Vite + TypeScript + React Three Fiber (Three.js)
+- `src/data/bodies.ts` body data (rounded values from the NASA Planetary Fact Sheet)
+- `src/data/scale.ts` display scale. Distances are compressed logarithmically, and planets orbit on concentric rings in one plane
+- `src/i18n/lang.ts` Japanese/English switch. UI text is written as `t('日本語', 'English')`
+- `public/models/ship-hull.glb` the main ship's engineering hull, generated by `tools/blender/build_hull.py`
+  (uses Blender's Python module; run with Python 3.13 after `pip install bpy scikit-image`).
+  Open with `#hangar` to view only the ship (`#hangar?cam=x,y,z&target=x,y,z&fov=n` fixes the camera)
 
-スマホ・タブレットでは、左下のスティックで移動、画面をなぞって向きを変え、右下のボタンで上昇・下降・回転・ビームを使います。
+### Deploy
 
-## 構成
+Pushing to `main` deploys to GitHub Pages through GitHub Actions.
+The first time only, set Settings → Pages → Source to "GitHub Actions".
 
-- Vite + TypeScript + React Three Fiber（Three.js）
-- `src/data/bodies.ts` 天体データ（NASA Planetary Fact Sheet の概数）
-- `src/data/scale.ts` 表示スケール。距離は対数で圧縮し、惑星は同じ平面上の同心円で公転する
-- `public/models/ship-hull.glb` 自機の機関部（首・副船体・パイロン・ナセル）。`tools/blender/build_hull.py` で生成する
-  （Blender の Python モジュールを使う。`pip install bpy scikit-image` した Python 3.13 で実行）。
-  `#hangar` を付けて開くと自機だけを眺められる（`#hangar?cam=x,y,z&target=x,y,z&fov=n` で視点を固定）
+## About the designs
 
-## 公開
-
-`main` へのpushで GitHub Actions が GitHub Pages にデプロイします。
-初回のみ、リポジトリの Settings → Pages → Source を「GitHub Actions」にしてください。
-
-## 版権について
-
-特定の作品の名称・ロゴ・設定画・音声は使わず、宇宙船や画面デザインはオリジナルで制作します。
-BGM（`public/music/`）もこのアプリのために作ったオリジナル曲で、`tools/music/bgm.py` でシンセ合成しています。
+This app does not use names, logos, artwork or audio from any existing franchise. The ships and screen designs are original.
+The background music (`public/music/`) was also written for this app and is synthesized by `tools/music/bgm.py`.
