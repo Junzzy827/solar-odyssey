@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { ROCK_GROUPS, ROCK_TOTAL, foundAt, rockCount, rockImage, type RockGroup } from '../data/rockCollection'
 import type { RockSample } from '../data/rockSamples'
 import { PLANETS } from '../data/bodies'
+import { nearLander, spotsOf } from '../data/rockSpots'
 import { useSampleLog } from '../state/rover'
 import { closeRocks, useRockBook } from '../state/rockBook'
 import { named, t, useLang } from '../i18n/lang'
@@ -35,6 +36,15 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
   const at = foundAt(g, k.id, log)
   const found = at.length > 0
   const where = g.bodies.length > 3 ? groupName(g) : g.bodies.map(bodyName).join('・')
+  // どこで採れるか：着陸地点のまわりか、見どころ（名前がかぶるものは 1 つに）
+  const atLander = g.bodies.some((b) => nearLander(b, k.id))
+  const spots = [...new Set(g.bodies.flatMap((b) => spotsOf(b, k.id).map((p) => t(p.name.ja, p.name.en))))].slice(0, 3)
+  const hint = atLander
+    ? t(`${where}に着陸して、ローバーで光の柱の岩を探してみよう。`, `Land on ${where} and look for the rocks marked by light beams with the rover.`)
+    : t(
+        `${where}の見どころ「${spots.join('」「')}」で見つかるかも。ミニマップの ◆ をめざして走ろう。`,
+        `Try the ${spots.join(', ')} on ${where}. Drive to the ◆ on the minimap.`,
+      )
   const max = Math.max(...k.comp.map((c) => c[1]))
   return (
     <div className={`rock-detail${found ? ' got' : ''}`}>
@@ -69,10 +79,8 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
             </>
           ) : (
             <p className="muted">
-              {t(
-                `まだ見つけていない岩です。${where}に着陸して、ローバーで光の柱の岩を探してみよう。`,
-                `Not found yet. Land on ${where} and look for the rocks marked by light beams with the rover.`,
-              )}
+              {t('まだ見つけていない岩です。', 'Not found yet. ')}
+              {hint}
             </p>
           )}
         </div>

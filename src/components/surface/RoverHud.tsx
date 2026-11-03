@@ -164,6 +164,8 @@ export function RoverMap() {
   // 細かいほうは 100 m ごとの位置に合わせて作るので、ローバーが 50 m 以上動いたときだけ作り直す
   const terrain = useMapTerrain((m) => m.terrain)
   const pois = wide ? (terrain?.pois ?? []) : []
+  /** 見どころに残っている、まだ採っていない岩の数 */
+  const left = (id: string) => sites.filter((s, i) => s.poi === id && !taken.includes(i)).length
   const coarse = useRelief(terrain, wide ? { cx: 0, cz: 0, half: R * 1.04 } : { cx: LANDER_POS.x, cz: LANDER_POS.y, half: V })
   const fine = useRelief(terrain, wide && !whole ? { cx: Math.round(hud.x / 100) * 100, cz: Math.round(hud.z / 100) * 100, half: 300 } : null)
   const relief = (l: ReliefLayer | null) =>
@@ -221,6 +223,7 @@ export function RoverMap() {
                   <circle cx={x} cy={z} r={4} className="m-poi" />
                   <text x={x} y={z + 19} className="m-poi-name">
                     {t(p.name.ja, p.name.en)}
+                    {left(p.id) > 0 && <tspan className="m-poi-rocks"> ◆{left(p.id)}</tspan>}
                   </text>
                 </>
               ) : (

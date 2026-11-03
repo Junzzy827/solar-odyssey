@@ -5112,3 +5112,7 @@ button.sample-count {
   border-left: 1px solid rgba(255, 196, 107, 0.35);
   color: #ffe7c4;
 }
+
+.rover-map .m-poi-rocks {
+  fill: #ffb347;
+}

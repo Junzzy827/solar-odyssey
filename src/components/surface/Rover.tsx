@@ -12,6 +12,8 @@ import { useLanding } from '../../state/landing'
 import { isWide, roverRangeFor, wideNow } from './wideGround'
 import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverFocus, roverInput, roverDebug, roverNow, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
 import { samplesFor, type RockSample } from '../../data/rockSamples'
+import { rockSpots } from '../../data/rockSpots'
+import type { Poi } from './pois'
 
 // 無人探査ローバー ORV-7（全長 1.8 m）。模型は tools/blender/build_rover.py で作った rover-orv7.glb。
 // 関節（脚・太陽電池・マスト・アンテナ・アーム）は模型ではすべて 0 で、ここで回して
@@ -417,7 +419,7 @@ type Drive = {
 }
 
 /** 採集できる岩の置き場所 */
-type Site = { x: number; y: number; z: number; size: number; rot: number; seed: number; kind: RockSample }
+type Site = { x: number; y: number; z: number; size: number; rot: number; seed: number; kind: RockSample; poi?: Poi }
 
 /** 採集の段取り（秒）：アームを伸ばす → つかむ → 持ち上げて車体へ */
 const REACH = 1.1
@@ -512,22 +514,45 @@ export function Rover({
   const dustBase = useMemo(() => new THREE.Color(dustColor), [dustColor])
   const feet = useMemo(() => landerFeet(landerYaw), [landerYaw])
 
-  // ---- 採集できる岩：着陸地点のまわりにちらばらせる。1 つめは、ローバーが降りた正面の少し先に ----
+  // ---- 採集できる岩：着陸地点のまわりと、見どころのまわりにちらばらせる。1 つめは、ローバーが降りた正面の少し先に ----
+  // 見どころには、その地形らしい岩を置く（rockSpots.ts）。着陸地点のまわりに無い岩は、見どころまで行かないと採れない
   const sites = useMemo<Site[]>(() => {
     const kinds = samplesFor(def.id)
+    const byId = (id: string) => kinds.find((k) => k.id === id) ?? kinds[0]
+    const spots = rockSpots(def.id)
+    const range = roverRangeFor(terrain, ROVER_RANGE)
     const rnd = seeded(terrain.seed + 911)
-    const n = Math.min(10, Math.max(6, kinds.length * 2))
     const h0 = landerYaw + Math.PI / 2
     const out: Site[] = []
-    const push = (x: number, z: number) =>
-      out.push({ x, z, y: meshHeight(terrain, x, z), size: 0.2 + rnd() * 0.12, rot: rnd() * Math.PI * 2, seed: Math.floor(rnd() * 1e6), kind: kinds[out.length % kinds.length] })
-    push(LANDER_POS.x - Math.sin(h0) * 14, LANDER_POS.y - Math.cos(h0) * 14)
+    const push = (x: number, z: number, kind: RockSample, poi?: Poi) =>
+      out.push({ x, z, y: meshHeight(terrain, x, z), size: 0.2 + rnd() * 0.12, rot: rnd() * Math.PI * 2, seed: Math.floor(rnd() * 1e6), kind, poi })
+    const near = spots[0].kinds.map(byId)
+    const n = Math.min(8, Math.max(4, near.length * 2))
+    push(LANDER_POS.x - Math.sin(h0) * 14, LANDER_POS.y - Math.cos(h0) * 14, near[0])
     for (let tries = 0; out.length < n && tries < 500; tries++) {
       const x = (rnd() * 2 - 1) * (ROVER_RANGE - 8)
       const z = (rnd() * 2 - 1) * (ROVER_RANGE - 8)
       if (Math.hypot(x - LANDER_POS.x, z - LANDER_POS.y) < 14) continue
       if (out.some((o) => Math.hypot(o.x - x, o.z - z) < 20)) continue
-      push(x, z)
+      push(x, z, near[out.length % near.length])
+    }
+    // 見どころ：岩の種類ごとに 1 つずつ（1 種類だけのところは 2 つ）。中心寄り（半径の 0.15〜0.55）に
+    const pois = terrain.pois
+    for (const spot of spots.slice(1)) {
+      const p = pois.find((q) => q.id === spot.poi)
+      if (!p || Math.abs(p.x) > range - 30 || Math.abs(p.z) > range - 30) continue
+      const list = spot.kinds.length === 1 ? [spot.kinds[0], spot.kinds[0]] : spot.kinds
+      const first = out.length
+      for (let i = 0, tries = 0; i < list.length && tries < 200; tries++) {
+        const a = rnd() * Math.PI * 2
+        const d = p.r * (0.15 + rnd() * 0.4)
+        const x = p.x + Math.cos(a) * d
+        const z = p.z + Math.sin(a) * d
+        if (Math.abs(x) > range - 10 || Math.abs(z) > range - 10) continue
+        if (out.slice(first).some((o) => Math.hypot(o.x - x, o.z - z) < 25)) continue
+        push(x, z, byId(list[i]), p)
+        i++
+      }
     }
     return out
   }, [terrain, def.id, landerYaw])
@@ -631,7 +656,7 @@ export function Rover({
       bumpT: 9,
     }
     taken.current.clear()
-    useRover.setState({ sites: sites.map(({ x, z }) => ({ x, z })), taken: [], range })
+    useRover.setState({ sites: sites.map(({ x, z, poi }) => ({ x, z, poi: poi?.id })), taken: [], range })
   }, [phase, terrain, landerYaw, sites, range])
 
   useFrame((state, rawDt) => {
@@ -908,6 +933,7 @@ export function Rover({
             next >= 0
               ? {
                   dist: Math.round(nextD),
+                  where: sites[next].poi?.name ?? null,
                   rel: Math.round(
                     (Math.atan2((sites[next].x - s.x) * sideX + (sites[next].z - s.z) * sideZ, (sites[next].x - s.x) * fwd.x + (sites[next].z - s.z) * fwd.z) * 180) / Math.PI,
                   ),
@@ -964,8 +990,8 @@ export function Rover({
       if (!b.visible) return
       const d = Math.hypot(sites[i].x - s.x, sites[i].z - s.z)
       // 遠くからも見えるよう、遠いほど太く高く。近づくと薄く
-      const k = THREE.MathUtils.clamp(d / 40, 0.6, 3)
-      b.scale.set(k, 5 + k * 4, k)
+      const k = THREE.MathUtils.clamp(d / 25, 0.6, 30)
+      b.scale.set(k, 5 + k * (k > 3 ? 6 : 4), k)
       rocks.beaconMat.opacity = 0.22 + 0.12 * Math.sin(tm * 3)
     })
 
