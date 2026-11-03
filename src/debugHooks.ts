@@ -12,9 +12,10 @@ import { dockAtPort, observeRun, startObserve, stopObserve, useObserve } from '.
 import { useQuality } from './state/quality'
 import { setGoal, toggleAuto, toggleCompare, useGallery, openGallery, closeGallery, selectPart } from './state/gallery'
 import { probeClock, useProbes } from './state/probes'
-import { skipDescent, startLanding, startTakeoff, useLanding } from './state/landing'
+import { goToSite, skipDescent, startLanding, startTakeoff, useLanding } from './state/landing'
+import { quitRally, startRally, useRally } from './state/rally'
 import { useSurfaceLab } from './state/surfaceLab'
-import { launchRover, recallRover, roverDebug, roverFocus, roverInput, useRover } from './state/rover'
+import { launchRover, recallRover, roverCtl, roverDebug, roverFocus, roverInput, roverPose, useRover } from './state/rover'
 import { evaDebug, evaInput, recallEva, startEva, useEva } from './state/eva'
 import { evaJobsDebug, jobsRt, useEvaJobs } from './state/evaJobs'
 import { evaSite } from './components/eva/hull'
@@ -37,10 +38,11 @@ const sv = {
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
   probes: { state: useProbes, clock: probeClock },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
-  landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff },
+  landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff, site: goToSite },
+  rally: { state: useRally, start: startRally, quit: quitRally },
   surfaceLab: useSurfaceLab,
   wide: wideNow,
-  rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus },
+  rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus, ctl: roverCtl, pose: roverPose },
   eva: { site: evaSite, state: useEva, start: startEva, recall: recallEva, input: evaInput, debug: evaDebug, jobs: evaJobsDebug, jobsRt, jobsState: useEvaJobs },
   skyClock: useSkyClock,
   weather: weatherNow,

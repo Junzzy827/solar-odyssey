@@ -35,6 +35,8 @@ export type SkyBody = {
 
 export type SurfaceDef = {
   id: string
+  /** 同じ天体の別の着陸地点（火星の峡谷レース場 'coprates' など）。無ければふつうの着陸地点 */
+  site?: string
   ground: string
   ground2: string
   rock: string
@@ -250,3 +252,34 @@ function build(): Map<string, SurfaceDef> {
 export const SURFACES = build()
 
 export const surfaceFor = (id: string) => SURFACES.get(id) ?? null
+
+/** 別の着陸地点。dem：本物の地形の地図（public/terrain/ の名前） */
+export const SITES: Record<string, { body: string; dem: string; name: [string, string]; note: [string, string] }> = {
+  coprates: {
+    body: 'mars',
+    dem: 'mars_coprates',
+    name: ['マリネリス峡谷', 'Valles Marineris'],
+    note: [
+      'マリネリス峡谷のコプラテス谷の底。峡谷は長さ約4000 km、深さは最大約7 km。南にそびえる壁は、ここから8 km も上まで続いています。',
+      'The floor of Coprates Chasma in Valles Marineris. The canyon is about 4,000 km long and up to about 7 km deep. The wall rising to the south climbs 8 km above you.',
+    ],
+  },
+}
+
+const siteCache = new Map<string, SurfaceDef>()
+/** 着陸地点つきの天体の設定（site が無ければ surfaceFor と同じ） */
+export function siteDef(id: string, site: string | null | undefined): SurfaceDef | null {
+  const base = surfaceFor(id)
+  if (!base || !site || SITES[site]?.body !== id) return base
+  const key = `${id}:${site}`
+  let d = siteCache.get(key)
+  if (!d) {
+    // 峡谷の壁（南へ 15 km、高さ 8 km）が霞に消えないよう、もやは少しうすめ
+    d = { ...base, site, note: SITES[site].note, haze: base.haze * 0.6 }
+    siteCache.set(key, d)
+  }
+  return d
+}
+
+/** 本物の地形の地図の名前（public/terrain/）。別の着陸地点はその地図 */
+export const demIdFor = (def: SurfaceDef) => (def.site ? SITES[def.site]?.dem ?? def.id : def.id)
