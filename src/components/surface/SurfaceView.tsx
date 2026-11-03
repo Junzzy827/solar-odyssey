@@ -7,8 +7,8 @@ import { textureUrl } from '../../data/textures'
 import { PLANETS } from '../../data/bodies'
 import { useOptionalTexture } from '../../hooks/useOptionalTexture'
 import { haloTexture } from '../ship/ShipModel'
-import { dprFor, lowMemory, useLevel } from '../../state/quality'
-import { ASCENT, DESCENT, FADE, landingNow, skipDescent, startTakeoff, useLanding } from '../../state/landing'
+import { currentLevel, dprFor, lowMemory, useLevel } from '../../state/quality'
+import { ASCENT, DESCENT, FADE, landingNow, skipDescent, startTakeoff, surfaceReady, useLanding } from '../../state/landing'
 import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded, type Rock } from './terrain'
 import { WideWorld, isWide, wideNow, withHole } from './wideGround'
 import { named, t, useLang } from '../../i18n/lang'
@@ -36,7 +36,7 @@ import { RoverHud, RoverMap } from './RoverHud'
 import { useMapTerrain } from './mapRelief'
 import { bindRoverKeys, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
 import { openRocks } from '../../state/rockBook'
-import { samplesFor } from '../../data/rockSamples'
+import { compLabel, samplesFor } from '../../data/rockSamples'
 
 // 着陸した天体の地表の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 // 立つ場所は 1 か所に決めて、まわりを 360° 見回せる。着陸船は少し先に降りてくる。
@@ -398,6 +398,29 @@ function Clouds({ terrain, ap, sky, clock }: { terrain: Terrain; ap: ApUniforms;
   )
 }
 
+/** カメラのまわりで山並みを描かない半径（m）。そこは近くの粗い地面（ローバーのまわり 2.8 km 以上）が受け持つ */
+const FAR_HOLE = 2400
+
+/**
+ * 山並みの、カメラから FAR_HOLE より近いところを描かない。山並みは目の高さを中心に縮めて置き、深さを比べずに描くので、
+ * ローバーが着陸地点から 700 m 以上離れると、足元の山並み（遠くの地図の粗い高さ）が小さな模型のようにカメラのすぐそばに来る。
+ * 低い谷では、それが頭の上の平らな面（火星ではオレンジ色）に見え、その下を走っているようになっていた
+ */
+function farHole<M extends THREE.Material>(material: M): M {
+  const prev = material.onBeforeCompile
+  material.onBeforeCompile = (shader, renderer) => {
+    prev.call(material, shader, renderer)
+    shader.fragmentShader = shader.fragmentShader.replace(
+      'void main() {',
+      `void main() {\n  if (distance(vAirWorld.xz, cameraPosition.xz) < ${FAR_HOLE.toFixed(1)}) discard;`,
+    )
+  }
+  const key = material.customProgramCacheKey.bind(material)
+  material.customProgramCacheKey = () => key() + '|far-hole'
+  material.needsUpdate = true
+  return material
+}
+
 /** 地平線の山並み（本物の地形の遠くの地図） */
 function FarTerrain({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const eyeY = terrain.height(0, 0) + EYE
@@ -418,9 +441,11 @@ function FarTerrain({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   })
   const mat = useMemo(
     () =>
-      cloudy(
-        terrain.def,
-        withAir(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, depthTest: false, depthWrite: false }), ap, true),
+      farHole(
+        cloudy(
+          terrain.def,
+          withAir(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, depthTest: false, depthWrite: false }), ap, true),
+        ),
       ),
     [ap, terrain.def],
   )
@@ -775,8 +800,9 @@ function Lander({ terrain, dustColor, ap, sky }: { terrain: Terrain; dustColor: 
     const g = group.current
     if (!g) return
     dt = Math.min(dt, 0.1)
-    const { phase, since } = useLanding.getState()
-    const T = landingNow() - since
+    const { phase, since, ready } = useLanding.getState()
+    // 用意ができるまでは、降下の始まりで止めておく
+    const T = phase === 'descent' && !ready ? 0 : landingNow() - since
     let alt = 0
     let thrust = 0
     let wobble = 0
@@ -1072,18 +1098,22 @@ function Scene({ def }: { def: SurfaceDef }) {
   const A = useMemo<Air>(() => {
     const air = airFor(def.id)
     const radiusM = def.radiusKm * 1000
-    const lut = new SkyLut(airUniforms(air, radiusM, 1), new THREE.Color(def.ground), level === 'low' || lowMemory() ? 256 : 512)
+    // 空の表の細かさは、着陸したときの画質で決める。画質が変わるたびに大気の道具を全部作り直すと、
+    // 地面・着陸船・岩の材質も全部作り直しになり、そのあいだ画面が欠ける
+    const lut = new SkyLut(airUniforms(air, radiusM, 1), new THREE.Color(def.ground), currentLevel() === 'low' || lowMemory() ? 256 : 512)
     const ap = apUniforms(air, 1, terrain.height(0, 0), lut.target.texture)
     return { air, lut, ap, pmrem: new THREE.PMREMGenerator(gl), env: null, lutKey: '', envKey: '', lastEnv: 0 }
-  }, [def, gl, terrain, level])
+  }, [def, gl, terrain])
   // ローバーの素材にも、着陸船と同じ空気遠近と雲の影を
   const prepareRover = useCallback((m: THREE.MeshStandardMaterial) => cloudy(def, withAir(m, A.ap)), [def, A.ap])
   useEffect(
     () => () => {
       A.lut.dispose()
+      // 画質が変わって作り直したときは、新しい空の光をもう入れていることがある（Firefox ではこの片付けより先に
+      // 次のコマが描かれる）。それまで消すと、太陽が雲に隠れたタイタン・金星の地面が真っ黒のままになる
+      if (scene.environment === A.env) scene.environment = null
       A.env?.dispose()
       A.pmrem.dispose()
-      scene.environment = null
     },
     [A, scene],
   )
@@ -1227,7 +1257,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       A.env?.dispose()
       A.env = rt.texture
       scene.environment = rt.texture
-    }
+    } else if (A.env && scene.environment !== A.env) scene.environment = A.env
   }, -1)
 
   useEffect(() => {
@@ -1275,6 +1305,7 @@ function Scene({ def }: { def: SurfaceDef }) {
         <Rover terrain={terrain} dustColor={def.ground} sky={sky} landerYaw={LANDER_YAW} prepare={prepareRover} />
       </Suspense>
       <Look terrain={terrain} />
+      <WhenReady />
     </>
   )
 }
@@ -1316,7 +1347,7 @@ function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
       <div className="sample-comp">
         {k.comp.map(([label, v]) => (
           <div className="sample-bar" key={label}>
-            <span className="sb-k">{label}</span>
+            <span className="sb-k">{compLabel(label, lang)}</span>
             <span className="sb-track">
               <span className="sb-fill" style={{ width: `${(v / max) * 100}%` }} />
             </span>
@@ -1419,7 +1450,7 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
         </button>
         {drive && (
           <button className="secondary" onClick={() => setView(view === 'chase' ? 'cam' : 'chase')}>
-            {view === 'chase' ? t('◉ カメラ視点', '◉ Rover camera') : t('◎ 後ろから', '◎ Chase view')}
+            {view === 'chase' ? t('◉ ローバーのカメラに切替', '◉ Switch to rover cam') : t('◎ 後ろからの視点に切替', '◎ Switch to chase cam')}
           </button>
         )}
         <button className="secondary" onClick={recallRover}>
@@ -1526,6 +1557,46 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
   )
 }
 
+/**
+ * 地表の場面の用意：最初のコマを描いたあと、場面の全部のシェーダーを作り終えてから幕を上げる。
+ * 作り終える前に幕を上げると、シェーダーができた物から少しずつ現れ、地面の無い空に物が数個だけ浮かぶ画面になる
+ */
+function WhenReady() {
+  const gl = useThree((s) => s.gl)
+  const scene = useThree((s) => s.scene)
+  const camera = useThree((s) => s.camera)
+  useEffect(() => {
+    let alive = true
+    let raf = 0
+    let frames = 0
+    const done = () => {
+      if (alive) surfaceReady()
+    }
+    // 2 コマ待ってから（着陸船などが場面に入り、空の光ができてから）作る
+    const wait = () => {
+      if (++frames < 3) {
+        raf = requestAnimationFrame(wait)
+        return
+      }
+      let job: Promise<unknown>
+      try {
+        job = gl.compileAsync(scene, camera)
+      } catch {
+        job = Promise.resolve()
+      }
+      void job.then(done, done)
+    }
+    raf = requestAnimationFrame(wait)
+    const giveUp = window.setTimeout(done, 10000)
+    return () => {
+      alive = false
+      cancelAnimationFrame(raf)
+      window.clearTimeout(giveUp)
+    }
+  }, [gl, scene, camera])
+  return null
+}
+
 function SurfaceCanvas({ def }: { def: SurfaceDef }) {
   const level = useLevel()
   return (
@@ -1544,6 +1615,7 @@ export function SurfaceView() {
   const phase = useLanding((l) => l.phase)
   const bodyId = useLanding((l) => l.bodyId)
   const since = useLanding((l) => l.since)
+  const ready = useLanding((l) => l.ready)
   const def = bodyId ? surfaceFor(bodyId) : null
   const scene3d = phase === 'descent' || phase === 'surface' || phase === 'ascent'
   // 暗転の幕：宇宙 → 地表、地表 → 宇宙
@@ -1563,7 +1635,7 @@ export function SurfaceView() {
   const T = landingNow() - since
   let curtain = 0
   if (phase === 'fadeIn') curtain = Math.min(1, T / FADE)
-  else if (phase === 'descent') curtain = Math.max(0, 1 - T / FADE)
+  else if (phase === 'descent') curtain = ready ? Math.max(0, 1 - T / FADE) : 1
   else if (phase === 'ascent') curtain = Math.max(0, (T - (ASCENT - FADE)) / FADE)
   else if (phase === 'fadeOut') curtain = Math.max(0, 1 - T / FADE)
   return (

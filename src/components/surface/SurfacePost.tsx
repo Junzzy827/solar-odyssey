@@ -2,7 +2,8 @@ import { Bloom, EffectComposer, Noise, SMAA, ToneMapping, Vignette } from '@reac
 import { BlendFunction, ToneMappingMode } from 'postprocessing'
 import { QUALITY, useLevel } from '../../state/quality'
 import { useStore } from '../../state/store'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
+import { makeNanGuard } from '../PostFx'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { HeatShimmerEffect, shimmerNow } from './heatShimmer'
@@ -29,9 +30,15 @@ export function SurfacePost({ bodyId }: { bodyId: string }) {
     const horizon = 0.5 - Math.tan(pitch) / (2 * Math.tan((cam.fov * Math.PI) / 360))
     shimmer.set(shimmerNow.amp, horizon, state.size.width / Math.max(1, state.size.height), Math.min(dt, 0.1))
   })
+  const composerKey = `${q.msaa}-${fx.bloom}-${fx.film}-${bodyId}`
+  // 光のにじみの前に、壊れた画素（NaN・無限大）を直す（PostFx と同じ）。後処理を作り直すたびに作る
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const guard = useMemo(makeNanGuard, [composerKey])
+  useEffect(() => () => guard.dispose(), [guard])
   if (!q.bloom) return null
   return (
-    <EffectComposer key={`${q.msaa}-${fx.bloom}-${fx.film}-${bodyId}`} multisampling={q.msaa} enableNormalPass={false}>
+    <EffectComposer key={composerKey} multisampling={q.msaa} enableNormalPass={false}>
+      <primitive object={guard} />
       {fx.bloom ? <Bloom intensity={0.9} luminanceThreshold={1.1} luminanceSmoothing={0.3} mipmapBlur /> : <></>}
       {/* 陽炎（色の丸めの前に、景色をゆらす） */}
       {SHIMMER.has(bodyId) ? <primitive object={shimmer} /> : <></>}

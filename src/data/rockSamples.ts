@@ -251,3 +251,12 @@ export function samplesFor(bodyId: string): RockSample[] {
   if (ICY_IDS.has(bodyId)) return ICY
   return ROCKY
 }
+
+const JA_CHARS = /[぀-ヿ㐀-鿿]/
+/** 成分の名前（「粘土鉱物 Clay」「H₂O 氷 ice」のような日英まじり）を、今の言語の分だけにする */
+export function compLabel(label: string, lang: 'ja' | 'en'): string {
+  const words = label.split(' ')
+  if (!words.some((w) => JA_CHARS.test(w))) return label
+  const kept = lang === 'en' ? words.filter((w) => !JA_CHARS.test(w)) : words.filter((w) => !/^[A-Za-z]+$/.test(w))
+  return kept.join(' ')
+}
