@@ -30,6 +30,8 @@ type RoverState = {
   taken: number[]
   /** 運転中に、時刻・天気などのメニューを開いているか（ふだんはたたんで景色を広く） */
   menu: boolean
+  /** ミニマップを出しているか（右上の「－」でたたむと、小さな「地図」ボタンだけになる） */
+  map: boolean
   /** 採集：アームの届く岩があるか・採集中か・いま見せている分析結果（試料の id）・この天体で集めた種類 */
   canSample: boolean
   sampling: boolean
@@ -52,6 +54,7 @@ export const useRover = create<RoverState>((set) => ({
   sites: [],
   taken: [],
   menu: false,
+  map: true,
   canSample: false,
   sampling: false,
   result: null,

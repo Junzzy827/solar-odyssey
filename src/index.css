@@ -3379,11 +3379,22 @@ body.sf .nav-panel {
   white-space: nowrap;
 }
 
-.surface-card {
+/* 左上の列：説明・ミニマップ（スマホでは時刻と天気も）を縦に積む。たたんだぶんだけ詰まって、重ならない */
+.surface-left {
   position: absolute;
   left: 16px;
   top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.surface-card {
+  position: relative;
   max-width: 340px;
+  box-sizing: border-box;
   padding: 10px 14px;
   border-radius: 12px;
   background: rgba(10, 14, 22, 0.72);
@@ -3538,7 +3549,7 @@ body.sf .nav-panel {
 
 /* 地表の時計（現地時刻・時間の速さ・地球から見た月） */
 .surface-time {
-  position: absolute;
+  position: fixed;
   top: 12px;
   right: 12px;
   padding: 8px 10px;
@@ -3567,7 +3578,7 @@ body.sf .nav-panel {
 .surface-time .weather-row b { margin-left: 3px; }
 .surface-time .moon-inset { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 .surface-time .moon-inset b { font-size: 13px; }
-body.touch .surface-time { top: calc(env(safe-area-inset-top) + 62px); left: 10px; right: auto; max-width: 230px; }
+body.touch .surface-time { position: relative; top: auto; right: auto; max-width: 230px; }
 body.touch .surface-time .time-rates { flex-wrap: wrap; }
 .surface-lab { top: 170px; }
 .surface-time .day-graph { margin-top: 8px; width: 210px; }
@@ -3875,12 +3886,12 @@ body.touch .rover-actions button {
 }
 
 /* メニューを開いたときは、説明と時刻の表示の下に */
-body.touch .surface-card ~ .rover-actions {
+body.touch .surface-ui.rover-menu .rover-actions {
   top: auto;
   bottom: calc(env(safe-area-inset-bottom) + 110px);
 }
 
-body.touch .surface-card ~ .rover-hud {
+body.touch .surface-ui.rover-menu .rover-hud {
   display: none;
 }
 
@@ -4077,9 +4088,8 @@ body.touch .sample-card ~ .sample-status {
 
 /* ローバー：ミニマップ（着陸船が真ん中）と、範囲の端のメッセージ */
 .rover-map {
-  position: absolute;
-  left: 18px;
-  top: 16px;
+  position: relative;
+  flex: none;
   width: 176px;
   height: 176px;
   border-radius: 14px;
@@ -4209,8 +4219,43 @@ body.touch .sample-card ~ .sample-status {
   bottom: 3px;
 }
 
-.surface-card ~ .rover-map {
-  display: none;
+/* ミニマップの左上の「－」（たたむ）と、たたんだときの小さな「地図」ボタン */
+.rover-map .m-fold {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 200, 255, 0.45);
+  background: rgba(6, 14, 22, 0.75);
+  color: #9fd8ff;
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.rover-map-chip {
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(120, 200, 255, 0.45);
+  background: rgba(6, 14, 22, 0.72);
+  color: #9fd8ff;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.rover-map-chip .chip-icon {
+  font-size: 14px;
+}
+
+.rover-map-chip.edge {
+  border-color: rgba(255, 106, 74, 0.8);
+  color: #ffd2c4;
 }
 
 .rover-edge {
@@ -4241,9 +4286,25 @@ body.touch .sample-card ~ .sample-status {
   color: #f0b8a8;
 }
 
-body.touch .rover-map {
+/* スマホ：左上の列は、画面の上から（ローバー運転中でメニューを閉じているときは、左上のボタンの下から） */
+body.touch .surface-left {
   left: 10px;
+  top: calc(env(safe-area-inset-top) + 10px);
+  max-width: calc(100% - 20px);
+  max-height: calc(100% - env(safe-area-inset-top) - 150px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.touch .surface-left.rover:not(.menu-open) {
   top: calc(env(safe-area-inset-top) + 196px);
+}
+
+body.touch .surface-left.menu-open {
+  pointer-events: auto;
+}
+
+body.touch .rover-map {
   width: 120px;
   height: 120px;
 }

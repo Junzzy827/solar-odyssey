@@ -1359,7 +1359,6 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
             : t('ローバーを展開中…', 'Rover unfolding…')}
       </div>
       {drive && <RoverHud />}
-      {drive && <RoverMap />}
       {drive && edge && (
         <div className="rover-edge">
           {t('これ以上は遠くへ行けません', "Can't go any farther")}
@@ -1432,18 +1431,20 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
   const rover = useRover((r) => r.phase)
   // ローバーを出しているあいだは、説明と時刻・天気の表示をたたんで景色を広く（メニューのボタンで開く）
   const roverMenu = useRover((r) => r.menu)
-  const showInfo = rover === 'none' || roverMenu
+  // 着陸船のまわりでも、メニュー（説明と時刻・天気）はボタンでたたんで景色を広く見られる
+  const landerMenu = useLanding((l) => l.menu)
+  const showInfo = rover === 'none' ? landerMenu : roverMenu
   const phase = useLanding((l) => l.phase)
   const view = useLanding((l) => l.view)
   const setView = useLanding((l) => l.setView)
-  // スマホの縦画面では、説明は畳んでおく（タップで開く）
-  const [open, setOpen] = useState(() => window.innerWidth > 700)
+  // スマホ（縦も横も）では、説明は畳んでおく（タップで開く）
+  const [open, setOpen] = useState(() => window.innerWidth > 700 && window.innerHeight > 500)
   const name = bodyName(def.id)
   const weight = Math.max(0.01, 30 * def.gravity)
   const temp = def.temp[0] === def.temp[1] ? `${def.temp[0]}℃` : `${def.temp[0]}〜${def.temp[1]}℃`
   const skyName = def.skyBody ? bodyName(def.skyBody.id) : null
   return (
-    <div className="surface-ui">
+    <div className={`surface-ui${rover !== 'none' && showInfo ? ' rover-menu' : ''}`}>
       {phase === 'descent' && (
         <div className="surface-caption">
           <div>{t(`${name}へ降下中…`, `Descending to ${name}…`)}</div>
@@ -1455,6 +1456,8 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
       {phase === 'ascent' && <div className="surface-caption">{t('離陸！母船へもどります', 'Lift-off! Heading back to the ship')}</div>}
       {phase === 'surface' && (
         <>
+          {/* 左上の列：説明・（スマホでは）時刻と天気・ミニマップを上から順に積む。重ならず、たたんだぶんだけ詰まる */}
+          <div className={`surface-left${showInfo ? ' menu-open' : ''}${rover === 'none' ? '' : ' rover'}`}>
           {showInfo && <div className={`surface-card${open ? '' : ' closed'}`}>
             <button className="surface-title" onClick={() => setOpen(!open)}>
               {t(`${name}に着陸`, `Landed on ${name}`)} <span className="muted">{open ? '▾' : '▸'}</span>
@@ -1483,6 +1486,8 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             )}
           </div>}
           {showInfo && <TimeBar def={def} />}
+          {rover === 'drive' && <RoverMap />}
+          </div>
           {rover !== 'none' ? (
             <RoverPanel bodyId={def.id} />
           ) : (
@@ -1492,7 +1497,10 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
               ? t('ドラッグで見回す・ホイール／2本指でズーム', 'Drag to look around · scroll or pinch to zoom')
               : t('ドラッグで回る・ホイール／2本指で近づく', 'Drag to orbit · scroll or pinch to move closer')}
           </div>
-          <div className="surface-buttons">
+          <div className="surface-buttons lander-actions">
+            <button className={`secondary${landerMenu ? ' on' : ''}`} onClick={() => useLanding.setState({ menu: !landerMenu })} title={t('説明・時刻・天気', 'Notes, time and weather')}>
+              {landerMenu ? t('▴ メニューをたたむ', '▴ Hide menu') : t('☰ メニュー', '☰ Menu')}
+            </button>
             <button className="secondary" onClick={() => setView(view === 'eye' ? 'lander' : 'eye')}>
               {view === 'eye' ? t('着陸船を眺める', 'View the lander') : t('地面に立って見回す', 'Stand and look around')}
             </button>
