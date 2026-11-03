@@ -13,7 +13,7 @@ import { canStartEva, startEva } from '../state/eva'
 import { landed } from '../state/landing'
 
 /** 中で指を動かすとスクロールしてよい画面（ほかの場所では、なぞってもページは動かさない） */
-const SCROLLABLE = '.nav-panel, .log-panel, .quiz-run, .probe-panel, .stamp-book, .rock-book, .scope-view, .lang-picker, .bridge-panel, .race-bar, .notice-panel'
+const SCROLLABLE = '.nav-panel, .log-panel, .quiz-run, .probe-panel, .stamp-book, .rock-book, .scope-view, .lang-picker, .bridge-panel, .race-bar, .notice-panel, .surface-left'
 
 /** お知らせを何件まで覚えておくか */
 const NOTICE_KEEP = 20

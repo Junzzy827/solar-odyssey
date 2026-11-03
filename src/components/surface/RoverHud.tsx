@@ -3,6 +3,7 @@ import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
 import { t, useLang } from '../../i18n/lang'
+import { isTouchDevice } from '../../state/input'
 
 // ローバーの計器：速度計（0〜60 km/h の弧）と、向き・傾き・着陸船からの距離・宙に浮いているかの表示
 
@@ -137,6 +138,8 @@ export function RoverMap() {
   const edge = useRover((r) => r.edge)
   const R = useRover((r) => r.range)
   const [whole, setWhole] = useState(false)
+  const map = useRover((r) => r.map)
+  const menu = useRover((r) => r.menu)
   const wide = R > ROVER_RANGE
   const pad = 6
   // 地図の座標は、今までの 200 m 四方の地図と同じ大きさ（半分の幅 V）。世界の座標は (x - cx) / k で地図へ
@@ -180,6 +183,25 @@ export function RoverMap() {
   const grid = [-100, -50, 0, 50, 100]
   const lx = mx(LANDER_POS.x)
   const lz = mz(LANDER_POS.y)
+  // スマホでは、メニューを開いているあいだは地図を小さなボタンにたたむ（画面がふさがらないように）。
+  // そのボタンを押すと、メニューを閉じて地図を出す
+  const touch = isTouchDevice()
+  if (!map || (touch && menu)) {
+    return (
+      <button
+        type="button"
+        className={`rover-map-chip${edge ? ' edge' : ''}`}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          useRover.setState(touch ? { map: true, menu: false } : { map: true })
+        }}
+        title={t('ミニマップを出す', 'Show the minimap')}
+      >
+        <span className="chip-icon">▦</span> {t('地図', 'Map')}
+      </button>
+    )
+  }
   return (
     <div className={`rover-map${edge ? ' edge' : ''}`}>
       <svg viewBox={`${-V} ${-V} ${V * 2} ${V * 2}`} aria-label={t('ミニマップ', 'Minimap')}>
@@ -243,6 +265,19 @@ export function RoverMap() {
       </svg>
       <span className="m-n">N</span>
       <span className="m-scale">{label}</span>
+      <button
+        type="button"
+        className="m-fold"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          useRover.setState({ map: false })
+        }}
+        title={t('ミニマップをたたむ', 'Hide the minimap')}
+        aria-label={t('ミニマップをたたむ', 'Hide the minimap')}
+      >
+        −
+      </button>
       {wide && (
         <button
           type="button"

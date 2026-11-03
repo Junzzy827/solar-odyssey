@@ -715,9 +715,7 @@ body.touch .land-prompt {
 }
 
 body.touch .surface-card {
-  left: 10px;
-  top: calc(env(safe-area-inset-top) + 10px);
-  max-width: calc(100% - 20px);
+  max-width: 100%;
   font-size: 13px;
 }
 
@@ -728,6 +726,52 @@ body.touch .surface-hint {
 
 body.touch .surface-buttons {
   bottom: calc(env(safe-area-inset-bottom) + 18px);
+}
+
+/* 着陸船のまわりのボタン（メニュー・眺める・ローバー・離陸）：狭い画面では2段に折り返す */
+body.touch .surface-buttons.lander-actions {
+  width: calc(100% - 20px);
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+body.touch .surface-buttons.lander-actions button {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+/* 縦画面ではボタンが2段になるので、操作の説明はその上に */
+@media (max-width: 720px) {
+  body.touch .surface-ui .surface-hint {
+    bottom: calc(env(safe-area-inset-bottom) + 112px);
+  }
+}
+
+/* スマホ横：画面が低いので、左上の列（説明・時刻）は幅を抑える。
+   ローバー運転中にメニューを開いたら、計器が消えて空く右上に出し、左上のボタンはそのまま */
+@media (max-height: 500px) {
+  body.touch .surface-left {
+    max-width: min(400px, calc(100% - 20px));
+  }
+
+  /* メニューを閉じて運転しているとき：地図は左上のボタンの列の右どなりに（下の ◀ ▶ にかからないように） */
+  body.touch .surface-left.rover:not(.menu-open) {
+    top: calc(env(safe-area-inset-top) + 10px);
+    left: 140px;
+  }
+
+  body.touch .surface-ui.rover-menu .surface-left {
+    left: auto;
+    right: 10px;
+    align-items: flex-end;
+    max-height: calc(100% - env(safe-area-inset-top) - 200px);
+  }
+
+  body.touch .surface-ui.rover-menu .rover-actions {
+    top: calc(env(safe-area-inset-top) + 10px);
+    bottom: auto;
+  }
 }
 
 /* 周辺観察の札：アイコン列のすぐ下に、小さめに */

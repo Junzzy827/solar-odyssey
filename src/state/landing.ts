@@ -25,6 +25,9 @@ type LandingState = {
   /** 今の段階を始めた時刻（performance.now() / 1000） */
   since: number
   view: SurfaceView
+  /** 着陸船のまわりで、説明と時刻・天気のメニューを開いているか（たたむと景色が広く見える）。
+   * スマホ（狭い・低い画面）では、はじめはたたんでおく。開け閉めは次の着陸でも覚えている */
+  menu: boolean
   setView: (v: SurfaceView) => void
 }
 
@@ -33,6 +36,7 @@ export const useLanding = create<LandingState>((set) => ({
   bodyId: null,
   since: 0,
   view: 'eye',
+  menu: typeof window === 'undefined' || (window.innerWidth > 700 && window.innerHeight > 500),
   setView: (view) => set({ view }),
 }))
 
