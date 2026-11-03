@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { SurfaceDef } from '../../data/surfaces'
 import { detailAt, heightAt, type Dem } from './dem'
 import { poisFor, poiWeight, type Poi } from './pois'
+import { FORM_KINDS, FORM_ROCK_TILE, formPalette, formRelief, formRocks, formTint } from './poiForms'
 
 // 地表の地形：なだらかな起伏・クレーター・砂丘・遠くの山並み・天体の丸み（小さな星ほど地平線が近い）。
 // 立つ場所（原点）と着陸船の場所は平らにならす。
@@ -88,10 +89,15 @@ export class Terrain {
   /** 見どころ（地層の丘・岩塊の野・砂丘）と、地層の丘ひとつひとつ */
   readonly pois: Poi[]
   private buttes = new Map<string, { x: number; z: number; a: number; h: number }[]>()
+  /** 干上がった湖：見どころと、湖の底の高さ */
+  private lakes: { p: Poi; level: number }[] = []
+  /** 火星以外の見どころ（poiForms.ts の地形） */
+  private formPois: Poi[] = []
 
   constructor(readonly def: SurfaceDef, dem: Dem | null = null) {
     this.seed = idSeed(def.id)
     this.pois = poisFor(def.id)
+    this.formPois = this.pois.filter((p) => FORM_KINDS.has(p.kind))
     this.pois.forEach((p, i) => {
       if (p.kind !== 'buttes') return
       const rnd = seeded(this.seed + 300 + i)
@@ -143,6 +149,17 @@ export class Terrain {
       const dist = Math.sqrt(2200 ** 2 + rnd2() * (4200 ** 2 - 2200 ** 2))
       add(r, Math.cos(ang) * dist, Math.sin(ang) * dist)
     }
+    // 湖の底は、湖の中のいちばん低い所より 2.5 m 下の平らな面（岸はまわりから下り坂になる）
+    const lakes = this.pois.filter((p) => p.kind === 'lakebed')
+    this.lakes = lakes.map((p) => {
+      let lo = this.sample(p.x, p.z, true).h
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 8) * Math.PI
+        const d = p.r * (i < 8 ? 0.3 : 0.6)
+        lo = Math.min(lo, this.sample(p.x + Math.cos(a) * d, p.z + Math.sin(a) * d, true).h)
+      }
+      return { p, level: lo - 2.5 }
+    })
     this.settle()
   }
 
@@ -191,12 +208,16 @@ export class Terrain {
     }
     let h = (fbm(x / R.hillScale, z / R.hillScale, s) - 0.5) * 2 * R.hills
     h += (fbm(x / 22, z / 22, s + 50, 3) - 0.5) * 0.9 // 足もとの細かいでこぼこ
+    // 見どころ（火星以外）の中では、ふつうのクレーターと砂丘を埋めて見どころの形を目立たせる（新しい地形が古い地形をおおった形）。
+    // 見どころの外では calm = 1 で、これまでと同じ
+    let calm = -1
     if (R.dunes) {
+      calm = this.formPois.length ? this.poiCalm(x, z) : 1
       // 風下にゆるく、風上に急な砂丘の列
       const w = x * 0.82 + z * 0.57 + fbm(x / 300, z / 300, s + 9) * 140
       const ph = (w / 95) % 1
       const p = ph < 0 ? ph + 1 : ph
-      h += R.dunes * (p < 0.7 ? p / 0.7 : (1 - p) / 0.3) * (0.6 + 0.4 * fbm(x / 400, z / 400, s + 3))
+      h += R.dunes * (p < 0.7 ? p / 0.7 : (1 - p) / 0.3) * (0.6 + 0.4 * fbm(x / 400, z / 400, s + 3)) * calm
     }
     let ejecta = 0
     for (const c of this.grid.get(`${Math.floor(x / CELL)},${Math.floor(z / CELL)}`) ?? []) {
@@ -204,12 +225,13 @@ export class Terrain {
       const dz = z - c.z
       const d2 = (dx * dx + dz * dz) / (c.r * c.r)
       if (d2 > 9) continue
+      if (calm < 0) calm = this.formPois.length ? this.poiCalm(x, z) : 1
       const d = Math.sqrt(d2)
       const depth = c.r * 0.22
       const rim = c.r * 0.05
-      if (d < 1) h += depth * (d2 - 1) + rim * d2 * d2
-      else h += rim * Math.exp(-(d - 1) * 3.2)
-      ejecta = Math.max(ejecta, Math.exp(-((d - 1.05) ** 2) * 9) * (c.r > 8 ? 1 : 0.5))
+      if (d < 1) h += (depth * (d2 - 1) + rim * d2 * d2) * calm
+      else h += rim * Math.exp(-(d - 1) * 3.2) * calm
+      ejecta = Math.max(ejecta, Math.exp(-((d - 1.05) ** 2) * 9) * (c.r > 8 ? 1 : 0.5) * calm)
     }
     let crack = 0
     if (R.cracks) {
@@ -219,6 +241,10 @@ export class Terrain {
       h += crack * 0.6
     }
     if (this.pois.length) h += this.poiRelief(x, z)
+    for (const l of this.lakes) {
+      const w = poiWeight(l.p, x, z, 0.35)
+      if (w > 0) h += (l.level + (fbm(x / 40, z / 40, s + 113, 2) - 0.5) * 0.15 - h) * w
+    }
     const r = Math.hypot(x, z)
     // 遠くの山並み。ローバーで走れる範囲（着陸地点から 1.5 km）の外から立ち上がる
     if (R.mountains) h += smooth(1700, 3300, r) * fbm(x / 700, z / 700, s + 77, 4) ** 1.6 * R.mountains * 2.2
@@ -243,7 +269,8 @@ export class Terrain {
     for (const p of this.pois) {
       const w = poiWeight(p, x, z, 0.25)
       if (w <= 0) continue
-      if (p.kind === 'buttes') {
+      if (FORM_KINDS.has(p.kind)) h += formRelief(p, x, z, s, w)
+      else if (p.kind === 'buttes') {
         h += (this.butteTop(p, x, z) + 3) * w
       } else if (p.kind === 'boulders') {
         h += (fbm(x / 55, z / 55, s + 80, 3) - 0.5) * 7 * w
@@ -279,22 +306,36 @@ export class Terrain {
     return top
   }
 
-  /** 見どころの岩の決まり：more（出やすさの倍率）、big（大岩の野か）、k（明るさ） */
+  /** ふつうのクレーターを残す割合（火星以外の見どころの中ほど 0 に近い） */
+  private poiCalm(x: number, z: number) {
+    let w = 0
+    for (const p of this.formPois) w = Math.max(w, poiWeight(p, x, z, 0.35))
+    return 1 - w
+  }
+
+  /** 見どころの岩の決まり：more（出やすさの倍率）、big（大岩の野か）、pebble（小石の川原か）、k（明るさ） */
   private poiRocks(x: number, z: number) {
     let more = 1
     let big = 0
+    let pebble = 0
     let k = 1
     for (const p of this.pois) {
       const w = poiWeight(p, x, z, 0.3)
       if (w <= 0) continue
-      if (p.kind === 'boulders') {
+      if (FORM_KINDS.has(p.kind)) {
+        const f = formRocks(p, x, z, this.seed, w)
+        more *= f.more
+        big = Math.max(big, f.big)
+        pebble = Math.max(pebble, f.pebble ?? 0)
+        if (f.k !== undefined) k = f.k
+      } else if (p.kind === 'boulders') {
         more *= 1 + 14 * w
         big = Math.max(big, w)
         k = Math.min(k, 1 - 0.38 * w)
       } else if (p.kind === 'dunes') more *= 1 - w
       else more *= 1 + 0.5 * w
     }
-    return { more, big, k }
+    return { more, big, pebble, k }
   }
 
   /**
@@ -338,6 +379,7 @@ export class Terrain {
     const ej = new THREE.Color(this.def.ejecta ?? this.def.ground)
     const crackCol = new THREE.Color(this.def.id === 'europa' ? '#8a5a35' : this.def.ground2).multiplyScalar(0.8)
     const twoTone = this.def.id === 'iapetus'
+    const pal = this.pois.some((p) => FORM_KINDS.has(p.kind)) ? formPalette(this.def) : null
     return (c: THREE.Color, x: number, z: number, ejecta: number, crack: number) => {
       let m = fbm(x / 260, z / 260, this.seed + 5, 4)
       m = twoTone ? smooth(0.42, 0.58, fbm(x / 1500, z / 1500, this.seed + 6, 3)) : smooth(0.3, 0.75, m)
@@ -357,7 +399,8 @@ export class Terrain {
           continue
         }
         const w = poiWeight(p, x, z, 0.3)
-        if (w > 0) c.lerp(p.kind === 'dunes' ? DUNE_SAND : BOULDER_GROUND, w * (p.kind === 'dunes' ? 0.7 : 0.25))
+        if (w > 0 && pal && FORM_KINDS.has(p.kind)) formTint(c, pal, p, x, z, this.seed, w)
+        else if (w > 0) c.lerp(p.kind === 'dunes' ? DUNE_SAND : BOULDER_GROUND, w * (p.kind === 'dunes' ? 0.7 : 0.25))
       }
       // 小さなむら
       c.multiplyScalar(0.9 + 0.2 * fbm(x / 9, z / 9, this.seed + 8, 3))
@@ -623,10 +666,11 @@ export class Terrain {
     const rnd = seeded(this.seed * 7919 + (tx / size + 4096) * 9973 + (tz / size + 4096) * 7)
     let more = 1
     for (const p of this.pois) {
-      if (p.kind !== 'boulders') continue
+      const m = p.kind === 'boulders' ? 14 : (FORM_ROCK_TILE[p.kind] ?? 1)
+      if (m === 1) continue
       const cx = Math.max(tx, Math.min(tx + size, p.x))
       const cz = Math.max(tz, Math.min(tz + size, p.z))
-      if (Math.hypot(cx - p.x, cz - p.z) < p.r) more = Math.max(more, 14)
+      if (Math.hypot(cx - p.x, cz - p.z) < p.r) more = Math.max(more, m)
     }
     return yield* this.scatterJob(rnd, Math.round(count * more), () => [tx + rnd() * size, tz + rnd() * size])
   }
@@ -683,7 +727,8 @@ export class Terrain {
       // 岩塊の野：1 m 前後の大岩が多い（ほとんどはローバーで乗り越えられる高さ）
       const u = rnd()
       const field = !!pr && pr.big > 0.3
-      const big = field ? 0.1 + 1.1 * u ** 1.7 : 0.08 + 1.7 * u ** 4
+      // 川原（タイタンのメタンの川）：こぶし〜ひと抱えくらいの丸い小石
+      const big = field ? 0.1 + 1.1 * u ** 1.7 : pr && pr.pebble > 0.3 ? 0.05 + 0.32 * u ** 1.6 : 0.08 + 1.7 * u ** 4
       // 岩塊の野の岩は背が高めの角ばった塊
       const sy = field ? 0.85 + rnd() * 0.45 : 0.65 + rnd() * 0.35
       const k = pr?.k ?? 1

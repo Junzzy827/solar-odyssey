@@ -1162,7 +1162,7 @@ function Scene({ def }: { def: SurfaceDef }) {
     const el = Math.asin(THREE.MathUtils.clamp(sky.sunDir.y, -1, 1))
     sky.sunT.copy(sunTransmittance(A.air, radiusM, el, hz))
     // 厚い雲の下は、目が慣れても薄暗く感じるくらいに
-    const ev = lab.ev + (def.sunHidden ? -0.9 : 0) - (kind?.dim ?? 0.8) * storm
+    const ev = lab.ev + (def.ev ?? 0) + (def.sunHidden ? -0.9 : 0) - (kind?.dim ?? 0.8) * storm
     sky.exposure = Math.min(autoExposure(sunI, sky.sunT, el, A.air, ev), dayExposure * 2 ** ev * 5)
     sky.night = THREE.MathUtils.smoothstep(-el, -0.05, 0.12)
     const twilight = THREE.MathUtils.smoothstep(-el, 0.0, 0.2)
