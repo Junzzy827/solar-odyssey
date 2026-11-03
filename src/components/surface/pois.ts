@@ -42,7 +42,7 @@ export const POIS: Record<string, Poi[]> = {
     { id: 'mars-boulders', kind: 'boulders', x: 520, z: -600, r: 130, name: { ja: '岩塊の野', en: 'Boulder field' } },
     { id: 'mars-dunes', kind: 'dunes', x: -260, z: -980, r: 300, name: { ja: '黒い砂丘', en: 'Dark dunes' } },
   ],
-  // ほかの天体：中心は着陸地点から 430 m より外（着陸地点のまわりの岩の並びを変えないように）、走れる範囲（±1.5 km）の内
+  // ほかの天体：中心は着陸地点から 430 m より外（着陸地点のまわりの岩の並びを変えないように）、±1.5 km の内（POI_SCALE で半分に寄せて使う）
   mercury: [
     { id: 'mercury-scarp', kind: 'scarp', x: -600, z: 650, r: 400, rot: 0.5, name: { ja: '断崖', en: 'Lobate scarp' } },
     { id: 'mercury-crater', kind: 'crater', x: 800, z: -550, r: 380, name: { ja: '大クレーター', en: 'Large crater' } },
@@ -131,7 +131,21 @@ export const POIS: Record<string, Poi[]> = {
   ],
 }
 
-export const poisFor = (bodyId: string) => POIS[bodyId] ?? []
+/**
+ * 見どころを着陸地点のほうへ寄せる倍率。上の表は走れる範囲が ±1.5 km だったころの位置と広さで、
+ * いまは範囲を ±750 m に縮めて、見どころも位置・広さとも半分に凝縮している（近くて、すぐ行ける）
+ */
+export const POI_SCALE = 0.5
+
+const scaled = new Map<string, Poi[]>()
+export function poisFor(bodyId: string): Poi[] {
+  let list = scaled.get(bodyId)
+  if (!list) {
+    list = (POIS[bodyId] ?? []).map((p) => ({ ...p, x: p.x * POI_SCALE, z: p.z * POI_SCALE, r: p.r * POI_SCALE }))
+    scaled.set(bodyId, list)
+  }
+  return list
+}
 
 /** 見どころの中心からの近さ：中心 1、ふち（r）で 0。fade はふちでぼかす幅（r に対する割合） */
 export function poiWeight(p: Poi, x: number, z: number, fade = 0.35) {

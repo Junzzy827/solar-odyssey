@@ -10,7 +10,7 @@ import type { Rock, Terrain } from './terrain'
 
 export const TILE = 64
 /** 走れる範囲（着陸地点を中心にした正方形の半分の幅、m）：広い天体 */
-export const WIDE_RANGE = 1500
+export const WIDE_RANGE = 750
 /** 粗い地面を作り直す距離（m） */
 const RECENTER = 400
 /** タイルの下に沈める粗い地面の、タイルのふちからの余白（粗い格子の 1 マスより広く） */
