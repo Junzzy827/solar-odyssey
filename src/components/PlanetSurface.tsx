@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { closeTextureUrl, textureUrl } from '../data/textures'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { useCloseTexture } from '../hooks/useCloseTexture'
+import { useSphereLod } from '../hooks/useSphereLod'
 import { createSurfaceMaterial, surfaceOptions } from './planetMaterial'
 
 const center = new THREE.Vector3()
@@ -28,6 +29,8 @@ export function PlanetSurface({
   // 近くでは 4K 版に差し替える
   const close = useCloseTexture(closeTextureUrl(id), mesh, radius)
   const map = close ?? far
+  // 遠くで小さく見えるときは粗い球にする
+  const geometry = useSphereLod(mesh, radius, radius > 1 ? 192 : 128, radius > 1 ? 128 : 96)
   const ringMap = useOptionalTexture(ring ? textureUrl('saturnRing') : undefined)
   const material = useMemo(
     () => createSurfaceMaterial({ ...surfaceOptions(id, radius, color, { haze, ring }), eclipse: id === 'moon' ? 'moon' : id === 'earth' ? 'earth' : undefined }),
@@ -64,8 +67,6 @@ export function PlanetSurface({
   })
 
   return (
-    <mesh ref={mesh} material={material}>
-      <sphereGeometry args={radius > 1 ? [radius, 192, 128] : [radius, 128, 96]} />
-    </mesh>
+    <mesh ref={mesh} material={material} geometry={geometry} />
   )
 }

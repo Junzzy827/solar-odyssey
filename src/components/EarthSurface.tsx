@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { useCloseTexture } from '../hooks/useCloseTexture'
+import { useSphereLod } from '../hooks/useSphereLod'
 import { closeTextureUrl, textureUrl } from '../data/textures'
 import { ECLIPSE_GLSL, eclipseUniforms } from './eclipseShadow'
 import { useStore } from '../state/store'
@@ -212,6 +213,9 @@ export function EarthSurface({ radius }: { radius: number }) {
   const night = closeNight ?? farNight
   const clouds = closeClouds ?? farClouds
   const cloudLayer = useRef<THREE.Mesh>(null)
+  // 遠くで小さく見えるときは粗い球にする
+  const surfaceGeometry = useSphereLod(surface, radius, 192, 128)
+  const cloudGeometry = useSphereLod(cloudLayer, radius, 192, 128)
 
   const uniforms = useMemo(
     () => ({
@@ -259,13 +263,11 @@ export function EarthSurface({ radius }: { radius: number }) {
 
   return (
     <>
-      <mesh ref={surface}>
-        <sphereGeometry args={[radius, 192, 128]} />
+      <mesh ref={surface} geometry={surfaceGeometry}>
         <shaderMaterial vertexShader={vertexShader} fragmentShader={fragmentShader} uniforms={uniforms} />
       </mesh>
       {clouds && (
-        <mesh ref={cloudLayer} scale={1.012}>
-          <sphereGeometry args={[radius, 192, 128]} />
+        <mesh ref={cloudLayer} scale={1.012} geometry={cloudGeometry}>
           <meshStandardMaterial alphaMap={clouds} transparent depthWrite={false} color="#ffffff" onBeforeCompile={shadowClouds} />
         </mesh>
       )}
