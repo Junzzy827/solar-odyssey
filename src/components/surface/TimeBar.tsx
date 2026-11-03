@@ -151,6 +151,21 @@ const RATES: { r: TimeRate; ja: string; en: string }[] = [
   { r: 'day', ja: '1日を1分で', en: '1 day / min' },
 ]
 
+/** 時刻へ飛ぶボタン（現地の時刻）。夕方は日の入りの少し前 */
+const JUMPS = [
+  { at: 12, ja: '昼', en: 'Noon' },
+  { at: 17.4, ja: '夕方', en: 'Sunset' },
+  { at: 0, ja: '夜', en: 'Night' },
+]
+
+/** 現地の時刻 at まで時間を先へ進める（戻しはしない：天気や満ち欠けも同じ流れのまま） */
+function jumpTo(id: string, clock: number, at: number) {
+  const ahead = (((at - clock) % 24) + 24) % 24
+  if (ahead < 0.05) return
+  const c = useSkyClock.getState()
+  useSkyClock.setState({ seek: c.hours + (ahead / 24) * Math.abs(dayHours(id)) })
+}
+
 /** 天体ごとの天気の呼び方：ボタン（自動・荒れ・おだやか）と、今の様子（強い・弱い・おだやか） */
 const WORDS: Record<string, { btn: [string, string][]; now: [string, string][] }> = {
   mars: { btn: [['自動', 'Auto'], ['砂嵐', 'Storm'], ['晴れ', 'Clear']], now: [['砂嵐', 'Dust storm'], ['砂ぼこり', 'Dusty'], ['晴れ', 'Clear']] },
@@ -208,6 +223,13 @@ export function TimeBar({ def }: { def: SurfaceDef }) {
         {RATES.map((x) => (
           <button key={String(x.r)} className={rate === x.r ? 'active' : ''} onClick={() => setRate(x.r)}>
             {t(x.ja, x.en)}
+          </button>
+        ))}
+      </div>
+      <div className="time-rates time-jump">
+        {JUMPS.map((j) => (
+          <button key={j.ja} onClick={() => jumpTo(def.id, clock, j.at)}>
+            {t(j.ja, j.en)}
           </button>
         ))}
       </div>
