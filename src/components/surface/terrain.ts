@@ -96,7 +96,8 @@ export class Terrain {
 
   constructor(readonly def: SurfaceDef, dem: Dem | null = null) {
     this.seed = idSeed(def.id)
-    this.pois = poisFor(def.id)
+    // 別の着陸地点（峡谷レース場）には、見どころを置かない（本物の地形そのものを走る）
+    this.pois = def.site ? [] : poisFor(def.id)
     this.formPois = this.pois.filter((p) => FORM_KINDS.has(p.kind))
     this.pois.forEach((p, i) => {
       if (p.kind !== 'buttes') return
@@ -196,7 +197,7 @@ export class Terrain {
       // 本物の地形 ＋ 地図より細かい足もとのでこぼこ
       let real = heightAt(this.dem.near, x, z) ?? heightAt(this.dem.far, x, z) ?? 0
       if (this.dem.detail) real += detailAt(this.dem.detail, x, z)
-      if (this.def.id === 'mars') real += this.marsRelief(x, z)
+      if (this.def.id === 'mars' && !this.def.site) real += this.marsRelief(x, z)
       if (this.pois.length) real += this.poiRelief(x, z)
       let h = real + (fbm(x / 22, z / 22, s + 50, 3) - 0.5) * 0.5 + (fbm(x / 5, z / 5, s + 51, 2) - 0.5) * 0.15
       if (raw) return { h, ejecta: 0, crack: 0 }

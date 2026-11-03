@@ -10,7 +10,8 @@ import { lowMemory, useLevel } from '../../state/quality'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { useLanding } from '../../state/landing'
 import { isWide, roverRangeFor, wideNow } from './wideGround'
-import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverFocus, roverInput, roverDebug, roverNow, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
+import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverCtl, roverFocus, roverInput, roverDebug, roverNow, roverPose, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
+import { PAINT_PARTS, paintUniforms, withPaint } from './paint'
 import { samplesFor, type RockSample } from '../../data/rockSamples'
 import { rockSpots } from '../../data/rockSpots'
 import type { Poi } from './pois'
@@ -66,7 +67,10 @@ type Pose = {
   arm: number[]
 }
 
-function deployPose(t: number, arm = ARM_WORK): Pose {
+export type { Pose }
+export { ARM_STOW }
+
+export function deployPose(t: number, arm = ARM_WORK): Pose {
   const s = ease(0.05, 0.5, t)
   const legs = { F: LEGS.F.fold * (1 - s), M: LEGS.M.fold * (1 - s), R: LEGS.R.fold * (1 - s) }
   const dz = Math.max(-BELLY_DROP, ...(['F', 'M', 'R'] as LegId[]).map((id) => WHEEL_R - hubZ(id, legs[id])))
@@ -85,7 +89,7 @@ function deployPose(t: number, arm = ARM_WORK): Pose {
   }
 }
 
-type Rig = {
+export type Rig = {
   body: THREE.Object3D
   legs: Record<string, THREE.Object3D>
   wheels: Record<string, THREE.Object3D>
@@ -99,7 +103,7 @@ type Rig = {
 }
 
 /** 姿勢を模型に。squash は車体の沈み込み（m）で、脚を少し回して表す */
-function applyPose(rig: Rig, p: Pose, squash = 0) {
+export function applyPose(rig: Rig, p: Pose, squash = 0) {
   rig.body.position.y = p.dz - squash
   for (const side of ['R', 'L']) {
     // 沈んだぶん、前の脚は前へ、中と後ろの脚は後ろへ開く（車輪は地面に着いたまま）
@@ -180,7 +184,7 @@ function drawnHeight(terrain: Terrain, x: number, z: number) {
 
 // ---- 車輪が巻き上げる砂ぼこり ---------------------------------------------------------------
 
-class WheelDust {
+export class WheelDust {
   readonly points: THREE.Points
   readonly material: THREE.ShaderMaterial
   private geo = new THREE.BufferGeometry()
@@ -449,6 +453,8 @@ type Drive = {
   /** 最後に乗り上げた岩と、そこからの時間（同じ岩で何度も跳ねないように） */
   bumpRock: number
   bumpT: number
+  /** 岩に乗り上げている高さ（m）。0 は地面の上 */
+  onRock: number
 }
 
 /** 採集できる岩の置き場所 */
@@ -487,15 +493,19 @@ export function Rover({
     const owned: { dispose: () => void }[] = []
     const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.0, 1.7), toneMapped: false })
     owned.push(lamp)
-    const mats = new Map<THREE.Material, THREE.Material>()
+    const mats = new Map<string, THREE.Material>()
+    // 峡谷レースの色（roverCtl.paint）。ふだんは塗らない
+    const paint = paintUniforms()
     model.traverse((o) => {
       const mesh = o as THREE.Mesh
       if (!mesh.isMesh) return
       mesh.castShadow = true
       mesh.receiveShadow = true
       const src = mesh.material as THREE.MeshStandardMaterial
-      if (!mats.has(src)) {
-        if (src.name === 'Lamp') mats.set(src, lamp)
+      const full = PAINT_PARTS.has(mesh.name)
+      const mk = src.uuid + (full ? ':full' : '')
+      if (!mats.has(mk)) {
+        if (src.name === 'Lamp') mats.set(mk, lamp)
         else {
           // 焼き込んだ質感（色・ラフネス/メタリック・ノーマル）の材質。金属の映り込みを少し強めに
           const m = src.clone()
@@ -512,12 +522,12 @@ export function Rover({
               }
             }
           }
-          prepare(m)
+          prepare(withPaint(m, paint, full))
           owned.push(m)
-          mats.set(src, m)
+          mats.set(mk, m)
         }
       }
-      mesh.material = mats.get(src)!
+      mesh.material = mats.get(mk)!
     })
     const get = (n: string) => model.getObjectByName(n)!
     const rig: Rig = {
@@ -533,7 +543,7 @@ export function Rover({
       arm: [get('ArmYaw'), get('ArmUpper'), get('ArmFore'), get('ArmHand')],
     }
     for (const w of Object.values(rig.wheels)) w.rotation.order = 'YXZ'
-    return { model, rig, owned }
+    return { model, rig, owned, paint }
   }, [scene, prepare])
   useEffect(() => () => built.owned.forEach((m) => m.dispose()), [built])
 
@@ -655,7 +665,14 @@ export function Rover({
       if (st.current) Object.assign(st.current, { x, z, y: meshHeight(terrain, x, z), vy: 0, speed: 0, heading: heading ?? st.current.heading })
     }
     roverDebug.rocks = () => [...bodiesNow().values()].flat().map(({ x, z, r, h }) => ({ x, z, r, h }))
+    // レース：スタートの列・直前の門へ置く（止まった状態で、地面の上に）
+    roverCtl.place = (x, z, heading) => {
+      const d = st.current
+      if (!d) return
+      Object.assign(d, { x, z, y: meshHeight(terrain, x, z), vy: 0, speed: 0, heading, pitch: 0, roll: 0, grounded: true, steer: 0, sampleT: -1, sampleIdx: -1 })
+    }
     return () => {
+      roverCtl.place = undefined
       roverDebug.moveTo = undefined
       roverDebug.sites = undefined
       roverDebug.place = undefined
@@ -690,6 +707,7 @@ export function Rover({
       edgeT: -9,
       bumpRock: -1,
       bumpT: 9,
+      onRock: 0,
     }
     taken.current.clear()
     tracks.lift()
@@ -730,7 +748,13 @@ export function Rover({
     } else {
       // 運転
       const inp = roverInput
-      const busy = s.sampleT >= 0
+      // レースのスタート前（3・2・1）は動けない
+      const locked = roverCtl.locked
+      if (locked) {
+        s.speed = 0
+        inp.jump = false
+      }
+      const busy = s.sampleT >= 0 || locked
       const steerTarget = busy ? 0 : inp.steer
       s.steer += (steerTarget - s.steer) * Math.min(1, dt * 6)
       if (s.grounded) {
@@ -750,7 +774,10 @@ export function Rover({
         s.speed = THREE.MathUtils.clamp(s.speed, -6, ROVER_TOP)
         // 速いほど大回り。4 輪（前後）を逆向きに切るので、遅いときは小回りがきく
         const R = 2.6 + Math.abs(s.speed) * 0.32
-        s.heading -= s.steer * (s.speed / R) * dt
+        // 岩に乗り上げているあいだは車輪が浮いて、ハンドルがほとんど効かない（まっすぐ進んでしまう）。
+        // 岩は、ちょっとジャンプして飛び越えるのがいちばん速い
+        const grip = s.onRock > 0.05 ? 0.2 : 1
+        s.heading -= s.steer * (s.speed / R) * dt * grip
         if (inp.jump && !busy) {
           // ぴょーん（重力の弱い星ほど高く、長く飛ぶ）
           s.vy = 3.2 + Math.abs(s.speed) * 0.08
@@ -798,6 +825,13 @@ export function Rover({
           s.speed *= 0.7
         }
       }
+      // ほかのローバー（レース）に押される
+      const push = roverCtl.push
+      if (push.x || push.z) {
+        nx += push.x
+        nz += push.z
+        push.x = push.z = 0
+      }
       s.x = nx
       s.z = nz
       // 地面（岩に乗り上げていれば、そのぶん持ち上がる）
@@ -825,8 +859,10 @@ export function Rover({
         s.vy = Math.min(s.vy, 0)
         s.grounded = true
       } else s.grounded = s.y - ground < 0.03
-      // 岩に登るぶん、少し遅くなる
+      // 岩に登るぶん、少し遅くなる。乗っているあいだも、車輪が空回りして遅くなる
       if (s.grounded && lift > prevLift) s.speed *= 1 - Math.min(0.1, (lift - prevLift) * 0.3)
+      s.onRock = s.grounded ? lift : 0
+      if (s.onRock > 0.05 && s.speed > 4) s.speed -= Math.min(s.speed - 4, 2.2 * dt)
       // 地面の傾き（6 つの車輪の下の高さ。岩に乗っていれば、岩の上の高さ）
       const sideX = -fwd.z
       const sideZ = fwd.x
@@ -1019,6 +1055,10 @@ export function Rover({
       w.rotation.y = k[0] === 'F' ? -s.steer * 0.35 : k[0] === 'R' ? s.steer * 0.35 : 0
     }
     roverFocus.set(s.x, s.y, s.z)
+    Object.assign(roverPose, { x: s.x, y: s.y, z: s.z, heading: s.heading, speed: s.speed, grounded: s.grounded })
+    const paint = built.paint
+    paint.uPaintOn.value = roverCtl.paint ? 1 : 0
+    if (roverCtl.paint) paint.uPaint.value.set(roverCtl.paint)
 
     // ---- 採集の小さなかけら：岩 → アームの先 → 車体の上の取り入れ口 ----
     const c = chip.current

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { useStore } from './store'
 import { raceActive } from './race'
-import { surfaceFor } from '../data/surfaces'
+import { demIdFor, siteDef, surfaceFor } from '../data/surfaces'
 import { t } from '../i18n/lang'
 import { isNear } from './proximity'
 import { ship } from './flight'
@@ -23,6 +23,8 @@ export type SurfaceView = 'eye' | 'lander'
 type LandingState = {
   phase: LandingPhase
   bodyId: string | null
+  /** 同じ天体の別の着陸地点（火星の峡谷レース場 'coprates'）。null はふつうの着陸地点 */
+  site: string | null
   /** 今の段階を始めた時刻（performance.now() / 1000） */
   since: number
   view: SurfaceView
@@ -40,6 +42,7 @@ type LandingState = {
 export const useLanding = create<LandingState>((set) => ({
   phase: 'idle',
   bodyId: null,
+  site: null,
   since: 0,
   view: 'eye',
   ready: false,
@@ -68,7 +71,7 @@ export const landed = (phase = useLanding.getState().phase) => phase !== 'idle'
 export function startLanding(bodyId = landableBody()) {
   if (!bodyId || !surfaceFor(bodyId) || landed()) return
   if (document.pointerLockElement) document.exitPointerLock()
-  useLanding.setState({ bodyId, view: 'eye', ready: false })
+  useLanding.setState({ bodyId, site: null, view: 'eye', ready: false })
   recallRover()
   setPhase('fadeIn')
   // 本物の地形は暗転しているあいだに読んでおく（読み終わるまで地表の場面を出さない）
@@ -95,6 +98,31 @@ export function surfaceReady() {
   }, DESCENT * 1000)
 }
 
+/**
+ * 同じ天体の別の着陸地点へ飛ぶ（火星：ゲール・クレーター ⇄ マリネリス峡谷のレース場）。
+ * 母船へは戻らず、暗転してから、新しい場所へ着陸船が降りてくる
+ */
+export function goToSite(site: string | null) {
+  const l = useLanding.getState()
+  if (l.phase !== 'surface' || l.site === site || !l.bodyId) return
+  const bodyId = l.bodyId
+  recallRover()
+  // 幕を下ろしてから新しい場所の地形を読み、読めたら場面を入れ替える（新しい場面の WhenReady が幕を上げる）
+  useLanding.setState({ ready: false })
+  setPhase('descent')
+  const def = siteDef(bodyId, site)
+  const id = def ? demIdFor(def) : bodyId
+  const dem = DEM_BODIES.has(id) ? loadDem(id).catch(() => null) : Promise.resolve(null)
+  const giveUp = new Promise((r) => window.setTimeout(r, READY_LIMIT * 1000))
+  void Promise.race([dem, giveUp]).then(() => {
+    const now = useLanding.getState()
+    if (now.bodyId !== bodyId || (now.phase !== 'descent' && now.phase !== 'surface')) return
+    useLanding.setState({ site, view: 'eye' })
+    // 場面の用意が終わらなくても、いつかは幕を上げる
+    window.setTimeout(() => surfaceReady(), READY_LIMIT * 1000)
+  })
+}
+
 /** 降りる演出を飛ばす */
 export function skipDescent() {
   if (useLanding.getState().phase === 'descent') {
@@ -113,7 +141,7 @@ export function startTakeoff() {
   }, ASCENT * 1000)
   window.setTimeout(() => {
     if (useLanding.getState().phase === 'fadeOut') {
-      useLanding.setState({ phase: 'idle', bodyId: null })
+      useLanding.setState({ phase: 'idle', bodyId: null, site: null })
       useStore.getState().showToast(t('母船にもどりました', 'Back aboard the ship'))
     }
   }, (ASCENT + FADE) * 1000)

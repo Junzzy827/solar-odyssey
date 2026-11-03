@@ -1,0 +1,35 @@
+{
+  "site": "Mars - Valles Marineris, floor of Coprates Chasma (race track)",
+  "decode": "height_m = (R * 256 + G) * step - offset; x = east, z = south; pixel (0,0) is the north-west corner",
+  "near": {
+    "size": 1024,
+    "extent_m": 6400.0,
+    "step": 0.05,
+    "offset": 1000.0
+  },
+  "far": {
+    "size": 512,
+    "extent_m": 100000.0,
+    "step": 0.25,
+    "offset": 2000.0,
+    "shift_m": 120.67
+  },
+  "centre_lat": -13.82635,
+  "centre_lon": 300.96594,
+  "attribution": [
+    "Elevation: HiRISE DTM DTEEC_018347_1660_026417_1660_A01 (Along the Floor of Coprates Chasma), NASA/JPL/University of Arizona.",
+    "Elevation: Mars MGS MOLA - MEX HRSC Blended DEM Global 200 m v2 - Fergason, R.L., Hare, T.M. and Laura, J. (2018), Astrogeology PDS Annex, U.S. Geological Survey. MOLA: NASA/GSFC; HRSC: ESA/DLR/FU Berlin."
+  ],
+  "licence": [
+    "HiRISE products are NASA PDS data, free to use with credit to NASA/JPL/University of Arizona.",
+    "USGS Astrogeology product. Use Constraints \"None\"; please cite authors."
+  ],
+  "detail": {
+    "size": 2048,
+    "extent_m": 3200.0,
+    "step": 0.01,
+    "zero": 128,
+    "decode": "height_m = near_map_height(x, z) + (value - 128) * step  (8-bit grayscale, same orientation as near)",
+    "source": "HiRISE DTEEC_018347_1660_026417_1660_A01, average 1 m -> 1.5625 m"
+  }
+}

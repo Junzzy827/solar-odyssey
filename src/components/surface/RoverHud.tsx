@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { RALLY_COLORS, useRally } from '../../state/rally'
+import { buildCourse } from './Rally'
 import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
@@ -130,6 +132,8 @@ export function RoverHud() {
 
 /** ミニマップ：着陸船を中心に、走れる範囲（正方形）・採集の岩・ローバーの位置と向き。
  * 広い天体（1.5 km 四方）では、ローバーのまわり 400 m と、範囲全体を、地図の右上のボタンで切り替える */
+const NO_BOTS: { c: number; x: number; z: number }[] = []
+
 export function RoverMap() {
   useLang()
   const hud = useRover((r) => r.hud)
@@ -166,6 +170,10 @@ export function RoverMap() {
   // 地形の陰影と等高線。広い天体では範囲全体の 1 枚と、近くを見るときのローバーのまわり 600 m の細かい 1 枚。
   // 細かいほうは 100 m ごとの位置に合わせて作るので、ローバーが 50 m 以上動いたときだけ作り直す
   const terrain = useMapTerrain((m) => m.terrain)
+  // 峡谷レース場：コース・門・ほかのローバー
+  const gate = useRally((r) => r.gate)
+  const bots = useRally((r) => (r.phase === 'off' ? NO_BOTS : r.bots))
+  const course = useMemo(() => (terrain?.def.site === 'coprates' ? buildCourse() : null), [terrain])
   const pois = wide ? (terrain?.pois ?? []) : []
   /** 見どころに残っている、まだ採っていない岩の数 */
   const left = (id: string) => sites.filter((s, i) => s.poi === id && !taken.includes(i)).length
@@ -254,6 +262,17 @@ export function RoverMap() {
             </g>
           )
         })}
+        {course && (
+          <>
+            <polyline points={course.pts.filter((_, i) => i % 3 === 0).map((p) => `${mx(p.x)},${mz(p.y)}`).join(' ')} className="m-course" />
+            {course.gates.map((gt, i) =>
+              i < gate ? null : <circle key={`g${i}`} cx={mx(gt.x)} cy={mz(gt.z)} r={i === gate ? 7 : 4} className={`m-gate${i === gate ? ' next' : ''}${i === course.gates.length - 1 ? ' goal' : ''}`} />,
+            )}
+            {bots.map((b) => (
+              <circle key={`b${b.c}`} cx={mx(b.x)} cy={mz(b.z)} r={6} fill={RALLY_COLORS[b.c].hex} className="m-bot" />
+            ))}
+          </>
+        )}
         {sites.map((p, i) => {
           const x = mx(p.x)
           const z = mz(p.z)

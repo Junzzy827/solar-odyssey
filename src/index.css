@@ -5177,3 +5177,338 @@ button.sample-count {
 .rover-map .m-poi-rocks {
   fill: #ffb347;
 }
+
+/* ---- 峡谷レース（RallyPanel.tsx） ---- */
+.rally-start {
+  pointer-events: auto;
+  position: absolute;
+  right: 16px;
+  bottom: 84px;
+  width: min(360px, calc(100% - 32px));
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(24, 12, 8, 0.78);
+  border: 1px solid rgba(255, 170, 90, 0.45);
+  box-shadow: 0 0 22px rgba(255, 140, 60, 0.18);
+  color: #ffe9d6;
+  font-size: 13px;
+}
+.rally-start p {
+  margin: 6px 0 8px;
+  line-height: 1.5;
+  color: #f2d3bb;
+}
+.rally-start.compact {
+  bottom: 84px;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+.rally-start.compact .rally-title {
+  font-size: 14px;
+}
+.rally-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #ffd29a;
+}
+.rally-colors {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.rally-colors button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.rally-colors button.on {
+  border-color: var(--c);
+  background: color-mix(in srgb, var(--c) 30%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--c) 60%, transparent);
+}
+.rally-start .dot,
+.rally-result .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 6px var(--c);
+  flex: none;
+}
+.rally-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+.rally-start.compact .rally-row {
+  margin-top: 0;
+}
+.rally-best {
+  margin-right: auto;
+  color: #f0c89a;
+}
+.rally-go {
+  font-weight: 700;
+  min-width: 96px;
+}
+.rally-ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.rally-banner {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  border-radius: 12px;
+  background: rgba(10, 14, 22, 0.7);
+  color: #ffe9d6;
+}
+.rally-count {
+  position: absolute;
+  left: 50%;
+  top: 26%;
+  transform: translate(-50%, -50%);
+  font-size: 96px;
+  font-weight: 800;
+  color: #fff3d6;
+  text-shadow: 0 0 24px rgba(255, 150, 60, 0.9), 0 4px 0 rgba(0, 0, 0, 0.4);
+  animation: rally-pop 0.6s ease-out;
+  white-space: nowrap;
+}
+.rally-count:not(.go):first-letter {
+  font-size: inherit;
+}
+.rally-count.go {
+  color: #b8ffcf;
+  text-shadow: 0 0 28px rgba(60, 255, 140, 0.9), 0 4px 0 rgba(0, 0, 0, 0.4);
+}
+@keyframes rally-pop {
+  from {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+.rally-hud {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 16px;
+  border-radius: 14px;
+  background: rgba(10, 12, 18, 0.72);
+  border: 1px solid color-mix(in srgb, var(--c) 70%, transparent);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rally-time {
+  font-size: 24px;
+  font-weight: 700;
+}
+.rally-place b {
+  font-size: 26px;
+  color: var(--c);
+  margin-right: 2px;
+}
+.rally-place small {
+  color: #aab;
+  margin-left: 2px;
+}
+.rally-gate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #d8f4ff;
+}
+.rally-arrow {
+  display: inline-block;
+  color: #7fe3ff;
+  font-size: 18px;
+  transition: transform 0.1s linear;
+}
+.rally-split {
+  position: absolute;
+  left: 50%;
+  top: 70px;
+  transform: translateX(-50%);
+  padding: 4px 14px;
+  border-radius: 10px;
+  background: rgba(10, 12, 18, 0.7);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.rally-split b {
+  margin-left: 8px;
+}
+.rally-split.faster b {
+  color: #7dff9f;
+}
+.rally-split.slower b {
+  color: #ff8a7a;
+}
+.rally-result {
+  pointer-events: auto;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 280px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: rgba(20, 12, 8, 0.86);
+  border: 1px solid rgba(255, 190, 110, 0.5);
+  color: #ffe9d6;
+  text-align: center;
+}
+.rally-big {
+  font-size: 40px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rally-new {
+  color: #8dffaa;
+  font-weight: 700;
+}
+.rally-result ol {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  text-align: left;
+}
+.rally-result li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+.rally-result li.you {
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 700;
+}
+.rally-result li .n {
+  width: 18px;
+  color: #c9a988;
+}
+.rally-result .t {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.rally-actions {
+  pointer-events: auto;
+  position: absolute;
+  right: 16px;
+  top: 70px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+body.touch .rally-start {
+  bottom: calc(env(safe-area-inset-bottom) + 78px);
+  right: 10px;
+  width: min(360px, calc(100% - 20px));
+}
+body.touch .rally-start p {
+  display: none;
+}
+body.touch .rally-start.compact {
+  width: auto;
+  bottom: auto;
+  top: calc(env(safe-area-inset-top) + 10px);
+}
+body.touch .rally-hud {
+  top: calc(env(safe-area-inset-top) + 6px);
+  gap: 10px;
+  padding: 4px 10px;
+}
+body.touch .rally-time {
+  font-size: 18px;
+}
+body.touch .rally-count {
+  font-size: 64px;
+}
+body.touch .rally-actions {
+  top: calc(env(safe-area-inset-top) + 46px);
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: row;
+}
+body.touch .rally-actions button {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+body.touch .rally-actions kbd {
+  display: none;
+}
+.rally-start button.rally-go,
+.rally-result button.primary {
+  padding: 9px 22px;
+  border-radius: 20px;
+  border: none;
+  background: #f2a65a;
+  color: #1a1206;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+.rally-result button.secondary,
+.rally-actions button {
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: rgba(10, 14, 22, 0.65);
+  border: 1px solid rgba(200, 220, 255, 0.4);
+  color: #eef;
+  font-size: 14px;
+  cursor: pointer;
+}
+.rally-actions button:disabled {
+  opacity: 0.45;
+}
+.rover-map .m-course {
+  fill: none;
+  stroke: rgba(127, 227, 255, 0.55);
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+}
+.rover-map .m-gate {
+  fill: rgba(127, 227, 255, 0.5);
+  stroke: #dff6ff;
+  stroke-width: 1.5;
+}
+.rover-map .m-gate.next {
+  fill: #7fe3ff;
+}
+.rover-map .m-gate.goal {
+  fill: #ffd27a;
+}
+.rover-map .m-bot {
+  stroke: #fff;
+  stroke-width: 2;
+}

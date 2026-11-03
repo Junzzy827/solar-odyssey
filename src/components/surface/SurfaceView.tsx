@@ -2,13 +2,14 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Mouse
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { surfaceFor, type SurfaceDef } from '../../data/surfaces'
+import { SITES, demIdFor, siteDef, surfaceFor, type SurfaceDef } from '../../data/surfaces'
 import { textureUrl } from '../../data/textures'
 import { PLANETS } from '../../data/bodies'
 import { useOptionalTexture } from '../../hooks/useOptionalTexture'
 import { haloTexture } from '../ship/ShipModel'
 import { currentLevel, dprFor, lowMemory, useLevel } from '../../state/quality'
-import { ASCENT, DESCENT, FADE, landingNow, skipDescent, startTakeoff, surfaceReady, useLanding } from '../../state/landing'
+import { ASCENT, DESCENT, FADE, goToSite, landingNow, skipDescent, startTakeoff, surfaceReady, useLanding } from '../../state/landing'
+import { useRally } from '../../state/rally'
 import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded, type Rock } from './terrain'
 import { WideWorld, isWide, wideNow, withHole } from './wideGround'
 import { named, t, useLang } from '../../i18n/lang'
@@ -19,6 +20,8 @@ import { SurfaceStars } from './SurfaceStars'
 import { TimeBar } from './TimeBar'
 import { groundMaterial, withRockDetail } from './groundMaterial'
 import { useDem } from './dem'
+import { Rally } from './Rally'
+import { RallyPanel, RallyStart } from './RallyPanel'
 import { FAR_SHRINK, farTerrainGeometry } from './farTerrain'
 import { STORM_HAZE, STORM_KIND, WEATHER_BODIES, WEATHER_FX, devilTarget, stepWeather, useWeather, stormTarget, weatherNow } from './weather'
 import { Weather } from './Weather'
@@ -1077,7 +1080,7 @@ const tmpDir = new THREE.Vector3()
 
 function Scene({ def }: { def: SurfaceDef }) {
   // 本物の地形（火星・地球）。読み終わるまでは今までの作った地形
-  const dem = useDem(def.id)
+  const dem = useDem(demIdFor(def))
   const terrain = useMemo(() => new Terrain(def, dem || null), [def, dem])
   // ミニマップ（HTML）にも同じ地形を渡す
   useEffect(() => {
@@ -1304,6 +1307,11 @@ function Scene({ def }: { def: SurfaceDef }) {
       <Suspense fallback={null}>
         <Rover terrain={terrain} dustColor={def.ground} sky={sky} landerYaw={LANDER_YAW} prepare={prepareRover} />
       </Suspense>
+      {def.site === 'coprates' && (
+        <Suspense fallback={null}>
+          <Rally terrain={terrain} prepare={prepareRover} dustColor={def.ground} />
+        </Suspense>
+      )}
       <Look terrain={terrain} />
       <WhenReady />
     </>
@@ -1371,8 +1379,10 @@ function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
 /** 200 → "200 m"、3000 → "3 km" */
 const sizeLabel = (m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`)
 
-function RoverPanel({ bodyId }: { bodyId: string }) {
+function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
   useLang()
+  const rally = useRally((r) => r.phase)
+  const racing = !!site && rally !== 'off'
   const phase = useRover((r) => r.phase)
   const canSample = useRover((r) => r.canSample)
   const sampling = useRover((r) => r.sampling)
@@ -1389,7 +1399,7 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
   const drive = phase === 'drive'
   return (
     <>
-      <div className="surface-hint rover-hint">
+      <div className="surface-hint rover-hint" hidden={racing}>
         {drive
           ? t('W/↑ 前進・S/↓ 後退・A D/← → 曲がる・スペース ジャンプ・E 採集・V 見方', 'W/↑ drive · S/↓ reverse · A D/← → steer · Space jump · E sample · V view')
           : phase === 'drop'
@@ -1397,14 +1407,16 @@ function RoverPanel({ bodyId }: { bodyId: string }) {
             : t('ローバーを展開中…', 'Rover unfolding…')}
       </div>
       {drive && <RoverHud />}
-      {drive && edge && (
+      {site && <RallyPanel />}
+      {drive && site && !racing && <RallyStart compact />}
+      {drive && edge && !racing && (
         <div className="rover-edge">
           {t('これ以上は遠くへ行けません', "Can't go any farther")}
           <small>{t(`探査できるのは着陸地点のまわり ${sizeLabel(range * 2)} 四方です`, `The rover can explore a ${sizeLabel(range * 2)} square around the landing site`)}</small>
         </div>
       )}
       {drive && result && <SampleCard bodyId={bodyId} id={result} />}
-      {drive && (
+      {drive && !racing && (
         <div className="sample-status">
           <button className="sample-count" onClick={openRocks} title={t('岩石コレクションを開く', 'Open the rock collection')}>
             ◆ {t('試料', 'Samples')} {got}/{total} <span className="sample-book">{t('図鑑', 'Book')} ▸</span>
@@ -1477,7 +1489,8 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
   const setView = useLanding((l) => l.setView)
   // スマホ（縦も横も）では、説明は畳んでおく（タップで開く）
   const [open, setOpen] = useState(() => window.innerWidth > 700 && window.innerHeight > 500)
-  const name = bodyName(def.id)
+  const siteName = def.site ? SITES[def.site].name : null
+  const name = bodyName(def.id) + (siteName ? t(`・${siteName[0]}`, ` · ${siteName[1]}`) : '')
   const weight = Math.max(0.01, 30 * def.gravity)
   const temp = def.temp[0] === def.temp[1] ? `${def.temp[0]}℃` : `${def.temp[0]}〜${def.temp[1]}℃`
   const skyName = def.skyBody ? bodyName(def.skyBody.id) : null
@@ -1527,9 +1540,10 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
           {rover === 'drive' && <RoverMap />}
           </div>
           {rover !== 'none' ? (
-            <RoverPanel bodyId={def.id} />
+            <RoverPanel bodyId={def.id} site={def.site} />
           ) : (
           <>
+          {def.site === 'coprates' && <RallyStart />}
           <div className="surface-hint">
             {view === 'eye'
               ? t('ドラッグで見回す・ホイール／2本指でズーム', 'Drag to look around · scroll or pinch to zoom')
@@ -1545,6 +1559,16 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             <button className="secondary" onClick={launchRover}>
               {t('ローバーを出す', 'Deploy the rover')}
             </button>
+            {def.id === 'mars' && !def.site && (
+              <button className="secondary rally-site" onClick={() => goToSite('coprates')}>
+                🏁 {t('峡谷レース場へ', 'To the canyon race')}
+              </button>
+            )}
+            {def.site && (
+              <button className="secondary" onClick={() => goToSite(null)}>
+                {t('ゲール・クレーターへ', 'To Gale crater')}
+              </button>
+            )}
             <button className="primary" onClick={startTakeoff}>
               {t('離陸する', 'Take off')}
             </button>
@@ -1614,9 +1638,10 @@ function SurfaceCanvas({ def }: { def: SurfaceDef }) {
 export function SurfaceView() {
   const phase = useLanding((l) => l.phase)
   const bodyId = useLanding((l) => l.bodyId)
+  const site = useLanding((l) => l.site)
   const since = useLanding((l) => l.since)
   const ready = useLanding((l) => l.ready)
-  const def = bodyId ? surfaceFor(bodyId) : null
+  const def = bodyId ? siteDef(bodyId, site) : null
   const scene3d = phase === 'descent' || phase === 'surface' || phase === 'ascent'
   // 暗転の幕：宇宙 → 地表、地表 → 宇宙
   const [, setTick] = useState(0)
@@ -1641,7 +1666,7 @@ export function SurfaceView() {
   return (
     <div className={scene3d ? 'surface-view solid' : 'surface-view'}>
       {scene3d && (
-        <SurfaceCanvas def={def} />
+        <SurfaceCanvas key={def.site ?? def.id} def={def} />
       )}
       <SurfacePanel def={def} />
       <div className="surface-curtain" style={{ opacity: curtain, pointerEvents: curtain > 0.5 ? 'auto' : 'none' }} />

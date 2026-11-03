@@ -11,6 +11,8 @@ import type { Rock, Terrain } from './terrain'
 export const TILE = 64
 /** 走れる範囲（着陸地点を中心にした正方形の半分の幅、m）：広い天体 */
 export const WIDE_RANGE = 750
+/** 別の着陸地点（峡谷レース場）の走れる範囲 */
+export const SITE_RANGE = 1500
 /** 粗い地面を作り直す距離（m） */
 const RECENTER = 400
 /** タイルの下に沈める粗い地面の、タイルのふちからの余白（粗い格子の 1 マスより広く） */
@@ -21,6 +23,8 @@ const HOLE_MARGIN = 16
  * 遠くへ行くほど地面が丸みで傾いていく（重力は真下のまま）ので、傾きが 3° 以内に収まる広さまで
  */
 export function wideRange(terrain: Terrain) {
+  // 峡谷レース場：コース（約 2.4 km）が入るよう、3 km 四方
+  if (terrain.def.site) return SITE_RANGE
   const byCurve = Math.floor((terrain.radiusM * 0.05) / 50) * 50
   return Math.max(100, Math.min(WIDE_RANGE, byCurve))
 }

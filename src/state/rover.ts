@@ -76,7 +76,7 @@ export function recallRover() {
 export const setRoverPhase = (phase: RoverPhase) => useRover.setState({ phase, since: roverNow() })
 
 /** 運転の入力（キーボードと画面のボタンの両方から書き込む）。-1..1 */
-export const roverInput = { throttle: 0, steer: 0, jump: false, sample: false }
+export const roverInput = { throttle: 0, steer: 0, jump: false, sample: false, reset: false }
 const keys = new Set<string>()
 
 function fromKeys() {
@@ -88,7 +88,7 @@ function fromKeys() {
   roverInput.steer = r - l
 }
 
-const DRIVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyV', 'KeyE'])
+const DRIVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyV', 'KeyE', 'KeyR'])
 
 /** キーボード：WASD／矢印で走る、スペースでジャンプ、V で見方を切り替え */
 export function bindRoverKeys() {
@@ -100,6 +100,11 @@ export function bindRoverKeys() {
     e.stopPropagation()
     if (e.code === 'Space') {
       if (!e.repeat) roverInput.jump = true
+      return
+    }
+    if (e.code === 'KeyR') {
+      // レース：直前の門へ戻る
+      if (!e.repeat) roverInput.reset = true
       return
     }
     if (e.code === 'KeyE') {
@@ -131,6 +136,20 @@ export function bindRoverKeys() {
     blur()
   }
 }
+
+/** 運転しているローバーの今の姿（レースの門の判定と順位に使う）。Rover が毎フレーム書き込む */
+export const roverPose = { x: 0, y: 0, z: 0, heading: 0, speed: 0, grounded: true }
+
+/**
+ * レースからローバーを動かす：place（スタートの列・直前の門へ置く）、locked（スタート前は動けない）、
+ * paint（車体の色。null は白いまま）、push（ほかのローバーとぶつかったときの押し返し、m）
+ */
+export const roverCtl: {
+  place?: (x: number, z: number, heading: number) => void
+  locked: boolean
+  paint: string | null
+  push: { x: number; z: number }
+} = { locked: false, paint: null, push: { x: 0, z: 0 } }
 
 /** ローバーのいる場所（太陽の影を描く範囲をローバーに合わせるため） */
 export const roverFocus = { x: 0, y: 0, z: -15, set(x: number, y: number, z: number) { this.x = x; this.y = y; this.z = z } }
