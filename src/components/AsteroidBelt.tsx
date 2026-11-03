@@ -16,6 +16,17 @@ const SHAPES = SMALL_SHAPES + LARGE_SHAPES
 /** これより大きい岩は細かい形を使う */
 const LARGE_SIZE = 0.22
 const RESPAWN_SECONDS = 30
+/**
+ * 遠くからは岩が数ピクセルにしか見えないので、粗い形に差し替える（LOD）。
+ * 帯から [この距離] 以上離れたら [細かさをこれだけ下げる]（形のでこぼこは同じ乱数なので、輪郭はほぼ同じ）
+ */
+const LOD_STEPS = [
+  { beyond: 0, drop: 0 },
+  { beyond: 10, drop: 1 },
+  { beyond: 40, drop: 2 },
+]
+/** 段を戻すときの余裕（行ったり来たりしない） */
+const LOD_MARGIN = 2
 const ROCK_COLORS = ['#5a534c', '#9a8f80', '#b8b4ac']
 
 // 再現性のある乱数（毎回同じ配置にする）
@@ -59,13 +70,19 @@ export function AsteroidBelt() {
   // 距離のスライダーを広げると、帯も火星と木星のあいだで広がる（岩の数は同じなので、本物のようにまばらになる）
   const { belt: beltRadius } = useLayout()
 
-  const { geometries, material } = useMemo(() => {
+  // 形ごとに、細かい・中くらい・粗いの3つ（同じ種から作るので、同じ岩の形のまま細かさだけ変わる）
+  const { lods, material } = useMemo(() => {
     const rand = random(7)
+    const seeds = Array.from({ length: SHAPES }, () => Math.floor(rand() * 2147483646) + 1)
     return {
-      geometries: Array.from({ length: SHAPES }, (_, i) => asteroidGeometry(rand, i < SMALL_SHAPES ? 2 : 3)),
+      lods: seeds.map((seed, i) => {
+        const fine = i < SMALL_SHAPES ? 2 : 3
+        return LOD_STEPS.map((step) => asteroidGeometry(random(seed), Math.max(0, fine - step.drop)))
+      }),
       material: beltMaterial(),
     }
   }, [])
+  const lod = useRef(0)
 
   // 岩の配置と種類（毎回同じ）。大きさで、使う形（細かさ）を分ける
   const rocks = useMemo(() => {
@@ -114,8 +131,20 @@ export function AsteroidBelt() {
 
   // 帯全体を平均的な公転速度で回す
   const speed = angularSpeed(365.25 * 2.7 ** 1.5)
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera }) => {
     belt.current.rotation.y = sim.time * speed
+    // カメラから帯（ドーナツ形）までの距離で、岩の細かさを選ぶ
+    const p = camera.position
+    const r = Math.hypot(p.x, p.z)
+    const out = Math.max(0, beltRadius(BELT_AU.inner) - r, r - beltRadius(BELT_AU.outer))
+    const away = Math.hypot(out, Math.max(0, Math.abs(p.y) - 1.5))
+    let level = lod.current
+    while (level < LOD_STEPS.length - 1 && away > LOD_STEPS[level + 1].beyond + LOD_MARGIN) level++
+    while (level > 0 && away < LOD_STEPS[level].beyond) level--
+    if (level !== lod.current) {
+      lod.current = level
+      meshes.current.forEach((mesh, shape) => (mesh.geometry = lods[shape][level]))
+    }
     // 壊した岩は時間がたつと元に戻る
     const now = clock.getElapsedTime()
     const back = asteroids.destroyed.filter((d) => now - d.at > RESPAWN_SECONDS)
@@ -129,13 +158,13 @@ export function AsteroidBelt() {
 
   return (
     <group ref={belt}>
-      {geometries.map((g, i) => (
+      {lods.map((g, i) => (
         <instancedMesh
           key={i}
           ref={(mesh) => {
             if (mesh) meshes.current[i] = mesh
           }}
-          args={[g, material, rocks[i].length]}
+          args={[g[lod.current], material, rocks[i].length]}
         />
       ))}
     </group>

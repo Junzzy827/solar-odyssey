@@ -69,8 +69,9 @@ const PREP_GIVE_UP = 20
 /** スマホで GPU に載せるテクスチャの最大の辺（ピクセル） */
 const PHONE_MAX_TEXTURE = 1024
 
-/** まだ GPU に載せていないテクスチャを探す間隔（秒） */
+/** まだ GPU に載せていないテクスチャを探す間隔（秒）。何も見つからなければ、間隔を倍にしていく（最大 UPLOAD_SCAN_MAX） */
 const UPLOAD_SCAN = 4
+const UPLOAD_SCAN_MAX = 32
 
 /**
  * FPS を測り、画質が「自動」なら描画が追いつくところまで下げる（余裕があれば戻す）。
@@ -81,12 +82,22 @@ export function QualityGovernor() {
   const scene = useThree((s) => s.scene)
   const camera = useThree((s) => s.camera)
   const m = useRef({ frames: 0, time: 0, slow: 0, fast: 0, lastDown: -Infinity, settleUntil: 0, tooSlow: new Set<Level>() })
-  const job = useRef({ busy: false, warmed: false, scanAt: 0, uploads: [] as THREE.Texture[], prep: 'load' as 'load' | 'compile' | 'upload' | 'done', quietSince: -1 })
+  const job = useRef({ busy: false, warmed: false, scanAt: 0, scanEvery: UPLOAD_SCAN, soon: false, uploads: [] as THREE.Texture[], prep: 'load' as 'load' | 'compile' | 'upload' | 'done', quietSince: -1 })
   // 後処理を通すときのシェーダーを用意するための、形だけの描画先
   const target = useMemo(() => new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }), [])
   useEffect(() => () => target.dispose(), [target])
 
   useEffect(() => registerSwitcher(), [])
+
+  // 船・世界（実在/SF）・場面が変わると新しいテクスチャが増えるので、探す間隔を短く戻す
+  useEffect(
+    () =>
+      useStore.subscribe((st, prev) => {
+        if (st.mode === prev.mode && st.settings.world === prev.settings.world && st.settings.ship === prev.settings.ship && st.targetId === prev.targetId) return
+        job.current.soon = true
+      }),
+    [],
+  )
 
   useEffect(() => {
     // 内蔵 GPU やスマホは、はじめから「標準」で（まだ何も描いていないので、そのまま切り替える）
@@ -186,9 +197,18 @@ export function QualityGovernor() {
     // スマホは逆に、見ていない物まで載せるとメモリが足りなくなる（Safari がページごと落とす）ので、見えたときに載せる
     if (job.current.warmed && !lowMemory()) {
       const j = job.current
+      if (j.soon) {
+        // 新しい物が画面に出そろうのを少し待ってから探す
+        j.soon = false
+        j.scanEvery = UPLOAD_SCAN
+        j.scanAt = Math.min(j.scanAt, clock.elapsedTime + 1)
+      }
       if (clock.elapsedTime > j.scanAt) {
-        j.scanAt = clock.elapsedTime + UPLOAD_SCAN
+        // 場面の物を全部（SF では 3,000 近く）調べるので、見つからない間は間隔をのばす
+        // （設定や行き先が変わったら、また短い間隔に戻す）
         j.uploads = [...sceneTextures(scene)].filter((t) => (gl.properties.get(t) as { __webglTexture?: WebGLTexture }).__webglTexture === undefined)
+        j.scanEvery = j.uploads.length > 0 ? UPLOAD_SCAN : Math.min(j.scanEvery * 2, UPLOAD_SCAN_MAX)
+        j.scanAt = clock.elapsedTime + j.scanEvery
       }
       const next = j.uploads.shift()
       if (next) gl.initTexture(next)
