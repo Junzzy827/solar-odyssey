@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import { ROCK_GROUPS, ROCK_TOTAL, foundAt, rockCount, rockImage, type RockGroup } from '../data/rockCollection'
-import type { RockSample } from '../data/rockSamples'
+import { compLabel, type RockSample } from '../data/rockSamples'
 import { PLANETS } from '../data/bodies'
 import { nearLander, spotsOf } from '../data/rockSpots'
 import { useSampleLog } from '../state/rover'
 import { closeRocks, useRockBook } from '../state/rockBook'
-import { named, t, useLang } from '../i18n/lang'
+import { getLang, named, t, useLang } from '../i18n/lang'
 
 function bodyName(id: string) {
   for (const p of PLANETS) {
@@ -64,7 +64,7 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
               <div className="sample-comp">
                 {k.comp.map(([label, v]) => (
                   <div className="sample-bar" key={label}>
-                    <span className="sb-k">{label}</span>
+                    <span className="sb-k">{compLabel(label, getLang())}</span>
                     <span className="sb-track">
                       <span className="sb-fill" style={{ width: `${(v / max) * 100}%` }} />
                     </span>

@@ -11,6 +11,7 @@ import { isTouchDevice } from '../state/input'
 import { launchLander, useLaunchBusy } from '../state/launch'
 import { getLang, t, useLang } from '../i18n/lang'
 import { landableBody, landed, startLanding } from '../state/landing'
+import { useMission } from '../state/mission'
 import { toggleObserve } from '../state/observe'
 import { canStartEva, evaActive, startEva } from '../state/eva'
 
@@ -81,11 +82,22 @@ function LandPrompt() {
     const iv = window.setInterval(() => tick((n) => n + 1), 600)
     return () => window.clearInterval(iv)
   }, [])
+  // 任務の画面を開いているあいだは出さない。任務中の帯が下にあるときは、その上に出す
+  const missionPhase = useMission((m) => m.phase)
+  const [lift, setLift] = useState<number | null>(null)
+  useEffect(() => {
+    if (missionPhase !== 'active') return setLift(null)
+    const bar = document.querySelector('.mission-bar')
+    if (!bar) return setLift(null)
+    const top = bar.getBoundingClientRect().top
+    setLift(Math.round(window.innerHeight - top + 10))
+  })
   const id = landableBody()
   if (!id) return null
+  if (missionPhase === 'chapters' || missionPhase === 'list' || missionPhase === 'briefing' || missionPhase === 'debrief') return null
   const name = bodyInfo(id)?.name ?? id
   return (
-    <button className="land-prompt" onClick={() => startLanding(id)}>
+    <button className="land-prompt" style={lift !== null && !isTouchDevice() ? { bottom: Math.max(118, lift) } : undefined} onClick={() => startLanding(id)}>
       {t(`${name}の地表に降りる`, `Land on ${name}`)} <kbd>J</kbd>
     </button>
   )

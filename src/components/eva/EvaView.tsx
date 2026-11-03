@@ -392,7 +392,7 @@ function EvaPanel() {
         {fly && (
           <>
             <button className="secondary" onClick={() => useEva.setState({ view: view === 'chase' ? 'head' : 'chase' })}>
-              {view === 'chase' ? t('◉ ツムギの目', '◉ Tsumugi’s eyes') : t('◎ 後ろから', '◎ Chase view')}
+              {view === 'chase' ? t('◉ ツムギの目に切替', '◉ Switch to Tsumugi’s eyes') : t('◎ 後ろからの視点に切替', '◎ Switch to chase cam')}
             </button>
             <button className={`secondary${assist ? ' on' : ''}`} onClick={() => useEva.setState({ assist: !assist })}>
               {assist ? t('自動ブレーキ ON', 'Auto-brake ON') : t('自動ブレーキ OFF', 'Auto-brake OFF')}

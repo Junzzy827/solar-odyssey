@@ -69,6 +69,8 @@ async function loadDetail(url: string, m: NonNullable<Meta['detail']>): Promise<
 }
 
 const cache = new Map<string, Promise<Dem>>()
+/** 読み終わった地図（着陸の前に読んでおけば、地表の場面は最初から本物の地形で始まる） */
+const loaded = new Map<string, Dem>()
 
 export function loadDem(id: string): Promise<Dem> {
   let p = cache.get(id)
@@ -83,7 +85,9 @@ export function loadDem(id: string): Promise<Dem> {
           loadMap(`${base}_far.png`, meta.far),
           meta.detail && !lowMemory() ? loadDetail(`${base}_detail.png`, meta.detail) : Promise.resolve(null),
         ])
-        return { near, far, detail, attribution: meta.attribution }
+        const dem = { near, far, detail, attribution: meta.attribution }
+        loaded.set(id, dem)
+        return dem
       })
     p.catch(() => cache.delete(id))
     cache.set(id, p)
@@ -96,14 +100,15 @@ export function loadDem(id: string): Promise<Dem> {
  * 読み込みに失敗したら false（今までの作った地形のまま）
  */
 export function useDem(id: string): Dem | null | false {
-  const [dem, setDem] = useState<Dem | null | false>(null)
+  const now = () => (DEM_BODIES.has(id) ? (loaded.get(id) ?? null) : false)
+  const [dem, setDem] = useState<Dem | null | false>(now)
   useEffect(() => {
     if (!DEM_BODIES.has(id)) {
       setDem(false)
       return
     }
     let alive = true
-    setDem(null)
+    setDem(now())
     loadDem(id).then(
       (d) => {
         if (alive) setDem(d)

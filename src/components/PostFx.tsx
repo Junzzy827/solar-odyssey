@@ -1,7 +1,8 @@
-import { useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Bloom, EffectComposer, N8AO, Noise, ToneMapping, Vignette } from '@react-three/postprocessing'
-import { BlendFunction, ToneMappingMode } from 'postprocessing'
+import { BlendFunction, ShaderPass, ToneMappingMode } from 'postprocessing'
 import { QUALITY, useLevel } from '../state/quality'
 import { useStore } from '../state/store'
 import { shipScale } from '../state/zoom'
@@ -47,6 +48,33 @@ function patchBias(pass: AOPass) {
   fix()
 }
 
+/**
+ * 光のにじみの前に、描いた絵の壊れた画素（NaN・無限大）を黒に、明るすぎる画素を半精度で表せる明るさまでに直す。
+ * 半精度の描画先では、とても明るい光（エンジン・太陽など）が無限大になることがあり、NaN といっしょに
+ * 光のにじみの縮小・ぼかしで広がって、画面全体に黒い四角がちらつく（Firefox の報告。SF の世界・ヘロンの任務）
+ */
+export function makeNanGuard() {
+  const material = new THREE.ShaderMaterial({
+    name: 'NanGuard',
+    uniforms: { inputBuffer: { value: null } },
+    vertexShader: 'varying vec2 vUv; void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 1.0, 1.0); }',
+    fragmentShader: `
+      uniform sampler2D inputBuffer;
+      varying vec2 vUv;
+      void main() {
+        vec4 c = texture2D(inputBuffer, vUv);
+        bvec4 bad = bvec4(isnan(c.r) || isinf(c.r), isnan(c.g) || isinf(c.g), isnan(c.b) || isinf(c.b), isnan(c.a) || isinf(c.a));
+        if (any(bad)) c = vec4(0.0, 0.0, 0.0, 1.0);
+        gl_FragColor = clamp(c, vec4(0.0), vec4(60000.0));
+      }`,
+    blending: THREE.NoBlending,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false,
+  })
+  return new ShaderPass(material, 'inputBuffer')
+}
+
 export function PostFx() {
   const level = useLevel()
   const quality = QUALITY[level]
@@ -65,11 +93,17 @@ export function PostFx() {
     }
   })
 
+  // 後処理を作り直すたびに古いものは片付けられるので、組み合わせごとに作る
+  const composerKey = `${quality.msaa}-${fx.ao && quality.ao !== null}-${fx.bloom}-${fx.film}`
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const guard = useMemo(makeNanGuard, [composerKey])
+  useEffect(() => () => guard.dispose(), [guard])
+
   if (!active) return null
   const useAO = fx.ao && quality.ao !== null
   return (
     // 効果の組み合わせが変わったら作り直す（EffectComposer は途中で効果を足し引きすると順番が崩れることがある）
-    <EffectComposer key={`${quality.msaa}-${useAO}-${fx.bloom}-${fx.film}`} multisampling={quality.msaa} enableNormalPass={false}>
+    <EffectComposer key={composerKey} multisampling={quality.msaa} enableNormalPass={false}>
       {useAO ? (
         <N8AO
           ref={ao as never}
@@ -83,6 +117,7 @@ export function PostFx() {
       ) : (
         <></>
       )}
+      <primitive object={guard} />
       {fx.bloom ? <Bloom intensity={1.2} luminanceThreshold={1} luminanceSmoothing={0.2} mipmapBlur /> : <></>}
       {/* 後処理を通すとレンダラーのトーンマッピングが掛からないので、ここで掛ける（軽量の画質と同じ見え方に） */}
       <ToneMapping mode={postTone ? ToneMappingMode.ACES_FILMIC : ToneMappingMode.LINEAR} />
