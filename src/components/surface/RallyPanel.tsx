@@ -24,8 +24,8 @@ export function RallyStart({ compact = false }: { compact?: boolean }) {
       {!compact && (
         <p>
           {t(
-            '4台のローバーで、峡谷の谷底まで約2.4 kmを競走します。光の門を順にくぐってゴールへ。岩に乗ると車輪が浮いて遅くなり、曲がれません。ジャンプで飛び越えよう！',
-            'Four rovers race about 2.4 km down to the canyon floor. Pass the light gates in order to the finish. Driving onto rocks lifts the wheels: you slow down and can’t steer. Jump over them!',
+            '4台のローバーで、峡谷の谷底を約1.2 km競走します。光の門を順にくぐってゴールへ。岩に乗ると車輪が浮いて遅くなり、曲がれません。ジャンプで飛び越えよう！',
+            'Four rovers race about 1.2 km along the canyon floor. Pass the light gates in order to the finish. Driving onto rocks lifts the wheels: you slow down and can’t steer. Jump over them!',
           )}
         </p>
       )}

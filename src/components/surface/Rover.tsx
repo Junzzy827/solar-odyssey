@@ -10,7 +10,7 @@ import { lowMemory, useLevel } from '../../state/quality'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { useLanding } from '../../state/landing'
 import { isWide, roverRangeFor, wideNow } from './wideGround'
-import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverCtl, roverFocus, roverInput, roverDebug, roverNow, roverPose, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
+import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverCtl, roverFocus, roverInput, roverDebug, roverNow, roverPose, roverQuick, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
 import { PAINT_PARTS, paintUniforms, withPaint } from './paint'
 import { samplesFor, type RockSample } from '../../data/rockSamples'
 import { rockSpots } from '../../data/rockSpots'
@@ -132,7 +132,7 @@ export function applyPose(rig: Rig, p: Pose, squash = 0) {
  * terrain.height は本当の地形なので、格子の粗いところでは、描かれた地面と少しずれる。
  * 車輪が地面に浮いたり沈んだりしないよう、格子の 4 つの頂点から求める。
  */
-function meshHeight(terrain: Terrain, x: number, z: number) {
+export function meshHeight(terrain: Terrain, x: number, z: number) {
   // 広い天体：ローバーのまわりは 1〜2 m 間隔のタイルなので、本当の高さとほぼ同じ
   if (isWide(terrain)) return terrain.height(x, z)
   const RINGS = terrain.dem ? 190 : 150
@@ -163,7 +163,7 @@ function meshHeight(terrain: Terrain, x: number, z: number) {
  * 描いている地面の三角形の上の高さ（轍を地面にぴったり沿わせる）。広い天体のタイルは step 間隔の格子で、
  * 1 マスを (i+1, j)–(i, j+1) の対角線で 2 つの三角形に分けている（terrain.ts の tileJob）。それ以外は meshHeight
  */
-function drawnHeight(terrain: Terrain, x: number, z: number) {
+export function drawnHeight(terrain: Terrain, x: number, z: number) {
   const world = isWide(terrain) ? wideNow.world : null
   if (!world) return meshHeight(terrain, x, z)
   const step = world.opt.step
@@ -729,7 +729,17 @@ export function Rover({
 
     // ---- 動き ----
     let pose: Pose
-    if (phase === 'drop' || phase === 'deploy') {
+    if ((phase === 'drop' || phase === 'deploy') && roverQuick.on) {
+      // レースのスタート：降ろす場面を飛ばして、展開した姿で地面に置く（このあとレースがスタートの列へ運ぶ）
+      roverQuick.on = false
+      s.y = meshHeight(terrain, s.x, s.z)
+      s.vy = 0
+      s.dropped = true
+      s.grounded = true
+      s.arm = 0
+      pose = deployPose(1)
+      setRoverPhase('drive')
+    } else if (phase === 'drop' || phase === 'deploy') {
       pose = deployPose(phase === 'deploy' ? Math.min(1, T / DEPLOY_SEC) : 0)
       const ground = meshHeight(terrain, s.x, s.z)
       if (!s.dropped) {

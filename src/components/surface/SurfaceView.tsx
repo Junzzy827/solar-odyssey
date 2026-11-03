@@ -1309,7 +1309,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       </Suspense>
       {def.site === 'coprates' && (
         <Suspense fallback={null}>
-          <Rally terrain={terrain} prepare={prepareRover} dustColor={def.ground} />
+          <Rally terrain={terrain} prepare={prepareRover} dustColor={def.ground} sky={sky} />
         </Suspense>
       )}
       <Look terrain={terrain} />
@@ -1556,7 +1556,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             <button className="secondary" onClick={() => setView(view === 'eye' ? 'lander' : 'eye')}>
               {view === 'eye' ? t('着陸船を眺める', 'View the lander') : t('地面に立って見回す', 'Stand and look around')}
             </button>
-            <button className="secondary" onClick={launchRover}>
+            <button className="secondary" onClick={() => launchRover()}>
               {t('ローバーを出す', 'Deploy the rover')}
             </button>
             {def.id === 'mars' && !def.site && (

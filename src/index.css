@@ -5488,10 +5488,34 @@ body.touch .rally-actions kbd {
   font-size: 14px;
   cursor: pointer;
 }
+.rally-actions button {
+  white-space: nowrap;
+}
 .rally-actions button:disabled {
   opacity: 0.45;
 }
-.rover-map .m-course {
+/* スマホ縦：下のボタンが 2 段になるので、スタート欄は上に */
+@media (orientation: portrait) {
+  body.touch .rally-start,
+  body.touch .rally-start.compact {
+    top: calc(env(safe-area-inset-top) + 64px);
+    bottom: auto;
+  }
+  /* レース中：上は計器とメニューでいっぱいなので、タイムとボタンは操作ボタンのすぐ上に */
+  body.touch .rally-hud {
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom) + 104px);
+  }
+  body.touch .rally-actions {
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom) + 146px);
+  }
+  body.touch .rally-split {
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom) + 190px);
+  }
+}
+  .rover-map .m-course {
   fill: none;
   stroke: rgba(127, 227, 255, 0.55);
   stroke-width: 3;
