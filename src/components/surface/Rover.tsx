@@ -26,6 +26,15 @@ const D = Math.PI / 180
 // ---- 展開の動き（build_rover.py と同じ数字） -----------------------------------------------
 
 const WHEEL_R = 0.2
+/** アクセルオフの減速（m/s²）：どの星でも効く最低限の抵抗と、速さに比例するギアの抵抗（1/s） */
+const ROLL_BASE = 0.8
+const ROLL_GEAR = 0.35
+/** 地面の転がり抵抗係数。ふかふかの砂ほど車輪が沈んで大きい（舗装路はおよそ 0.015） */
+const SOIL_DRAG: Record<string, number> = {
+  moon: 0.2, mercury: 0.2, mars: 0.22, earth: 0.25, titan: 0.25, venus: 0.12, io: 0.15,
+  europa: 0.08, ganymede: 0.1, callisto: 0.12, enceladus: 0.07, triton: 0.09, pluto: 0.1,
+}
+const soilDrag = (id: string) => SOIL_DRAG[id] ?? 0.16
 /** 脚ごとの、関節から車軸へのベクトル（前後, 上下）と、たたんだときの角度 */
 const LEGS = {
   F: { vy: 0.3, vz: -0.32, fold: 122 * D },
@@ -729,7 +738,13 @@ export function Rover({
         if (busy) s.speed *= 1 - Math.min(1, dt * 8)
         if (th > 0) s.speed += (s.speed < 0 ? 14 : 7 * Math.max(0.15, 1 - s.speed / ROVER_TOP)) * dt
         else if (th < 0) s.speed -= (s.speed > 0 ? 14 : 4) * dt
-        else s.speed -= Math.sign(s.speed) * Math.min(Math.abs(s.speed), 2.2 * dt)
+        else {
+          // アクセルオフ：柔らかい砂・レゴリスに車輪が沈む転がり抵抗（重力に比例）と、
+          // 減速ギア付きモーターの逆回し抵抗（速さに比例）で、自然に止まる
+          const v = Math.abs(s.speed)
+          const decel = ROLL_BASE + soilDrag(def.id) * g + ROLL_GEAR * v
+          s.speed -= Math.sign(s.speed) * Math.min(v, decel * dt)
+        }
         // 坂：登りは遅く、下りは速く
         s.speed -= g * Math.sin(s.pitch) * dt * 0.6
         s.speed = THREE.MathUtils.clamp(s.speed, -6, ROVER_TOP)
