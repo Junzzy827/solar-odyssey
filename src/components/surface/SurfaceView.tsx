@@ -11,6 +11,7 @@ import { haloTexture } from '../ship/ShipModel'
 import { currentLevel, dprFor, lowMemory, useLevel } from '../../state/quality'
 import { ASCENT, DESCENT, FADE, goToSite, landingNow, skipDescent, startTakeoff, surfaceReady, useLanding } from '../../state/landing'
 import { goToRally, useRally } from '../../state/rally'
+import { TRACKS, trackForBody } from '../../data/rallyTracks'
 import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded, type Rock } from './terrain'
 import { WideWorld, isWide, wideNow, withHole } from './wideGround'
 import { named, t, useLang } from '../../i18n/lang'
@@ -1041,10 +1042,14 @@ function Look({ terrain }: { terrain: Terrain }) {
 
   const look = useMemo(() => new THREE.Vector3(), [])
   const target = useMemo(() => new THREE.Vector3(), [])
+  const prevPhase = useRef('')
   useFrame((state, dt) => {
     const s = st.current
     const { phase, since } = useLanding.getState()
     const T = landingNow() - since
+    // 着地した瞬間に空を見上げたままなら、地平線へ戻す（サイト移動の到着時など）
+    if (phase === 'surface' && prevPhase.current !== 'surface' && s.pitch > 0.5) s.pitch = 0.12
+    prevPhase.current = phase
     // ローバーを出しているあいだは、ローバーの側がカメラを動かす
     if (phase === 'surface' && useRover.getState().phase !== 'none') return
     // 降下中と離陸中は、着陸船を目で追う
@@ -1342,9 +1347,9 @@ function Scene({ def }: { def: SurfaceDef }) {
       <Suspense fallback={null}>
         <Rover terrain={terrain} dustColor={def.ground} sky={sky} landerYaw={LANDER_YAW} prepare={prepareRover} />
       </Suspense>
-      {def.site === 'coprates' && (
+      {def.site && TRACKS[def.site] && (
         <Suspense fallback={null}>
-          <Rally terrain={terrain} prepare={prepareRover} dustColor={def.ground} sky={sky} />
+          <Rally key={def.site} track={def.site} terrain={terrain} prepare={prepareRover} dustColor={def.ground} sky={sky} />
         </Suspense>
       )}
       <Look terrain={terrain} />
@@ -1443,7 +1448,7 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
       </div>
       {drive && <RoverHud />}
       {site && <RallyPanel />}
-      {drive && site && !racing && <RallyStart compact />}
+      {drive && site && TRACKS[site] && !racing && <RallyStart track={site} compact />}
       {drive && edge && !racing && (
         <div className="rover-edge">
           {t('これ以上は遠くへ行けません', "Can't go any farther")}
@@ -1503,9 +1508,9 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
         <button className="secondary" onClick={recallRover}>
           {t('回収', 'Recall')}
         </button>
-        {bodyId === 'mars' && !site && (
-          <button className="secondary rally-site" onClick={goToRally} title={t('マリネリス峡谷のレース場へ。着いたらすぐローバーで走れます', 'To the Valles Marineris race track, rover ready to go')}>
-            🏁 {t('峡谷レースへ', 'Canyon race')}
+        {!site && trackForBody(bodyId) && (
+          <button className="secondary rally-site" onClick={() => goToRally(trackForBody(bodyId)!)} title={t('レース場へ。着いたらすぐローバーで走れます', 'To the race track, rover ready to go')}>
+            🏁 {t(`${TRACKS[trackForBody(bodyId)!].button[0]}へ`, TRACKS[trackForBody(bodyId)!].button[1])}
           </button>
         )}
         <button className="primary" onClick={startTakeoff}>
@@ -1583,7 +1588,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             <RoverPanel bodyId={def.id} site={def.site} />
           ) : (
           <>
-          {def.site === 'coprates' && <RallyStart />}
+          {def.site && TRACKS[def.site] && <RallyStart track={def.site} />}
           <div className="surface-hint">
             {view === 'eye'
               ? t('ドラッグで見回す・ホイール／2本指でズーム', 'Drag to look around · scroll or pinch to zoom')
@@ -1599,14 +1604,14 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             <button className="secondary" onClick={() => launchRover()}>
               {t('ローバーを出す', 'Deploy the rover')}
             </button>
-            {def.id === 'mars' && !def.site && (
-              <button className="secondary rally-site" onClick={() => goToSite('coprates')}>
-                🏁 {t('峡谷レース場へ', 'To the canyon race')}
+            {!def.site && trackForBody(def.id) && (
+              <button className="secondary rally-site" onClick={() => goToSite(trackForBody(def.id))}>
+                🏁 {t(`${TRACKS[trackForBody(def.id)!].button[0]}場へ`, `To the ${TRACKS[trackForBody(def.id)!].button[1].toLowerCase()}`)}
               </button>
             )}
-            {def.site && (
+            {def.site && TRACKS[def.site] && (
               <button className="secondary" onClick={() => goToSite(null)}>
-                {t('ゲール・クレーターへ', 'To Gale crater')}
+                {t(TRACKS[def.site].home[0], TRACKS[def.site].home[1])}
               </button>
             )}
             <button className="primary" onClick={startTakeoff}>

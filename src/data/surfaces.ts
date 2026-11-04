@@ -264,6 +264,15 @@ export const SITES: Record<string, { body: string; dem: string; name: [string, s
       'The floor of Coprates Chasma in Valles Marineris. The canyon is about 4,000 km long and up to about 7 km deep. The wall rising to the south climbs 8 km above you.',
     ],
   },
+  taurus: {
+    body: 'moon',
+    dem: 'moon_taurus',
+    name: ['タウルス・リットロウ谷', 'Taurus-Littrow valley'],
+    note: [
+      'アポロ17号（1972年）が降りた谷。両側に高さ2 kmをこえる山（北マシフ・南マシフ）がそびえます。人が月を歩いた最後の場所で、宇宙飛行士は月面車でこの谷を走りました。',
+      'The valley where Apollo 17 landed in 1972, between mountains (the North and South Massifs) rising over 2 km. It is the last place people walked on the Moon, and the astronauts drove their lunar rover through this valley.',
+    ],
+  },
 }
 
 const siteCache = new Map<string, SurfaceDef>()

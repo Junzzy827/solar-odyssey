@@ -9,7 +9,7 @@ import { Sway } from './roverSway'
 import type { SkyNow } from './skyNow'
 import { PAINT_PARTS, paintUniforms, withPaint } from './paint'
 import { windFor } from './landerFx'
-import { RALLY_LINE } from '../../data/rallyCourse'
+import { TRACKS } from '../../data/rallyTracks'
 import { COUNT_SEC, RALLY_COLORS, loadBest, rallyArrive, rallyNow, saveBest, setRallyPhase, useRally, type RallyEntry } from '../../state/rally'
 import { launchRover, roverCtl, roverInput, roverPose, useRover } from '../../state/rover'
 import { useLanding } from '../../state/landing'
@@ -44,8 +44,8 @@ export type Course = {
   curve: number[]
 }
 
-export function buildCourse(): Course {
-  const pts = RALLY_LINE.map(([x, z]) => new THREE.Vector2(x, z))
+export function buildCourse(line: [number, number][]): Course {
+  const pts = line.map(([x, z]) => new THREE.Vector2(x, z))
   const len = [0]
   for (let i = 1; i < pts.length; i++) len.push(len[i - 1] + pts[i].distanceTo(pts[i - 1]))
   const total = len[len.length - 1]
@@ -139,6 +139,9 @@ const TRAITS = [
   { top: 15.9, lat: 4.3, look: 18, amp: 5.0, wave: 120, trip: 30, hop: 1 }, // 黄：あちこち走り、よく跳んで岩をよける
   { top: 15.4, lat: 4.8, look: 34, amp: 2.5, wave: 200, trip: 14, hop: 0 }, // 緑：ずっと先をねらって、カーブの内側をショートカット
 ]
+/** 追いかけっこ（月）：逃げるローバーの速さ（ふつうのレースに対して）と、タッチしたことにする距離（m） */
+const CHASE_PACE = 0.86
+const CHASE_TOUCH = 3.2
 /** コンピューター全体の速さ（ふつう）。自分の最高速は 16.7 m/s */
 const AI_SKILL = 0.93
 
@@ -173,6 +176,8 @@ type Bot = {
   tripT: number
   tripping: number
   finish: number | null
+  /** 追いかけっこ（月）：つかまえられた */
+  caught: boolean
   /** 向きを変える速さ（rad/s、左へ +）と、横すべりで車体の前が曲がる側へ向くずれ（rad） */
   turn: number
   drift: number
@@ -207,12 +212,13 @@ function glowTexture() {
   return glowTex
 }
 
-export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; prepare: (m: THREE.MeshStandardMaterial) => THREE.MeshStandardMaterial; dustColor: string; sky: SkyNow }) {
+export function Rally({ track, terrain, prepare, dustColor, sky }: { track: string; terrain: Terrain; prepare: (m: THREE.MeshStandardMaterial) => THREE.MeshStandardMaterial; dustColor: string; sky: SkyNow }) {
   const phase = useRally((r) => r.phase)
   const color = useRally((r) => r.color)
   const roverPhase = useRover((r) => r.phase)
   const level = useLevel()
-  const course = useMemo(() => buildCourse(), [])
+  const course = useMemo(() => buildCourse(TRACKS[track].line), [track])
+  const chase = !!TRACKS[track].chase
   const g = 9.8 * terrain.def.gravity
 
   // 自分のローバーの色：このレース場では、いつも選んだ色に塗る
@@ -406,7 +412,7 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
       list.push({
         color: c, slot, model, rig, paint, tracks, glow, pool, s: GRID_S, off: GRID_LANES[slot], v: 0,
         x: 0, z: 0, y: 0, vy: 0, heading: 0, pitch: 0, roll: 0, spin: 0, steer: 0, air: false, hopT: 3 + slot,
-        form: 1, phase: 0, tripT: 10, tripping: 0, finish: null, turn: 0, drift: 0, squash: 0, squashV: 0, sway: new Sway(),
+        form: 1, phase: 0, tripT: 10, tripping: 0, finish: null, caught: false, turn: 0, drift: 0, squash: 0, squashV: 0, sway: new Sway(),
       })
       slot++
     }
@@ -425,10 +431,12 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
 
   const placeBots = () => {
     for (const b of bots.list) {
-      const p = gridSlot(course, b.slot)
+      // 追いかけっこ：コンピューターは先にスタートして逃げる（60 m・130 m・200 m 先から）
+      const ahead = chase ? 60 + 70 * bots.list.indexOf(b) : 0
+      const p = ahead ? (() => { const q = pointAt(course, GRID_S + ahead); return { x: q.x, z: q.z, heading: Math.atan2(-q.dx, -q.dz) } })() : gridSlot(course, b.slot)
       const tr = TRAITS[b.color]
       Object.assign(b, {
-        s: GRID_S, off: GRID_LANES[b.slot], v: 0, x: p.x, z: p.z, heading: p.heading, vy: 0, air: false, finish: null, hopT: 3 + b.slot * 1.7,
+        s: GRID_S + ahead, off: ahead ? 0 : GRID_LANES[b.slot], v: 0, x: p.x, z: p.z, heading: p.heading, vy: 0, air: false, finish: null, caught: false, hopT: 3 + b.slot * 1.7,
         // 毎回ちがうレースに：調子・走る位置の波・つまずくまでの時間
         form: 0.95 + Math.random() * 0.09,
         phase: Math.random() * Math.PI * 2,
@@ -494,9 +502,9 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
       const fz = -Math.cos(b.heading)
       if (moving) {
         let target = 0
-        if (b.finish === null) {
+        if (b.finish === null && !b.caught) {
           // 先のカーブ（40 m 先まで）を見て、出せる速さを決める
-          target = tr.top * k * b.form
+          target = tr.top * k * b.form * (chase ? CHASE_PACE : 1)
           for (let a = 0; a <= 40; a += 10) {
             const curv = Math.abs(pointAt(course, b.s + a).k)
             if (curv > 1e-4) target = Math.min(target, Math.sqrt((tr.lat * k) / curv) + a * 0.08)
@@ -507,7 +515,11 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
           target *= 1 - THREE.MathUtils.clamp(((hB - hA) / 10) * 1.1, -0.08, 0.3)
           // 自分と離れすぎない（ゆるく。順位が入れかわる余地を残す）
           const gap = b.s - r.prog
-          if (gap > 120) target *= 0.95
+          if (chase) {
+            // 追いかけっこ：近づかれると少し速く逃げ、離れすぎると少し待つ
+            if (gap < 25 && gap > -5) target *= 1.1
+            else if (gap > 220) target *= 0.9
+          } else if (gap > 120) target *= 0.95
           else if (gap < -120) target *= 1.05
           // 岩につまずく：しばらく遅くなってふらつく（ジャンプ好きは跳んでよける）
           b.tripT -= dt
@@ -536,7 +548,13 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
               b.hopT = 4 + Math.random() * 4
             }
           }
-          if (b.s >= last) b.finish = t
+          if (b.s >= last) {
+            b.finish = t
+            if (chase) {
+              const c = useRally.getState().chase
+              useRally.setState({ chase: { caught: c?.caught ?? [], escaped: [...(c?.escaped ?? []), b.color], at: c?.at ?? 0, last: c?.last ?? -1 } })
+            }
+          }
         }
         if (b.air) target = b.v
         const acc = target > b.v ? 3.6 * Math.max(0.2, 1 - b.v / 18) * 2 : -5
@@ -583,6 +601,12 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
       const ex = me.x - b.x
       const ez = me.z - b.z
       const d = Math.hypot(ex, ez)
+      // 追いかけっこ：タッチしたら、つかまえた（そのローバーは止まる）
+      if (chase && !b.caught && b.finish === null && !counting && moving && d < CHASE_TOUCH && Math.abs(me.y - b.y) < 2) {
+        b.caught = true
+        const c = useRally.getState().chase
+        useRally.setState({ chase: { caught: [...(c?.caught ?? []), b.color], escaped: c?.escaped ?? [], at: rallyNow(), last: b.color } })
+      }
       if (d < 1.9 && d > 1e-3 && !counting) {
         const o = (1.9 - d) / d
         roverCtl.push.x += ex * o * 0.6
