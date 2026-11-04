@@ -1,7 +1,8 @@
 # Texts and languages (`src/i18n/`)
 
-Every text the player sees lives in this folder, in Japanese and in English. Japanese is the master. English may be
-missing for any text: the build still passes, and that text is shown in Japanese in English mode.
+Almost every text the player sees lives in this folder, in Japanese and in English (the rest is listed under "Not here
+yet", at the end). Japanese is the master. English may be missing for any text: the build still passes, and that text
+is shown in Japanese in English mode.
 
 ## Files
 
@@ -41,8 +42,9 @@ share one file, keyed by body id.
 ## Adding a text
 
 1. Write the Japanese in the screen's `.ja.ts`, under a key that says what the text is.
-2. Write the English under the same key in the `.en.ts`, if you have it. A key in `.en.ts` that `.ja.ts` does not have
-   (a typo) is a type error; a key left out is not.
+2. Write the English under the same key in the `.en.ts`, if you have it. In a screen's files, a key in `.en.ts` that
+   `.ja.ts` does not have (a typo) is a type error; a key left out is not. The data records' files are keyed by
+   record id, `Record<string, …>` like the missions, so there the compiler does not check the ids.
 3. Read it with `ui().<screen>.<key>`.
 
 A new screen gets a new pair of files, added to `ja.ts` and `en.ts`. A text with a value is a function in both files
@@ -55,7 +57,13 @@ With `#debug` in the address, the console lists every text that has no English y
 
 ## Not here yet
 
-Some texts are still written in the code, because the code builds them from other texts: the stamp book's groups and
-titles (`data/stamps.ts`), the quiz question templates (`state/quiz.ts`), the surface notes (`data/surfaces.ts`), the
-rally names and tracks (`state/rally.ts`, `data/rallyTracks.ts`), the time bar's words (`TimeBar.tsx`) and the rock
-groups (`data/rockCollection.ts`). `t('日本語', 'English')` in `lang.ts` serves them until they move.
+Some texts are still written in the code, because the code builds them from other texts or picks them by a value: the
+stamp book's groups and titles (`data/stamps.ts`), the quiz question templates (`state/quiz.ts`), the surface notes
+(`data/surfaces.ts`), the rally names and tracks (`state/rally.ts`, `data/rallyTracks.ts`), the time bar's words
+(`TimeBar.tsx`), the rock groups (`data/rockCollection.ts`), the rocks' composition labels (`data/rockSamples.ts`) and
+the compass words of the Apollo 17 book (`HistoricBook.tsx`). Until they move, the code picks the language itself: with
+`t('日本語', 'English')` from `lang.ts`, or, in the quiz, through the question's `en` part.
+
+Outside on purpose: words painted into textures (the ship's name on the hull is read from the English file), the
+language picker and the loading screen, which show both languages at once, the language button, which names the other
+language, and developer pages such as `#terrain-lab`.
