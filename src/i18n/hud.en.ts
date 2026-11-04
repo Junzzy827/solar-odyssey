@@ -36,4 +36,5 @@ export const hudEn: Translation<typeof hudJa> = {
   lookThrough: (scopeNear: string) => `Look through ${scopeNear}`,
   warpFactor: (warpFactor: number) => `Warp ${warpFactor}`,
   destination: (name: string) => `To ${name}`,
+  bigNumber: (n: number) => (n >= 1e9 ? `${Number((n / 1e9).toPrecision(2))} billion` : n >= 1e6 ? `${Number((n / 1e6).toPrecision(2))} million` : n >= 1e4 ? (Math.round(n / 1e4) * 1e4).toLocaleString('en-US') : null),
 }

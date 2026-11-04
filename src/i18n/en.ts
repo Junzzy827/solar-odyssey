@@ -12,6 +12,7 @@ import { contextLostEn } from './contextLost.en'
 import { cubeEn } from './cube.en'
 import { deepSpaceEn } from './deepSpace.en'
 import { eclipsePanelEn } from './eclipsePanel.en'
+import { ephemerisEn } from './ephemeris.en'
 import { evaEn } from './eva.en'
 import { evaViewEn } from './evaView.en'
 import { exoplanetEn } from './exoplanet.en'
@@ -154,6 +155,7 @@ export const en: Translation<typeof ja> = {
   cube: cubeEn,
   deepSpace: deepSpaceEn,
   eclipsePanel: eclipsePanelEn,
+  ephemeris: ephemerisEn,
   eva: evaEn,
   evaView: evaViewEn,
   exoplanet: exoplanetEn,

@@ -10,6 +10,7 @@ import { contextLostJa } from './contextLost.ja'
 import { cubeJa } from './cube.ja'
 import { deepSpaceJa } from './deepSpace.ja'
 import { eclipsePanelJa } from './eclipsePanel.ja'
+import { ephemerisJa } from './ephemeris.ja'
 import { evaJa } from './eva.ja'
 import { evaViewJa } from './evaView.ja'
 import { exoplanetJa } from './exoplanet.ja'
@@ -152,6 +153,7 @@ export const ja = {
   cube: cubeJa,
   deepSpace: deepSpaceJa,
   eclipsePanel: eclipsePanelJa,
+  ephemeris: ephemerisJa,
   eva: evaJa,
   evaView: evaViewJa,
   exoplanet: exoplanetJa,
