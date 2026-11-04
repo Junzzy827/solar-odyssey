@@ -41,7 +41,7 @@ export function RallyStart({ compact = false }: { compact?: boolean }) {
             title={colorName(i)}
           >
             <span className="dot" />
-            {colorName(i)}
+            <span className="nm">{colorName(i)}</span>
           </button>
         ))}
       </div>
