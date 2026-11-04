@@ -1201,7 +1201,7 @@ export function Rover({
       w.rotation.y = k[0] === 'F' ? -s.steer * 0.35 : k[0] === 'R' ? s.steer * 0.35 : 0
     }
     roverFocus.set(s.x, s.y, s.z)
-    Object.assign(roverPose, { x: s.x, y: s.y, z: s.z, heading: s.heading, speed: s.speed, grounded: s.grounded })
+    Object.assign(roverPose, { x: s.x, y: s.y, z: s.z, heading: s.heading, speed: s.speed, grounded: s.grounded, pitch: s.pitch, roll: s.roll })
     const paint = built.paint
     paint.uPaintOn.value = roverCtl.paint ? 1 : 0
     if (roverCtl.paint) paint.uPaint.value.set(roverCtl.paint)

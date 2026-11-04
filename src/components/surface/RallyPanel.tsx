@@ -4,6 +4,7 @@ import { COUNT_SEC, RALLY_COLORS, loadBest, quitRally, rallyNow, setRallyColor, 
 import { roverInput } from '../../state/rover'
 import { TRACKS } from '../../data/rallyTracks'
 import { useLanding } from '../../state/landing'
+import { RallyHiscore } from './RallyHiscore'
 
 // 峡谷レースの画面の表示：色えらびとスタート、3・2・1、タイム・順位・次の門、門の区間タイム、結果。
 
@@ -45,6 +46,7 @@ export function RallyStart({ track, compact = false }: { track: string; compact?
           </button>
         ))}
       </div>
+      {!compact && <RallyHiscore track={track} top={3} />}
       <div className="rally-row">
         {best && <span className="rally-best">{t('自己ベスト', 'Best')} {fmtTime(best.time)}</span>}
         <button className="primary rally-go" onClick={startRally}>
@@ -179,6 +181,7 @@ export function RallyPanel() {
             ))}
           </ol>
           )}
+          {track && <RallyHiscore track={track} top={10} mark={result.at} />}
           <div className="rally-row">
             <button className="secondary" onClick={quitRally}>
               {t('自由に走る', 'Free drive')}

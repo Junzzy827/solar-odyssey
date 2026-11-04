@@ -23,6 +23,7 @@ import { TimeBar } from './TimeBar'
 import { groundMaterial, withRockDetail } from './groundMaterial'
 import { useDem } from './dem'
 import { Rally } from './Rally'
+import { RallyGhost } from './RallyGhost'
 import { RallyPanel, RallyStart } from './RallyPanel'
 import { FAR_SHRINK, farTerrainGeometry } from './farTerrain'
 import { STORM_HAZE, STORM_KIND, WEATHER_BODIES, WEATHER_FX, devilTarget, stepWeather, useWeather, stormTarget, weatherNow } from './weather'
@@ -1350,6 +1351,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       {def.site && TRACKS[def.site] && (
         <Suspense fallback={null}>
           <Rally key={def.site} track={def.site} terrain={terrain} prepare={prepareRover} dustColor={def.ground} sky={sky} />
+          <RallyGhost key={def.site + ':ghost'} track={def.site} />
         </Suspense>
       )}
       <Look terrain={terrain} />
