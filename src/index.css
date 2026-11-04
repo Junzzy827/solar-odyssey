@@ -3761,6 +3761,41 @@ body.touch .surface-time .day-graph { width: 100%; }
   color: rgba(255, 200, 120, 0.3);
 }
 
+.rr-airrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rr-fuel {
+  position: relative;
+  width: 72px;
+  height: 14px;
+  margin-top: 2px;
+  border-radius: 7px;
+  border: 1px solid rgba(160, 220, 255, 0.4);
+  overflow: hidden;
+}
+.rr-fuel i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(127, 227, 255, 0.55);
+  transition: width 0.1s linear;
+}
+.rr-fuel.low i {
+  background: rgba(255, 120, 90, 0.7);
+}
+.rr-fuel span {
+  position: relative;
+  z-index: 1;
+  display: block;
+  font-size: 9px;
+  line-height: 12px;
+  letter-spacing: 1px;
+  text-align: center;
+  color: #eaf8ff;
+}
 .rr-air.on {
   color: #1a1206;
   background: #ffc46b;
@@ -5508,6 +5543,40 @@ body.touch .rally-actions kbd {
 }
 .rally-actions button {
   white-space: nowrap;
+}
+.rally-count.chase-caught {
+  font-size: 40px;
+  color: #fff;
+  text-shadow: 0 0 16px var(--c), 0 0 4px var(--c);
+  white-space: nowrap;
+}
+body.touch .rally-count.chase-caught {
+  font-size: 24px;
+}
+.rally-chase-result {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+.rally-chase-result li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  opacity: 0.6;
+}
+.rally-chase-result li.got {
+  opacity: 1;
+  font-weight: 700;
+}
+.rally-chase-result .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c);
+}
+.rally-chase-result .t {
+  margin-left: auto;
 }
 .rally-actions button:disabled {
   opacity: 0.45;

@@ -30,6 +30,11 @@ const D = Math.PI / 180
 const WHEEL_R = 0.2
 /** アクセルオフの減速（m/s²）：どの星でも効く最低限の抵抗と、速さに比例するギアの抵抗（1/s） */
 const ROLL_BASE = 0.8
+/** 空中の姿勢制御：横への加速度（m/s²）、向きを変える速さ（rad/s）、下へ押す加速度の下限（m/s²）、噴射剤が持つ時間（秒） */
+const AIR_SIDE = 5
+const AIR_YAW = 0.8
+const AIR_DOWN_MIN = 6
+const AIR_FUEL_SEC = 2.5
 const ROLL_GEAR = 0.35
 /** 地面の転がり抵抗係数。ふかふかの砂ほど車輪が沈んで大きい（舗装路はおよそ 0.015） */
 const SOIL_DRAG: Record<string, number> = {
@@ -497,6 +502,12 @@ type Drive = {
   bumpT: number
   /** 岩に乗り上げている高さ（m）。0 は地面の上 */
   onRock: number
+  /** 空中の噴射剤（0〜1）。地面にいると回復する */
+  fuel: number
+  /** 噴射している強さ（0〜1、見た目のガス用）と、左右（-1 左へ、+1 右へ）・下向き */
+  thrust: number
+  thrustSide: number
+  thrustDown: number
   /** 横すべりの速さ（m/s、右へ +） */
   slip: number
   /** タイヤが車体を横へ押す加速度（m/s²、右へ +）。車体の傾きに使う */
@@ -602,6 +613,9 @@ export function Rover({
     [dustColor, level, hasAir, def],
   )
   useEffect(() => () => dust.dispose(), [dust])
+  // 姿勢制御の噴射のガス（白く、すぐ消える。重力も風も受けない）
+  const gas = useMemo(() => new WheelDust(level === 'low' ? 80 : 160, new THREE.Color('#e8eef5'), false, 0, new THREE.Vector3()), [level])
+  useEffect(() => () => gas.dispose(), [gas])
   // 轍：この着陸のあいだ残す（回収して出しなおしても、前に走った跡はそのまま）
   const tracks = useMemo(() => new WheelTracks(def.id, level, (x, z) => drawnHeight(terrain, x, z)), [def.id, level, terrain])
   useEffect(() => () => tracks.dispose(), [tracks])
@@ -757,6 +771,10 @@ export function Rover({
       bumpRock: -1,
       bumpT: 9,
       onRock: 0,
+      fuel: 1,
+      thrust: 0,
+      thrustSide: 0,
+      thrustDown: 0,
       slip: 0,
       aLat: 0,
       sway: new Sway(),
@@ -868,7 +886,28 @@ export function Rover({
           s.squashV = -0.4
         }
       }
-      else s.aLat = 0
+      else {
+        s.aLat = 0
+        // 空中の姿勢制御：小さな噴射で、◀▶ は横へ動きながら向きを変え、▼ は下へ押して早く着地する。
+        // 噴射剤は 1 回のジャンプで 2.5 秒ぶん。地面にいると回復する（押しっぱなしで飛び続けられない）
+        const side = busy ? 0 : inp.steer
+        const down = !busy && inp.throttle < 0 ? 1 : 0
+        const on = s.fuel > 0 && (side !== 0 || down > 0)
+        s.thrustSide = on ? side : 0
+        s.thrustDown = on ? down : 0
+        if (on) {
+          s.slip += side * AIR_SIDE * dt
+          s.heading -= side * AIR_YAW * dt
+          s.vy -= down * Math.max(AIR_DOWN_MIN, g * 2) * dt
+          s.fuel = Math.max(0, s.fuel - dt / AIR_FUEL_SEC)
+        }
+      }
+      if (s.grounded) s.fuel = Math.min(1, s.fuel + dt * 0.6)
+      s.thrust += ((s.thrustSide !== 0 || s.thrustDown ? 1 : 0) - s.thrust) * Math.min(1, dt * 12)
+      if (s.grounded) {
+        s.thrustSide = 0
+        s.thrustDown = 0
+      }
       inp.jump = false
       const tanP = Math.tan(s.pitch)
       const tanR = Math.tan(s.roll)
@@ -1117,6 +1156,7 @@ export function Rover({
             roll: deg(s.roll),
             dist: Math.round(Math.hypot(s.x - LANDER_POS.x, s.z - LANDER_POS.y)),
             air: !s.grounded,
+            fuel: Math.round(s.fuel * 20) / 20,
             x: Math.round(s.x * 10) / 10,
             z: Math.round(s.z * 10) / 10,
           },
@@ -1216,11 +1256,30 @@ export function Rover({
     const cam = state.camera as THREE.PerspectiveCamera
     dust.material.uniforms.uScale.value = (state.size.height * state.viewport.dpr) / (2 * Math.tan((cam.fov * Math.PI) / 360))
     dust.update(dt)
+    gas.material.uniforms.uScale.value = dust.material.uniforms.uScale.value
+    // 噴射のガス：横へ動くときは反対の横から、下へ押すときは車体の上から噴き出す
+    if (s.thrust > 0.05) {
+      const n = Math.floor(dt * 60 * s.thrust + Math.random())
+      const sx = -fwd.z
+      const sz = fwd.x
+      for (let i = 0; i < n; i++) {
+        const j = () => (Math.random() - 0.5) * 0.6
+        if (s.thrustSide) {
+          const k = -s.thrustSide
+          gas.puff(s.x + sx * k * 0.75, s.y + 0.7, s.z + sz * k * 0.75, sx * k * 6 + j(), j(), sz * k * 6 + j(), 0.25)
+        }
+        if (s.thrustDown) gas.puff(s.x + j(), s.y + 1.1, s.z + j(), j() * 2, 6, j() * 2, 0.3)
+      }
+    }
+    gas.update(dt)
     tracks.update(dt, sky.sunDir)
     const lit = Math.max(0.15, Math.min(1, sky.sunDir.y * 3 + 0.2))
     dust.material.uniforms.uColor.value.copy(dustBase).multiplyScalar(lit * 0.95)
     dust.material.uniforms.uShadow.value.copy(dustBase).multiplyScalar(lit * 0.4 + 0.04)
     dust.material.uniforms.uSunView.value.copy(sky.sunDir).transformDirection(cam.matrixWorldInverse)
+    gas.material.uniforms.uColor.value.setRGB(0.9, 0.93, 0.97).multiplyScalar(lit)
+    gas.material.uniforms.uShadow.value.setRGB(0.5, 0.53, 0.58).multiplyScalar(lit)
+    gas.material.uniforms.uSunView.value.copy(dust.material.uniforms.uSunView.value)
 
     // ---- カメラ ----
     const lphase = useLanding.getState().phase
@@ -1297,6 +1356,7 @@ export function Rover({
       <spotLight ref={farLight} color="#f4f6ff" angle={0.34} penumbra={0.5} distance={150} decay={0} intensity={0} />
       <primitive object={tracks.mesh} />
       <primitive object={dust.points} />
+      <primitive object={gas.points} />
       {sites.map((site, i) => (
         <group key={i} position={[site.x, site.y, site.z]}>
           <mesh geometry={rocks.items[i].geo} material={rocks.items[i].mat} scale={[site.size, site.size * 0.7, site.size * 0.9]} rotation={[0, site.rot, 0]} castShadow receiveShadow />

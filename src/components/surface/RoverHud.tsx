@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { RALLY_COLORS, useRally } from '../../state/rally'
 import { buildCourse } from './Rally'
+import { TRACKS } from '../../data/rallyTracks'
 import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
@@ -123,7 +124,13 @@ export function RoverHud() {
             <span className="rr-v small">{t('完了', 'done')}</span>
           )}
         </div>
-        <div className={`rr-air${hud.air ? ' on' : ''}`}>{t('空中', 'AIR')}</div>
+        <div className="rr-airrow">
+          <div className={`rr-air${hud.air ? ' on' : ''}`}>{t('空中', 'AIR')}</div>
+          <div className={`rr-fuel${hud.fuel < 0.25 ? ' low' : ''}`} title={t('姿勢制御の噴射剤（空中で◀▶・▼）', 'Thruster propellant (◀▶ and ▼ in the air)')}>
+            <span>{t('噴射', 'RCS')}</span>
+            <i style={{ width: `${Math.round(hud.fuel * 100)}%` }} />
+          </div>
+        </div>
       </div>
       <div className="rover-badge">ORV-7</div>
     </div>
@@ -173,7 +180,10 @@ export function RoverMap() {
   // 峡谷レース場：コース・門・ほかのローバー
   const gate = useRally((r) => r.gate)
   const bots = useRally((r) => (r.phase === 'off' ? NO_BOTS : r.bots))
-  const course = useMemo(() => (terrain?.def.site === 'coprates' ? buildCourse() : null), [terrain])
+  const course = useMemo(() => {
+    const tr = terrain?.def.site ? TRACKS[terrain.def.site] : null
+    return tr ? buildCourse(tr.line) : null
+  }, [terrain])
   const pois = wide ? (terrain?.pois ?? []) : []
   /** 見どころに残っている、まだ採っていない岩の数 */
   const left = (id: string) => sites.filter((s, i) => s.poi === id && !taken.includes(i)).length

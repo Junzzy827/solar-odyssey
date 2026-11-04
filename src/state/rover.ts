@@ -20,7 +20,7 @@ type RoverState = {
   /** 画面に出す速さ（km/h）。毎フレームではなく、ときどき書き換える */
   kmh: number
   /** 計器の表示（ときどき書き換える）：向き（度、0〜359）、前後・左右の傾き（度）、着陸船からの距離（m）、宙に浮いているか */
-  hud: { hdg: number; pitch: number; roll: number; dist: number; air: boolean; x: number; z: number }
+  hud: { hdg: number; pitch: number; roll: number; dist: number; air: boolean; fuel: number; x: number; z: number }
   /** 走れる範囲（正方形の半分の幅、m）。天体で変わる */
   range: number
   /** 走れる範囲の端に当たっている（メッセージを出す） */
@@ -48,7 +48,7 @@ export const useRover = create<RoverState>((set) => ({
   since: 0,
   view: 'chase',
   kmh: 0,
-  hud: { hdg: 0, pitch: 0, roll: 0, dist: 0, air: false, x: 0, z: 0 },
+  hud: { hdg: 0, pitch: 0, roll: 0, dist: 0, air: false, fuel: 1, x: 0, z: 0 },
   edge: false,
   range: ROVER_RANGE,
   sites: [],
