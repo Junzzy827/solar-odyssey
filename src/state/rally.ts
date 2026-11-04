@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { launchRover, roverActive } from './rover'
+import { goToSite, useLanding } from './landing'
 
 // 火星の峡谷レース（マリネリス峡谷のレース場）：色違いの ORV-7 が 4 台で、光の門を順にくぐってゴールを目指す。
 // 自分の 1 台のほかの 3 台はコンピューター（それぞれ性格がちがう）。
@@ -119,4 +120,14 @@ export function quitRally() {
 export const rallyRacing = () => {
   const p = useRally.getState().phase
   return p === 'count' || p === 'run'
+}
+
+/** レース場へ着いたら、ローバーを出した状態にする（ローバーを運転中に「峡谷レースへ」を押したとき） */
+export const rallyArrive = { rover: false }
+
+/** ローバーを運転しているところから、峡谷のレース場へ。着いたらすぐローバーで走れる（色えらびとスタートは画面に出る） */
+export function goToRally() {
+  if (useLanding.getState().phase !== 'surface') return
+  rallyArrive.rover = true
+  goToSite('coprates')
 }

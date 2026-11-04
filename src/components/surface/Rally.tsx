@@ -10,8 +10,9 @@ import type { SkyNow } from './skyNow'
 import { PAINT_PARTS, paintUniforms, withPaint } from './paint'
 import { windFor } from './landerFx'
 import { RALLY_LINE } from '../../data/rallyCourse'
-import { COUNT_SEC, RALLY_COLORS, loadBest, rallyNow, saveBest, setRallyPhase, useRally, type RallyEntry } from '../../state/rally'
-import { roverCtl, roverInput, roverPose, useRover } from '../../state/rover'
+import { COUNT_SEC, RALLY_COLORS, loadBest, rallyArrive, rallyNow, saveBest, setRallyPhase, useRally, type RallyEntry } from '../../state/rally'
+import { launchRover, roverCtl, roverInput, roverPose, useRover } from '../../state/rover'
+import { useLanding } from '../../state/landing'
 import { lowMemory, useLevel } from '../../state/quality'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 
@@ -247,6 +248,14 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
       w.__rallySim = undefined
     }
   })
+
+  // ローバーを運転中に来たときは、着いたらすぐローバーを出す（降ろす場面は飛ばす）
+  const landingPhase = useLanding((l) => l.phase)
+  useEffect(() => {
+    if (landingPhase !== 'surface' || !rallyArrive.rover) return
+    rallyArrive.rover = false
+    launchRover(true)
+  }, [landingPhase])
 
   // ---- 門 ----
   const gateParts = useMemo(() => {

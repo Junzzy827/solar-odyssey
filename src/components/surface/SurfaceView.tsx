@@ -9,7 +9,7 @@ import { useOptionalTexture } from '../../hooks/useOptionalTexture'
 import { haloTexture } from '../ship/ShipModel'
 import { currentLevel, dprFor, lowMemory, useLevel } from '../../state/quality'
 import { ASCENT, DESCENT, FADE, goToSite, landingNow, skipDescent, startTakeoff, surfaceReady, useLanding } from '../../state/landing'
-import { useRally } from '../../state/rally'
+import { goToRally, useRally } from '../../state/rally'
 import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded, type Rock } from './terrain'
 import { WideWorld, isWide, wideNow, withHole } from './wideGround'
 import { named, t, useLang } from '../../i18n/lang'
@@ -1468,6 +1468,11 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
         <button className="secondary" onClick={recallRover}>
           {t('回収', 'Recall')}
         </button>
+        {bodyId === 'mars' && !site && (
+          <button className="secondary rally-site" onClick={goToRally} title={t('マリネリス峡谷のレース場へ。着いたらすぐローバーで走れます', 'To the Valles Marineris race track, rover ready to go')}>
+            🏁 {t('峡谷レースへ', 'Canyon race')}
+          </button>
+        )}
         <button className="primary" onClick={startTakeoff}>
           {t('母船に戻る', 'Back to ship')}
         </button>
