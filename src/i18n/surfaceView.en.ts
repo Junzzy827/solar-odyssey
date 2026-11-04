@@ -29,7 +29,7 @@ export const surfaceViewEn: Translation<typeof surfaceViewJa> = {
   recall: 'Recall',
   raceTrackTip: 'To the race track, rover ready to go',
   backToShip: 'Back to ship',
-  siteSuffix: (_siteJa: string, siteEn: string) => ` · ${siteEn}`,
+  siteSuffix: (site: string) => ` · ${site}`,
   descendingTo: (name: string) => `Descending to ${name}…`,
   skip: 'Skip',
   liftOff: 'Lift-off! Heading back to the ship',

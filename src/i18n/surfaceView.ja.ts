@@ -26,7 +26,7 @@ export const surfaceViewJa = {
   recall: '回収',
   raceTrackTip: 'レース場へ。着いたらすぐローバーで走れます',
   backToShip: '母船に戻る',
-  siteSuffix: (siteJa: string, _siteEn: string) => `・${siteJa}`,
+  siteSuffix: (site: string) => `・${site}`,
   descendingTo: (name: string) => `${name}へ降下中…`,
   skip: 'スキップ',
   liftOff: '離陸！母船へもどります',

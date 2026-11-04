@@ -73,6 +73,9 @@ import { poisJa } from './pois.ja'
 import { probesJa } from './probes.ja'
 import { rockSamplesJa } from './rockSamples.ja'
 import { shipsJa } from './ships.ja'
+import { surfaceNotesJa } from './surfaceNotes.ja'
+import { surfaceSitesJa } from './surfaceSites.ja'
+import { surfaceSkyNotesJa } from './surfaceSkyNotes.ja'
 
 // 画面の文言（日本語）。ストーリーモードの短い文言はここに書く。ほかの画面の文言は画面ごとのファイル（navPanel.ja.ts など）にあり、ここに集める
 // まだ使う場所に t('日本語', 'English') と書いてある文言もある
@@ -210,4 +213,7 @@ export const ja = {
   rockComp: rockCompJa,
   rockGroups: rockGroupsJa,
   ships: shipsJa,
+  surfaceNotes: surfaceNotesJa,
+  surfaceSites: surfaceSitesJa,
+  surfaceSkyNotes: surfaceSkyNotesJa,
 }

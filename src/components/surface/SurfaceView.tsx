@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { useTrimShadows } from '../../hooks/useTrimShadows'
-import { SITES, demIdFor, siteDef, surfaceFor, type SurfaceDef } from '../../data/surfaces'
+import { demIdFor, siteDef, surfaceFor, type SurfaceDef } from '../../data/surfaces'
 import { textureUrl } from '../../data/textures'
 import { PLANETS } from '../../data/bodies'
 import { useOptionalTexture } from '../../hooks/useOptionalTexture'
@@ -1540,11 +1540,13 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
   const setView = useLanding((l) => l.setView)
   // スマホ（縦も横も）では、説明は畳んでおく（タップで開く）
   const [open, setOpen] = useState(() => window.innerWidth > 700 && window.innerHeight > 500)
-  const siteName = def.site ? SITES[def.site].name : null
-  const name = bodyName(def.id) + (siteName ? ui().surfaceView.siteSuffix(siteName[0], siteName[1]) : '')
+  const name = bodyName(def.id) + (def.site ? ui().surfaceView.siteSuffix(ui().surfaceSites[def.site].name) : '')
   const weight = Math.max(0.01, 30 * def.gravity)
   const temp = def.temp[0] === def.temp[1] ? `${def.temp[0]}℃` : `${def.temp[0]}〜${def.temp[1]}℃`
   const skyName = def.skyBody ? bodyName(def.skyBody.id) : null
+  // 説明：別の着陸地点ならその地点の、そうでなければ天体の。空の説明は天体のもの（無い天体もある）
+  const note = def.site ? ui().surfaceSites[def.site].note : ui().surfaceNotes[def.id]
+  const skyNote: string | undefined = ui().surfaceSkyNotes[def.id]
   return (
     <div className={`surface-ui${rover !== 'none' && showInfo ? ' rover-menu' : ''}`}>
       {phase === 'descent' && (
@@ -1577,9 +1579,9 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
                 <div className="surface-weight">
                   {ui().surfaceView.weightNote(weight < 1 ? weight.toFixed(2) : weight.toFixed(1))}
                 </div>
-                <p>{t(def.note[0], def.note[1])}</p>
-                {def.skyNote && <p className="muted">{t(def.skyNote[0], def.skyNote[1])}</p>}
-                {skyName && !def.skyNote && (
+                <p>{note}</p>
+                {skyNote && <p className="muted">{skyNote}</p>}
+                {skyName && !skyNote && (
                   <p className="muted">
                     {ui().surfaceView.skyBodyNote(skyName, def.skyBody!.angle.toFixed(1))}
                   </p>
