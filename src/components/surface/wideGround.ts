@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { Rock, Terrain } from './terrain'
+import { SITES } from '../../data/surfaces'
 
 // 広い範囲を走れる天体の地面（火星から始めて、いまはすべての天体）。
 //  ・ローバーのまわりだけ、64 m 四方のタイルで細かく作る（ふつう 5×5 枚＝320 m 四方、1 m 間隔）。
@@ -24,7 +25,7 @@ const HOLE_MARGIN = 16
  */
 export function wideRange(terrain: Terrain) {
   // 峡谷レース場：コース（約 2.4 km）が入るよう、3 km 四方
-  if (terrain.def.site) return SITE_RANGE
+  if (terrain.def.site) return SITES[terrain.def.site]?.range ?? SITE_RANGE
   const byCurve = Math.floor((terrain.radiusM * 0.05) / 50) * 50
   return Math.max(100, Math.min(WIDE_RANGE, byCurve))
 }

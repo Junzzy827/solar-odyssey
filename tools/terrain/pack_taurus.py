@@ -36,7 +36,8 @@ PLAN_X0, PLAN_Y0 = 2503, 1697
 # DTM columns where two NAC stereo models meet: noisy stripe, smoothed away
 SEAM = (4990, 5290)
 
-NEAR = dict(size=1024, step=0.05, offset=1000.0, extent=6400.0)
+# 6.25 m per pixel; wide enough to drive to the Apollo 17 stations (station 2 at 7.2 km)
+NEAR = dict(size=2560, step=0.05, offset=1000.0, extent=16000.0)
 FAR = dict(size=512, step=0.25, offset=4000.0, extent=100000.0)
 DETAIL = dict(size=2048, extent=3200.0, step=0.01)
 

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { RALLY_COLORS, useRally } from '../../state/rally'
 import { buildCourse } from './Rally'
 import { TRACKS } from '../../data/rallyTracks'
+import { APOLLO17, APOLLO17_TRAVERSE } from '../../data/apollo17'
+import { useHistoric } from '../../state/historic'
 import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
@@ -185,6 +187,9 @@ export function RoverMap() {
     return tr ? buildCourse(tr.line) : null
   }, [terrain])
   const pois = wide ? (terrain?.pois ?? []) : []
+  // アポロ17号の谷：月面車が走った道と史跡
+  const apollo = terrain?.def.site === 'taurus'
+  const histFound = useHistoric((h) => h.found)
   /** 見どころに残っている、まだ採っていない岩の数 */
   const left = (id: string) => sites.filter((s, i) => s.poi === id && !taken.includes(i)).length
   const coarse = useRelief(terrain, wide ? { cx: 0, cz: 0, half: R * 1.04 } : { cx: LANDER_POS.x, cz: LANDER_POS.y, half: V })
@@ -272,6 +277,29 @@ export function RoverMap() {
             </g>
           )
         })}
+        {apollo && (
+          <>
+            {APOLLO17_TRAVERSE.map((ln, i) => (
+              <polyline key={`t${i}`} className="m-trav" points={ln.reduce((a, v, j) => (j % 2 ? `${a}${mz(v)} ` : `${a}${mx(v)},`), '')} />
+            ))}
+            {APOLLO17.map((h) => {
+              const x = mx(h.x)
+              const z = mz(h.z)
+              if (Math.abs(x) > V || Math.abs(z) > V) return null
+              const got = histFound.includes(h.id)
+              return (
+                <g key={h.id}>
+                  <path d={`M ${x} ${z - 7} L ${x + 2} ${z - 2} L ${x + 7} ${z - 2} L ${x + 3} ${z + 1.5} L ${x + 4.5} ${z + 7} L ${x} ${z + 3.5} L ${x - 4.5} ${z + 7} L ${x - 3} ${z + 1.5} L ${x - 7} ${z - 2} L ${x - 2} ${z - 2} Z`} className={`m-hist${got ? ' got' : ''}`} />
+                  {h.no && (whole || !wide) && (
+                    <text x={x} y={z - 10} className="m-hist-name">
+                      {h.no}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
+          </>
+        )}
         {course && (
           <>
             <polyline points={course.pts.filter((_, i) => i % 3 === 0).map((p) => `${mx(p.x)},${mz(p.y)}`).join(' ')} className="m-course" />

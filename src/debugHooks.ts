@@ -1,3 +1,4 @@
+import { useHistoric } from './state/historic'
 import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
@@ -44,6 +45,7 @@ const sv = {
   wide: wideNow,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus, ctl: roverCtl, pose: roverPose },
   eva: { site: evaSite, state: useEva, start: startEva, recall: recallEva, input: evaInput, debug: evaDebug, jobs: evaJobsDebug, jobsRt, jobsState: useEvaJobs },
+  historic: useHistoric,
   skyClock: useSkyClock,
   weather: weatherNow,
   ship,

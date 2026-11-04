@@ -24,6 +24,8 @@ import { groundMaterial, withRockDetail } from './groundMaterial'
 import { useDem } from './dem'
 import { Rally } from './Rally'
 import { RallyPanel, RallyStart } from './RallyPanel'
+import { Apollo17 } from './Apollo17'
+import { HistoricCard, HistoricStatus } from './HistoricPanel'
 import { FAR_SHRINK, farTerrainGeometry } from './farTerrain'
 import { STORM_HAZE, STORM_KIND, WEATHER_BODIES, WEATHER_FX, devilTarget, stepWeather, useWeather, stormTarget, weatherNow } from './weather'
 import { Weather } from './Weather'
@@ -1352,6 +1354,7 @@ function Scene({ def }: { def: SurfaceDef }) {
           <Rally key={def.site} track={def.site} terrain={terrain} prepare={prepareRover} dustColor={def.ground} sky={sky} />
         </Suspense>
       )}
+      {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} />}
       <Look terrain={terrain} />
       <WhenReady />
     </>
@@ -1456,6 +1459,8 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
         </div>
       )}
       {drive && result && <SampleCard bodyId={bodyId} id={result} />}
+      {drive && site === 'taurus' && !racing && !result && <HistoricCard />}
+      {drive && site === 'taurus' && !racing && <HistoricStatus />}
       {drive && !racing && (
         <div className="sample-status">
           <button className="sample-count" onClick={openRocks} title={t('岩石コレクションを開く', 'Open the rock collection')}>
