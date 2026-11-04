@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import type { Terrain } from './terrain'
 import { ARM_STOW, WheelDust, applyPose, deployPose, drawnHeight, meshHeight, type Rig } from './Rover'
 import { WheelTracks } from './wheelTracks'
+import { Sway } from './roverSway'
 import type { SkyNow } from './skyNow'
 import { PAINT_PARTS, paintUniforms, withPaint } from './paint'
 import { windFor } from './landerFx'
@@ -171,7 +172,21 @@ type Bot = {
   tripT: number
   tripping: number
   finish: number | null
+  /** 向きを変える速さ（rad/s、左へ +）と、横すべりで車体の前が曲がる側へ向くずれ（rad） */
+  turn: number
+  drift: number
+  /** サスペンション：沈み込み（m）と、車体だけの傾き */
+  squash: number
+  squashV: number
+  sway: Sway
 }
+
+/** コンピューターの姿勢（展開して、アームをたたんだ姿） */
+const BOT_POSE = (() => {
+  const p = deployPose(1)
+  p.arm = [...ARM_STOW]
+  return p
+})()
 
 /** 光のにじみ（中心が明るい丸） */
 let glowTex: THREE.Texture | null = null
@@ -362,9 +377,7 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
         arm: [get('ArmYaw'), get('ArmUpper'), get('ArmFore'), get('ArmHand')],
       }
       for (const w of Object.values(rig.wheels)) w.rotation.order = 'YXZ'
-      const pose = deployPose(1)
-      pose.arm = [...ARM_STOW]
-      applyPose(rig, pose)
+      applyPose(rig, BOT_POSE)
       // 夜の目印：マストの上の色の光と、前の地面を照らす色の光だまり
       const glowMat = new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(hex).multiplyScalar(1.6), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false })
       const glow = new THREE.Sprite(glowMat)
@@ -384,7 +397,7 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
       list.push({
         color: c, slot, model, rig, paint, tracks, glow, pool, s: GRID_S, off: GRID_LANES[slot], v: 0,
         x: 0, z: 0, y: 0, vy: 0, heading: 0, pitch: 0, roll: 0, spin: 0, steer: 0, air: false, hopT: 3 + slot,
-        form: 1, phase: 0, tripT: 10, tripping: 0, finish: null,
+        form: 1, phase: 0, tripT: 10, tripping: 0, finish: null, turn: 0, drift: 0, squash: 0, squashV: 0, sway: new Sway(),
       })
       slot++
     }
@@ -412,7 +425,12 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
         phase: Math.random() * Math.PI * 2,
         tripT: tr.trip * (0.5 + Math.random()),
         tripping: 0,
+        turn: 0,
+        drift: 0,
+        squash: 0,
+        squashV: 0,
       })
+      b.sway.reset()
       b.y = meshHeight(terrain, p.x, p.z)
       b.tracks.lift()
     }
@@ -539,10 +557,14 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
         const rate = b.air ? 0 : (Math.abs(b.v) / (2.6 + Math.abs(b.v) * 0.32)) * (b.tripping > 0 ? 0.35 : 1)
         const turn = THREE.MathUtils.clamp(dh * 3, -rate, rate) + (b.tripping > 0 ? Math.sin(now * 9 + b.phase) * 0.25 : 0)
         b.heading += turn * dt
+        b.turn = turn
         b.steer += (THREE.MathUtils.clamp(dh * 4, -1, 1) - b.steer) * Math.min(1, dt * 5)
         // 大きく向きを変えるときは減速
         if (Math.abs(dh) > 0.4 && !b.air) b.v *= 1 - Math.min(0.5, dt * Math.abs(dh) * 0.8)
-      } else b.v = 0
+      } else {
+        b.v = 0
+        b.turn = 0
+      }
       b.x += -Math.sin(b.heading) * b.v * dt
       b.z += -Math.cos(b.heading) * b.v * dt
       const pr = progressOf(course, b.x, b.z, b.s)
@@ -579,6 +601,8 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
         b.vy -= g * dt
         b.y += b.vy * dt
         if (b.y <= ground) {
+          // 着地：脚が縮んで車体が沈む
+          if (b.air) b.squashV = Math.min(2.2, Math.max(0, -b.vy) * 0.26)
           b.y = ground
           b.vy = 0
           if (b.air) for (let i = 0; i < 8; i++) dust.puff(b.x, ground, b.z, (Math.random() - 0.5) * 3, 0.6, (Math.random() - 0.5) * 3, 0.6)
@@ -609,7 +633,14 @@ export function Rally({ terrain, prepare, dustColor, sky }: { terrain: Terrain; 
       } else b.pitch += (Math.min(0.25, Math.max(-0.35, b.vy * 0.04)) - b.pitch) * Math.min(1, dt * 1.2)
       b.spin -= (b.v * dt) / 0.2
       b.model.position.set(b.x, b.y, b.z)
-      b.model.rotation.set(b.pitch, b.heading, b.roll, 'YXZ')
+      // 横すべり：速く曲がるほど、車体の前が曲がる側へ向いて、外へすべっていくように見える（重力の弱い星ほど大きく）
+      if (!b.air) b.drift += (THREE.MathUtils.clamp(b.turn * b.v * 0.026 / Math.sqrt(g), -0.26, 0.26) - b.drift) * Math.min(1, dt * 4)
+      b.model.rotation.set(b.pitch, b.heading + b.drift, b.roll, 'YXZ')
+      // サスペンション（自分のローバーと同じ）
+      b.squashV += (-(b.squash - (b.air ? -0.045 : 0)) * 160 - b.squashV * 14) * dt
+      b.squash = THREE.MathUtils.clamp(b.squash + b.squashV * dt, -0.06, 0.15)
+      b.sway.step(dt, b.v, -b.turn * b.v, b.pitch, b.roll, !b.air)
+      applyPose(b.rig, BOT_POSE, b.squash, b.sway.pitch, b.sway.roll)
       for (const key of Object.keys(b.rig.wheels)) {
         const w = b.rig.wheels[key]
         w.rotation.x = b.spin

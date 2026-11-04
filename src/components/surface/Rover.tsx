@@ -16,6 +16,7 @@ import { samplesFor, type RockSample } from '../../data/rockSamples'
 import { rockSpots } from '../../data/rockSpots'
 import type { Poi } from './pois'
 import { WheelTracks } from './wheelTracks'
+import { Sway } from './roverSway'
 
 // 無人探査ローバー ORV-7（全長 1.8 m）。模型は tools/blender/build_rover.py で作った rover-orv7.glb。
 // 関節（脚・太陽電池・マスト・アンテナ・アーム）は模型ではすべて 0 で、ここで回して
@@ -36,6 +37,14 @@ const SOIL_DRAG: Record<string, number> = {
   europa: 0.08, ganymede: 0.1, callisto: 0.12, enceladus: 0.07, triton: 0.09, pluto: 0.1,
 }
 const soilDrag = (id: string) => SOIL_DRAG[id] ?? 0.16
+/**
+ * 横すべり（ドリフト）。タイヤが横に出せる力（m/s²）は、重力が強いほど大きい（車輪が地面に押しつけられる）。
+ * すべり始めは、すべる速さに比例して止める（SLIP_LIN × g + …、1/s）。車体の向きと進む向きのずれが
+ * SLIDE_MAX に近づくと、ハンドルが効きにくくなる（スピンしない）
+ */
+const latGrip = (g: number) => 10 + 2.5 * g
+const slipLin = (g: number) => 4 + 1.6 * g
+const SLIDE_MAX = 0.6
 /** 脚ごとの、関節から車軸へのベクトル（前後, 上下）と、たたんだときの角度 */
 const LEGS = {
   F: { vy: 0.3, vz: -0.32, fold: 122 * D },
@@ -102,14 +111,47 @@ export type Rig = {
   arm: THREE.Object3D[]
 }
 
-/** 姿勢を模型に。squash は車体の沈み込み（m）で、脚を少し回して表す */
-export function applyPose(rig: Rig, p: Pose, squash = 0) {
+/** 車輪の車軸の高さ（模型の座標）。車体を (tiltP, tiltR) 傾け、脚を a に回したとき */
+function hubY(P: THREE.Vector3, h: THREE.Vector3, a: number, tiltP: number, tiltR: number) {
+  const ca = Math.cos(a)
+  const sa = Math.sin(a)
+  const lx = P.x + h.x
+  const ly = P.y + h.y * ca - h.z * sa
+  const lz = P.z + h.y * sa + h.z * ca
+  // 車体の回転は XYZ の順（Rx・Rz を、Rz から先にかける）
+  const y1 = lx * Math.sin(tiltR) + ly * Math.cos(tiltR)
+  return y1 * Math.cos(tiltP) - lz * Math.sin(tiltP)
+}
+
+/**
+ * 姿勢を模型に。squash は車体の沈み込み（m）で、脚を少し回して表す。
+ * tiltP／tiltR はサスペンションでの車体だけの傾き（前が上がる +、右が上がる +）。
+ * 車輪が地面から離れないよう、脚ごとに回す角度を求め直す
+ */
+export function applyPose(rig: Rig, p: Pose, squash = 0, tiltP = 0, tiltR = 0) {
   rig.body.position.y = p.dz - squash
-  for (const side of ['R', 'L']) {
+  rig.body.rotation.set(tiltP, 0, tiltR)
+  const tilted = Math.abs(tiltP) > 1e-4 || Math.abs(tiltR) > 1e-4
+  for (const k of ['FR', 'MR', 'RR', 'FL', 'ML', 'RL']) {
+    const id = k[0] as LegId
     // 沈んだぶん、前の脚は前へ、中と後ろの脚は後ろへ開く（車輪は地面に着いたまま）
-    rig.legs['F' + side].rotation.x = p.legs.F + squash / LEGS.F.vy
-    rig.legs['M' + side].rotation.x = p.legs.M + squash / LEGS.M.vy
-    rig.legs['R' + side].rotation.x = p.legs.R + squash / LEGS.R.vy
+    const a0 = p.legs[id] + squash / LEGS[id].vy
+    const leg = rig.legs[k]
+    if (!tilted) {
+      leg.rotation.x = a0
+      continue
+    }
+    const P = leg.position
+    const h = rig.wheels[k].position
+    const want = hubY(P, h, a0, 0, 0)
+    let a = a0
+    for (let i = 0; i < 3; i++) {
+      const f = hubY(P, h, a, tiltP, tiltR) - want
+      const df = (hubY(P, h, a + 1e-3, tiltP, tiltR) - hubY(P, h, a, tiltP, tiltR)) / 1e-3
+      if (Math.abs(df) < 1e-3) break
+      a -= THREE.MathUtils.clamp(f / df, -0.4, 0.4)
+    }
+    leg.rotation.x = a
   }
   for (const l of rig.links) l.rotation.x = p.link
   // Blender の Y 軸まわり → three.js では -Z 軸まわり
@@ -455,6 +497,12 @@ type Drive = {
   bumpT: number
   /** 岩に乗り上げている高さ（m）。0 は地面の上 */
   onRock: number
+  /** 横すべりの速さ（m/s、右へ +） */
+  slip: number
+  /** タイヤが車体を横へ押す加速度（m/s²、右へ +）。車体の傾きに使う */
+  aLat: number
+  /** サスペンションでの車体だけの傾き */
+  sway: Sway
 }
 
 /** 採集できる岩の置き場所 */
@@ -658,18 +706,19 @@ export function Rover({
       const d = st.current
       const site = sites[i]
       if (!d || !site) return
-      Object.assign(d, { x: site.x + Math.sin(d.heading) * 1.1, z: site.z + Math.cos(d.heading) * 1.1, speed: 0 })
+      Object.assign(d, { x: site.x + Math.sin(d.heading) * 1.1, z: site.z + Math.cos(d.heading) * 1.1, speed: 0, slip: 0 })
     }
     roverDebug.sites = () => sites.map(({ x, z }) => ({ x, z }))
     roverDebug.place = (x, z, heading) => {
-      if (st.current) Object.assign(st.current, { x, z, y: meshHeight(terrain, x, z), vy: 0, speed: 0, heading: heading ?? st.current.heading })
+      if (st.current) Object.assign(st.current, { x, z, y: meshHeight(terrain, x, z), vy: 0, speed: 0, slip: 0, heading: heading ?? st.current.heading })
     }
     roverDebug.rocks = () => [...bodiesNow().values()].flat().map(({ x, z, r, h }) => ({ x, z, r, h }))
     // レース：スタートの列・直前の門へ置く（止まった状態で、地面の上に）
     roverCtl.place = (x, z, heading) => {
       const d = st.current
       if (!d) return
-      Object.assign(d, { x, z, y: meshHeight(terrain, x, z), vy: 0, speed: 0, heading, pitch: 0, roll: 0, grounded: true, steer: 0, sampleT: -1, sampleIdx: -1 })
+      Object.assign(d, { x, z, y: meshHeight(terrain, x, z), vy: 0, speed: 0, slip: 0, aLat: 0, heading, pitch: 0, roll: 0, grounded: true, steer: 0, sampleT: -1, sampleIdx: -1 })
+      d.sway.reset()
     }
     return () => {
       roverCtl.place = undefined
@@ -708,6 +757,9 @@ export function Rover({
       bumpRock: -1,
       bumpT: 9,
       onRock: 0,
+      slip: 0,
+      aLat: 0,
+      sway: new Sway(),
     }
     taken.current.clear()
     tracks.lift()
@@ -762,6 +814,7 @@ export function Rover({
       const locked = roverCtl.locked
       if (locked) {
         s.speed = 0
+        s.slip = 0
         inp.jump = false
       }
       const busy = s.sampleT >= 0 || locked
@@ -769,7 +822,10 @@ export function Rover({
       s.steer += (steerTarget - s.steer) * Math.min(1, dt * 6)
       if (s.grounded) {
         const th = busy ? 0 : inp.throttle
-        if (busy) s.speed *= 1 - Math.min(1, dt * 8)
+        if (busy) {
+          s.speed *= 1 - Math.min(1, dt * 8)
+          s.slip *= 1 - Math.min(1, dt * 8)
+        }
         if (th > 0) s.speed += (s.speed < 0 ? 14 : 7 * Math.max(0.15, 1 - s.speed / ROVER_TOP)) * dt
         else if (th < 0) s.speed -= (s.speed > 0 ? 14 : 4) * dt
         else {
@@ -787,7 +843,24 @@ export function Rover({
         // 岩に乗り上げているあいだは車輪が浮いて、ハンドルがほとんど効かない（まっすぐ進んでしまう）。
         // 岩は、ちょっとジャンプして飛び越えるのがいちばん速い
         const grip = s.onRock > 0.05 ? 0.2 : 1
-        s.heading -= s.steer * (s.speed / R) * dt * grip
+        // 横すべりが大きいほど、ハンドルが効きにくい
+        const beta = Math.atan2(Math.abs(s.slip), Math.abs(s.speed) + 0.5)
+        const dh = s.steer * (s.speed / R) * dt * grip * Math.max(0.35, 1 - beta / SLIDE_MAX)
+        s.heading -= dh
+        // 車体の向きが変わっても、進む向き（速度）はすぐには変わらない。そのぶんが横すべりになる
+        const cs = Math.cos(dh)
+        const sn = Math.sin(dh)
+        const fw = s.speed * cs + s.slip * sn
+        s.slip = s.slip * cs - s.speed * sn
+        s.speed = fw
+        // タイヤが横すべりを止める。止めたぶんの多くは前への速さにもどす（すべっても、あまり遅くならない）
+        const v0 = Math.hypot(s.speed, s.slip)
+        const stop = Math.min(Math.abs(s.slip), Math.min(latGrip(g) * (0.4 + 0.6 * grip), Math.abs(s.slip) * slipLin(g)) * dt)
+        s.aLat = -Math.sign(s.slip) * (stop / Math.max(dt, 1e-4))
+        s.slip -= Math.sign(s.slip) * stop
+        const v1 = Math.hypot(s.speed, s.slip)
+        const vt = v1 + 0.75 * (v0 - v1)
+        s.speed = Math.sign(s.speed) * Math.sqrt(Math.max(0, vt * vt - s.slip * s.slip))
         if (inp.jump && !busy) {
           // ぴょーん（重力の弱い星ほど高く、長く飛ぶ）
           s.vy = 3.2 + Math.abs(s.speed) * 0.08
@@ -795,18 +868,21 @@ export function Rover({
           s.squashV = -0.4
         }
       }
+      else s.aLat = 0
       inp.jump = false
       const tanP = Math.tan(s.pitch)
       const tanR = Math.tan(s.roll)
       const prevBase = meshHeight(terrain, s.x, s.z)
       const prevLift = rockLift(bodies, terrain, s.x, s.z, s.y, fwd.x, fwd.z, tanP, tanR)
-      let nx = s.x + fwd.x * s.speed * dt
-      let nz = s.z + fwd.z * s.speed * dt
+      // 進む向き：車体の前 ＋ 横すべり（右は (-fwd.z, fwd.x)）
+      let nx = s.x + (fwd.x * s.speed - fwd.z * s.slip) * dt
+      let nz = s.z + (fwd.z * s.speed + fwd.x * s.slip) * dt
       // 範囲の端と、着陸船の脚
       if (Math.abs(nx) > range || Math.abs(nz) > range) {
         nx = THREE.MathUtils.clamp(nx, -range, range)
         nz = THREE.MathUtils.clamp(nz, -range, range)
         s.speed *= 0.5
+        s.slip *= 0.5
         s.edgeT = roverNow()
       }
       const atEdge = roverNow() - s.edgeT < 2.5
@@ -823,6 +899,7 @@ export function Rover({
           nz = r.z + (dz / d) * min
           if (Math.abs(s.speed) > 3) s.burst = Math.max(s.burst, Math.min(0.6, Math.abs(s.speed) / 25))
           s.speed *= 0.3
+          s.slip *= 0.3
         }
       }
       for (const f of feet) {
@@ -833,6 +910,7 @@ export function Rover({
           nx = f.x + (dx / d) * 1.6
           nz = f.y + (dz / d) * 1.6
           s.speed *= 0.7
+          s.slip *= 0.7
         }
       }
       // ほかのローバー（レース）に押される
@@ -859,7 +937,8 @@ export function Rover({
         s.y = ground
         s.vy = Math.max(s.vy, Math.min(groundVy, 9))
         if (wasAir && impact > 1.2) {
-          s.squashV = Math.min(1.5, impact * 0.18)
+          // 着地：脚がぐっと縮んで、車体が沈む（強く落ちるほど深く）
+          s.squashV = Math.min(2.2, impact * 0.26)
           s.burst = Math.min(1, impact / 5)
         }
         s.grounded = true
@@ -1012,6 +1091,19 @@ export function Rover({
           dust.puff(px, ground, pz, -fwd.x * s.speed * 0.25, 0.6 + k * 1.6, -fwd.z * s.speed * 0.25, 0.35 + k * 0.6)
         }
       }
+      // 横すべりの砂ぼこり：すべっていく側の車輪から、横へ巻き上げる
+      if (s.grounded && def.dust && Math.abs(s.slip) > 1.2) {
+        const k = Math.min(1, (Math.abs(s.slip) - 1.2) / 4)
+        const out = Math.sign(s.slip)
+        const n = Math.floor(dt * (level === 'low' ? 30 : 80) * k + Math.random() * k)
+        for (let i = 0; i < n; i++) {
+          const wf = [0.72, 0, -0.72][Math.floor(Math.random() * 3)]
+          const px = s.x + sideX * 0.55 * out + fwd.x * wf
+          const pz = s.z + sideZ * 0.55 * out + fwd.z * wf
+          const sv = s.slip * (0.5 + Math.random() * 0.5)
+          dust.puff(px, ground, pz, sideX * sv - fwd.x * s.speed * 0.15, 0.5 + k * 1.4, sideZ * sv - fwd.z * s.speed * 0.15, 0.45 + k * 0.7)
+        }
+      }
       // 計器：1 秒に 12 回だけ書き換える
       s.hudT += dt
       if (s.hudT > 1 / 12) {
@@ -1051,12 +1143,16 @@ export function Rover({
       }
       s.burst = 0
     }
-    // サスペンションのばね（沈み込み → もどる）
-    s.squashV += (-s.squash * 160 - s.squashV * 14) * dt
+    // サスペンションのばね（沈み込み → もどる）。宙では車輪の重さで脚が伸びきる
+    const sag = phase === 'drive' && !s.grounded ? -0.045 : 0
+    s.squashV += (-(s.squash - sag) * 160 - s.squashV * 14) * dt
     s.squash += s.squashV * dt
-    s.squash = THREE.MathUtils.clamp(s.squash, -0.05, 0.12)
+    s.squash = THREE.MathUtils.clamp(s.squash, -0.06, 0.15)
+    // 車体の傾き：曲がると外へ、加速で後ろへ、ブレーキで前へ。岩や着地では遅れてゆれる
+    if (phase === 'drive') s.sway.step(dt, s.speed, s.aLat, s.pitch, s.roll, s.grounded)
+    else s.sway.reset()
 
-    applyPose(rig, pose, s.squash)
+    applyPose(rig, pose, s.squash, s.sway.pitch, s.sway.roll)
     grp.position.set(s.x, s.y, s.z)
     grp.rotation.set(s.pitch, s.heading, s.roll, 'YXZ')
     for (const k of Object.keys(rig.wheels)) {
