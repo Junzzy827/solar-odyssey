@@ -81,7 +81,6 @@ import { surfaceSitesJa } from './surfaceSites.ja'
 import { surfaceSkyNotesJa } from './surfaceSkyNotes.ja'
 
 // 画面の文言（日本語）。ストーリーモードの短い文言はここに書く。ほかの画面の文言は画面ごとのファイル（navPanel.ja.ts など）にあり、ここに集める
-// まだ使う場所に t('日本語', 'English') と書いてある文言もある
 
 export const ja = {
   missionsButton: 'ストーリーモード（任務）',
