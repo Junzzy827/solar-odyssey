@@ -2,6 +2,7 @@ import { PLANETS, SUN } from './bodies'
 import { CUBE_ID } from './cube'
 import { COLONY_ID, SF_OBJECTS, sfEntry } from './sf'
 import { HUBBLE_ID, WEBB_ID } from './telescopes'
+import { uiEn, uiJa } from '../i18n'
 
 // 訪問スタンプ帳：天体のそばまで行くとスタンプがもらえる。決まった組をそろえたり、たくさん集めたりすると称号がもらえる
 
@@ -12,7 +13,7 @@ const moonsOf = (id: string) => planet(id).moons.map((m) => m.id)
 
 export const STAMP_GROUPS: StampGroup[] = [
   { id: 'planets', name: '太陽と惑星', nameEn: 'The Sun and planets', ids: ['sun', ...PLANETS.filter((p) => !p.dwarf).map((p) => p.id)] },
-  ...PLANETS.filter((p) => !p.dwarf && p.moons.length > 0).map((p) => ({ id: `moons-${p.id}`, name: `${p.name}の衛星`, nameEn: p.moons.length === 1 ? `${p.nameEn}’s moon` : `Moons of ${p.nameEn}`, ids: moonsOf(p.id) })),
+  ...PLANETS.filter((p) => !p.dwarf && p.moons.length > 0).map((p) => ({ id: `moons-${p.id}`, name: `${uiJa.bodies[p.id].name}の衛星`, nameEn: p.moons.length === 1 ? `${uiEn.bodies[p.id].name}’s moon` : `Moons of ${uiEn.bodies[p.id].name}`, ids: moonsOf(p.id) })),
   { id: 'dwarf', name: '準惑星とその衛星', nameEn: 'Dwarf planet and its moon', ids: PLANETS.filter((p) => p.dwarf).flatMap((p) => [p.id, ...moonsOf(p.id)]) },
   { id: 'scopes', name: '宇宙望遠鏡', nameEn: 'Space telescopes', ids: [HUBBLE_ID, WEBB_ID] },
   // SF モードだけのページ（本物の太陽系のスタンプとは別に数える）

@@ -7,7 +7,7 @@ import { useStamps } from '../../state/stamps'
 import { STAMP_IDS } from '../../data/stamps'
 import { PLANETS } from '../../data/bodies'
 import { formatDate, simDate } from '../../data/ephemeris'
-import { getLang, named } from '../../i18n/lang'
+import { getLang } from '../../i18n/lang'
 import { isTouchDevice } from '../../state/input'
 import { ui } from '../../i18n'
 
@@ -477,7 +477,7 @@ function map(g: CanvasRenderingContext2D, w: number, h: number) {
     g.arc(x, y, (hot ? 5 : 4) * s, 0, Math.PI * 2)
     g.fill()
     g.fillStyle = hot ? AMBER : TEXT
-    g.fillText(named(p), x + 7 * s, y - 5 * s)
+    g.fillText(ui().bodies[p.id].name, x + 7 * s, y - 5 * s)
   }
   const [sx, sy] = at(v.copy(ship.position).sub(origin))
   g.strokeStyle = AMBER
@@ -493,7 +493,7 @@ function science(g: CanvasRenderingContext2D, w: number, h: number, time: number
   const id = useStore.getState().targetId ?? proximity.id ?? 'earth'
   const found = planetOf(id ?? undefined)
   const body = found?.moon ?? found?.planet
-  const name = body ? named(body) : bodies.get(id)?.name ?? '—'
+  const name = body ? ui().bodies[body.id].name : bodies.get(id)?.name ?? '—'
   g.font = `600 ${Math.round(20 * s)}px ${FONT}`
   g.fillStyle = AMBER
   g.fillText(name, 16 * s, 64 * s)

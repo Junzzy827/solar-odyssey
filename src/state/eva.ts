@@ -20,13 +20,7 @@ export type EvaTool = 'hand' | 'drill' | 'cutter' | 'welder' | 'pad'
 export type EvaFace = 'none' | 'boot' | 'normal' | 'happy' | 'focus' | 'sweat' | 'ouch'
 
 export const EVA_TOOLS: EvaTool[] = ['hand', 'drill', 'cutter', 'welder', 'pad']
-export const TOOL_NAME: Record<EvaTool, [string, string]> = {
-  hand: ['汎用ハンド', 'Hand'],
-  drill: ['ドリル', 'Drill'],
-  cutter: ['カッター', 'Cutter'],
-  welder: ['溶接ツール', 'Welder'],
-  pad: ['吸着パッド', 'Suction pad'],
-}
+
 export const TOOL_ICON: Record<EvaTool, string> = { hand: '✋', drill: '⛛', cutter: '✂', welder: '⚡', pad: '◉' }
 
 export const EVA_FADE = 0.7

@@ -5,20 +5,19 @@ import { PLANETS } from '../data/bodies'
 import { nearLander, spotsOf } from '../data/rockSpots'
 import { useSampleLog } from '../state/rover'
 import { closeRocks, useRockBook } from '../state/rockBook'
-import { getLang, named, t, useLang } from '../i18n/lang'
+import { getLang, t, useLang } from '../i18n/lang'
 import { ui } from '../i18n'
 
 function bodyName(id: string) {
   for (const p of PLANETS) {
-    if (p.id === id) return named(p)
+    if (p.id === id) return ui().bodies[p.id].name
     const m = p.moons.find((x) => x.id === id)
-    if (m) return named(m)
+    if (m) return ui().bodies[m.id].name
   }
   return id
 }
 
 const groupName = (g: RockGroup) => (g.name[0] ? t(g.name[0], g.name[1]) : bodyName(g.id))
-const pick = (pair: [string, string]) => t(pair[0], pair[1])
 
 function RockCard({ g, k, found }: { g: RockGroup; k: RockSample; found: boolean }) {
   return (
@@ -27,7 +26,7 @@ function RockCard({ g, k, found }: { g: RockGroup; k: RockSample; found: boolean
         <img src={rockImage(k.id)} alt="" loading="lazy" draggable={false} />
         {!found && <span className="rock-q">?</span>}
       </span>
-      <span className="rock-name">{found ? pick(k.name) : '？？？'}</span>
+      <span className="rock-name">{found ? ui().rockSamples[k.id].name : '？？？'}</span>
     </button>
   )
 }
@@ -39,7 +38,7 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
   const where = g.bodies.length > 3 ? groupName(g) : g.bodies.map(bodyName).join('・')
   // どこで採れるか：着陸地点のまわりか、見どころ（名前がかぶるものは 1 つに）
   const atLander = g.bodies.some((b) => nearLander(b, k.id))
-  const spots = [...new Set(g.bodies.flatMap((b) => spotsOf(b, k.id).map((p) => t(p.name.ja, p.name.en))))].slice(0, 3)
+  const spots = [...new Set(g.bodies.flatMap((b) => spotsOf(b, k.id).map((p) => ui().pois[p.id].name)))].slice(0, 3)
   const hint = atLander
     ? ui().rockBook.landerHint(where)
     : ui().rockBook.spotsHint(where, spots)
@@ -51,14 +50,14 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
       </button>
       <div className="rock-detail-body">
         <span className="rock-pic big">
-          <img src={rockImage(k.id)} alt={found ? pick(k.name) : ''} draggable={false} />
+          <img src={rockImage(k.id)} alt={found ? ui().rockSamples[k.id].name : ''} draggable={false} />
           {!found && <span className="rock-q">?</span>}
         </span>
         <div className="rock-text">
-          <h3>{found ? pick(k.name) : '？？？'}</h3>
+          <h3>{found ? ui().rockSamples[k.id].name : '？？？'}</h3>
           {found ? (
             <>
-              <p>{pick(k.note)}</p>
+              <p>{ui().rockSamples[k.id].note}</p>
               <div className="sample-comp">
                 {k.comp.map(([label, v]) => (
                   <div className="sample-bar" key={label}>

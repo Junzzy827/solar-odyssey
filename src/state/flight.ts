@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import { create } from 'zustand'
 import { PLANETS } from '../data/bodies'
-import { named } from '../i18n/lang'
 import { isTelescope, scopeName } from '../data/telescopes'
 import { SF_OBJECTS, sfEntry } from '../data/sf'
 import { RACE_TEXT, raceActive } from './race'
@@ -140,9 +139,9 @@ export function bodyInfo(id: string) {
   if (sf) return { name: sf.name(), au: 0, parent: null }
   if (isTelescope(id)) return { name: scopeName(id), au: 0, parent: null }
   for (const p of PLANETS) {
-    if (p.id === id) return { name: named(p), au: p.distanceAu, parent: null }
+    if (p.id === id) return { name: ui().bodies[p.id].name, au: p.distanceAu, parent: null }
     const moon = p.moons.find((m) => m.id === id)
-    if (moon) return { name: named(moon), au: p.distanceAu, parent: named(p) }
+    if (moon) return { name: ui().bodies[moon.id].name, au: p.distanceAu, parent: ui().bodies[p.id].name }
   }
   // 任務の小惑星など、一時的に加わったもの
   const extra = bodies.get(id)

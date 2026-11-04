@@ -4,7 +4,7 @@ import { EPOCH_MS } from '../data/ephemeris'
 import { closeEclipses, eclipseClock, eclipseNow, eclipseStage, playEclipse, seekEclipse, toggleEclipsePlay, useEclipse } from '../state/eclipse'
 import { useStore } from '../state/store'
 import { raceActive, useRace } from '../state/race'
-import { getLang, t, useLang } from '../i18n/lang'
+import { getLang, useLang } from '../i18n/lang'
 import { ui } from '../i18n'
 
 const HOUR_MS = 3_600_000
@@ -116,7 +116,7 @@ export function EclipsePanel() {
                   <span>
                     {dayText(Date.parse(e.at))} {typeName(e)}
                     {past && <span className="muted small"> {ui().eclipsePanel.pastSuffix}</span>}
-                    <span className="muted small"> {t(e.where, e.whereEn)}</span>
+                    <span className="muted small"> {ui().eclipses[e.id].where}</span>
                   </span>
                 </button>
               )
@@ -128,7 +128,7 @@ export function EclipsePanel() {
           <div className="probe-date">{clockText(ms)}</div>
           <p className="eclipse-where muted small">
             {ui().eclipsePanel.seenFrom}
-            {t(eclipse.where, eclipse.whereEn)}
+            {ui().eclipses[eclipse.id].where}
           </p>
           <p className="eclipse-stage">{stageText(eclipse, ms < eclipseClock.peak)}</p>
           <input
@@ -141,7 +141,7 @@ export function EclipsePanel() {
             onChange={(e) => seekEclipse(Number(e.target.value))}
             aria-label={ui().eclipsePanel.time}
           />
-          <p className="muted small">{t(eclipse.note, eclipse.noteEn)}</p>
+          <p className="muted small">{ui().eclipses[eclipse.id].note}</p>
           <div className="probe-controls">
             <button className="secondary" onClick={toggleEclipsePlay}>
               {playing ? ui().eclipsePanel.pause : ms >= eclipseClock.peak + eclipseClock.span ? ui().eclipsePanel.replay : ui().eclipsePanel.play}

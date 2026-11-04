@@ -5,7 +5,7 @@ import { ShipPicker } from './ShipPicker'
 import { closeGallery, selectPart, toggleAuto, toggleCompare, useGallery } from '../state/gallery'
 import { useStore } from '../state/store'
 import { isTouchDevice } from '../state/input'
-import { named, t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
 import { ui } from '../i18n'
 
 /** 鑑賞モードの画面：見方の切り替え、各部の一覧と説明、大きさくらべ */
@@ -23,7 +23,7 @@ export function GalleryPanel() {
     <aside className="nav-panel gallery-panel">
       <h2>{ui().galleryPanel.viewingMode}</h2>
       <div className="muted">
-        {ui().galleryPanel.shipSummary(ship.registry, ship.name, ship.kind, len, ship.nameEn, ship.kindEn.toLowerCase())}
+        {ui().galleryPanel.shipSummary(ship.registry, ui().ships[ship.id].name, ui().ships[ship.id].kind, len)}
       </div>
       <ShipPicker compact />
       <div className="gallery-modes">
@@ -49,16 +49,16 @@ export function GalleryPanel() {
               </li>
               {COMPARE.map((c) => (
                 <li key={c.id}>
-                  {ui().galleryPanel.compareLength(c.name, c.meters, c.nameEn)}
-                  <span className="muted">{ui().galleryPanel.compareNote(c.note, c.noteEn)}</span>
+                  {ui().galleryPanel.compareLength(ui().compareItems[c.id].name, c.meters)}
+                  <span className="muted">{ui().galleryPanel.compareNote(ui().compareItems[c.id].note)}</span>
                 </li>
               ))}
             </ul>
           </>
         ) : selected ? (
           <>
-            <div className="nav-target-name">{named(selected)}</div>
-            <p>{t(selected.text, selected.textEn)}</p>
+            <div className="nav-target-name">{ui().ships[ship.id].parts[selected.id].name}</div>
+            <p>{ui().ships[ship.id].parts[selected.id].text}</p>
             {selected.id === 'bridge' && (
               <button className="bridge-enter" onClick={enterBridge}>
                 {ui().galleryPanel.enterBridge}
@@ -80,7 +80,7 @@ export function GalleryPanel() {
       <div className="nav-list gallery-parts">
         {ship.parts.map((p) => (
           <button key={p.id} className={`nav-item${part === p.id ? ' active' : ''}`} onClick={() => selectPart(part === p.id ? null : p.id)}>
-            {named(p)}
+            {ui().ships[ship.id].parts[p.id].name}
           </button>
         ))}
       </div>

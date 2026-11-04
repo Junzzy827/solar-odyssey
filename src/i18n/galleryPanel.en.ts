@@ -5,15 +5,15 @@ import type { Translation } from './translation'
 
 export const galleryPanelEn: Translation<typeof galleryPanelJa> = {
   viewingMode: 'Viewing mode',
-  shipSummary: (registry: string, _name: string, _kind: string, len: number, nameEn: string, kindEn: string) => `${registry} ${nameEn} (${kindEn}, about ${len} m long)`,
+  shipSummary: (registry: string, name: string, kind: string, len: number) => `${registry} ${name} (${kind.toLowerCase()}, about ${len} m long)`,
   autoTour: 'Auto tour',
   compareSizes: 'Compare sizes',
   labels: 'Labels',
   comparedAtRealSize: 'Compared at real size',
   shipLength: (registry: string, len: number) => `${registry}: ${len} m`,
   fromStory: ' (from this ship’s story)',
-  compareLength: (_name: string, meters: number, nameEn: string) => `${nameEn}: ${meters} m`,
-  compareNote: (_note: string, noteEn: string) => ` (${noteEn})`,
+  compareLength: (name: string, meters: number) => `${name}: ${meters} m`,
+  compareNote: (note: string) => ` (${note})`,
   enterBridge: '▶ Go inside the bridge',
   autoTourNote: 'Shows the ship slowly from several angles. Drag to take over.',
   touchHint: 'Drag to rotate and pinch to zoom. Tap a label or the list below to read about that part.',

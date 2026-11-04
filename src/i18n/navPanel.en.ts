@@ -60,7 +60,7 @@ export const navPanelEn: Translation<typeof navPanelJa> = {
   navigationComputer: 'Navigation computer',
   sun: 'Sun',
   dwarfPlanet: 'Dwarf planet',
-  moonsOf: (_name: string, nameEn: string) => `Moons of ${nameEn}`,
+  moonsOf: (name: string) => `Moons of ${name}`,
   spaceTelescopes: 'Space telescopes',
   sfImaginary: 'SF (imaginary)',
   target: 'Target: ',

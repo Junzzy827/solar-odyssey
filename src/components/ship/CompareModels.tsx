@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { COMPARE, METERS_PER_UNIT } from '../../data/shipParts'
 import { compareScale, useShip, type ShipSpec } from '../../data/ships'
-import { named } from '../../i18n/lang'
 import { ui } from '../../i18n'
 
 // 大きさくらべ：本物の大きさで、自機（ShipModel の座標）の横に並べる簡単な模型。
@@ -114,7 +113,7 @@ export function compareLabels(ship: ShipSpec): { id: string; text: string; pos: 
     ...COMPARE.map((item) => {
       const [x, y, z] = PLACES[item.id]
       const pos: [number, number, number] = [x * k, (y + LABEL_LIFT[item.id]) * k, (item.id === 'skytree' ? z - m(634) / 2 : z) * k]
-      return { id: item.id, text: `${named(item)} ${item.meters}m`, pos }
+      return { id: item.id, text: `${ui().compareItems[item.id].name} ${item.meters}m`, pos }
     }),
     {
       id: 'ship',

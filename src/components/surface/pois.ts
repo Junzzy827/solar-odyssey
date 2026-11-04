@@ -33,101 +33,105 @@ export type Poi = {
   r: number
   /** 長い地形（谷・崖・尾根など）の向き（ラジアン。0 で東西に長い） */
   rot?: number
-  name: { ja: string; en: string }
+}
+
+/** Poi の文言（日本語は src/i18n/pois.ja.ts、英語は pois.en.ts） */
+export type PoiText = {
+  name: string
 }
 
 export const POIS: Record<string, Poi[]> = {
   mars: [
-    { id: 'mars-buttes', kind: 'buttes', x: -760, z: 380, r: 270, name: { ja: '地層の丘', en: 'Layered buttes' } },
-    { id: 'mars-boulders', kind: 'boulders', x: 520, z: -600, r: 130, name: { ja: '岩塊の野', en: 'Boulder field' } },
-    { id: 'mars-dunes', kind: 'dunes', x: -260, z: -980, r: 300, name: { ja: '黒い砂丘', en: 'Dark dunes' } },
+    { id: 'mars-buttes', kind: 'buttes', x: -760, z: 380, r: 270 },
+    { id: 'mars-boulders', kind: 'boulders', x: 520, z: -600, r: 130 },
+    { id: 'mars-dunes', kind: 'dunes', x: -260, z: -980, r: 300 },
   ],
   // ほかの天体：中心は着陸地点から 430 m より外（着陸地点のまわりの岩の並びを変えないように）、±1.5 km の内（POI_SCALE で半分に寄せて使う）
   mercury: [
-    { id: 'mercury-scarp', kind: 'scarp', x: -600, z: 650, r: 400, rot: 0.5, name: { ja: '断崖', en: 'Lobate scarp' } },
-    { id: 'mercury-crater', kind: 'crater', x: 800, z: -550, r: 380, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'mercury-scarp', kind: 'scarp', x: -600, z: 650, r: 400, rot: 0.5 },
+    { id: 'mercury-crater', kind: 'crater', x: 800, z: -550, r: 380 },
   ],
   venus: [
-    { id: 'venus-lava', kind: 'lava', x: 700, z: 400, r: 350, name: { ja: '溶岩流', en: 'Lava flows' } },
-    { id: 'venus-dome', kind: 'dome', x: -650, z: -550, r: 300, name: { ja: '溶岩ドーム', en: 'Pancake dome' } },
-    { id: 'venus-tessera', kind: 'tessera', x: -500, z: 800, r: 380, rot: 0.3, name: { ja: 'テッセラ', en: 'Tessera ridges' } },
+    { id: 'venus-lava', kind: 'lava', x: 700, z: 400, r: 350 },
+    { id: 'venus-dome', kind: 'dome', x: -650, z: -550, r: 300 },
+    { id: 'venus-tessera', kind: 'tessera', x: -500, z: 800, r: 380, rot: 0.3 },
   ],
   moon: [
-    { id: 'moon-crater', kind: 'crater', x: 750, z: 780, r: 420, name: { ja: '大クレーター', en: 'Large crater' } },
-    { id: 'moon-rille', kind: 'rille', x: -800, z: -450, r: 450, rot: 0.4, name: { ja: 'リル', en: 'Sinuous rille' } },
-    { id: 'moon-scarp', kind: 'scarp', x: 500, z: -850, r: 350, rot: -0.3, name: { ja: '断崖', en: 'Lobate scarp' } },
+    { id: 'moon-crater', kind: 'crater', x: 750, z: 780, r: 420 },
+    { id: 'moon-rille', kind: 'rille', x: -800, z: -450, r: 450, rot: 0.4 },
+    { id: 'moon-scarp', kind: 'scarp', x: 500, z: -850, r: 350, rot: -0.3 },
   ],
   io: [
-    { id: 'io-lava', kind: 'lava', x: -650, z: 600, r: 380, name: { ja: '溶岩流', en: 'Lava flows' } },
-    { id: 'io-patera', kind: 'patera', x: 700, z: -550, r: 260, name: { ja: '火山の穴', en: 'Volcanic pit' } },
+    { id: 'io-lava', kind: 'lava', x: -650, z: 600, r: 380 },
+    { id: 'io-patera', kind: 'patera', x: 700, z: -550, r: 260 },
   ],
   europa: [
-    { id: 'europa-ridges', kind: 'ridges', x: -500, z: -800, r: 480, rot: 0.6, name: { ja: '二重尾根', en: 'Double ridge' } },
-    { id: 'europa-chaos', kind: 'chaos', x: 750, z: 500, r: 300, name: { ja: 'カオス地形', en: 'Chaos terrain' } },
+    { id: 'europa-ridges', kind: 'ridges', x: -500, z: -800, r: 480, rot: 0.6 },
+    { id: 'europa-chaos', kind: 'chaos', x: 750, z: 500, r: 300 },
   ],
   ganymede: [
-    { id: 'ganymede-crater', kind: 'crater', x: -700, z: -600, r: 280, name: { ja: '大クレーター', en: 'Large crater' } },
-    { id: 'ganymede-grooves', kind: 'grooves', x: 650, z: 550, r: 420, rot: 0.8, name: { ja: '溝状地形', en: 'Grooved terrain' } },
+    { id: 'ganymede-crater', kind: 'crater', x: -700, z: -600, r: 280 },
+    { id: 'ganymede-grooves', kind: 'grooves', x: 650, z: 550, r: 420, rot: 0.8 },
   ],
   callisto: [
-    { id: 'callisto-crater', kind: 'crater', x: -500, z: 750, r: 320, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'callisto-crater', kind: 'crater', x: -500, z: 750, r: 320 },
   ],
   mimas: [
-    { id: 'mimas-crater', kind: 'crater', x: 700, z: 600, r: 300, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'mimas-crater', kind: 'crater', x: 700, z: 600, r: 300 },
   ],
   enceladus: [
-    { id: 'enceladus-ridges', kind: 'ridges', x: 600, z: -700, r: 420, rot: -0.5, name: { ja: '二重尾根', en: 'Double ridge' } },
-    { id: 'enceladus-grooves', kind: 'grooves', x: -700, z: 500, r: 350, rot: 0.2, name: { ja: '溝状地形', en: 'Grooved terrain' } },
+    { id: 'enceladus-ridges', kind: 'ridges', x: 600, z: -700, r: 420, rot: -0.5 },
+    { id: 'enceladus-grooves', kind: 'grooves', x: -700, z: 500, r: 350, rot: 0.2 },
   ],
   tethys: [
-    { id: 'tethys-crater', kind: 'crater', x: -650, z: -650, r: 300, name: { ja: '大クレーター', en: 'Large crater' } },
-    { id: 'tethys-scarp', kind: 'scarp', x: 700, z: 500, r: 380, rot: 1.0, name: { ja: '氷の崖', en: 'Ice cliff' } },
+    { id: 'tethys-crater', kind: 'crater', x: -650, z: -650, r: 300 },
+    { id: 'tethys-scarp', kind: 'scarp', x: 700, z: 500, r: 380, rot: 1.0 },
   ],
   dione: [
-    { id: 'dione-scarp', kind: 'scarp', x: -600, z: 700, r: 400, rot: 0.7, name: { ja: '氷の崖', en: 'Ice cliffs' } },
-    { id: 'dione-crater', kind: 'crater', x: 750, z: -450, r: 280, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'dione-scarp', kind: 'scarp', x: -600, z: 700, r: 400, rot: 0.7 },
+    { id: 'dione-crater', kind: 'crater', x: 750, z: -450, r: 280 },
   ],
   rhea: [
-    { id: 'rhea-crater', kind: 'crater', x: 550, z: 750, r: 320, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'rhea-crater', kind: 'crater', x: 550, z: 750, r: 320 },
   ],
   titan: [
-    { id: 'titan-channel', kind: 'channel', x: -850, z: 350, r: 420, rot: 1.0, name: { ja: 'メタンの川', en: 'Methane river' } },
-    { id: 'titan-lakebed', kind: 'lakebed', x: 600, z: -650, r: 260, name: { ja: '干上がった湖', en: 'Dry lake bed' } },
+    { id: 'titan-channel', kind: 'channel', x: -850, z: 350, r: 420, rot: 1.0 },
+    { id: 'titan-lakebed', kind: 'lakebed', x: 600, z: -650, r: 260 },
   ],
   iapetus: [
-    { id: 'iapetus-crater', kind: 'crater', x: -700, z: 600, r: 300, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'iapetus-crater', kind: 'crater', x: -700, z: 600, r: 300 },
   ],
   miranda: [
-    { id: 'miranda-scarp', kind: 'scarp', x: 650, z: -650, r: 420, rot: -0.8, name: { ja: '断崖', en: 'Lobate scarp' } },
-    { id: 'miranda-grooves', kind: 'grooves', x: -650, z: 600, r: 380, rot: 0.5, name: { ja: '溝状地形', en: 'Grooved terrain' } },
+    { id: 'miranda-scarp', kind: 'scarp', x: 650, z: -650, r: 420, rot: -0.8 },
+    { id: 'miranda-grooves', kind: 'grooves', x: -650, z: 600, r: 380, rot: 0.5 },
   ],
   ariel: [
-    { id: 'ariel-scarp', kind: 'scarp', x: -700, z: -600, r: 380, rot: 0.9, name: { ja: '谷の崖', en: 'Canyon wall' } },
-    { id: 'ariel-crater', kind: 'crater', x: 600, z: 700, r: 260, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'ariel-scarp', kind: 'scarp', x: -700, z: -600, r: 380, rot: 0.9 },
+    { id: 'ariel-crater', kind: 'crater', x: 600, z: 700, r: 260 },
   ],
   umbriel: [
-    { id: 'umbriel-crater', kind: 'crater', x: 650, z: -700, r: 320, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'umbriel-crater', kind: 'crater', x: 650, z: -700, r: 320 },
   ],
   titania: [
-    { id: 'titania-scarp', kind: 'scarp', x: 600, z: 650, r: 380, rot: -0.6, name: { ja: '谷の崖', en: 'Canyon wall' } },
-    { id: 'titania-crater', kind: 'crater', x: -700, z: -500, r: 280, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'titania-scarp', kind: 'scarp', x: 600, z: 650, r: 380, rot: -0.6 },
+    { id: 'titania-crater', kind: 'crater', x: -700, z: -500, r: 280 },
   ],
   oberon: [
-    { id: 'oberon-crater', kind: 'crater', x: -600, z: 750, r: 320, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'oberon-crater', kind: 'crater', x: -600, z: 750, r: 320 },
   ],
   proteus: [
-    { id: 'proteus-crater', kind: 'crater', x: 700, z: -600, r: 320, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'proteus-crater', kind: 'crater', x: 700, z: -600, r: 320 },
   ],
   triton: [
-    { id: 'triton-ridges', kind: 'ridges', x: -650, z: -600, r: 400, rot: 0.3, name: { ja: '二重尾根', en: 'Double ridge' } },
+    { id: 'triton-ridges', kind: 'ridges', x: -650, z: -600, r: 400, rot: 0.3 },
   ],
   pluto: [
-    { id: 'pluto-polygons', kind: 'polygons', x: 650, z: 600, r: 420, name: { ja: '氷の多角形', en: 'Ice polygons' } },
-    { id: 'pluto-chaos', kind: 'chaos', x: -700, z: -550, r: 320, name: { ja: '氷の山塊', en: 'Ice blocks' } },
+    { id: 'pluto-polygons', kind: 'polygons', x: 650, z: 600, r: 420 },
+    { id: 'pluto-chaos', kind: 'chaos', x: -700, z: -550, r: 320 },
   ],
   charon: [
-    { id: 'charon-scarp', kind: 'scarp', x: -600, z: 650, r: 400, rot: 0.4, name: { ja: '谷の崖', en: 'Canyon wall' } },
-    { id: 'charon-crater', kind: 'crater', x: 700, z: -550, r: 260, name: { ja: '大クレーター', en: 'Large crater' } },
+    { id: 'charon-scarp', kind: 'scarp', x: -600, z: 650, r: 400, rot: 0.4 },
+    { id: 'charon-crater', kind: 'crater', x: 700, z: -550, r: 260 },
   ],
 }
 

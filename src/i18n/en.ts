@@ -54,6 +54,19 @@ import { throttleEn } from './throttle.en'
 import { timeBarEn } from './timeBar.en'
 import { touchBarEn } from './touchBar.en'
 import { touchControlsEn } from './touchControls.en'
+import { bodiesEn } from './bodies.en'
+import { bridgePartsEn } from './bridgeParts.en'
+import { compareItemsEn } from './compareItems.en'
+import { deepSpaceImagesEn } from './deepSpaceImages.en'
+import { eclipsesEn } from './eclipses.en'
+import { evaJobsEn } from './evaJobs.en'
+import { evaSitesEn } from './evaSites.en'
+import { evaToolsEn } from './evaTools.en'
+import { phaserFactsEn } from './phaserFacts.en'
+import { poisEn } from './pois.en'
+import { probesEn } from './probes.en'
+import { rockSamplesEn } from './rockSamples.en'
+import { shipsEn } from './ships.en'
 
 // UI strings (English). Same keys as ja.ts; a key left out is shown in Japanese
 
@@ -170,4 +183,17 @@ export const en: Translation<typeof ja> = {
   timeBar: timeBarEn,
   touchBar: touchBarEn,
   touchControls: touchControlsEn,
+  bodies: bodiesEn,
+  bridgeParts: bridgePartsEn,
+  compareItems: compareItemsEn,
+  deepSpaceImages: deepSpaceImagesEn,
+  eclipses: eclipsesEn,
+  evaJobs: evaJobsEn,
+  evaSites: evaSitesEn,
+  evaTools: evaToolsEn,
+  phaserFacts: phaserFactsEn,
+  pois: poisEn,
+  probes: probesEn,
+  rockSamples: rockSamplesEn,
+  ships: shipsEn,
 }

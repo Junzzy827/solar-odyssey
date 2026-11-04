@@ -32,6 +32,10 @@ export const currentLang = (): Lang => getLang()
 /** 画面の短い文言 */
 export const ui = () => DICTS[currentLang()].ui
 
+/** 言語を決めて引く辞書：クイズのように両方の言語で作るもの、船体の船名のようにいつも英語で出すもの（英語の辞書にないものは日本語） */
+export const uiJa = DICTS.ja.ui
+export const uiEn = DICTS.en.ui
+
 /** ミッションの文章（data/missions.ts と同じ id） */
 export const missionText = (id: string) => DICTS[currentLang()].missions[id]
 

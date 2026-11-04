@@ -17,7 +17,7 @@ export const surfaceViewEn: Translation<typeof surfaceViewJa> = {
   book: 'Book',
   armCollecting: 'Arm collecting…',
   collect: 'Collect',
-  rockAtPlace: (_ja: string, dist: number, en: string) => `Rock at ${en}: ${dist} m · follow the light beam`,
+  rockAtPlace: (place: string, dist: number) => `Rock at ${place}: ${dist} m · follow the light beam`,
   rockAtBeam: (dist: number) => `Rock at the light beam: ${dist} m · stop next to it to collect`,
   allRocksCollected: 'All rocks here collected',
   jump: 'Jump',

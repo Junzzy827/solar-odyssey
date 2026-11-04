@@ -14,7 +14,7 @@ export const surfaceViewJa = {
   book: '図鑑',
   armCollecting: 'アームで採集中…',
   collect: '採集する',
-  rockAtPlace: (ja: string, dist: number, _en: string) => `見どころ「${ja}」の岩まで ${dist} m・光の柱が目印`,
+  rockAtPlace: (place: string, dist: number) => `見どころ「${place}」の岩まで ${dist} m・光の柱が目印`,
   rockAtBeam: (dist: number) => `光の柱の岩まで ${dist} m・近くで止まると採集できます`,
   allRocksCollected: 'ここの岩はすべて採集しました',
   jump: 'ジャンプ',

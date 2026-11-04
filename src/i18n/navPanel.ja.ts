@@ -57,7 +57,7 @@ export const navPanelJa = {
   navigationComputer: '航法コンピュータ',
   sun: '太陽',
   dwarfPlanet: '準惑星',
-  moonsOf: (name: string, _nameEn: string) => `${name}の衛星`,
+  moonsOf: (name: string) => `${name}の衛星`,
   spaceTelescopes: '宇宙望遠鏡',
   sfImaginary: 'SF（架空）',
   target: '目標：',

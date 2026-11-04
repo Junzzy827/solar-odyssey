@@ -5,7 +5,7 @@ import { TRACKS } from '../../data/rallyTracks'
 import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
-import { t, useLang } from '../../i18n/lang'
+import { useLang } from '../../i18n/lang'
 import { isTouchDevice } from '../../state/input'
 import { ui } from '../../i18n'
 
@@ -263,7 +263,7 @@ export function RoverMap() {
                 <>
                   <circle cx={x} cy={z} r={4} className="m-poi" />
                   <text x={x} y={z + 19} className="m-poi-name">
-                    {t(p.name.ja, p.name.en)}
+                    {ui().pois[p.id].name}
                     {left(p.id) > 0 && <tspan className="m-poi-rocks"> ◆{left(p.id)}</tspan>}
                   </text>
                 </>

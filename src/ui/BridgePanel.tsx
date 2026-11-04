@@ -3,7 +3,7 @@ import { leaveBridge, useBridge } from '../state/bridge'
 import { VIEWPOINTS } from '../data/bridge'
 import { BRIDGE_PARTS } from '../data/bridgeParts'
 import { isTouchDevice } from '../state/input'
-import { named, t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
 import { ui } from '../i18n'
 
 /** ブリッジ視点の見どころ（ワンタップで移る）と、艦長席での見回しの切り替え */
@@ -67,8 +67,8 @@ export function BridgePanel() {
       </div>
       {part && (
         <div className="bridge-info">
-          <b>{named(part)}</b>
-          <p>{t(part.text, part.textEn)}</p>
+          <b>{ui().bridgeParts[part.id].name}</b>
+          <p>{ui().bridgeParts[part.id].text}</p>
           <button onClick={() => useBridge.getState().selectPart(null)} aria-label={ui().bridgePanel.close}>
             ×
           </button>

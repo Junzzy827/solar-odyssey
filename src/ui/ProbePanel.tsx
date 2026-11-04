@@ -5,7 +5,7 @@ import { EPOCH_MS, formatDate } from '../data/ephemeris'
 import { closeProbes, pathAt, playProbe, probeById, probeClock, probePath, realDistanceNow, togglePlay, useProbes } from '../state/probes'
 import { useStore } from '../state/store'
 import { raceActive, useRace } from '../state/race'
-import { named, t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
 import { ui } from '../i18n'
 
 const YEAR_MS = 365.25 * 86_400_000
@@ -73,7 +73,7 @@ export function ProbePanel() {
       <header>
         <h2>
           {ui().probePanel.probeJourneys}
-          {probe && <span style={{ color: probe.color }}>{ui().probePanel.separator}{named(probe)}</span>}
+          {probe && <span style={{ color: probe.color }}>{ui().probePanel.separator}{ui().probes[probe.id].name}</span>}
         </h2>
         <button className="close" onClick={closeProbes} aria-label={ui().probePanel.close}>
           ×
@@ -90,8 +90,8 @@ export function ProbePanel() {
               <button key={p.id} className="nav-item" onClick={() => playProbe(p.id)}>
                 <span className="probe-dot" style={{ background: p.color }} />
                 <span>
-                  {named(p)}
-                  <span className="muted small"> {t(p.summary, p.summaryEn)}</span>
+                  {ui().probes[p.id].name}
+                  <span className="muted small"> {ui().probes[p.id].summary}</span>
                 </span>
               </button>
             ))}
@@ -111,12 +111,12 @@ export function ProbePanel() {
             {probe.events.map((e, i) => (
               <li key={e.date} className={i === event ? 'now' : i < event ? 'past' : ''}>
                 <span className="probe-when">{formatDate(new Date(dateMs(e.date)))}</span>
-                {t(e.text, e.textEn)}
+                {ui().probes[probe.id].events[i].text}
               </li>
             ))}
             {finished && (
               <li className="now">
-                {t(probe.last, probe.lastEn)} {nowText(probe.id)}
+                {ui().probes[probe.id].last} {nowText(probe.id)}
               </li>
             )}
           </ol>

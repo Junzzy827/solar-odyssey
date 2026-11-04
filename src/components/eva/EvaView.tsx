@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import * as THREE from 'three'
 import { dprFor, useLevel } from '../../state/quality'
 import { QualityGovernor } from '../QualityGovernor'
-import { t, useLang } from '../../i18n/lang'
+import { useLang } from '../../i18n/lang'
 import { useShip } from '../../data/ships'
 import {
   DEPLOY_SEC,
@@ -13,7 +13,6 @@ import {
   RECALL_SEC,
   TETHER_M,
   TOOL_ICON,
-  TOOL_NAME,
   bindEvaKeys,
   evaInput,
   evaNow,
@@ -26,7 +25,7 @@ import { EvaWorld } from './EvaWorld'
 import { EvaJobs } from './EvaJobs'
 import { JOBS, JOB_TYPES, rackRt, useEvaJobs, useEvaLog } from '../../state/evaJobs'
 import { Tsumugi } from './Tsumugi'
-import { ARC_W, HULL_R, SITE_NAME, arcTaper, evaSite } from './hull'
+import { ARC_W, HULL_R, arcTaper, evaSite } from './hull'
 import { ui } from '../../i18n'
 
 // 船外活動の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
@@ -129,7 +128,7 @@ function EvaHud() {
   return (
     <div className="eva-hud">
       <div className="eva-badge">EVR-1 TSUMUGI</div>
-      <div className="eva-site">{t(...SITE_NAME[evaSite.id])}</div>
+      <div className="eva-site">{ui().evaSites[evaSite.id]}</div>
       <div className="eh-speed">
         {hud.speed.toFixed(2)}
         <small> m/s</small>
@@ -203,13 +202,13 @@ function EvaMap() {
 }
 
 function ToolBar() {
-  const lang = useLang()
+  useLang()
   const tool = useEva((e) => e.tool)
   const swapping = useEva((e) => e.swapping)
   return (
     <div className="eva-tools">
       {EVA_TOOLS.map((k, i) => (
-        <button key={k} className={`eva-tool${tool === k ? ' on' : ''}`} disabled={swapping} onClick={() => pickTool(k)} title={lang === 'en' ? TOOL_NAME[k][1] : TOOL_NAME[k][0]}>
+        <button key={k} className={`eva-tool${tool === k ? ' on' : ''}`} disabled={swapping} onClick={() => pickTool(k)} title={ui().evaTools[k]}>
           <span className="et-icon">{TOOL_ICON[k]}</span>
           <kbd>{i + 1}</kbd>
         </button>
@@ -218,16 +217,15 @@ function ToolBar() {
   )
 }
 
-const toolLabel = (k: keyof typeof TOOL_NAME, lang: string) => `${TOOL_ICON[k]} ${lang === 'en' ? TOOL_NAME[k][1] : TOOL_NAME[k][0]}`
+const toolLabel = (k: keyof typeof TOOL_ICON) => `${TOOL_ICON[k]} ${ui().evaTools[k]}`
 
 /** 修理の依頼：3 つの一覧と、いま向かっている依頼の手順 */
 function JobPanel() {
-  const lang = useLang()
+  useLang()
   const jobUi = useEvaJobs((j) => j.ui)
   const carrying = useEvaJobs((j) => j.carrying)
   const [open, setOpen] = useState(true)
   if (!jobUi.jobs.length) return null
-  const L = (p: [string, string]) => (lang === 'en' ? p[1] : p[0])
   const done = jobUi.jobs.filter((j) => j.done).length
   const fj = jobUi.jobs[jobUi.focus]
   const def = fj ? JOBS[fj.type] : null
@@ -246,7 +244,7 @@ function JobPanel() {
             {jobUi.jobs.map((j, i) => (
               <li key={i} className={j.done ? 'done' : i === jobUi.focus ? 'on' : ''}>
                 <span className="ej-mark">{j.done ? '✓' : i === jobUi.focus ? '▶' : '・'}</span>
-                {L(JOBS[j.type].name)}
+                {ui().evaJobs[j.type].name}
               </li>
             ))}
           </ul>
@@ -255,7 +253,7 @@ function JobPanel() {
               {def.steps.map((st, k) => (
                 <li key={k} className={k < fj.step ? 'done' : k === fj.step ? 'on' : ''}>
                   <span className="ej-tool">{TOOL_ICON[st.tool]}</span>
-                  <span className="ej-text">{L(st.text)}</span>
+                  <span className="ej-text">{ui().evaJobs[fj.type].steps[k].text}</span>
                   {k === fj.step && (
                     <span className="eva-bar ej-bar">
                       <span style={{ width: `${jobUi.prog * 100}%` }} />
@@ -267,19 +265,19 @@ function JobPanel() {
           )}
         </>
       )}
-      {fj && def && !fj.done && <JobHint ui={jobUi} carrying={!!carrying} lang={lang} />}
+      {fj && def && !fj.done && <JobHint ui={jobUi} carrying={!!carrying} />}
       {done === jobUi.jobs.length && <div className="ej-hint ok">{ui().evaView.allRepairsDone}</div>}
     </div>
   )
 }
 
-function JobHint({ ui: jobUi, carrying, lang }: { ui: ReturnType<typeof useEvaJobs.getState>['ui']; carrying: boolean; lang: string }) {
+function JobHint({ ui: jobUi, carrying }: { ui: ReturnType<typeof useEvaJobs.getState>['ui']; carrying: boolean }) {
   const blockedAt = useEvaJobs((j) => j.blockedAt)
   const fj = jobUi.jobs[jobUi.focus]
   const st = JOBS[fj.type].steps[fj.step]
   const key = EVA_TOOLS.indexOf(st.tool) + 1
   if (carrying && evaNow() - blockedAt < 2.5) return <div className="ej-hint warn">{ui().evaView.cantSwapTools}</div>
-  if (jobUi.need) return <div className="ej-hint warn">{ui().evaView.switchToTool(toolLabel(jobUi.need, lang), key)}</div>
+  if (jobUi.need) return <div className="ej-hint warn">{ui().evaView.switchToTool(toolLabel(jobUi.need), key)}</div>
   if (jobUi.near) return <div className="ej-hint go">{ui().evaView.holdEToWork}</div>
   const where = jobUi.toRack ? ui().evaView.goToRack : carrying ? ui().evaView.carryPart : ui().evaView.goToWorkSite
   return (
@@ -291,14 +289,13 @@ function JobHint({ ui: jobUi, carrying, lang }: { ui: ReturnType<typeof useEvaJo
 
 /** 修理が終わったときのカード：作業の中身と、本当の宇宙の船外作業の豆知識 */
 function JobCard() {
-  const lang = useLang()
+  useLang()
   const card = useEvaJobs((j) => j.card)
   const jobUi = useEvaJobs((j) => j.ui)
   const log = useEvaLog((l) => l.log)
   const j = card !== null ? jobUi.jobs[card] : null
   if (!j) return null
   const def = JOBS[j.type]
-  const L = (p: [string, string]) => (lang === 'en' ? p[1] : p[0])
   const kinds = JOB_TYPES.filter((k) => log[k]).length
   return (
     <div className="sample-card eva-card">
@@ -306,20 +303,20 @@ function JobCard() {
         <span className="ec-check">✓</span>
         <div>
           <div className="sample-kicker">{ui().evaView.repairComplete}</div>
-          <div className="sample-name">{L(def.name)}</div>
+          <div className="sample-name">{ui().evaJobs[j.type].name}</div>
         </div>
       </div>
       <ol className="ec-steps">
         {def.steps.map((st, k) => (
           <li key={k}>
             <span className="ej-tool">{TOOL_ICON[st.tool]}</span>
-            {L(st.text)}
+            {ui().evaJobs[j.type].steps[k].text}
           </li>
         ))}
       </ol>
       <p className="sample-note">
         <span className="ec-tag">{ui().evaView.inRealSpace}</span>
-        {L(def.note)}
+        {ui().evaJobs[j.type].note}
       </p>
       <div className="sample-foot">
         <span>
@@ -334,7 +331,7 @@ function JobCard() {
 }
 
 function EvaPanel() {
-  const lang = useLang()
+  useLang()
   const phase = useEva((e) => e.phase)
   const view = useEva((e) => e.view)
   const assist = useEva((e) => e.assist)
@@ -345,7 +342,7 @@ function EvaPanel() {
   const gas = useEva((e) => e.hud.gas)
   useEffect(() => bindEvaKeys(), [])
   const fly = phase === 'fly'
-  const toolName = lang === 'en' ? TOOL_NAME[tool][1] : TOOL_NAME[tool][0]
+  const toolName = ui().evaTools[tool]
   return (
     <div className="surface-ui eva-ui">
       {phase === 'launch' && <div className="surface-caption">{ui().evaView.openingAirlock}</div>}

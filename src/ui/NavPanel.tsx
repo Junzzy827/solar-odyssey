@@ -22,7 +22,7 @@ import { ShipSection } from './ShipPicker'
 import { scaleFacts, scalePatch, stepName, stepOf } from './ScaleToggle'
 import { useLevel, useQuality, type QualitySetting } from '../state/quality'
 import { setLook } from '../state/look'
-import { named, setLang, useLang } from '../i18n/lang'
+import { setLang, useLang } from '../i18n/lang'
 import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
 import { ThrottleMeter } from './Throttle'
@@ -357,14 +357,14 @@ export function NavPanel() {
           <div key={p.id}>
             {p.dwarf && <div className="nav-heading">{ui().navPanel.dwarfPlanet}</div>}
             <div className="nav-row">
-              <TargetButton id={p.id} name={named(p)} onPick={pick} />
+              <TargetButton id={p.id} name={ui().bodies[p.id].name} onPick={pick} />
               {p.moons.length > 0 && (
-                <button className="nav-toggle" onClick={() => setOpen(open === p.id ? null : p.id)} aria-label={ui().navPanel.moonsOf(p.name, p.nameEn)}>
+                <button className="nav-toggle" onClick={() => setOpen(open === p.id ? null : p.id)} aria-label={ui().navPanel.moonsOf(ui().bodies[p.id].name)}>
                   {open === p.id ? '−' : `+${p.moons.length}`}
                 </button>
               )}
             </div>
-            {open === p.id && p.moons.map((m) => <TargetButton key={m.id} id={m.id} name={named(m)} sub onPick={pick} />)}
+            {open === p.id && p.moons.map((m) => <TargetButton key={m.id} id={m.id} name={ui().bodies[m.id].name} sub onPick={pick} />)}
           </div>
         ))}
         <div className="nav-heading">{ui().navPanel.spaceTelescopes}</div>

@@ -219,9 +219,3 @@ export function hullAlt(p: THREE.Vector3) {
   }
   return Math.hypot(p.x, p.y + evaSite.shape.R) - evaSite.shape.R
 }
-
-export const SITE_NAME: Record<EvaSiteId, [string, string]> = {
-  hull: ['この船の外壁', 'Own ship’s hull'],
-  arcadia: ['アルカディアの発進路', 'Arcadia launch deck'],
-  dock: ['天の湊 リングの下面', 'Amano-Minato ring underside'],
-}

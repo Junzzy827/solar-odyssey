@@ -1164,7 +1164,7 @@ export function Rover({
             next >= 0
               ? {
                   dist: Math.round(nextD),
-                  where: sites[next].poi?.name ?? null,
+                  where: sites[next].poi?.id ?? null,
                   rel: Math.round(
                     (Math.atan2((sites[next].x - s.x) * sideX + (sites[next].z - s.z) * sideZ, (sites[next].x - s.x) * fwd.x + (sites[next].z - s.z) * fwd.z) * 180) / Math.PI,
                   ),

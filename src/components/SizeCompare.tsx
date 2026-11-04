@@ -6,7 +6,7 @@ import { PLANETS, SUN } from '../data/bodies'
 import { radiusKm } from '../data/approach'
 import { textureUrl } from '../data/textures'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
-import { named, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
 import { compareWith, useCompare } from '../state/compare'
 import { nearRange } from '../state/proximity'
 import { ship } from '../state/flight'
@@ -21,7 +21,7 @@ import { ui } from '../i18n'
 const ALL = [{ id: 'sun', ...SUN }, ...PLANETS, ...PLANETS.flatMap((p) => p.moons)]
 const nameOf = (id: string) => {
   const b = ALL.find((x) => x.id === id)
-  return b ? named(b) : id
+  return b ? ui().bodies[b.id].name : id
 }
 
 const center = new THREE.Vector3()

@@ -52,6 +52,19 @@ import { throttleJa } from './throttle.ja'
 import { timeBarJa } from './timeBar.ja'
 import { touchBarJa } from './touchBar.ja'
 import { touchControlsJa } from './touchControls.ja'
+import { bodiesJa } from './bodies.ja'
+import { bridgePartsJa } from './bridgeParts.ja'
+import { compareItemsJa } from './compareItems.ja'
+import { deepSpaceImagesJa } from './deepSpaceImages.ja'
+import { eclipsesJa } from './eclipses.ja'
+import { evaJobsJa } from './evaJobs.ja'
+import { evaSitesJa } from './evaSites.ja'
+import { evaToolsJa } from './evaTools.ja'
+import { phaserFactsJa } from './phaserFacts.ja'
+import { poisJa } from './pois.ja'
+import { probesJa } from './probes.ja'
+import { rockSamplesJa } from './rockSamples.ja'
+import { shipsJa } from './ships.ja'
 
 // 画面の文言（日本語）。ストーリーモードの短い文言はここに書く。ほかの画面の文言は画面ごとのファイル（navPanel.ja.ts など）にあり、ここに集める
 // まだ使う場所に t('日本語', 'English') と書いてある文言もある
@@ -168,4 +181,17 @@ export const ja = {
   timeBar: timeBarJa,
   touchBar: touchBarJa,
   touchControls: touchControlsJa,
+  bodies: bodiesJa,
+  bridgeParts: bridgePartsJa,
+  compareItems: compareItemsJa,
+  deepSpaceImages: deepSpaceImagesJa,
+  eclipses: eclipsesJa,
+  evaJobs: evaJobsJa,
+  evaSites: evaSitesJa,
+  evaTools: evaToolsJa,
+  phaserFacts: phaserFactsJa,
+  pois: poisJa,
+  probes: probesJa,
+  rockSamples: rockSamplesJa,
+  ships: shipsJa,
 }

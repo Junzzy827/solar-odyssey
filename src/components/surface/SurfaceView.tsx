@@ -14,7 +14,7 @@ import { goToRally, useRally } from '../../state/rally'
 import { TRACKS, trackForBody } from '../../data/rallyTracks'
 import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded, type Rock } from './terrain'
 import { WideWorld, isWide, wideNow, withHole } from './wideGround'
-import { named, t, useLang } from '../../i18n/lang'
+import { t, useLang } from '../../i18n/lang'
 import { AirParams, ApUniforms, SkyLut, airFor, airUniforms, apUniforms, autoExposure, luminance, skyLookupGlsl, sunTransmittance, withAir } from './atmosphere'
 import { SurfacePost } from './SurfacePost'
 import { SurfaceLab } from './SurfaceLab'
@@ -64,9 +64,9 @@ function dirFrom(azDeg: number, elDeg: number) {
 
 function bodyName(id: string) {
   for (const p of PLANETS) {
-    if (p.id === id) return named(p)
+    if (p.id === id) return ui().bodies[p.id].name
     const m = p.moons.find((x) => x.id === id)
-    if (m) return named(m)
+    if (m) return ui().bodies[m.id].name
   }
   return id
 }
@@ -1390,7 +1390,7 @@ function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
         <span className="sample-swatch" style={{ background: k.color }} />
         <div>
           <div className="sample-kicker">{ui().surfaceView.sampleAnalysed}</div>
-          <div className="sample-name">{lang === 'en' ? k.name[1] : k.name[0]}</div>
+          <div className="sample-name">{ui().rockSamples[k.id].name}</div>
         </div>
       </div>
       <div className="sample-comp">
@@ -1404,7 +1404,7 @@ function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
           </div>
         ))}
       </div>
-      <p className="sample-note">{lang === 'en' ? k.note[1] : k.note[0]}</p>
+      <p className="sample-note">{ui().rockSamples[k.id].note}</p>
       <div className="sample-foot">
         <span>
           {ui().surfaceView.samplesHere} {got} / {all.length}
@@ -1474,7 +1474,7 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
                 ▲
               </span>
               {next.where
-                ? ui().surfaceView.rockAtPlace(next.where.ja, next.dist, next.where.en)
+                ? ui().surfaceView.rockAtPlace(ui().pois[next.where].name, next.dist)
                 : ui().surfaceView.rockAtBeam(next.dist)}
             </span>
           ) : (
