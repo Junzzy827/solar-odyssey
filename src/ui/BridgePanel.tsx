@@ -4,6 +4,7 @@ import { VIEWPOINTS } from '../data/bridge'
 import { BRIDGE_PARTS } from '../data/bridgeParts'
 import { isTouchDevice } from '../state/input'
 import { named, t, useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 /** ブリッジ視点の見どころ（ワンタップで移る）と、艦長席での見回しの切り替え */
 export function BridgePanel() {
@@ -31,7 +32,7 @@ export function BridgePanel() {
       {/* パソコンは画面下の「外にもどる」ボタン（Esc）。スマホはここにも大きく出す */}
       {touch && (
         <button className="bridge-exit" onClick={leaveBridge}>
-          {t('◀ ブリッジから出る', '◀ Leave the bridge')}
+          {ui().bridgePanel.leaveBridge}
         </button>
       )}
       <div className="bridge-views">
@@ -44,23 +45,23 @@ export function BridgePanel() {
       <div className="bridge-hint">
         {atSeat
           ? touch
-            ? t('「見回す」を押すと、なぞって首を振れます', 'Tap “Look around” and drag to turn your head')
-            : t('右ボタンを押しながらマウスで見回す', 'Hold the right button and move the mouse to look around')
-          : t('船は止まります。なぞって見回せます（艦長席にもどると操縦できます）', 'The ship coasts to a stop. Drag to look around (go back to the captain’s chair to fly)')}
+            ? ui().bridgePanel.lookTouchHint
+            : ui().bridgePanel.lookMouseHint
+          : ui().bridgePanel.coastingHint}
       </div>
       <div className="bridge-actions">
         <button className={`bridge-look ${viewscreen ? 'active' : ''}`} onClick={() => setViewscreen(!viewscreen)}>
-          {viewscreen ? t('窓にもどす', 'Back to the window') : targetId ? t('目標を拡大画面に', 'Zoom on target') : t('前を拡大画面に', 'Zoom ahead')}
+          {viewscreen ? ui().bridgePanel.backToWindow : targetId ? ui().bridgePanel.zoomOnTarget : ui().bridgePanel.zoomAhead}
           {!touch && <kbd>Z</kbd>}
         </button>
         {atSeat && (
           <button className={`bridge-look ${labels ? 'active' : ''}`} onClick={() => setLabels(!labels)}>
-            {labels ? t('説明をしまう', 'Hide labels') : t('見どころの説明', 'Show labels')}
+            {labels ? ui().bridgePanel.hideLabels : ui().bridgePanel.showLabels}
           </button>
         )}
         {touch && atSeat && (
           <button className={`bridge-look ${looking ? 'active' : ''}`} onClick={() => setLooking(!looking)}>
-            {looking ? t('操縦にもどる', 'Back to flying') : t('見回す', 'Look around')}
+            {looking ? ui().bridgePanel.backToFlying : ui().bridgePanel.lookAround}
           </button>
         )}
       </div>
@@ -68,7 +69,7 @@ export function BridgePanel() {
         <div className="bridge-info">
           <b>{named(part)}</b>
           <p>{t(part.text, part.textEn)}</p>
-          <button onClick={() => useBridge.getState().selectPart(null)} aria-label={t('閉じる', 'Close')}>
+          <button onClick={() => useBridge.getState().selectPart(null)} aria-label={ui().bridgePanel.close}>
             ×
           </button>
         </div>

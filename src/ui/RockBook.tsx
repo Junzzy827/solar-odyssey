@@ -6,6 +6,7 @@ import { nearLander, spotsOf } from '../data/rockSpots'
 import { useSampleLog } from '../state/rover'
 import { closeRocks, useRockBook } from '../state/rockBook'
 import { getLang, named, t, useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 function bodyName(id: string) {
   for (const p of PLANETS) {
@@ -40,16 +41,13 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
   const atLander = g.bodies.some((b) => nearLander(b, k.id))
   const spots = [...new Set(g.bodies.flatMap((b) => spotsOf(b, k.id).map((p) => t(p.name.ja, p.name.en))))].slice(0, 3)
   const hint = atLander
-    ? t(`${where}に着陸して、ローバーで光の柱の岩を探してみよう。`, `Land on ${where} and look for the rocks marked by light beams with the rover.`)
-    : t(
-        `${where}の見どころ「${spots.join('」「')}」で見つかるかも。ミニマップの ◆ をめざして走ろう。`,
-        `Try the ${spots.join(', ')} on ${where}. Drive to the ◆ on the minimap.`,
-      )
+    ? ui().rockBook.landerHint(where)
+    : ui().rockBook.spotsHint(where, spots)
   const max = Math.max(...k.comp.map((c) => c[1]))
   return (
     <div className={`rock-detail${found ? ' got' : ''}`}>
       <button className="secondary rock-back" onClick={() => useRockBook.setState({ sel: null })}>
-        ◀ {t('一覧へ', 'Back')}
+        ◀ {ui().rockBook.back}
       </button>
       <div className="rock-detail-body">
         <span className="rock-pic big">
@@ -73,13 +71,13 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
                 ))}
               </div>
               <p className="muted small">
-                {t('見つけた場所：', 'Found on: ')}
+                {ui().rockBook.foundOn}
                 {at.map(bodyName).join('・')}
               </p>
             </>
           ) : (
             <p className="muted">
-              {t('まだ見つけていない岩です。', 'Not found yet. ')}
+              {ui().rockBook.notFoundYet}
               {hint}
             </p>
           )}
@@ -114,13 +112,13 @@ export function RockBook() {
   const k = g?.samples.find((s) => s.id === kid)
 
   return (
-    <section className="rock-book" role="dialog" aria-label={t('岩石コレクション', 'Rock collection')}>
+    <section className="rock-book" role="dialog" aria-label={ui().rockBook.rockCollection}>
       <header>
-        <h2>{t('岩石コレクション', 'Rock collection')}</h2>
+        <h2>{ui().rockBook.rockCollection}</h2>
         <span className="rock-total">
           {rockCount(log)} / {ROCK_TOTAL}
         </span>
-        <button className="close" onClick={closeRocks} aria-label={t('閉じる', 'Close')}>
+        <button className="close" onClick={closeRocks} aria-label={ui().rockBook.close}>
           ×
         </button>
       </header>
@@ -129,10 +127,7 @@ export function RockBook() {
       ) : (
         <>
           <p className="muted small">
-            {t(
-              '惑星や衛星に着陸してローバーを出し、岩を採集すると、ここに標本が並びます。まだ見つけていない岩はシルエットだけ。タップすると説明が読めます。',
-              'Land, send out the rover and collect rocks to fill this collection. Rocks you have not found yet show only as silhouettes. Tap one to read about it.',
-            )}
+            {ui().rockBook.howToCollect}
           </p>
           {ROCK_GROUPS.map((grp) => {
             const got = grp.samples.filter((s) => foundAt(grp, s.id, log).length > 0).length

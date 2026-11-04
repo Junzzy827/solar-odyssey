@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { DEEP_SPACE, deepSpaceText, deepSpaceThumb, deepSpaceUrl, scopeLight, scopeLightShort, type DeepSpaceImage } from '../data/deepSpace'
 import { HUBBLE_ID, scopeName, type ScopeId } from '../data/telescopes'
-import { t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 const MAX_ZOOM = 8
 
@@ -86,15 +87,15 @@ function Viewer({ image }: { image: DeepSpaceImage }) {
         }}
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, opacity: loaded ? 1 : 0 }}
       />
-      {!loaded && <div className="scope-loading">{t('望遠鏡から受信中…', 'Receiving from the telescope…')}</div>}
+      {!loaded && <div className="scope-loading">{ui().telescopeView.receiving}</div>}
       <div className="scope-zoom" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
-        <button onClick={() => zoomBy(1.6)} aria-label={t('拡大', 'Zoom in')}>＋</button>
-        <button onClick={() => zoomBy(1 / 1.6)} aria-label={t('縮小', 'Zoom out')} disabled={view.scale <= 1}>−</button>
+        <button onClick={() => zoomBy(1.6)} aria-label={ui().telescopeView.zoomIn}>＋</button>
+        <button onClick={() => zoomBy(1 / 1.6)} aria-label={ui().telescopeView.zoomOut} disabled={view.scale <= 1}>−</button>
         <button onClick={() => setView(FIT)} disabled={view.scale <= 1}>
-          {t('全体', 'Fit')}
+          {ui().telescopeView.fit}
         </button>
       </div>
-      <div className="scope-hint">{t('ホイールで拡大・ドラッグで移動', 'Scroll to zoom · drag to move')}</div>
+      <div className="scope-hint">{ui().telescopeView.zoomHint}</div>
     </div>
   )
 }
@@ -124,9 +125,9 @@ function ScopeScreen({ scope }: { scope: ScopeId }) {
   }, [current.id])
   const other =
     scope === HUBBLE_ID
-      ? t('ウェッブ宇宙望遠鏡（地球から見て太陽と反対側）のそばでは、赤外線の写真が見られます。', 'Near the Webb Space Telescope (on the far side of Earth from the Sun) you can see infrared pictures.')
-      : t('ハッブル宇宙望遠鏡（地球のまわり）のそばでは、目に見える光の写真が見られます。', 'Near the Hubble Space Telescope (around Earth) you can see pictures in visible light.')
-  const title = t(`${scopeName(scope)}の目`, `Through the eyes of ${scopeName(scope)}`)
+      ? ui().telescopeView.webbNote
+      : ui().telescopeView.hubbleNote
+  const title = ui().telescopeView.throughEyesOf(scopeName(scope))
 
   return (
     <div className="scope-view" role="dialog" aria-label={title}>
@@ -134,12 +135,12 @@ function ScopeScreen({ scope }: { scope: ScopeId }) {
         <div>
           <h2>{title}</h2>
           <div className="muted">
-            {current.scope === scope ? t('見ている光', 'Seeing') : t(`${scopeName(current.scope)}の写真`, `${scopeName(current.scope)} picture`)}
-            {t('：', ': ')}
+            {current.scope === scope ? ui().telescopeView.seeing : ui().telescopeView.scopePicture(scopeName(current.scope))}
+            {ui().telescopeView.separator}
             {scopeLight(current.scope)}
           </div>
         </div>
-        <button className="close" onClick={() => setScope(null)} aria-label={t('閉じる', 'Close')}>
+        <button className="close" onClick={() => setScope(null)} aria-label={ui().telescopeView.close}>
           × <kbd>Esc</kbd>
         </button>
       </header>
@@ -149,20 +150,20 @@ function ScopeScreen({ scope }: { scope: ScopeId }) {
           <Viewer image={current} />
           {pair && (
             <div className="scope-compare">
-              <span className="muted">{t('同じ場所を見くらべる', 'Compare the same place')}</span>
+              <span className="muted">{ui().telescopeView.compareSamePlace}</span>
               {[base, pair].map((img) => (
                 <button key={img.id} className={img === current ? 'on' : ''} onClick={() => setShowPair(img === pair)}>
-                  {t(`${scopeName(img.scope)}（${scopeLightShort(img.scope)}）`, `${scopeName(img.scope)} (${scopeLightShort(img.scope)})`)}
+                  {ui().telescopeView.scopeAndLight(scopeName(img.scope), scopeLightShort(img.scope))}
                 </button>
               ))}
             </div>
           )}
           <div className="scope-credit">
-            {t('画像：', 'Image: ')}
+            {ui().telescopeView.imageCredit}
             {current.credit}
-            {t('（CC BY 4.0）', ' (CC BY 4.0)')}{' '}
+            {ui().telescopeView.ccLicense}{' '}
             <a href={current.source} target="_blank" rel="noreferrer">
-              {t('元の画像', 'Original image')}
+              {ui().telescopeView.originalImage}
             </a>
           </div>
         </div>
@@ -172,12 +173,12 @@ function ScopeScreen({ scope }: { scope: ScopeId }) {
           <div className="muted">{text.kind}</div>
           <dl>
             <div>
-              <dt>{t('距離', 'Distance')}</dt>
+              <dt>{ui().telescopeView.distance}</dt>
               <dd>{text.distance}</dd>
             </div>
           </dl>
           <div className="scope-lookback">
-            <div className="muted">{t('この光が出発したのは', 'This light set out')}</div>
+            <div className="muted">{ui().telescopeView.lightSetOut}</div>
             {text.lookback}
           </div>
           <ul className="notes">

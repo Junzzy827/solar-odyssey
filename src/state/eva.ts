@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { useStore } from './store'
 import { raceActive } from './race'
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 import * as THREE from 'three'
 import { jobsRt, newShift, useEvaJobs } from './evaJobs'
 import { bodies } from './registry'
@@ -126,7 +126,7 @@ function pickSite(want?: EvaSiteId) {
   const a = (best + 0.5) * seg
   const local = new THREE.Quaternion().setFromRotationMatrix(dockSiteMatrix(a))
   setEvaSite('dock', dq.clone().multiply(local), a)
-  s.showToast(t('天の湊のリングの下面で作業します。リングの外側を見上げると地球が見えます', 'Working on the underside of the Amano-Minato ring. Look up past the outer edge to see Earth'))
+  s.showToast(ui().eva.dockSiteNote)
 }
 
 export function startEva(want?: EvaSiteId) {
@@ -156,7 +156,7 @@ export function finishEva() {
   window.setTimeout(() => {
     if (useEva.getState().phase === 'fadeOut') {
       useEva.setState({ phase: 'none' })
-      useStore.getState().showToast(t('ツムギを回収しました', 'Tsumugi is back aboard'))
+      useStore.getState().showToast(ui().eva.tsumugiAboard)
     }
   }, EVA_FADE * 1000)
 }

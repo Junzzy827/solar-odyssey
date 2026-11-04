@@ -1,5 +1,59 @@
 import type { ja } from './ja'
 import type { Translation } from './translation'
+import { approachEn } from './approach.en'
+import { beamGaugeEn } from './beamGauge.en'
+import { blackHoleEn } from './blackHole.en'
+import { bridgeEn } from './bridge.en'
+import { bridgePanelEn } from './bridgePanel.en'
+import { chargeBeamEn } from './chargeBeam.en'
+import { compareModelsEn } from './compareModels.en'
+import { consolesEn } from './consoles.en'
+import { contextLostEn } from './contextLost.en'
+import { cubeEn } from './cube.en'
+import { deepSpaceEn } from './deepSpace.en'
+import { eclipsePanelEn } from './eclipsePanel.en'
+import { evaEn } from './eva.en'
+import { evaViewEn } from './evaView.en'
+import { exoplanetEn } from './exoplanet.en'
+import { flightEn } from './flight.en'
+import { galleryPanelEn } from './galleryPanel.en'
+import { hudEn } from './hud.en'
+import { landingEn } from './landing.en'
+import { logPanelEn } from './logPanel.en'
+import { navPanelEn } from './navPanel.en'
+import { observeEn } from './observe.en'
+import { observePanelEn } from './observePanel.en'
+import { photoNoteEn } from './photoNote.en'
+import { probePanelEn } from './probePanel.en'
+import { probeSceneEn } from './probeScene.en'
+import { quizPanelEn } from './quizPanel.en'
+import { raceEn } from './race.en'
+import { racePanelEn } from './racePanel.en'
+import { rallyPanelEn } from './rallyPanel.en'
+import { rockBookEn } from './rockBook.en'
+import { roverHudEn } from './roverHud.en'
+import { scaleToggleEn } from './scaleToggle.en'
+import { sfEn } from './sf.en'
+import { sfBadgeEn } from './sfBadge.en'
+import { sfEngineEn } from './sfEngine.en'
+import { sfHourglassEn } from './sfHourglass.en'
+import { sfJapanEn } from './sfJapan.en'
+import { sfSidesEn } from './sfSides.en'
+import { sfSpaceEn } from './sfSpace.en'
+import { shipPickerEn } from './shipPicker.en'
+import { sizeCompareEn } from './sizeCompare.en'
+import { spaceDockEn } from './spaceDock.en'
+import { stampBookEn } from './stampBook.en'
+import { stampsEn } from './stamps.en'
+import { stateLaunchEn } from './stateLaunch.en'
+import { sunEn } from './sun.en'
+import { surfaceViewEn } from './surfaceView.en'
+import { telescopeViewEn } from './telescopeView.en'
+import { telescopesEn } from './telescopes.en'
+import { throttleEn } from './throttle.en'
+import { timeBarEn } from './timeBar.en'
+import { touchBarEn } from './touchBar.en'
+import { touchControlsEn } from './touchControls.en'
 
 // UI strings (English). Same keys as ja.ts; a key left out is shown in Japanese
 
@@ -62,4 +116,58 @@ export const en: Translation<typeof ja> = {
     hidden: 'Hidden behind another body',
     fast: 'Slow down',
   } as Record<string, string>,
+  approach: approachEn,
+  beamGauge: beamGaugeEn,
+  blackHole: blackHoleEn,
+  bridge: bridgeEn,
+  bridgePanel: bridgePanelEn,
+  chargeBeam: chargeBeamEn,
+  compareModels: compareModelsEn,
+  consoles: consolesEn,
+  contextLost: contextLostEn,
+  cube: cubeEn,
+  deepSpace: deepSpaceEn,
+  eclipsePanel: eclipsePanelEn,
+  eva: evaEn,
+  evaView: evaViewEn,
+  exoplanet: exoplanetEn,
+  flight: flightEn,
+  galleryPanel: galleryPanelEn,
+  hud: hudEn,
+  landing: landingEn,
+  logPanel: logPanelEn,
+  navPanel: navPanelEn,
+  observe: observeEn,
+  observePanel: observePanelEn,
+  photoNote: photoNoteEn,
+  probePanel: probePanelEn,
+  probeScene: probeSceneEn,
+  quizPanel: quizPanelEn,
+  race: raceEn,
+  racePanel: racePanelEn,
+  rallyPanel: rallyPanelEn,
+  rockBook: rockBookEn,
+  roverHud: roverHudEn,
+  scaleToggle: scaleToggleEn,
+  sf: sfEn,
+  sfBadge: sfBadgeEn,
+  sfEngine: sfEngineEn,
+  sfHourglass: sfHourglassEn,
+  sfJapan: sfJapanEn,
+  sfSides: sfSidesEn,
+  sfSpace: sfSpaceEn,
+  shipPicker: shipPickerEn,
+  sizeCompare: sizeCompareEn,
+  spaceDock: spaceDockEn,
+  stampBook: stampBookEn,
+  stamps: stampsEn,
+  stateLaunch: stateLaunchEn,
+  sun: sunEn,
+  surfaceView: surfaceViewEn,
+  telescopeView: telescopeViewEn,
+  telescopes: telescopesEn,
+  throttle: throttleEn,
+  timeBar: timeBarEn,
+  touchBar: touchBarEn,
+  touchControls: touchControlsEn,
 }

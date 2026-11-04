@@ -9,11 +9,12 @@ import { isTelescope, scopeName, TELESCOPE_TEXT } from '../data/telescopes'
 import { canOpenGallery, closeGallery, openGallery } from '../state/gallery'
 import { isTouchDevice } from '../state/input'
 import { launchLander, useLaunchBusy } from '../state/launch'
-import { getLang, t, useLang } from '../i18n/lang'
+import { getLang, useLang } from '../i18n/lang'
 import { landableBody, landed, startLanding } from '../state/landing'
 import { useMission } from '../state/mission'
 import { toggleObserve } from '../state/observe'
 import { canStartEva, evaActive, startEva } from '../state/eva'
+import { ui } from '../i18n'
 
 /** 全体のキー操作：M 全体マップ／V 鑑賞モード／Enter ワープ／G 自動航行／C カメラ／1〜9 ワープ速度 */
 export function useGlobalKeys() {
@@ -98,7 +99,7 @@ function LandPrompt() {
   const name = bodyInfo(id)?.name ?? id
   return (
     <button className="land-prompt" style={lift !== null && !isTouchDevice() ? { bottom: Math.max(118, lift) } : undefined} onClick={() => startLanding(id)}>
-      {t(`${name}の地表に降りる`, `Land on ${name}`)} <kbd>J</kbd>
+      {ui().hud.landOn(name)} <kbd>J</kbd>
     </button>
   )
 }
@@ -153,31 +154,25 @@ function roughly(n: number) {
 /** 天体のそばでの高さ・雲の中の様子と、大きさくらべ */
 function NearReadout({ near }: { near: Near }) {
   const big = near.timesEarth >= 1.5
-  const where = near.kind === 'gas' ? t('雲の上', 'above the clouds of') : near.kind === 'star' ? t('表面から', 'above the surface of') : t('地表から', 'above the surface of')
+  const where = near.kind === 'gas' ? ui().hud.aboveClouds : near.kind === 'star' ? ui().hud.aboveStarSurface : ui().hud.aboveGround
   return (
     <div className="near">
       {near.dive ? (
         <div className="near-dive">
-          {t(
-            `${near.name}の雲の下 約${roughly(near.dive.km)}km・${near.dive.bar.toFixed(1)}気圧・${Math.round(near.dive.celsius)}℃`,
-            `About ${roughly(near.dive.km)} km under the clouds of ${near.name} · ${near.dive.bar.toFixed(1)} bar · ${Math.round(near.dive.celsius)} °C`,
-          )}
+          {ui().hud.diveDepth(near.name, roughly(near.dive.km), near.dive.bar.toFixed(1), Math.round(near.dive.celsius))}
         </div>
       ) : (
         near.altitudeKm !== null && (
-          <div>{t(`${near.name}の${where} 約${roughly(near.altitudeKm)}km`, `About ${roughly(near.altitudeKm)} km ${where} ${near.name}`)}</div>
+          <div>{ui().hud.altitude(near.name, where, roughly(near.altitudeKm))}</div>
         )
       )}
       <div className="muted">
-        {t(
-          `直径は${big ? `地球の約${roughly(near.timesEarth)}倍、` : ''}この船の約${roughly(near.timesShip)}倍`,
-          `Diameter: ${big ? `about ${roughly(near.timesEarth)} × Earth, ` : ''}about ${roughly(near.timesShip)} × this ship`,
-        )}
+        {ui().hud.diameterVsShip(big, roughly(near.timesEarth), roughly(near.timesShip))}
       </div>
       <CompareButton far={near.zoom >= 3} />
       {near.zoom >= 1.5 && (
         <div className="muted near-zoom">
-          {t(`接近ズーム：船を1/${Math.round(near.zoom)}に縮めて、${near.name}の大きさを本物に近づけています`, `Close-up zoom: the ship is shown at 1/${Math.round(near.zoom)} so ${near.name} looks closer to its real size`)}
+          {ui().hud.closeUpNote(Math.round(near.zoom), near.name)}
         </div>
       )}
     </div>
@@ -191,9 +186,9 @@ function CompareButton({ far }: { far: boolean }) {
   return (
     <div className="compare-row">
       <button className={`compare-button${on ? ' on' : ''}`} onClick={toggle}>
-        {on ? t('大きさくらべをやめる', 'Hide size comparison') : t('大きさくらべ', 'Compare sizes')} {!isTouchDevice() && <kbd>B</kbd>}
+        {on ? ui().hud.hideSizeComparison : ui().hud.compareSizes} {!isTouchDevice() && <kbd>B</kbd>}
       </button>
-      {on && far && <span className="muted">{t('少し離れると並べた天体が見えます', 'Back off a little to see them side by side')}</span>}
+      {on && far && <span className="muted">{ui().hud.backOffHint}</span>}
     </div>
   )
 }
@@ -205,11 +200,8 @@ function WarpFact({ name, lightMinutes, probeYears }: { name: string; lightMinut
   const years = Math.round(probeYears)
   return (
     <div className="warp-fact">
-      {t(
-        `本物の光でも太陽から${name}まで約${minutes}分。実際の探査機なら約${probeYears < 1 ? `${months}か月` : `${years}年`}かかります。`,
-        `Even real light takes about ${minutes} minutes from the Sun to ${name}. A real probe would take about ${probeYears < 1 ? `${months} month${months > 1 ? 's' : ''}` : `${years} year${years > 1 ? 's' : ''}`}.`,
-      )}
-      <span className="muted">{t('（ワープは空想の技術です）', ' (Warp is imaginary technology.)')}</span>
+      {ui().hud.lightTimeNote(name, minutes, probeYears < 1, months, years, months > 1, years > 1)}
+      <span className="muted">{ui().hud.warpFictionNote}</span>
     </div>
   )
 }
@@ -247,29 +239,29 @@ export function Hud() {
         {touch ? (
           <div className={`hud-hint${hint ? '' : ' hidden'}`}>
             {mode === 'map'
-              ? t('指でなぞって回転・2本指で拡大縮小・名前をタップで目標', 'Drag to rotate · pinch to zoom · tap a name to target it')
+              ? ui().hud.mapTouchHint
               : mode === 'gallery'
-                ? t('指でなぞって回転・2本指で拡大縮小', 'Drag to rotate · pinch to zoom')
-                : t('左のスティックで移動・画面をなぞって向きを変える', 'Left stick to move · drag the screen to turn')}
+                ? ui().hud.galleryTouchHint
+                : ui().hud.flyTouchHint}
           </div>
         ) : mode === 'map' ? (
-          <div>{t('ドラッグで回転・ホイールで拡大縮小・名前をクリックで目標設定', 'Drag to rotate · scroll to zoom · click a name to target it')}</div>
+          <div>{ui().hud.mapMouseHint}</div>
         ) : mode === 'gallery' ? (
-          <div>{t('鑑賞モード：ドラッグで回転・ホイールで拡大縮小・V でもどる', 'Viewing mode: drag to rotate · scroll to zoom · V to go back')}</div>
+          <div>{ui().hud.galleryMouseHint}</div>
         ) : (
           <div>
-            {t('クリックで操縦開始（Escで解除）', 'Click to start flying (Esc to release)')}
+            {ui().hud.clickToFly}
             <br />
-            {t('W/S 前後・A/D 左右・Space/Shift 上下・Q/E 回転・マウスで向き', 'W/S forward/back · A/D left/right · Space/Shift up/down · Q/E roll · mouse to steer')}
+            {ui().hud.moveKeysHint}
             <br />
-            {t('F またはクリックでビーム（長押しでチャージ）・I で航海日誌・C でカメラ切り替え', 'F or click to fire the beam (hold to charge) · I for the ship’s log · C to switch camera')}
+            {ui().hud.actionKeysHint}
             <br />
-            {t('ホイールで推進の段階（速さ）を切り替え・O で目標の周辺観察', 'Mouse wheel to change thrust (speed) · O to observe the target up close')}
+            {ui().hud.thrustKeysHint}
           </div>
         )}
         {mode !== 'gallery' && (
           <div className="muted">
-            {t('速度', 'Speed')} {telemetry.speed.toFixed(1)}
+            {ui().hud.speed} {telemetry.speed.toFixed(1)}
           </div>
         )}
         {mode === 'flight' && telemetry.near && <NearReadout near={telemetry.near} />}
@@ -278,30 +270,30 @@ export function Hud() {
       {/* スマホ・タブレットでは、画面下のボタン列（TouchDock）にまとめる */}
       {touch ? null : mode === 'gallery' ? (
         <button className="mode-button" onClick={closeGallery}>
-          {t('操縦席へ', 'Cockpit')} <kbd>V</kbd>
+          {ui().hud.cockpit} <kbd>V</kbd>
         </button>
       ) : (
         <>
           <button className="mode-button" onClick={() => setMode(mode === 'map' ? 'flight' : 'map')}>
-            {mode === 'map' ? t('操縦席へ', 'Cockpit') : t('全体マップ', 'Map')} <kbd>M</kbd>
+            {mode === 'map' ? ui().hud.cockpit : ui().hud.map} <kbd>M</kbd>
           </button>
           {mode === 'flight' && (cameraMode === 'bridge' ? (
             <button className="bridge-button inside" onClick={leaveBridge}>
-              {t('◀ 外にもどる', '◀ Leave the bridge')} <kbd>Esc</kbd>
+              {ui().hud.leaveBridge} <kbd>Esc</kbd>
             </button>
           ) : (
             <button className="bridge-button" onClick={enterBridge} disabled={raceActive()}>
-              {t('ブリッジに入る', 'Enter the bridge')}
+              {ui().hud.enterBridge}
             </button>
           ))}
           {mode === 'flight' && shipId === 'arcadia' && (
             <button className="launch-button" onClick={launchLander} disabled={launching || warpPhase !== 'idle'}>
-              {t('着陸船を発進', 'Launch lander')} <kbd>L</kbd>
+              {ui().hud.launchLander} <kbd>L</kbd>
             </button>
           )}
           {mode === 'flight' && (
             <button className="gallery-button" onClick={openGallery} disabled={warpPhase !== 'idle' || !canOpenGallery()}>
-              {t('船を眺める', 'View the ship')} <kbd>V</kbd>
+              {ui().hud.viewShip} <kbd>V</kbd>
             </button>
           )}
         </>
@@ -309,7 +301,7 @@ export function Hud() {
 
       {mode === 'flight' && scopeNear && !scope && warpPhase === 'idle' && (
         <button className="scope-prompt" onClick={() => openScope(scopeNear)}>
-          {t(`${scopeName(scopeNear)}でのぞく`, `Look through ${scopeName(scopeNear)}`)} <kbd>T</kbd>
+          {ui().hud.lookThrough(scopeName(scopeNear))} <kbd>T</kbd>
         </button>
       )}
 
@@ -327,8 +319,8 @@ export function Hud() {
 
       {warpPhase !== 'idle' && info && (
         <div className={`warp-banner ${warpPhase}`}>
-          <div className="warp-title">{t(`ワープ${warpFactor}`, `Warp ${warpFactor}`)}</div>
-          <div className="warp-dest">{t(`${info.name}へ`, `To ${info.name}`)}</div>
+          <div className="warp-title">{ui().hud.warpFactor(warpFactor)}</div>
+          <div className="warp-dest">{ui().hud.destination(info.name)}</div>
           {facts && <WarpFact name={info.name} lightMinutes={facts.lightMinutes} probeYears={facts.probeYears} />}
         </div>
       )}

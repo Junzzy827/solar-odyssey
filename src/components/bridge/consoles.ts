@@ -7,8 +7,9 @@ import { useStamps } from '../../state/stamps'
 import { STAMP_IDS } from '../../data/stamps'
 import { PLANETS } from '../../data/bodies'
 import { formatDate, simDate } from '../../data/ephemeris'
-import { getLang, named, t } from '../../i18n/lang'
+import { getLang, named } from '../../i18n/lang'
 import { isTouchDevice } from '../../state/input'
+import { ui } from '../../i18n'
 
 /**
  * 艦橋の画面に、いまの飛行のようすを描く。見た目はオリジナル：黒いガラスに細い線と数字、水色と琥珀色。
@@ -284,16 +285,16 @@ function draw(s: Screen, time: number) {
 
 function helm(g: CanvasRenderingContext2D, w: number, h: number, time: number) {
   const st = useStore.getState()
-  const s = frame(g, w, h, t('操舵', 'HELM'), 'NAV 01')
+  const s = frame(g, w, h, ui().consoles.helm, 'NAV 01')
   const target = targetEntry()
-  const phase = { idle: t('通常航行', 'Cruise'), charge: t('ワープ準備', 'Warp charging'), warp: t('ワープ中', 'At warp'), exit: t('ワープ終了', 'Leaving warp') }[st.warpPhase]
-  row(g, s, 16 * s, 62 * s, t('目標', 'Target'), target ? target.name : t('なし', 'None'), target ? AMBER : TEXT)
-  row(g, s, 16 * s, 88 * s, t('距離', 'Distance'), st.telemetry.distance === null ? '—' : fmt(st.telemetry.distance, 2))
-  row(g, s, 16 * s, 114 * s, t('速度', 'Speed'), fmt(st.telemetry.speed, 2))
-  row(g, s, 16 * s, 140 * s, t('到着まで', 'ETA'), st.telemetry.eta === null ? '—' : `${fmt(st.telemetry.eta, 0)} s`)
-  row(g, s, 16 * s, 166 * s, t('ワープ係数', 'Warp factor'), fmt(st.warpFactor, 0))
-  row(g, s, 16 * s, 192 * s, t('状態', 'Status'), phase, st.warpPhase === 'idle' ? TEXT : AMBER)
-  row(g, s, 16 * s, 218 * s, t('自動航行', 'Autopilot'), st.autopilot ? 'ON' : 'OFF', st.autopilot ? AMBER : TEXT)
+  const phase = { idle: ui().consoles.cruise, charge: ui().consoles.warpCharging, warp: ui().consoles.atWarp, exit: ui().consoles.leavingWarp }[st.warpPhase]
+  row(g, s, 16 * s, 62 * s, ui().consoles.target, target ? target.name : ui().consoles.none, target ? AMBER : TEXT)
+  row(g, s, 16 * s, 88 * s, ui().consoles.distance, st.telemetry.distance === null ? '—' : fmt(st.telemetry.distance, 2))
+  row(g, s, 16 * s, 114 * s, ui().consoles.speed, fmt(st.telemetry.speed, 2))
+  row(g, s, 16 * s, 140 * s, ui().consoles.eta, st.telemetry.eta === null ? '—' : `${fmt(st.telemetry.eta, 0)} s`)
+  row(g, s, 16 * s, 166 * s, ui().consoles.warpFactor, fmt(st.warpFactor, 0))
+  row(g, s, 16 * s, 192 * s, ui().consoles.status, phase, st.warpPhase === 'idle' ? TEXT : AMBER)
+  row(g, s, 16 * s, 218 * s, ui().consoles.autopilot, st.autopilot ? 'ON' : 'OFF', st.autopilot ? AMBER : TEXT)
   // 右：目標の向き（真ん中が船の正面）
   const cx = w - 150 * s
   const cy = 140 * s
@@ -327,27 +328,27 @@ function helm(g: CanvasRenderingContext2D, w: number, h: number, time: number) {
 
 function ops(g: CanvasRenderingContext2D, w: number, h: number, time: number) {
   const st = useStore.getState()
-  const s = frame(g, w, h, t('運用', 'OPERATIONS'), 'OPS 02')
+  const s = frame(g, w, h, ui().consoles.operations, 'OPS 02')
   const bw = w / 2 - 40 * s
   const jitter = (k: number) => 0.015 * Math.sin(time * 1.3 + k)
-  bar(g, s, 16 * s, 66 * s, bw, 0.32 + warpFx.glow * 0.5 + warpFx.intensity * 0.18 + jitter(1), t('ワープ機関の出力', 'Warp core output'), warpFx.intensity > 0.5)
-  bar(g, s, 16 * s, 104 * s, bw, Math.min(1, st.telemetry.speed / 12) + jitter(2), t('推進（インパルス）', 'Impulse'))
-  bar(g, s, 16 * s, 142 * s, bw, 0.98 + jitter(3), t('偏向シールド', 'Deflector shield'))
-  bar(g, s, 16 * s, 180 * s, bw, 0.9 + jitter(4), t('生命維持', 'Life support'))
-  bar(g, s, 16 * s, 218 * s, bw, 0.995, t('船体の強さ', 'Hull integrity'))
+  bar(g, s, 16 * s, 66 * s, bw, 0.32 + warpFx.glow * 0.5 + warpFx.intensity * 0.18 + jitter(1), ui().consoles.warpCoreOutput, warpFx.intensity > 0.5)
+  bar(g, s, 16 * s, 104 * s, bw, Math.min(1, st.telemetry.speed / 12) + jitter(2), ui().consoles.impulse)
+  bar(g, s, 16 * s, 142 * s, bw, 0.98 + jitter(3), ui().consoles.deflectorShield)
+  bar(g, s, 16 * s, 180 * s, bw, 0.9 + jitter(4), ui().consoles.lifeSupport)
+  bar(g, s, 16 * s, 218 * s, bw, 0.995, ui().consoles.hullIntegrity)
   const x = w / 2 + 10 * s
-  row(g, s, x, 66 * s, t('日時', 'Date'), formatDate(simDate(sim.time)), TEXT, 250)
-  row(g, s, x, 92 * s, t('時刻', 'Time'), simDate(sim.time).toTimeString().slice(0, 5), TEXT, 250)
+  row(g, s, x, 66 * s, ui().consoles.date, formatDate(simDate(sim.time)), TEXT, 250)
+  row(g, s, x, 92 * s, ui().consoles.time, simDate(sim.time).toTimeString().slice(0, 5), TEXT, 250)
   const visited = Object.keys(useStamps.getState().stamps).length
-  row(g, s, x, 118 * s, t('訪れた天体', 'Bodies visited'), `${visited} / ${STAMP_IDS.size}`, AMBER, 250)
-  row(g, s, x, 144 * s, t('乗組員', 'Crew'), t('当直中', 'On watch'), TEXT, 250)
-  row(g, s, x, 170 * s, t('船の登録', 'Registry'), 'SV-01', TEXT, 250)
-  row(g, s, x, 196 * s, t('異常', 'Alerts'), t('なし', 'None'), CYAN, 250)
+  row(g, s, x, 118 * s, ui().consoles.bodiesVisited, `${visited} / ${STAMP_IDS.size}`, AMBER, 250)
+  row(g, s, x, 144 * s, ui().consoles.crew, ui().consoles.onWatch, TEXT, 250)
+  row(g, s, x, 170 * s, ui().consoles.registry, 'SV-01', TEXT, 250)
+  row(g, s, x, 196 * s, ui().consoles.alerts, ui().consoles.none, CYAN, 250)
 }
 
 /** センサーのレーダー：上から見た自機のまわり（上が前）。距離は対数で縮める */
 function radar(g: CanvasRenderingContext2D, w: number, h: number, time: number) {
-  const s = frame(g, w, h, t('センサー', 'SENSORS'), 'SNS 03')
+  const s = frame(g, w, h, ui().consoles.sensors, 'SNS 03')
   const cx = w / 2
   const cy = (h + 34 * s) / 2 + 4 * s
   const r = Math.min(w / 2, (h - 34 * s) / 2) - 12 * s
@@ -403,12 +404,12 @@ function nearest(n: number) {
 }
 
 function contacts(g: CanvasRenderingContext2D, w: number, h: number) {
-  const s = frame(g, w, h, t('近くの天体', 'NEARBY'), 'SNS 04')
+  const s = frame(g, w, h, ui().consoles.nearby, 'SNS 04')
   nearest(7).forEach((b, i) => row(g, s, 14 * s, (60 + i * 26) * s, b.name, fmt(b.d, 2), i === 0 ? AMBER : TEXT, (w / s) - 30))
 }
 
 function defence(g: CanvasRenderingContext2D, w: number, h: number, time: number) {
-  const s = frame(g, w, h, t('防御', 'DEFENCE'), 'DEF 05')
+  const s = frame(g, w, h, ui().consoles.defence, 'DEF 05')
   const cx = w / 2
   const cy = (h + 34 * s) / 2 + 2 * s
   // 船の形のまわりに、シールドの輪
@@ -431,13 +432,13 @@ function defence(g: CanvasRenderingContext2D, w: number, h: number, time: number
   g.font = `${Math.round(13 * s)}px ${FONT}`
   g.fillStyle = CYAN
   g.textAlign = 'center'
-  g.fillText(t('シールド 98%・異常なし', 'Shields 98% · all clear'), cx, h - 16 * s)
+  g.fillText(ui().consoles.shieldsAllClear, cx, h - 16 * s)
   g.textAlign = 'left'
 }
 
 /** 太陽系の地図：真上から見た惑星の位置と、自機と目標 */
 function map(g: CanvasRenderingContext2D, w: number, h: number) {
-  const s = frame(g, w, h, t('太陽系の地図', 'SOLAR SYSTEM'), 'AST 06')
+  const s = frame(g, w, h, ui().consoles.solarSystem, 'AST 06')
   const cx = w / 2
   const cy = (h + 34 * s) / 2
   const r = Math.min(w / 2.2, (h - 50 * s) / 2)
@@ -484,11 +485,11 @@ function map(g: CanvasRenderingContext2D, w: number, h: number) {
   g.strokeRect(sx - 6 * s, sy - 6 * s, 12 * s, 12 * s)
   g.lineWidth = 1
   g.fillStyle = AMBER
-  g.fillText(t('自艦', 'Us'), sx + 9 * s, sy + 14 * s)
+  g.fillText(ui().consoles.ownShip, sx + 9 * s, sy + 14 * s)
 }
 
 function science(g: CanvasRenderingContext2D, w: number, h: number, time: number) {
-  const s = frame(g, w, h, t('科学', 'SCIENCE'), 'SCI 07')
+  const s = frame(g, w, h, ui().consoles.science, 'SCI 07')
   const id = useStore.getState().targetId ?? proximity.id ?? 'earth'
   const found = planetOf(id ?? undefined)
   const body = found?.moon ?? found?.planet
@@ -497,11 +498,11 @@ function science(g: CanvasRenderingContext2D, w: number, h: number, time: number
   g.fillStyle = AMBER
   g.fillText(name, 16 * s, 64 * s)
   if (body) {
-    const rows: [string, string][] = [[t('直径', 'Diameter'), `${fmt(body.radiusKm * 2, 0)} km`]]
-    if (found?.moon) rows.push([t('惑星からの距離', 'From planet'), `${fmt(found.moon.distanceKm, 0)} km`], [t('公転', 'Orbit'), `${fmt(found.moon.orbitDays, 1)} ${t('日', 'd')}`])
+    const rows: [string, string][] = [[ui().consoles.diameter, `${fmt(body.radiusKm * 2, 0)} km`]]
+    if (found?.moon) rows.push([ui().consoles.fromPlanet, `${fmt(found.moon.distanceKm, 0)} km`], [ui().consoles.orbitPeriod, `${fmt(found.moon.orbitDays, 1)} ${ui().consoles.daysUnit}`])
     else if (found) {
-      rows.push([t('太陽からの距離', 'From Sun'), `${fmt(found.planet.distanceAu, 2)} au`], [t('公転', 'Orbit'), `${fmt(found.planet.orbitDays / 365.25, 2)} ${t('年', 'yr')}`])
-      rows.push([t('1日の長さ', 'Day length'), `${fmt(Math.abs(found.planet.rotationHours), 1)} h`], [t('衛星（この中）', 'Moons (here)'), `${found.planet.moons.length}`])
+      rows.push([ui().consoles.fromSun, `${fmt(found.planet.distanceAu, 2)} au`], [ui().consoles.orbitPeriod, `${fmt(found.planet.orbitDays / 365.25, 2)} ${ui().consoles.yearsUnit}`])
+      rows.push([ui().consoles.dayLength, `${fmt(Math.abs(found.planet.rotationHours), 1)} h`], [ui().consoles.moonsHere, `${found.planet.moons.length}`])
     }
     rows.forEach(([a, b], i) => row(g, s, 16 * s, (96 + i * 26) * s, a, b, TEXT, 270))
   }
@@ -530,7 +531,7 @@ function science(g: CanvasRenderingContext2D, w: number, h: number, time: number
 }
 
 function engine(g: CanvasRenderingContext2D, w: number, h: number, time: number) {
-  const s = frame(g, w, h, t('機関', 'ENGINEERING'), 'ENG 08')
+  const s = frame(g, w, h, ui().consoles.engineering, 'ENG 08')
   const power = 0.35 + warpFx.glow * 0.4 + warpFx.intensity * 0.25
   const top = 48 * s
   const mid = (top + h - 30 * s) / 2
@@ -553,25 +554,25 @@ function engine(g: CanvasRenderingContext2D, w: number, h: number, time: number)
   g.lineWidth = 1
   g.font = `${Math.round(13 * s)}px ${FONT}`
   g.fillStyle = TEXT
-  g.fillText(`${t('ワープ場', 'Warp field')} ${fmt(power * 100, 0)}%`, 16 * s, h - 14 * s)
+  g.fillText(`${ui().consoles.warpField} ${fmt(power * 100, 0)}%`, 16 * s, h - 14 * s)
 }
 
 function environment(g: CanvasRenderingContext2D, w: number, h: number, time: number) {
-  const s = frame(g, w, h, t('環境', 'ENVIRONMENT'), 'ENV 09')
+  const s = frame(g, w, h, ui().consoles.environment, 'ENV 09')
   const j = (k: number, a: number) => a * Math.sin(time * 0.3 + k)
   const rows: [string, string][] = [
-    [t('室温', 'Cabin'), `${fmt(21.5 + j(1, 0.2), 1)} °C`],
-    [t('気圧', 'Pressure'), `${fmt(101.3 + j(2, 0.1), 1)} kPa`],
-    [t('酸素', 'Oxygen'), `${fmt(20.9 + j(3, 0.05), 1)} %`],
-    [t('二酸化炭素', 'CO₂'), `${fmt(0.04 + j(4, 0.004), 2)} %`],
-    [t('湿度', 'Humidity'), `${fmt(45 + j(5, 1), 0)} %`],
-    [t('人工重力', 'Gravity'), '1.00 g'],
+    [ui().consoles.cabinTemp, `${fmt(21.5 + j(1, 0.2), 1)} °C`],
+    [ui().consoles.pressure, `${fmt(101.3 + j(2, 0.1), 1)} kPa`],
+    [ui().consoles.oxygen, `${fmt(20.9 + j(3, 0.05), 1)} %`],
+    [ui().consoles.co2, `${fmt(0.04 + j(4, 0.004), 2)} %`],
+    [ui().consoles.humidity, `${fmt(45 + j(5, 1), 0)} %`],
+    [ui().consoles.gravity, '1.00 g'],
   ]
   rows.forEach(([a, b], i) => row(g, s, 16 * s, (64 + i * 30) * s, a, b, i === 5 ? AMBER : TEXT, w / s - 36))
 }
 
 function log(g: CanvasRenderingContext2D, w: number, h: number) {
-  const s = frame(g, w, h, t('記録', 'RECORDS'), 'LOG 10')
+  const s = frame(g, w, h, ui().consoles.records, 'LOG 10')
   const stamps = useStamps.getState()
   const visited = Object.entries(stamps.stamps)
     .sort((a, b) => b[1] - a[1])
@@ -579,16 +580,16 @@ function log(g: CanvasRenderingContext2D, w: number, h: number) {
   if (!visited.length) {
     g.font = `${Math.round(14 * s)}px ${FONT}`
     g.fillStyle = TEXT
-    g.fillText(t('まだ記録はありません', 'No visits recorded yet'), 16 * s, 70 * s)
+    g.fillText(ui().consoles.noVisitsYet, 16 * s, 70 * s)
   }
   visited.forEach(([id, at], i) => row(g, s, 16 * s, (64 + i * 28) * s, bodies.get(id)?.name ?? id, at ? formatDate(new Date(at)) : '—', i === 0 ? AMBER : TEXT, w / s - 36))
   g.font = `${Math.round(12 * s)}px ${FONT}`
   g.fillStyle = CYAN
-  g.fillText(`${t('称号', 'Titles')} ${stamps.titles.length}`, 16 * s, h - 14 * s)
+  g.fillText(`${ui().consoles.titles} ${stamps.titles.length}`, 16 * s, h - 14 * s)
 }
 
 function clock(g: CanvasRenderingContext2D, w: number, h: number) {
-  const s = frame(g, w, h, t('時刻', 'TIME'), 'CHR 11')
+  const s = frame(g, w, h, ui().consoles.timeTitle, 'CHR 11')
   const d = simDate(sim.time)
   g.fillStyle = AMBER
   g.font = `600 ${Math.round(54 * s)}px ${MONO}`
@@ -599,7 +600,7 @@ function clock(g: CanvasRenderingContext2D, w: number, h: number) {
   const rate = useStore.getState().timeScale
   g.font = `${Math.round(13 * s)}px ${FONT}`
   g.fillStyle = CYAN
-  g.fillText(`${t('時間の速さ', 'Time rate')}: ${rate === 0 ? t('停止', 'stopped') : `×${fmt(rate * 3600, 0)}`}`, 16 * s, 196 * s)
+  g.fillText(`${ui().consoles.timeRate}: ${rate === 0 ? ui().consoles.timeStopped : `×${fmt(rate * 3600, 0)}`}`, 16 * s, 196 * s)
 }
 
 function sign(g: CanvasRenderingContext2D, w: number, h: number, n: number) {
@@ -609,7 +610,7 @@ function sign(g: CanvasRenderingContext2D, w: number, h: number, n: number) {
   g.font = `600 ${Math.round(h * 0.42)}px ${FONT}`
   g.textAlign = 'center'
   g.textBaseline = 'middle'
-  g.fillText(`${t('昇降機', 'LIFT')} ${n}`, w / 2, h / 2)
+  g.fillText(`${ui().consoles.lift} ${n}`, w / 2, h / 2)
   g.textAlign = 'left'
   g.textBaseline = 'alphabetic'
 }

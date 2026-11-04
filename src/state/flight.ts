@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { create } from 'zustand'
 import { PLANETS } from '../data/bodies'
-import { named, t } from '../i18n/lang'
+import { named } from '../i18n/lang'
 import { isTelescope, scopeName } from '../data/telescopes'
 import { SF_OBJECTS, sfEntry } from '../data/sf'
 import { RACE_TEXT, raceActive } from './race'
@@ -9,6 +9,7 @@ import { bodies } from './registry'
 import { useStore } from './store'
 import { playWarp, speak } from '../audio/sfx'
 import { planetLongitude, simDays } from '../data/ephemeris'
+import { ui } from '../i18n'
 
 const UP = new THREE.Vector3(0, 1, 0)
 
@@ -134,7 +135,7 @@ function warpCall(id: string, factor: number) {
 
 /** 天体の名前と、太陽からの実際の距離（衛星は親の惑星の距離） */
 export function bodyInfo(id: string) {
-  if (id === 'sun') return { name: t('太陽', 'Sun'), au: 0, parent: null as string | null }
+  if (id === 'sun') return { name: ui().flight.sun, au: 0, parent: null as string | null }
   const sf = sfEntry(id)
   if (sf) return { name: sf.name(), au: 0, parent: null }
   if (isTelescope(id)) return { name: scopeName(id), au: 0, parent: null }

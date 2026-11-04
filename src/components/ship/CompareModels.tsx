@@ -2,7 +2,8 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { COMPARE, METERS_PER_UNIT } from '../../data/shipParts'
 import { compareScale, useShip, type ShipSpec } from '../../data/ships'
-import { named, t } from '../../i18n/lang'
+import { named } from '../../i18n/lang'
+import { ui } from '../../i18n'
 
 // 大きさくらべ：本物の大きさで、自機（ShipModel の座標）の横に並べる簡単な模型。
 // 形は特徴がわかる程度にとどめ、色は塗装の白・銀・太陽電池の金色だけにする
@@ -117,7 +118,7 @@ export function compareLabels(ship: ShipSpec): { id: string; text: string; pos: 
     }),
     {
       id: 'ship',
-      text: t(`${ship.registry} ${ship.lengthM}m（設定）`, `${ship.registry} ${ship.lengthM} m (story)`),
+      text: ui().compareModels.storyLength(ship.registry, ship.lengthM),
       pos: ship.model ? [0, 0.25, 0] : [0, 0.16, -0.17],
     },
   ]

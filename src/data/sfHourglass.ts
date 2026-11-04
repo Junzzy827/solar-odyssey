@@ -1,18 +1,15 @@
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 import type { Facts } from './facts'
 
 // SF モードの、砂時計型コロニー群（オリジナルのデザイン）。
 // 2つの大きなお椀を、細いくびれ（宇宙港）で背中合わせにつないだ形のコロニーが、太陽と地球の L5 点に輪になって浮かぶ。
 
 export const HOURGLASS_ID = 'hourglass'
-export const hourglassName = () => t('砂時計型コロニー群', 'Hourglass Colonies')
+export const hourglassName = () => ui().sfHourglass.hourglassColonies
 
 export const HOURGLASS_TEXT = {
   found: () =>
-    t(
-      '砂時計型コロニー群が見えてきた。くびれの宇宙港から、お椀の内側に広がる畑と海と街へ降りていきます。\n（I で航海日誌）',
-      'The Hourglass Colonies come into view. From the spaceport at each narrow waist, people travel down into the fields, seas and towns that line the inside of the bowls.\n(I for the ship’s log)',
-    ),
+    ui().sfHourglass.found,
 }
 
 export const HOURGLASS_FACTS: Record<string, Facts> = {

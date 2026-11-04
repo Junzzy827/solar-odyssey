@@ -1,4 +1,4 @@
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 import type { Facts } from './facts'
 
 // SF モードの、遠くを旅する大きな船や人工の天体（オリジナルのデザイン。作品の名前・形は使わない）。
@@ -6,30 +6,21 @@ import type { Facts } from './facts'
 
 /** 電波望遠鏡の人工の月（火星の公転の道すじの上、火星より60度うしろ＝火星のトロヤ点 L5） */
 export const RADIO_MOON_ID = 'radio-moon'
-export const radioMoonName = () => t('電波望遠鏡の人工月', 'Radio Telescope Moon')
+export const radioMoonName = () => ui().sfSpace.radioTelescopeMoon
 /** くさび形の鉱石輸送船（小惑星帯をゆっくり一周する） */
 export const CARRIER_ID = 'ore-carrier'
-export const carrierName = () => t('くさび形の鉱石輸送船', 'Wedge Ore Carrier')
+export const carrierName = () => ui().sfSpace.wedgeOreCarrier
 /** 円盤形の貨物船（月と L5 のコロニーのあいだを行き来する） */
 export const FREIGHTER_ID = 'disc-freighter'
-export const freighterName = () => t('円盤形の貨物船', 'Disc Freighter')
+export const freighterName = () => ui().sfSpace.discFreighter
 
 export const SPACE_TEXT = {
   radioMoonFound: () =>
-    t(
-      '月のように大きな、人工の球体です。北極の大きなくぼみは、宇宙からの電波を集める電波望遠鏡のお皿です。\n（I で航海日誌）',
-      'A man-made sphere as big as a moon. The huge bowl at its north pole is the dish of a radio telescope that gathers radio waves from space.\n(I for the ship’s log)',
-    ),
+    ui().sfSpace.radioMoonFound,
   carrierFound: () =>
-    t(
-      '小惑星から掘った鉱石を運ぶ、くさび形の大きな輸送船です。両側に積んだコンテナと、船の下の開いた荷室が見えます。\n（I で航海日誌）',
-      'A huge wedge-shaped carrier hauling ore mined from asteroids. You can see containers stacked along its sides and the open cargo bay underneath.\n(I for the ship’s log)',
-    ),
+    ui().sfSpace.carrierFound,
   freighterFound: () =>
-    t(
-      '円盤形の小さな貨物船です。月で作った資材を、L5のコロニーへ運んでいます。\n（I で航海日誌）',
-      'A small disc-shaped freighter carrying materials made on the Moon to the L5 colonies.\n(I for the ship’s log)',
-    ),
+    ui().sfSpace.freighterFound,
 }
 
 export const SPACE_FACTS: Record<string, Facts> = {

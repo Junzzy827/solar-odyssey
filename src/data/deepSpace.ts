@@ -1,5 +1,6 @@
 import { HUBBLE_ID, WEBB_ID, type ScopeId } from './telescopes'
-import { getLang, t } from '../i18n/lang'
+import { getLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 // 宇宙望遠鏡でのぞける写真。画像は ESA/Hubble・ESA/Webb の公開画像（CC BY 4.0）を
 // 長辺2400pxに縮めて public/deep-space/ に置いている。クレジットは必ず表示する。
@@ -31,7 +32,7 @@ export const deepSpaceText = (image: DeepSpaceImage): DeepSpaceText => (getLang(
 
 /** 望遠鏡ごとの、見ている光 */
 export const scopeLight = (id: ScopeId) =>
-  id === HUBBLE_ID ? t('可視光（人の目に見える光）', 'visible light (the light our eyes can see)') : t('赤外線（人の目には見えない、熱の光）', 'infrared (heat light our eyes cannot see)')
+  id === HUBBLE_ID ? ui().deepSpace.visibleExplained : ui().deepSpace.infraredExplained
 
 const hubble = (id: string) => `https://esahubble.org/images/${id}/`
 const webb = (id: string) => `https://esawebb.org/images/${id}/`
@@ -286,7 +287,7 @@ export const DEEP_SPACE: DeepSpaceImage[] = [
 ]
 
 /** 見くらべのボタンに出す短い名前 */
-export const scopeLightShort = (id: ScopeId) => (id === HUBBLE_ID ? t('可視光', 'visible') : t('赤外線', 'infrared'))
+export const scopeLightShort = (id: ScopeId) => (id === HUBBLE_ID ? ui().deepSpace.visible : ui().deepSpace.infrared)
 
 const base = `${import.meta.env.BASE_URL}deep-space/`
 export const deepSpaceUrl = (image: DeepSpaceImage) => base + image.file

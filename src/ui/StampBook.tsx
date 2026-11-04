@@ -9,6 +9,7 @@ import { ship } from '../state/flight'
 import { bodies } from '../state/registry'
 import { useStore } from '../state/store'
 import { getLang, t, useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 /** スタンプの傾き（天体ごとに決まった、少しずつちがう角度） */
 const tilt = (id: string) => ([...id].reduce((h, c) => h * 31 + c.charCodeAt(0), 7) % 15) - 7
@@ -32,11 +33,11 @@ function Stamp({ id, at, star }: { id: string; at: number | undefined; star: boo
         useStore.getState().setTarget(id)
         closeStamps()
       }}
-      title={secret ? undefined : t(`${name}を目標にする`, `Set ${name} as the target`)}
+      title={secret ? undefined : ui().stampBook.setTarget(name)}
     >
       <span className="stamp-face" data-id={id}>
         {!got && '?'}
-        {star && <span className="stamp-star" aria-label={t('クイズ正解', 'Quiz answered')}>★</span>}
+        {star && <span className="stamp-star" aria-label={ui().stampBook.quizAnswered}>★</span>}
       </span>
       <span className="stamp-name">{name}</span>
       <span className="stamp-date">{got && at ? shortDate(at) : ' '}</span>
@@ -84,27 +85,24 @@ export function StampBook() {
   const current = [...TITLES].reverse().find((title) => title.rank && titles.includes(title.id))
 
   return (
-    <section className="stamp-book" role="dialog" aria-label={t('訪問スタンプ帳', 'Stamp book')}>
+    <section className="stamp-book" role="dialog" aria-label={ui().stampBook.stampBook}>
       <header>
-        <h2>{t('訪問スタンプ帳', 'Stamp book')}</h2>
-        <button className="close" onClick={closeStamps} aria-label={t('閉じる', 'Close')}>
+        <h2>{ui().stampBook.stampBook}</h2>
+        <button className="close" onClick={closeStamps} aria-label={ui().stampBook.close}>
           ×
         </button>
       </header>
       <div className="stamp-summary">
         <div>
-          {t('今の称号：', 'Current title: ')}
-          <strong>{current ? t(current.name, current.nameEn) : t('まだありません', 'None yet')}</strong>
+          {ui().stampBook.currentTitle}
+          <strong>{current ? t(current.name, current.nameEn) : ui().stampBook.noneYet}</strong>
         </div>
         <div className="muted">
-          {t('スタンプ', 'Stamps')} {count}/{NATURAL.length} · {t('クイズ正解', 'Quizzes')} {answered}/{NATURAL.length} · {t('称号', 'Titles')} {shownTitles.filter((title) => titles.includes(title.id)).length}/{shownTitles.length}
+          {ui().stampBook.stamps} {count}/{NATURAL.length} · {ui().stampBook.quizzes} {answered}/{NATURAL.length} · {ui().stampBook.titles} {shownTitles.filter((title) => titles.includes(title.id)).length}/{shownTitles.length}
         </div>
       </div>
       <p className="muted small">
-        {t(
-          '天体のそばまで飛んでいくとスタンプがもらえます。航海日誌のクイズに正解すると★がつきます。スタンプを押すと、その天体を目標にします。',
-          'Fly close to a body to collect its stamp. Answer its ship’s log quiz to add a ★. Tap a stamp to set that body as your target.',
-        )}
+        {ui().stampBook.howToCollect}
       </p>
       {groups.map((g) => (
         <div key={g.id} className="stamp-group">
@@ -116,7 +114,7 @@ export function StampBook() {
           </div>
         </div>
       ))}
-      <h3>{t('称号', 'Titles')}</h3>
+      <h3>{ui().stampBook.titles}</h3>
       <ul className="title-list">
         {shownTitles.map((title) => {
           const got = titles.includes(title.id)
@@ -128,7 +126,7 @@ export function StampBook() {
                 <strong>{title.secret && !got ? '？？？' : t(title.name, title.nameEn)}</strong>
                 <span className="muted small">{t(title.how, title.howEn)}</span>
               </span>
-              <span className="title-count">{got ? t('達成', 'Done') : `${have}/${need}`}</span>
+              <span className="title-count">{got ? ui().stampBook.done : `${have}/${need}`}</span>
             </li>
           )
         })}

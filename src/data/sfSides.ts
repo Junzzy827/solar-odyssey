@@ -1,4 +1,4 @@
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 import type { Facts, Quiz } from './facts'
 import type { LagrangePoint } from '../components/sf/lagrange'
 
@@ -27,7 +27,7 @@ export const COLONY_GROUPS: ColonyGroup[] = [
   { n: 7, id: 'colony-group-7', point: 'L3', offset: { along: 1.6 }, count: 2, building: true },
 ]
 
-export const colonyGroupName = (n: number, point: LagrangePoint) => t(`第${n}コロニー群（${point}）`, `Colony Group ${n} (${point})`)
+export const colonyGroupName = (n: number, point: LagrangePoint) => ui().sfSides.colonyGroup(n, point)
 
 const POINT_JA: Record<LagrangePoint, string> = {
   L1: '地球と月のL1点（地球と月のあいだ）',
@@ -46,14 +46,8 @@ const POINT_EN: Record<LagrangePoint, string> = {
 
 export const colonyGroupFound = (g: ColonyGroup) =>
   g.building
-    ? t(
-        `第${g.n}コロニー群が見えてきた。2基が完成していて、3基めは骨組みを組み立てているところです。\n（I で航海日誌）`,
-        `Colony Group ${g.n} comes into view. Two colonies are finished, and the frame of a third is being put together.\n(I for the ship’s log)`,
-      )
-    : t(
-        `第${g.n}コロニー群が見えてきた。${g.point}点に、円筒のコロニーが${g.count}基ならんでいます。\n（I で航海日誌）`,
-        `Colony Group ${g.n} comes into view. ${g.count} cylinder colonies float together at ${g.point}.\n(I for the ship’s log)`,
-      )
+    ? ui().sfSides.buildingGroupFound(g.n)
+    : ui().sfSides.colonyGroupFound(g.n, g.point, g.count)
 
 // ---- 航海日誌 ----
 

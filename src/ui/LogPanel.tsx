@@ -10,9 +10,10 @@ import { useMission } from '../state/mission'
 import { openScope } from './Hud'
 import { useQuiz } from '../state/quiz'
 import { useProbes } from '../state/probes'
-import { t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
 import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
+import { ui } from '../i18n'
 
 const TOTAL = 1 + PLANETS.reduce((n, p) => n + 1 + p.moons.length, 0)
 const NEAR = 10
@@ -78,24 +79,24 @@ export function LogPanel() {
   const correct = picked === facts.quiz.answer
 
   const rows: [string, string | undefined][] = facts.rows ?? [
-    [t('直径', 'Diameter'), facts.diameter],
-    [t('温度', 'Temperature'), facts.temperature],
-    [t('重力', 'Gravity'), facts.gravity],
-    [t('1日の長さ', 'Length of day'), facts.day],
-    [t('1年（公転）', 'Year (orbit)'), facts.year],
-    [t('衛星', 'Moons'), facts.moons],
+    [ui().logPanel.diameter, facts.diameter],
+    [ui().logPanel.temperature, facts.temperature],
+    [ui().logPanel.gravity, facts.gravity],
+    [ui().logPanel.dayLength, facts.day],
+    [ui().logPanel.yearLength, facts.year],
+    [ui().logPanel.moons, facts.moons],
   ]
 
   return (
-    <section className="log-panel" aria-label={t('航海日誌', 'Ship’s log')}>
+    <section className="log-panel" aria-label={ui().logPanel.shipsLog}>
       <header>
         <h2>
-          {t('航海日誌：', 'Ship’s log: ')}
+          {ui().logPanel.shipsLogPrefix}
           {info.name}
-          {facts.fiction && <span className="log-fiction">{t('SF・フィクション', 'SF · fiction')}</span>}
-          {done && <span className="badge">{t('探査済み', 'Explored')}</span>}
+          {facts.fiction && <span className="log-fiction">{ui().logPanel.fictionBadge}</span>}
+          {done && <span className="badge">{ui().logPanel.explored}</span>}
         </h2>
-        <button className="close" onClick={() => setLogOpen(false)} aria-label={t('閉じる', 'Close')}>
+        <button className="close" onClick={() => setLogOpen(false)} aria-label={ui().logPanel.close}>
           ×
         </button>
       </header>
@@ -116,7 +117,7 @@ export function LogPanel() {
       </ul>
       {facts.real && (
         <div className="log-real">
-          <h3>{t('現実の科学では', 'In real science')}</h3>
+          <h3>{ui().logPanel.inRealScience}</h3>
           <ul>
             {facts.real.map((n) => (
               <li key={n}>{n}</li>
@@ -126,7 +127,7 @@ export function LogPanel() {
       )}
       {isTelescope(targetId) && (
         <button className="secondary scope-open" onClick={() => openScope(targetId)} disabled={scopeNear !== targetId}>
-          {scopeNear === targetId ? t('望遠鏡でのぞく', 'Look through the telescope') : t('そばまで行くと、望遠鏡でのぞけます', 'Fly close to look through the telescope')} <kbd>T</kbd>
+          {scopeNear === targetId ? ui().logPanel.lookThroughScope : ui().logPanel.flyCloseToScope} <kbd>T</kbd>
         </button>
       )}
       <div className="quiz">
@@ -148,20 +149,20 @@ export function LogPanel() {
         </div>
         {answered && (
           <div className="quiz-a">
-            {correct ? t('正解！', 'Correct!') : t('残念！', 'Not quite!')} {facts.quiz.explanation}
+            {correct ? ui().logPanel.correct : ui().logPanel.notQuite} {facts.quiz.explanation}
             {!correct && (
               <button className="retry" onClick={() => setPicked(null)}>
-                {t('もう一度', 'Try again')}
+                {ui().logPanel.tryAgain}
               </button>
             )}
           </div>
         )}
       </div>
       <footer className="muted">
-        {t('探査済み', 'Explored')} {visited.filter((id) => !isSFObject(id) && !isTelescope(id)).length} / {TOTAL}
-        {t('（', ' (')}
+        {ui().logPanel.explored} {visited.filter((id) => !isSFObject(id) && !isTelescope(id)).length} / {TOTAL}
+        {ui().logPanel.keyHintStart}
         <kbd>I</kbd>
-        {t(' で開閉）', ' to open/close)')}
+        {ui().logPanel.keyHintEnd}
       </footer>
     </section>
   )

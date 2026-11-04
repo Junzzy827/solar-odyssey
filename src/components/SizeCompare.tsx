@@ -6,13 +6,14 @@ import { PLANETS, SUN } from '../data/bodies'
 import { radiusKm } from '../data/approach'
 import { textureUrl } from '../data/textures'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
-import { named, t, useLang } from '../i18n/lang'
+import { named, useLang } from '../i18n/lang'
 import { compareWith, useCompare } from '../state/compare'
 import { nearRange } from '../state/proximity'
 import { ship } from '../state/flight'
 import { bodies } from '../state/registry'
 import { useStore } from '../state/store'
 import { LABEL_Z } from './labels'
+import { ui } from '../i18n'
 
 // 大きさくらべ：近くの天体の横（画面の左側。右は航法コンピュータの陰になる）に、本当の大きさの比で地球などを並べる。
 // 表示の惑星は大きさを縮めて並べているので、ここだけは本物の比で見せる
@@ -85,7 +86,7 @@ function Ghost({ id, index, baseId }: { id: string; index: number; baseId: strin
       </mesh>
       <group ref={label}>
         <Html center className="label compare-label" zIndexRange={LABEL_Z}>
-          <span>{t(`${nameOf(id)}（本当の大きさの比）`, `${nameOf(id)} (true size ratio)`)}</span>
+          <span>{ui().sizeCompare.trueSizeRatio(nameOf(id))}</span>
         </Html>
       </group>
     </group>

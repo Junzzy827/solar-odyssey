@@ -1,18 +1,15 @@
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 import type { Facts } from './facts'
 
 // SF モードの推進小惑星（オリジナルのデザイン）。採掘のために、小惑星帯から地球の近くへ
 // エンジンでゆっくり運ばれてくる、コマのような形の大きな岩。採掘基地・ドームの居住区・横一列のエンジンを取りつけている。
 
 export const ENGINE_ROCK_ID = 'engine-rock'
-export const engineRockName = () => t('推進小惑星', 'Engine Asteroid')
+export const engineRockName = () => ui().sfEngine.engineAsteroid
 
 export const ENGINE_ROCK_TEXT = {
   found: () =>
-    t(
-      '推進小惑星が見えてきた。採掘のために、小惑星帯から地球の近くへエンジンで運ばれている途中です。\n（I で航海日誌）',
-      'The Engine Asteroid comes into view. It is being pushed by its engines from the asteroid belt toward Earth, to be mined.\n(I for the ship’s log)',
-    ),
+    ui().sfEngine.found,
 }
 
 export const ENGINE_FACTS: Record<string, Facts> = {

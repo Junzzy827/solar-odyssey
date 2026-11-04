@@ -1,4 +1,4 @@
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 import type { Facts } from './facts'
 
 // SF モードの、日本のお話から生まれたもの。どちらも作品の権利が切れた昔の物語なので、名前も使える。
@@ -7,22 +7,16 @@ import type { Facts } from './facts'
 
 /** 銀河鉄道（光のレールで太陽系をめぐる） */
 export const RAILWAY_ID = 'galactic-railway'
-export const railwayName = () => t('銀河鉄道', 'Galactic Railway')
+export const railwayName = () => ui().sfJapan.galacticRailway
 /** 月の都（月の裏側のクレーターの底） */
 export const MOON_CITY_ID = 'moon-city'
-export const moonCityName = () => t('月の都', 'Moon Capital')
+export const moonCityName = () => ui().sfJapan.moonCapital
 
 export const JAPAN_TEXT = {
   railwayFound: () =>
-    t(
-      '光のレールの上を、銀河鉄道が走ってきます。窓には明かりがともり、煙突から星くずの煙がたなびいています。\n（I で航海日誌）',
-      'The Galactic Railway comes running along its rails of light. Its windows are lit, and stardust smoke trails from the smokestack.\n(I for the ship’s log)',
-    ),
+    ui().sfJapan.railwayFound,
   moonCityFound: () =>
-    t(
-      '月の裏側のクレーターの底に、光る都が見えます。地球からは決して見えない場所です。\n（I で航海日誌）',
-      'A city of light glows on a crater floor on the far side of the Moon, a place that can never be seen from Earth.\n(I for the ship’s log)',
-    ),
+    ui().sfJapan.moonCityFound,
 }
 
 export const JAPAN_FACTS: Record<string, Facts> = {
