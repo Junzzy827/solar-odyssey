@@ -44,6 +44,7 @@ export const surfaceViewEn: Translation<typeof surfaceViewJa> = {
   viewLander: 'View the lander',
   standAndLook: 'Stand and look around',
   deployRover: 'Deploy the rover',
-  toRaceTrack: (_trackJa: string, trackEn: string) => `To the ${trackEn}`,
+  raceButton: (track: string) => track,
+  toRaceTrack: (track: string) => `To the ${track.toLowerCase()}`,
   takeOff: 'Take off',
 }

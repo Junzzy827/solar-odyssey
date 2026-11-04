@@ -41,6 +41,8 @@ export const surfaceViewJa = {
   viewLander: '着陸船を眺める',
   standAndLook: '地面に立って見回す',
   deployRover: 'ローバーを出す',
-  toRaceTrack: (trackJa: string, _trackEn: string) => `${trackJa}場へ`,
+  /** 運転中のボタン（track：レース場のボタンの名前） */
+  raceButton: (track: string) => `${track}へ`,
+  toRaceTrack: (track: string) => `${track}場へ`,
   takeOff: '離陸する',
 }

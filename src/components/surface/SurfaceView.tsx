@@ -14,7 +14,7 @@ import { goToRally, useRally } from '../../state/rally'
 import { TRACKS, trackForBody } from '../../data/rallyTracks'
 import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded, type Rock } from './terrain'
 import { WideWorld, isWide, wideNow, withHole } from './wideGround'
-import { t, useLang } from '../../i18n/lang'
+import { useLang } from '../../i18n/lang'
 import { AirParams, ApUniforms, SkyLut, airFor, airUniforms, apUniforms, autoExposure, luminance, skyLookupGlsl, sunTransmittance, withAir } from './atmosphere'
 import { SurfacePost } from './SurfacePost'
 import { SurfaceLab } from './SurfaceLab'
@@ -1516,7 +1516,7 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
         </button>
         {!site && trackForBody(bodyId) && (
           <button className="secondary rally-site" onClick={() => goToRally(trackForBody(bodyId)!)} title={ui().surfaceView.raceTrackTip}>
-            🏁 {t(`${TRACKS[trackForBody(bodyId)!].button[0]}へ`, TRACKS[trackForBody(bodyId)!].button[1])}
+            🏁 {ui().surfaceView.raceButton(ui().rallyTracks[trackForBody(bodyId)!].button)}
           </button>
         )}
         <button className="primary" onClick={startTakeoff}>
@@ -1614,12 +1614,12 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             </button>
             {!def.site && trackForBody(def.id) && (
               <button className="secondary rally-site" onClick={() => goToSite(trackForBody(def.id))}>
-                🏁 {ui().surfaceView.toRaceTrack(TRACKS[trackForBody(def.id)!].button[0], TRACKS[trackForBody(def.id)!].button[1].toLowerCase())}
+                🏁 {ui().surfaceView.toRaceTrack(ui().rallyTracks[trackForBody(def.id)!].button)}
               </button>
             )}
             {def.site && TRACKS[def.site] && (
               <button className="secondary" onClick={() => goToSite(null)}>
-                {t(TRACKS[def.site].home[0], TRACKS[def.site].home[1])}
+                {ui().rallyTracks[def.site].home}
               </button>
             )}
             <button className="primary" onClick={startTakeoff}>

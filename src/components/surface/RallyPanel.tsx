@@ -19,15 +19,14 @@ const colorName = (i: number) => t(RALLY_COLORS[i].ja, RALLY_COLORS[i].en)
 /** スタート前のカード：色をえらぶ・自己ベスト・スタート */
 export function RallyStart({ track, compact = false }: { track: string; compact?: boolean }) {
   useLang()
-  const tr = TRACKS[track]
   const color = useRally((r) => r.color)
   const best = loadBest()
   return (
     <div className={`rally-start${compact ? ' compact' : ''}`}>
-      <div className="rally-title">🏁 {t(tr.title[0], tr.title[1])}</div>
+      <div className="rally-title">🏁 {ui().rallyTracks[track].title}</div>
       {!compact && (
         <p>
-          {t(tr.intro[0], tr.intro[1])}
+          {ui().rallyTracks[track].intro}
         </p>
       )}
       <div className="rally-colors" role="radiogroup" aria-label={ui().rallyPanel.roverColour}>
