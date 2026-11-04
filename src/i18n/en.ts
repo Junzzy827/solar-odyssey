@@ -47,6 +47,8 @@ import { sizeCompareEn } from './sizeCompare.en'
 import { spaceDockEn } from './spaceDock.en'
 import { stampBookEn } from './stampBook.en'
 import { stampsEn } from './stamps.en'
+import { stampGroupsEn } from './stampGroups.en'
+import { stampTitlesEn } from './stampTitles.en'
 import { stateLaunchEn } from './stateLaunch.en'
 import { sunEn } from './sun.en'
 import { surfaceViewEn } from './surfaceView.en'
@@ -181,6 +183,8 @@ export const en: Translation<typeof ja> = {
   spaceDock: spaceDockEn,
   stampBook: stampBookEn,
   stamps: stampsEn,
+  stampGroups: stampGroupsEn,
+  stampTitles: stampTitlesEn,
   stateLaunch: stateLaunchEn,
   sun: sunEn,
   surfaceView: surfaceViewEn,

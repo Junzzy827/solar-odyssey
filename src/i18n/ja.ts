@@ -45,6 +45,8 @@ import { sizeCompareJa } from './sizeCompare.ja'
 import { spaceDockJa } from './spaceDock.ja'
 import { stampBookJa } from './stampBook.ja'
 import { stampsJa } from './stamps.ja'
+import { stampGroupsJa } from './stampGroups.ja'
+import { stampTitlesJa } from './stampTitles.ja'
 import { stateLaunchJa } from './stateLaunch.ja'
 import { sunJa } from './sun.ja'
 import { surfaceViewJa } from './surfaceView.ja'
@@ -179,6 +181,8 @@ export const ja = {
   spaceDock: spaceDockJa,
   stampBook: stampBookJa,
   stamps: stampsJa,
+  stampGroups: stampGroupsJa,
+  stampTitles: stampTitlesJa,
   stateLaunch: stateLaunchJa,
   sun: sunJa,
   surfaceView: surfaceViewJa,
