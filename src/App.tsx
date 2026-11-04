@@ -92,7 +92,7 @@ export default function App() {
   // 下に残った宇宙の絵が透けて「チラッ」と映ってしまうため。
   return (
     <>
-      <Canvas frameloop={onSurface ? 'never' : 'always'} style={{ visibility: onSurface ? 'hidden' : 'visible' }} shadows dpr={dprFor(level)} camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
+      <Canvas frameloop={onSurface ? 'never' : 'always'} style={{ visibility: onSurface ? 'hidden' : 'visible' }} shadows="percentage" dpr={dprFor(level)} camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
         <SimClock />
         <QualityGovernor />
         <SpaceLighting />

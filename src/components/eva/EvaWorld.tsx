@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { useTrimShadows } from '../../hooks/useTrimShadows'
 import { Sky } from '../Sky'
 import { haloTexture } from '../ship/ShipModel'
 import { textureUrl } from '../../data/textures'
@@ -378,7 +379,7 @@ function SunGlow({ dir }: { dir: THREE.Vector3 }) {
 function SunLight({ dir }: { dir: THREE.Vector3 }) {
   const light = useRef<THREE.DirectionalLight>(null)
   // 影の大きさは出たときに決めて変えない（画質の切り替えで影の地図を作り直すと、影を受ける材質が描けなくなることがある）
-  const [size] = useState(() => (lowMemory() || useQuality.getState().level === 'low' ? 1024 : 2048))
+  const [size] = useState(() => (!lowMemory() && useQuality.getState().level === 'high' ? 2048 : 1024))
   useFrame(() => {
     const l = light.current
     if (!l) return
@@ -407,6 +408,8 @@ function SunLight({ dir }: { dir: THREE.Vector3 }) {
 }
 
 export function EvaWorld({ spec }: { spec: ShipSpec }) {
+  // 数 cm の部品（ボルト・札など）は影を落とさない（影のための描画を減らす）
+  useTrimShadows(0.08)
   const out = useMemo(() => lookOutside(), [])
   const planetLight = out.planet ? new THREE.Color(out.planet.id === 'earth' ? '#7fa8e0' : out.planet.color) : null
   return (

@@ -1,7 +1,8 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react'
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
+import { useTrimShadows } from '../../hooks/useTrimShadows'
 import { SITES, demIdFor, siteDef, surfaceFor, type SurfaceDef } from '../../data/surfaces'
 import { textureUrl } from '../../data/textures'
 import { PLANETS } from '../../data/bodies'
@@ -483,6 +484,16 @@ function contactShadowMaterial() {
   return contactMat
 }
 
+/**
+ * 近くの岩（中心からこの距離 m まで。大きな岩は 1 m ごとに BIG_REACH m ずつ遠くまで）は細かい形で影も落とす。
+ * それより遠い岩は粗い形で、影も落とさない（影の範囲は ±70 m なので、遠くの岩の影はどのみち写らない。
+ * 全部を細かい形で、しかも影のためにもう一度描くと、火星で 1 コマ 200 万枚を超える三角形になっていた）
+ */
+const NEAR_ROCKS = 60
+const BIG_REACH = 40
+/** 岩の形の種類の数（近い用・遠い用で 2 組） */
+const ROCK_KINDS = 3
+
 /** 岩を並べる（地面の傾きに沿わせ、明るさを少しずつ変え、根元に影の円を置く） */
 function layRocks(rocks: Rock[], inst: (THREE.InstancedMesh | null)[], contact: THREE.InstancedMesh | null, terrain: Terrain, shadowAt: { x: number; z: number; r: number }) {
   const m = new THREE.Matrix4()
@@ -492,12 +503,15 @@ function layRocks(rocks: Rock[], inst: (THREE.InstancedMesh | null)[], contact: 
   const n = new THREE.Vector3()
   const s = new THREE.Vector3()
   const p = new THREE.Vector3()
-  const counts = [0, 0, 0]
+  const counts = new Array(inst.length).fill(0)
   const tone = new THREE.Color()
   let shadows = 0
   for (const r of rocks) {
-    const mesh = inst[r.v]
-    if (!mesh || counts[r.v] >= mesh.instanceMatrix.count) continue
+    // 近い岩は細かい組（0〜2）、遠い岩は粗い組（3〜5）へ
+    const near = Math.hypot(r.x - shadowAt.x, r.z - shadowAt.z) < NEAR_ROCKS + r.s * BIG_REACH
+    const v = r.v + (near ? 0 : ROCK_KINDS)
+    const mesh = inst[v]
+    if (!mesh || counts[v] >= mesh.instanceMatrix.count) continue
     // 地面の傾きに沿わせて寝かせ、向きはばらばらに
     n.set(r.nx, 1, r.nz).normalize()
     q.setFromUnitVectors(up, n)
@@ -507,8 +521,8 @@ function layRocks(rocks: Rock[], inst: (THREE.InstancedMesh | null)[], contact: 
     p.set(r.x, r.y, r.z)
     m.compose(p, q, s)
     // 岩ごとに少し明るさを変える（同じ色の岩が並ばないように）
-    mesh.setColorAt(counts[r.v], tone.setScalar((0.78 + 0.4 * ((r.rot * 977) % 1)) * (r.k ?? 1)))
-    mesh.setMatrixAt(counts[r.v]++, m)
+    mesh.setColorAt(counts[v], tone.setScalar((0.78 + 0.4 * ((r.rot * 977) % 1)) * (r.k ?? 1)))
+    mesh.setMatrixAt(counts[v]++, m)
     // 根元の影（地面に接している所が暗い）：岩より少し大きい、ぼかした円
     if (contact && r.s > 0.15 && Math.hypot(r.x - shadowAt.x, r.z - shadowAt.z) < shadowAt.r && shadows < contact.instanceMatrix.count) {
       s.set(r.s * 1.5, 1, r.s * 1.5)
@@ -557,7 +571,14 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   // 広い天体：岩塊の野のタイルは岩が 14 倍になるので、余裕をもたせる（1 種類あたりの上限）
   const rockCap = world ? world.opt.n ** 2 * world.opt.rocks * 3 : rocks.length
   const round = def.id === 'titan'
-  const rockGeos = useMemo(() => [0, 1, 2].map((k) => rockGeometry(terrain.seed + k * 17, round)), [terrain.seed, round])
+  // 近い岩用の細かい形 3 種と、同じ種から作る遠い岩用の粗い形 3 種
+  const rockGeos = useMemo(
+    () => [
+      ...[0, 1, 2].map((k) => rockGeometry(terrain.seed + k * 17, round)),
+      ...[0, 1, 2].map((k) => rockGeometry(terrain.seed + k * 17, round, 1)),
+    ],
+    [terrain.seed, round],
+  )
   const grain = grainTexture()
   // 地面の素材（砂・レゴリス・氷・火山岩）の細かい凹凸と粗さ、斜面の岩肌
   const groundMat = useMemo(() => cloudy(def, withAir(groundMaterial(def, light), ap)), [def, light, ap])
@@ -581,8 +602,11 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const inst = useRef<(THREE.InstancedMesh | null)[]>([])
   const contact = useRef<THREE.InstancedMesh>(null)
   const contactGeo = useMemo(() => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), [])
+  // 狭い天体：細かい岩（影つき）の範囲を、ローバーが動いたら付いていかせる
+  const laidAt = useRef({ x: 0, z: 0 })
   useEffect(() => {
     if (world) return
+    laidAt.current = { x: 0, z: 0 }
     layRocks(rocks, inst.current, contact.current, terrain, { x: 0, z: 0, r: 160 })
     // 素材が変わると（画質の自動切り替えなど）instancedMesh が作り直されるので、そのたびに並べ直す。
     // 並べ直さないと、岩がすべて原点に重なって見えなくなる（ローバーの当たり判定だけが残る）
@@ -593,7 +617,16 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const coarse = useRef<THREE.Mesh>(null)
   const shown = useRef({ version: -1, coarse: -1, mats: null as unknown })
   useFrame(() => {
-    if (!world) return
+    if (!world) {
+      const rv = useRover.getState().phase !== 'none'
+      const x = rv ? roverFocus.x : 0
+      const z = rv ? roverFocus.z : 0
+      if (Math.hypot(x - laidAt.current.x, z - laidAt.current.z) > 25) {
+        laidAt.current = { x, z }
+        layRocks(rocks, inst.current, contact.current, terrain, { x, z, r: 160 })
+      }
+      return
+    }
     const rv = useRover.getState().phase !== 'none'
     world.update(rv ? roverFocus.x : 0, rv ? roverFocus.z : 0, light ? 3 : 4)
     const sh = shown.current
@@ -651,7 +684,7 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
             inst.current[i] = el
           }}
           args={[g, rockMat, rockCap]}
-          castShadow
+          castShadow={i < ROCK_KINDS}
           receiveShadow
           frustumCulled={false}
         />
@@ -1079,6 +1112,8 @@ type Air = {
 const tmpDir = new THREE.Vector3()
 
 function Scene({ def }: { def: SurfaceDef }) {
+  // ローバーなどの十数 cm より小さな部品は影を落とさない（影のための描画を減らす）
+  useTrimShadows(0.12)
   // 本物の地形（火星・地球）。読み終わるまでは今までの作った地形
   const dem = useDem(demIdFor(def))
   const terrain = useMemo(() => new Terrain(def, dem || null), [def, dem])
@@ -1626,18 +1661,48 @@ function WhenReady() {
   return null
 }
 
-function SurfaceCanvas({ def }: { def: SurfaceDef }) {
+/**
+ * 地表の Canvas。降下・上昇の幕は外側で毎フレーム動くので、memo でそこから切り離す
+ * （Canvas を描き直すたびに影の設定がかけ直され、影の地図が作り直されて、影を受ける材質が描けなくなっていた）。
+ * 影は PCF（three.js にはもう PCFSoft がなく、指定すると毎回 PCF に置き換えて作り直す）
+ */
+const SurfaceCanvas = memo(function SurfaceCanvas({ def }: { def: SurfaceDef }) {
   const level = useLevel()
   return (
     // 画面の細かさは画質の設定にあわせる（スマホは「標準」なので 1.25 倍まで）
     // 背景を不透明で塗る（alpha: false）。透明のままだと、描けなかったフレームから後ろが透けて見える。
     // three.js は alpha: false でも透明にできる画面を作るので、後ろは .surface-view.solid の黒でも塞いでいる
-    <Canvas shadows dpr={Math.min(dprFor(level), 1.75)} gl={{ alpha: false }} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
+    <Canvas shadows="percentage" dpr={Math.min(dprFor(level), 1.75)} gl={{ alpha: false }} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
       <Scene def={def} />
       <QualityGovernor />
       <SurfacePost bodyId={def.id} />
     </Canvas>
   )
+})
+
+/** 暗転の幕：宇宙 → 地表、地表 → 宇宙。React で描き直さず、毎フレーム濃さだけを書き換える */
+function Curtain({ phase, since, ready }: { phase: string; since: number; ready: boolean }) {
+  const el = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    let raf = 0
+    const loop = () => {
+      const T = landingNow() - since
+      let curtain = 0
+      if (phase === 'fadeIn') curtain = Math.min(1, T / FADE)
+      else if (phase === 'descent') curtain = ready ? Math.max(0, 1 - T / FADE) : 1
+      else if (phase === 'ascent') curtain = Math.max(0, (T - (ASCENT - FADE)) / FADE)
+      else if (phase === 'fadeOut') curtain = Math.max(0, 1 - T / FADE)
+      const d = el.current
+      if (d) {
+        d.style.opacity = String(curtain)
+        d.style.pointerEvents = curtain > 0.5 ? 'auto' : 'none'
+      }
+      if (phase !== 'surface' && phase !== 'idle') raf = requestAnimationFrame(loop)
+    }
+    loop()
+    return () => cancelAnimationFrame(raf)
+  }, [phase, since, ready])
+  return <div ref={el} className="surface-curtain" style={{ opacity: 0, pointerEvents: 'none' }} />
 }
 
 export function SurfaceView() {
@@ -1648,33 +1713,15 @@ export function SurfaceView() {
   const ready = useLanding((l) => l.ready)
   const def = bodyId ? siteDef(bodyId, site) : null
   const scene3d = phase === 'descent' || phase === 'surface' || phase === 'ascent'
-  // 暗転の幕：宇宙 → 地表、地表 → 宇宙
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    if (phase === 'idle' || phase === 'surface') return
-    let raf = 0
-    const loop = () => {
-      setTick((n) => n + 1)
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [phase])
   const lab = labEnabled() ? <SurfaceLab /> : null
   if (phase === 'idle' || !def) return lab
-  const T = landingNow() - since
-  let curtain = 0
-  if (phase === 'fadeIn') curtain = Math.min(1, T / FADE)
-  else if (phase === 'descent') curtain = ready ? Math.max(0, 1 - T / FADE) : 1
-  else if (phase === 'ascent') curtain = Math.max(0, (T - (ASCENT - FADE)) / FADE)
-  else if (phase === 'fadeOut') curtain = Math.max(0, 1 - T / FADE)
   return (
     <div className={scene3d ? 'surface-view solid' : 'surface-view'}>
       {scene3d && (
         <SurfaceCanvas key={def.site ?? def.id} def={def} />
       )}
       <SurfacePanel def={def} />
-      <div className="surface-curtain" style={{ opacity: curtain, pointerEvents: curtain > 0.5 ? 'auto' : 'none' }} />
+      <Curtain phase={phase} since={since} ready={ready} />
       {lab}
     </div>
   )
