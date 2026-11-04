@@ -42,6 +42,9 @@ const SOIL_DRAG: Record<string, number> = {
   europa: 0.08, ganymede: 0.1, callisto: 0.12, enceladus: 0.07, triton: 0.09, pluto: 0.1,
 }
 const soilDrag = (id: string) => SOIL_DRAG[id] ?? 0.16
+/** 氷の地面：タイヤの力の倍率（横すべりを止める力・加速・ブレーキ）。エウロパはつるつる */
+const ICE_GRIP: Record<string, number> = { europa: 0.3 }
+export const iceGrip = (id: string) => ICE_GRIP[id] ?? 1
 /**
  * 横すべり（ドリフト）。タイヤが横に出せる力（m/s²）は、重力が強いほど大きい（車輪が地面に押しつけられる）。
  * すべり始めは、すべる速さに比例して止める（SLIP_LIN × g + …、1/s）。車体の向きと進む向きのずれが
@@ -844,8 +847,11 @@ export function Rover({
           s.speed *= 1 - Math.min(1, dt * 8)
           s.slip *= 1 - Math.min(1, dt * 8)
         }
-        if (th > 0) s.speed += (s.speed < 0 ? 14 : 7 * Math.max(0.15, 1 - s.speed / ROVER_TOP)) * dt
-        else if (th < 0) s.speed -= (s.speed > 0 ? 14 : 4) * dt
+        // 氷の上では車輪が空回りして、加速もブレーキも弱い
+        const ice = iceGrip(def.id)
+        const tq = 0.5 + 0.5 * ice
+        if (th > 0) s.speed += (s.speed < 0 ? 14 * tq : 7 * tq * Math.max(0.15, 1 - s.speed / ROVER_TOP)) * dt
+        else if (th < 0) s.speed -= (s.speed > 0 ? 14 * (0.35 + 0.65 * ice) : 4 * tq) * dt
         else {
           // アクセルオフ：柔らかい砂・レゴリスに車輪が沈む転がり抵抗（重力に比例）と、
           // 減速ギア付きモーターの逆回し抵抗（速さに比例）で、自然に止まる
@@ -873,7 +879,7 @@ export function Rover({
         s.speed = fw
         // タイヤが横すべりを止める。止めたぶんの多くは前への速さにもどす（すべっても、あまり遅くならない）
         const v0 = Math.hypot(s.speed, s.slip)
-        const stop = Math.min(Math.abs(s.slip), Math.min(latGrip(g) * (0.4 + 0.6 * grip), Math.abs(s.slip) * slipLin(g)) * dt)
+        const stop = Math.min(Math.abs(s.slip), Math.min(latGrip(g) * (0.4 + 0.6 * grip) * ice, Math.abs(s.slip) * slipLin(g) * ice) * dt)
         s.aLat = -Math.sign(s.slip) * (stop / Math.max(dt, 1e-4))
         s.slip -= Math.sign(s.slip) * stop
         const v1 = Math.hypot(s.speed, s.slip)
@@ -1201,7 +1207,7 @@ export function Rover({
       w.rotation.y = k[0] === 'F' ? -s.steer * 0.35 : k[0] === 'R' ? s.steer * 0.35 : 0
     }
     roverFocus.set(s.x, s.y, s.z)
-    Object.assign(roverPose, { x: s.x, y: s.y, z: s.z, heading: s.heading, speed: s.speed, grounded: s.grounded })
+    Object.assign(roverPose, { x: s.x, y: s.y, z: s.z, heading: s.heading, speed: s.speed, slip: s.slip, grounded: s.grounded })
     const paint = built.paint
     paint.uPaintOn.value = roverCtl.paint ? 1 : 0
     if (roverCtl.paint) paint.uPaint.value.set(roverCtl.paint)
