@@ -2,8 +2,8 @@
   "site": "Moon - Taurus-Littrow valley, Apollo 17 landing site (race track)",
   "decode": "height_m = (R * 256 + G) * step - offset; x = east, z = south; pixel (0,0) is the north-west corner",
   "near": {
-    "size": 1024,
-    "extent_m": 6400.0,
+    "size": 2560,
+    "extent_m": 16000.0,
     "step": 0.05,
     "offset": 1000.0
   },
