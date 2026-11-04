@@ -1,7 +1,7 @@
 # Texts and languages (`src/i18n/`)
 
-Almost every text the player sees lives in this folder, in Japanese and in English (the rest is listed under "Not here
-yet", at the end). Japanese is the master. English may be missing for any text: the build still passes, and that text
+Every text the player sees lives in this folder, in Japanese and in English, apart from the few listed at the end
+("Outside on purpose"). Japanese is the master. English may be missing for any text: the build still passes, and that text
 is shown in Japanese in English mode.
 
 ## Files
@@ -31,6 +31,9 @@ missionText(m.id).title           // a mission's text
 - A component that shows texts calls `useLang()` at its top, so it draws again when the language changes.
 - `uiJa` and `uiEn` are the dictionaries of one language, for text that is made in both languages at once (the quiz
   questions built from planet data) or that is always in one (the ship's name painted on the hull is English).
+- How a language writes dates and large numbers is a function here too (`ephemeris.date(d)`, `hud.bigNumber(n)`), and
+  so are the few settings that go with a language: the eclipse panel's time zone (`eclipsePanel.utcOffsetHours`, next
+  to `dateTime`, whose label names it) and the bridge consoles' number format (`consoles.numberLocale`).
 
 ## Data records
 
@@ -55,15 +58,8 @@ A new screen gets a new pair of files, added to `ja.ts` and `en.ts`. A text with
 With `#debug` in the address, the console lists every text that has no English yet
 (`[i18n] en: not translated (shown in Japanese)`).
 
-## Not here yet
+## Outside on purpose
 
-Some texts are still written in the code, because the code builds them from other texts or picks them by a value: the
-stamp book's groups and titles (`data/stamps.ts`), the quiz question templates (`state/quiz.ts`), the surface notes
-(`data/surfaces.ts`), the rally names and tracks (`state/rally.ts`, `data/rallyTracks.ts`), the time bar's words
-(`TimeBar.tsx`), the rock groups (`data/rockCollection.ts`), the rocks' composition labels (`data/rockSamples.ts`) and
-the compass words of the Apollo 17 book (`HistoricBook.tsx`). Until they move, the code picks the language itself: with
-`t('日本語', 'English')` from `lang.ts`, or, in the quiz, through the question's `en` part.
-
-Outside on purpose: words painted into textures (the ship's name on the hull is read from the English file), the
-language picker and the loading screen, which show both languages at once, the language button, which names the other
-language, and developer pages such as `#terrain-lab`.
+Words painted into textures (the ship's name on the hull is read from the English file), the language picker and the
+loading screen, which show both languages at once, the language buttons, which name each language in its own script,
+and developer pages such as `#terrain-lab`.
