@@ -1,4 +1,4 @@
-import type { JobDefText } from '../state/evaJobs'
+import type { JobText } from '../state/evaJobs'
 
 // state/evaJobs.ts の文言（日本語）
 
@@ -43,8 +43,8 @@ const texts = {
       { text: '新しいセンサーを差し込む' },
     ],
   },
-} satisfies Record<string, JobDefText>
+} satisfies Record<string, JobText>
 
 // 英語の evaJobs.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type EvaJobsJa = typeof texts
-export const evaJobsJa: Record<string, JobDefText> = texts
+export const evaJobsJa: Record<string, JobText> = texts
