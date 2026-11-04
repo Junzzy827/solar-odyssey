@@ -22,8 +22,8 @@ const RESPAWN_SECONDS = 30
  */
 const LOD_STEPS = [
   { beyond: 0, drop: 0 },
-  { beyond: 10, drop: 1 },
-  { beyond: 40, drop: 2 },
+  { beyond: 4, drop: 1 },
+  { beyond: 15, drop: 2 },
 ]
 /** 段を戻すときの余裕（行ったり来たりしない） */
 const LOD_MARGIN = 2

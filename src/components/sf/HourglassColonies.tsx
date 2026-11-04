@@ -8,6 +8,7 @@ import { HOURGLASS_ID, HOURGLASS_TEXT, hourglassName } from '../../data/sfHourgl
 import { useLang } from '../../i18n/lang'
 import { LABEL_Z, useHideBehindSun } from '../labels'
 import { useSite } from './useSite'
+import { useFarLod } from '../../hooks/useFarLod'
 
 // 砂時計型コロニー群（オリジナルのデザイン）。太陽と地球の L5 点（地球と同じ軌道の上で、地球より60度うしろ）に、
 // 10基が輪になって浮かぶ。1基は、2つのお椀を細いくびれ（宇宙港）で背中合わせにつないだ形で、長い軸（+Y）のまわりを回る。
@@ -127,6 +128,8 @@ export function HourglassColonies() {
 
   const parts = useMemo(() => {
     const shell = new THREE.LatheGeometry(profile(), 96)
+    // 遠くで小さく見えるときの粗い外板（同じ断面を回す数だけ減らす）
+    const shellLow = new THREE.LatheGeometry(profile(), 20)
     const inner = stripTexture(true)
     const outer = stripTexture(false)
     const make = (geometry: THREE.BufferGeometry, material: THREE.Material) => {
@@ -153,6 +156,8 @@ export function HourglassColonies() {
     const beaconMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.6, 0.6), toneMapped: false })
     return {
       textures: [inner, outer],
+      shell,
+      shellLow,
       hull: make(shell, hullMat),
       land: make(shell, landMat),
       glass: make(shell, glassMat),
@@ -168,6 +173,8 @@ export function HourglassColonies() {
   useEffect(
     () => () => {
       parts.textures.forEach((t) => t.dispose())
+      parts.shellLow.dispose()
+      parts.shell.dispose()
       const all = [parts.hull, parts.land, parts.glass, parts.rimTop, parts.rimBottom, parts.port, parts.shaft, parts.beacon, ...parts.mirrors]
       all.forEach((mesh) => {
         mesh.geometry.dispose()
@@ -177,6 +184,15 @@ export function HourglassColonies() {
     },
     [parts],
   )
+
+  // 群が画面で小さいときは、外板を粗くして、縁の輪・鏡・柱・港・灯・ガラスを描かない。回転の更新もまばらに
+  const small = [parts.glass, parts.rimTop, parts.rimBottom, parts.port, parts.shaft, parts.beacon, ...parts.mirrors]
+  const tick = useRef(0)
+  const far = useFarLod(group, RING + RIM, 60, (isFar) => {
+    parts.hull.geometry = isFar ? parts.shellLow : parts.shell
+    parts.land.geometry = isFar ? parts.shellLow : parts.shell
+    small.forEach((mesh) => (mesh.visible = !isFar))
+  })
 
   const spinQ = new THREE.Quaternion()
   const tiltQ = new THREE.Quaternion()
@@ -192,6 +208,8 @@ export function HourglassColonies() {
     g.position.copy(earth).applyAxisAngle(Y, BEHIND)
     g.position.y += 0.6
     moved()
+    // 遠いときは 10 コマに 1 回だけ回す（数ピクセルでは回っているのも見えない）
+    if (far.current && tick.current++ % 10 !== 0) return
 
     // 本物と同じ速さで回す（約3分で1回転）
     const t = performance.now() / 1000
