@@ -28,6 +28,7 @@ import { observePanelEn } from './observePanel.en'
 import { photoNoteEn } from './photoNote.en'
 import { probePanelEn } from './probePanel.en'
 import { probeSceneEn } from './probeScene.en'
+import { quizEn } from './quiz.en'
 import { quizPanelEn } from './quizPanel.en'
 import { raceEn } from './race.en'
 import { racePanelEn } from './racePanel.en'
@@ -164,6 +165,7 @@ export const en: Translation<typeof ja> = {
   photoNote: photoNoteEn,
   probePanel: probePanelEn,
   probeScene: probeSceneEn,
+  quiz: quizEn,
   quizPanel: quizPanelEn,
   race: raceEn,
   racePanel: racePanelEn,
