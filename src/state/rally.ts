@@ -41,18 +41,21 @@ type RallyState = {
   result: { time: number; place: number; best: number; newBest: boolean; order: RallyEntry[] } | null
   /** 門から外れて戻る（R）の案内を出す */
   lost: boolean
+  /** 追いかけっこ（月）：つかまえたローバーと、ゴールまで逃げきったローバー（色の番号）、最後につかまえた時刻と色 */
+  chase: { caught: number[]; escaped: number[]; at: number; last: number } | null
   /** ミニマップ用：コンピューターのローバーの位置（色の番号, x, z） */
   bots: { c: number; x: number; z: number }[]
 }
 
-const BEST_KEY = 'solar-voyager:rally-best:coprates'
+/** 自己ベストはレース場ごと */
+const bestKey = () => `solar-voyager:rally-best:${useLanding.getState().site ?? 'coprates'}`
 const COLOR_KEY = 'solar-voyager:rally-color'
 
 export type RallyBest = { time: number; splits: number[] }
 
 export function loadBest(): RallyBest | null {
   try {
-    const v = JSON.parse(localStorage.getItem(BEST_KEY) ?? 'null')
+    const v = JSON.parse(localStorage.getItem(bestKey()) ?? 'null')
     return v && v.time > 0 ? v : null
   } catch {
     return null
@@ -61,7 +64,7 @@ export function loadBest(): RallyBest | null {
 
 export function saveBest(b: RallyBest) {
   try {
-    localStorage.setItem(BEST_KEY, JSON.stringify(b))
+    localStorage.setItem(bestKey(), JSON.stringify(b))
   } catch {
     // 保存できなくても遊べる
   }
@@ -90,6 +93,7 @@ export const useRally = create<RallyState>(() => ({
   split: null,
   result: null,
   lost: false,
+  chase: null,
   bots: [],
 }))
 
@@ -106,13 +110,13 @@ export function setRallyColor(color: number) {
 
 /** レースを始める。ローバーがまだ出ていなければ降ろして展開してから、スタートの列へ */
 export function startRally() {
-  useRally.setState({ gate: 0, time: 0, place: 1, toGate: null, split: null, result: null, lost: false })
+  useRally.setState({ gate: 0, time: 0, place: 1, toGate: null, split: null, result: null, lost: false, chase: null })
   if (!roverActive()) launchRover(true)
   setRallyPhase('deploy')
 }
 
 export function quitRally() {
-  useRally.setState({ toGate: null, split: null, result: null, lost: false })
+  useRally.setState({ toGate: null, split: null, result: null, lost: false, chase: null })
   setRallyPhase('off')
 }
 
@@ -125,9 +129,9 @@ export const rallyRacing = () => {
 /** レース場へ着いたら、ローバーを出した状態にする（ローバーを運転中に「峡谷レースへ」を押したとき） */
 export const rallyArrive = { rover: false }
 
-/** ローバーを運転しているところから、峡谷のレース場へ。着いたらすぐローバーで走れる（色えらびとスタートは画面に出る） */
-export function goToRally() {
+/** ローバーを運転しているところから、その天体のレース場へ。着いたらすぐローバーで走れる（色えらびとスタートは画面に出る） */
+export function goToRally(site: string) {
   if (useLanding.getState().phase !== 'surface') return
   rallyArrive.rover = true
-  goToSite('coprates')
+  goToSite(site)
 }

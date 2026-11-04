@@ -22,7 +22,7 @@ export type DetailMap = { size: number; extent: number; step: number; data: Uint
 export type Dem = { near: HeightMap; far: HeightMap; detail: DetailMap | null; attribution: string[] }
 
 /** 本物の地形がある天体 */
-export const DEM_BODIES = new Set(['mars', 'earth', 'mars_coprates'])
+export const DEM_BODIES = new Set(['mars', 'earth', 'mars_coprates', 'moon_taurus'])
 
 type Meta = {
   near: { size: number; extent_m: number; step: number; offset: number }
