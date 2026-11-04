@@ -1,8 +1,9 @@
 import type { ja } from './ja'
+import type { Translation } from './translation'
 
-// Short UI strings (English). Same keys as ja.ts
+// UI strings (English). Same keys as ja.ts; a key left out is shown in Japanese
 
-export const en: typeof ja = {
+export const en: Translation<typeof ja> = {
   missionsButton: 'Story mode (missions)',
   missionsTitle: 'Story mode',
   missionsIntro: 'You are the captain of the survey vessel SV-01. Take on requests from all over the solar system.',
