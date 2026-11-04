@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { TRACKS } from '../data/rallyTracks'
 import { RALLY_RECORDS, type RallyRecord } from '../data/rallyRecords'
 import { coursePrint, unpackSamples, type GhostRun } from './rallyGhost'
+import { DRIVE_VERSION } from './rover'
 
 // ローバーレースのハイスコア表（レース場ごと）：ゴールしたレースをすべて、このブラウザに残す（自己ベストは state/rally.ts のまま）。
 // 表には、ゲームに入っている記録（data/rallyRecords.ts）も並ぶ。表の 1 位の走りが金色のゴースト（RallyGhost.tsx）。
@@ -25,11 +26,14 @@ export type RallyResult = {
 
 export type HiscoreRow = { rank: number; result: RallyResult }
 
-/** レース場のコースの印。コースの線が変わったら、表は新しく始める（前の表は別の名前で残す） */
+/**
+ * レース場の今のレースの印：コースの線の印と、走りの版（state/rover.ts の DRIVE_VERSION）。たとえば峡谷は '122:1211.1/d1'。
+ * どちらかが変わったら、表は新しく始め（前の表は別の名前で残す）、印の合わないゴーストと記録は再生しない
+ */
 export function courseOf(track: string) {
   const tr = TRACKS[track]
   if (!tr) throw new Error(`rally hiscore: no track ${track}`)
-  return coursePrint(tr.line)
+  return `${coursePrint(tr.line)}/d${DRIVE_VERSION}`
 }
 
 const VERSION = 1

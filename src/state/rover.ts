@@ -12,6 +12,12 @@ export const DEPLOY_SEC = 6
 export const ROVER_RANGE = 100
 /** 最高速度（m/s）。時速 60 km */
 export const ROVER_TOP = 60 / 3.6
+/**
+ * 走りの版。運転のしかた・地面・岩など、レースのタイムが変わる変更をしたら、同じコミットで 1 増やす
+ * （見た目だけ・コメントだけの変更では増やさない）。レースのハイスコア表・ゴースト・ゲームに入っている記録は、
+ * 同じ版で走ったものだけを使う（state/rallyHiscore.ts の courseOf）。だから版が同じなら、どのバージョンのゲームでも使える
+ */
+export const DRIVE_VERSION = 1
 
 type RoverState = {
   phase: RoverPhase
