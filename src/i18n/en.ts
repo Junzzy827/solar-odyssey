@@ -17,6 +17,8 @@ import { evaViewEn } from './evaView.en'
 import { exoplanetEn } from './exoplanet.en'
 import { flightEn } from './flight.en'
 import { galleryPanelEn } from './galleryPanel.en'
+import { historicBookEn } from './historicBook.en'
+import { historicPanelEn } from './historicPanel.en'
 import { hudEn } from './hud.en'
 import { landingEn } from './landing.en'
 import { logPanelEn } from './logPanel.en'
@@ -54,6 +56,7 @@ import { throttleEn } from './throttle.en'
 import { timeBarEn } from './timeBar.en'
 import { touchBarEn } from './touchBar.en'
 import { touchControlsEn } from './touchControls.en'
+import { apollo17En } from './apollo17.en'
 import { bodiesEn } from './bodies.en'
 import { bridgePartsEn } from './bridgeParts.en'
 import { compareItemsEn } from './compareItems.en'
@@ -146,6 +149,8 @@ export const en: Translation<typeof ja> = {
   exoplanet: exoplanetEn,
   flight: flightEn,
   galleryPanel: galleryPanelEn,
+  historicBook: historicBookEn,
+  historicPanel: historicPanelEn,
   hud: hudEn,
   landing: landingEn,
   logPanel: logPanelEn,
@@ -183,6 +188,7 @@ export const en: Translation<typeof ja> = {
   timeBar: timeBarEn,
   touchBar: touchBarEn,
   touchControls: touchControlsEn,
+  apollo17: apollo17En,
   bodies: bodiesEn,
   bridgeParts: bridgePartsEn,
   compareItems: compareItemsEn,

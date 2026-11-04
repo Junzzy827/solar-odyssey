@@ -15,6 +15,8 @@ import { evaViewJa } from './evaView.ja'
 import { exoplanetJa } from './exoplanet.ja'
 import { flightJa } from './flight.ja'
 import { galleryPanelJa } from './galleryPanel.ja'
+import { historicBookJa } from './historicBook.ja'
+import { historicPanelJa } from './historicPanel.ja'
 import { hudJa } from './hud.ja'
 import { landingJa } from './landing.ja'
 import { logPanelJa } from './logPanel.ja'
@@ -52,6 +54,7 @@ import { throttleJa } from './throttle.ja'
 import { timeBarJa } from './timeBar.ja'
 import { touchBarJa } from './touchBar.ja'
 import { touchControlsJa } from './touchControls.ja'
+import { apollo17Ja } from './apollo17.ja'
 import { bodiesJa } from './bodies.ja'
 import { bridgePartsJa } from './bridgeParts.ja'
 import { compareItemsJa } from './compareItems.ja'
@@ -144,6 +147,8 @@ export const ja = {
   exoplanet: exoplanetJa,
   flight: flightJa,
   galleryPanel: galleryPanelJa,
+  historicBook: historicBookJa,
+  historicPanel: historicPanelJa,
   hud: hudJa,
   landing: landingJa,
   logPanel: logPanelJa,
@@ -181,6 +186,7 @@ export const ja = {
   timeBar: timeBarJa,
   touchBar: touchBarJa,
   touchControls: touchControlsJa,
+  apollo17: apollo17Ja,
   bodies: bodiesJa,
   bridgeParts: bridgePartsJa,
   compareItems: compareItemsJa,

@@ -254,7 +254,8 @@ export const SURFACES = build()
 export const surfaceFor = (id: string) => SURFACES.get(id) ?? null
 
 /** 別の着陸地点。dem：本物の地形の地図（public/terrain/ の名前） */
-export const SITES: Record<string, { body: string; dem: string; name: [string, string]; note: [string, string] }> = {
+/** range：ローバーで走れる範囲（正方形の半分の幅、m）。書いていなければ wideGround.ts の SITE_RANGE */
+export const SITES: Record<string, { body: string; dem: string; name: [string, string]; note: [string, string]; range?: number }> = {
   coprates: {
     body: 'mars',
     dem: 'mars_coprates',
@@ -267,10 +268,12 @@ export const SITES: Record<string, { body: string; dem: string; name: [string, s
   taurus: {
     body: 'moon',
     dem: 'moon_taurus',
+    // アポロ17号の観測点2（西南西へ 7.2 km）まで走れるように。地形の地図（near）は 16 km 四方
+    range: 7000,
     name: ['タウルス・リットロウ谷', 'Taurus-Littrow valley'],
     note: [
-      'アポロ17号（1972年）が降りた谷。両側に高さ2 kmをこえる山（北マシフ・南マシフ）がそびえます。人が月を歩いた最後の場所で、宇宙飛行士は月面車でこの谷を走りました。',
-      'The valley where Apollo 17 landed in 1972, between mountains (the North and South Massifs) rising over 2 km. It is the last place people walked on the Moon, and the astronauts drove their lunar rover through this valley.',
+      'アポロ17号（1972年）が降りた谷。両側に高さ2 kmをこえる山（北マシフ・南マシフ）がそびえます。人が月を歩いた最後の場所で、宇宙飛行士は月面車でこの谷を走りました。光の柱をめざしてローバーで走ると、2人が残した物や観測点（アポロ17号の史跡）を訪ねられます。',
+      'The valley where Apollo 17 landed in 1972, between mountains (the North and South Massifs) rising over 2 km. It is the last place people walked on the Moon, and the astronauts drove their lunar rover through this valley. Follow the light beams with the rover to visit what they left behind and the stations where they stopped.',
     ],
   },
 }
