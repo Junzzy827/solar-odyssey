@@ -36,15 +36,15 @@ missionText(m.id).title           // a mission's text
 
 A record keeps its numbers and ids; its texts are here, keyed by its id, the way missions are. The record's type is
 split in two in its data file: `Planet` holds the structure, `PlanetText` right after it holds the text fields (with
-their comments), and `bodies.ja.ts` is a `Record<string, PlanetText | MoonText>`. The Sun, the planets and the moons
-share one file, keyed by body id.
+their comments). `bodies.ja.ts` exports `bodiesJa` as a `Record<string, PlanetText | MoonText>`, so any id can be
+looked up, and the type `BodiesJa`, which keeps the ids: `bodies.en.ts` is checked against it. The Sun, the planets and
+the moons share one file, keyed by body id.
 
 ## Adding a text
 
 1. Write the Japanese in the screen's `.ja.ts`, under a key that says what the text is.
-2. Write the English under the same key in the `.en.ts`, if you have it. In a screen's files, a key in `.en.ts` that
-   `.ja.ts` does not have (a typo) is a type error; a key left out is not. The data records' files are keyed by
-   record id, `Record<string, …>` like the missions, so there the compiler does not check the ids.
+2. Write the English under the same key in the `.en.ts`, if you have it. A key in `.en.ts` that `.ja.ts` does not
+   have (a typo) is a type error, also a record id in the data records' files; a key left out is not.
 3. Read it with `ui().<screen>.<key>`.
 
 A new screen gets a new pair of files, added to `ja.ts` and `en.ts`. A text with a value is a function in both files

@@ -2,7 +2,7 @@ import type { ShipSpecText } from '../data/ships'
 
 // data/ships.ts, data/shipParts.ts の文言（日本語）
 
-export const shipsJa: Record<string, ShipSpecText> = {
+const texts = {
   sv01: {
     name: 'ソーラーボイジャー',
     kind: '調査船',
@@ -220,4 +220,8 @@ export const shipsJa: Record<string, ShipSpecText> = {
       },
     },
   },
-}
+} satisfies Record<string, ShipSpecText>
+
+// 英語の ships.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
+export type ShipsJa = typeof texts
+export const shipsJa: Record<string, ShipSpecText> = texts

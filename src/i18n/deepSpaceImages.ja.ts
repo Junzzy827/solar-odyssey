@@ -2,7 +2,7 @@ import type { DeepSpaceImageText } from '../data/deepSpace'
 
 // data/deepSpace.ts の文言（日本語）
 
-export const deepSpaceImagesJa: Record<string, DeepSpaceImageText> = {
+const texts = {
   'hubble-andromeda': {
     name: 'アンドロメダ銀河',
     kind: '銀河（天の川銀河のおとなり）',
@@ -102,4 +102,8 @@ export const deepSpaceImagesJa: Record<string, DeepSpaceImageText> = {
       'ウェッブの写真の中でも特に大きな1枚で、約1000枚の画像をつなぎ合わせています。',
     ],
   },
-}
+} satisfies Record<string, DeepSpaceImageText>
+
+// 英語の deepSpaceImages.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
+export type DeepSpaceImagesJa = typeof texts
+export const deepSpaceImagesJa: Record<string, DeepSpaceImageText> = texts
