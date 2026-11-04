@@ -32,4 +32,16 @@ export const timeBarEn: Translation<typeof timeBarJa> = {
   night: 'Night',
   weather: 'Weather',
   localTime: 'Local time',
+  rate: { pause: 'Pause', sixMinutes: '1 s = 6 min', dayPerMinute: '1 day / min' },
+  jump: { noon: 'Noon', sunset: 'Sunset', night: 'Night' },
+  weatherButton: {
+    mars: { auto: 'Auto', storm: 'Storm', clear: 'Clear' },
+    earth: { auto: 'Auto', storm: 'Sandstorm', clear: 'Clear' },
+    titan: { auto: 'Auto', storm: 'Rain', clear: 'Stop' },
+  },
+  weatherNow: {
+    mars: { strong: 'Dust storm', weak: 'Dusty', calm: 'Clear' },
+    earth: { strong: 'Sandstorm', weak: 'Windy', calm: 'Clear' },
+    titan: { strong: 'Methane rain', weak: 'Drizzle', calm: 'Hazy' },
+  },
 }

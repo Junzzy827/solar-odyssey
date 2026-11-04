@@ -29,4 +29,20 @@ export const timeBarJa = {
   night: '夜',
   weather: '天気',
   localTime: '現地時刻',
+  /** 時間の速さのボタン */
+  rate: { pause: '止める', sixMinutes: '1秒=6分', dayPerMinute: '1日を1分で' },
+  /** 時刻へ飛ぶボタン */
+  jump: { noon: '昼', sunset: '夕方', night: '夜' },
+  /** 天体ごとの天気の呼び方：ボタン（自動・荒れ・おだやか） */
+  weatherButton: {
+    mars: { auto: '自動', storm: '砂嵐', clear: '晴れ' },
+    earth: { auto: '自動', storm: '砂嵐', clear: '晴れ' },
+    titan: { auto: '自動', storm: '雨', clear: 'やむ' },
+  },
+  /** 天体ごとの今の天気（強い・弱い・おだやか） */
+  weatherNow: {
+    mars: { strong: '砂嵐', weak: '砂ぼこり', calm: '晴れ' },
+    earth: { strong: '砂嵐', weak: '風が強い', calm: '晴れ' },
+    titan: { strong: 'メタンの雨', weak: '霧雨', calm: 'もや' },
+  },
 }
