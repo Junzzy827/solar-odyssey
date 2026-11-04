@@ -1,4 +1,4 @@
-import { Bloom, EffectComposer, Noise, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { Bloom, EffectComposer, FXAA, Noise, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { BlendFunction, ToneMappingMode } from 'postprocessing'
 import { QUALITY, useLevel } from '../../state/quality'
 import { useStore } from '../../state/store'
@@ -43,8 +43,9 @@ export function SurfacePost({ bodyId }: { bodyId: string }) {
       {/* 陽炎（色の丸めの前に、景色をゆらす） */}
       {SHIMMER.has(bodyId) ? <primitive object={shimmer} /> : <></>}
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-      {/* 後処理の中ではアンチエイリアスが効かないので、多重サンプルを使わない画質では SMAA で縁をならす */}
-      {q.msaa === 0 ? <SMAA /> : <></>}
+      {/* 後処理の中ではアンチエイリアスが効かないので、多重サンプルを使わない画質では FXAA で縁をならす
+          （SMAA は画面全体の処理が 3 回増えて、内蔵 GPU では重い。FXAA は他の効果といっしょに 1 回で済む） */}
+      {q.msaa === 0 ? <FXAA /> : <></>}
       {fx.film ? <Vignette offset={0.3} darkness={0.5} /> : <></>}
       {fx.film ? <Noise premultiply blendFunction={BlendFunction.SCREEN} opacity={0.12} /> : <></>}
     </EffectComposer>

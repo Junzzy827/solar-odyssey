@@ -760,8 +760,8 @@ export type Rock = { x: number; y: number; z: number; s: number; sy: number; rot
  * 岩の形。round = true は丸い小石（タイタンの氷）。ふだんは割れた角ばった岩：
  * 細かく分けた多面体を大小の凹凸で崩し、何本かの平面で削って割れた面を作る。底は平たく（地面に埋まる側）
  */
-export function rockGeometry(seed: number, round: boolean) {
-  const geo = new THREE.IcosahedronGeometry(1, round ? 2 : 3)
+export function rockGeometry(seed: number, round: boolean, detail = round ? 2 : 3) {
+  const geo = new THREE.IcosahedronGeometry(1, detail)
   const p = geo.attributes.position as THREE.BufferAttribute
   const rnd = seeded(seed)
   const cuts = round

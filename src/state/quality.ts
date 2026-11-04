@@ -16,11 +16,14 @@ export const QUALITY: Record<Level, { dpr: number; msaa: number; bloom: boolean;
   // 画面の細かさ（端末の倍率の上限）・後処理のアンチエイリアス・後処理（光のにじみなど）を使えるか・陰影（SSAO）の細かさ・
   // 船の影の細かさ（0 で影なし）・近づいたときの 4K テクスチャ
   high: { dpr: 2, msaa: 4, bloom: true, ao: 'full', shadow: 2048, closeTextures: true },
-  medium: { dpr: 1.25, msaa: 0, bloom: true, ao: 'half', shadow: 1024, closeTextures: true },
+  // 標準（内蔵 GPU で自動的に選ぶ）：後処理の全画面の処理が多いので、画面の細かさは等倍まで、陰影（SSAO）なし
+  medium: { dpr: 1, msaa: 0, bloom: true, ao: null, shadow: 1024, closeTextures: true },
   low: { dpr: 0.85, msaa: 0, bloom: false, ao: null, shadow: 0, closeTextures: false },
 }
 
-export const dprFor = (level: Level) => Math.min(window.devicePixelRatio || 1, QUALITY[level].dpr)
+/** スマホ・タブレットは画面が細かいので、標準でも 1.25 倍までは細かく描く（これまでと同じ見た目） */
+const touchMedium = () => typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches
+export const dprFor = (level: Level) => Math.min(window.devicePixelRatio || 1, level === 'medium' && touchMedium() ? 1.25 : QUALITY[level].dpr)
 
 /**
  * メモリの少ない端末（スマホ）か。iPhone の Safari は、ページが使うメモリが上限を超えると、
