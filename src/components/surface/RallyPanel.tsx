@@ -74,6 +74,22 @@ export function RallyPanel() {
   const chase = useRally((r) => r.chase)
   const track = useLanding((l) => l.site)
   const isChase = !!(track && TRACKS[track]?.chase)
+  // 結果のカードで R を押すと、もう一度（「もう一度」のボタンと同じ）。ゴールから 0.5 秒は効かない：
+  // ゴールの直前に押した R（直前の門へ）で、すぐに走り直さないように
+  useEffect(() => {
+    if (phase !== 'done') return
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== 'KeyR' || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (rallyNow() - useRally.getState().since < 0.5) return
+      e.preventDefault()
+      roverInput.reset = false
+      startRally()
+    }
+    window.addEventListener('keydown', down, true)
+    return () => window.removeEventListener('keydown', down, true)
+  }, [phase])
   // 3・2・1 の数字を変えるため、数え中だけ画面を書き換える
   const [, tick] = useState(0)
   useEffect(() => {
@@ -187,7 +203,7 @@ export function RallyPanel() {
               {t('自由に走る', 'Free drive')}
             </button>
             <button className="primary" onClick={startRally}>
-              {t('もう一度', 'Race again')}
+              {t('もう一度', 'Race again')} <kbd>R</kbd>
             </button>
           </div>
         </div>
