@@ -8,6 +8,7 @@ import { JAPAN_TEXT, MOON_CITY_ID, moonCityName } from '../../data/sfJapan'
 import { useLang } from '../../i18n/lang'
 import { LABEL_Z, useHideBehindSun } from '../labels'
 import { useSite } from './useSite'
+import { useFarLod } from '../../hooks/useFarLod'
 import { moonCityModel } from './moonCityModel'
 
 // 月の都（『竹取物語』から。オリジナルのデザイン）。月の裏側の真ん中、クレーターの底にある光の都。
@@ -73,6 +74,13 @@ function City({ moonRadius }: { moonRadius: number }) {
   const group = useRef<THREE.Group>(null!)
   const anchor = useRef<THREE.Group>(null!)
   const lanternRef = useRef<THREE.Points>(null!)
+  // 都が画面で小さいときは、建物と灯を描かない（月の上の数ピクセルでは見分けられない。遠くからは光の暈だけ）
+  const city = useRef<THREE.Group>(null)
+  const buildings = useRef<THREE.Group>(null)
+  const far = useFarLod(city, 10, 14, (isFar) => {
+    if (buildings.current) buildings.current.visible = !isFar
+    if (lanternRef.current) lanternRef.current.visible = !isFar
+  })
   const label = useRef<HTMLSpanElement>(null)
   useHideBehindSun(label, group)
   const moved = useSite(anchor, { id: MOON_CITY_ID, radius: 0.05, notice: { distance: ANCHOR + 0.15, text: JAPAN_TEXT.moonCityFound } })
@@ -121,6 +129,8 @@ function City({ moonRadius }: { moonRadius: number }) {
     g.position.copy(moonPos).addScaledVector(up, m.radius)
     g.quaternion.setFromUnitVectors(Y, up)
 
+    moved()
+    if (far.current) return
     // 灯はゆっくり昇り、高くなるほど薄れて、また下から現れる
     const t = clock.getElapsedTime()
     const p = lanterns.geo.attributes.position as THREE.BufferAttribute
@@ -132,15 +142,14 @@ function City({ moonRadius }: { moonRadius: number }) {
       p.setXYZ(i, x, ground(x, z) + 0.6 + k * 6, z)
     }
     p.needsUpdate = true
-    moved()
   })
 
   return (
     <group ref={group}>
-      <group scale={MODEL}>
+      <group ref={city} scale={MODEL}>
         <mesh geometry={floorGeo} material={parts.floor} position={[0, -SPHERE, 0]} />
         {/* 建物は皿（月の表面より 0.12 上）の上に建てる */}
-        <group position={[0, 0.12, 0]}>
+        <group ref={buildings} position={[0, 0.12, 0]}>
           {model.meshes.map((m) => (
             <mesh key={m.key} geometry={m.geometry} material={m.material} />
           ))}

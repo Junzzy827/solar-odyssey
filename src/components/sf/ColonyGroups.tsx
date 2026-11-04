@@ -35,7 +35,7 @@ const SLOTS: [number, number, number][] = [
 ]
 const Y = new THREE.Vector3(0, 1, 0)
 /** この距離（群の中心から）より近いと、第1コロニーと同じ細かい形で描く */
-const DETAIL_DISTANCE = 6
+const DETAIL_DISTANCE = 2.5
 /**
  * 自機がこの距離まで来たら、群の円筒を第1コロニーと同じ Colony（中へ入れる・中に大地と雲・同じ当たり判定と操作感）に
  * 差し替える。離れたら（OPEN_OFF）元に戻す（行き来の境目でちらつかないよう、戻す距離は少し遠く）
