@@ -73,6 +73,7 @@ import { evaToolsEn } from './evaTools.en'
 import { phaserFactsEn } from './phaserFacts.en'
 import { poisEn } from './pois.en'
 import { probesEn } from './probes.en'
+import { rallyColorsEn } from './rallyColors.en'
 import { rallyTracksEn } from './rallyTracks.en'
 import { rockSamplesEn } from './rockSamples.en'
 import { shipsEn } from './ships.en'
@@ -212,6 +213,7 @@ export const en: Translation<typeof ja> = {
   phaserFacts: phaserFactsEn,
   pois: poisEn,
   probes: probesEn,
+  rallyColors: rallyColorsEn,
   rallyTracks: rallyTracksEn,
   rockSamples: rockSamplesEn,
   rockComp: rockCompEn,

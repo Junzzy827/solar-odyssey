@@ -8,13 +8,22 @@ import { goToSite, useLanding } from './landing'
 
 export type RallyPhase = 'off' | 'deploy' | 'count' | 'run' | 'done'
 
-/** 4 色のローバー。name はコンピューターが運転するときの名前 */
+/** 4 色のローバー（文言は src/i18n/rallyColors、色の id ごと） */
 export const RALLY_COLORS = [
-  { id: 'red', hex: '#d63a2c', ja: '赤', en: 'Red', name: ['アカツメ', 'Akatsume'], trait: ['スピード型', 'Speedster'] },
-  { id: 'blue', hex: '#2f6fe0', ja: '青', en: 'Blue', name: ['ミナモ', 'Minamo'], trait: ['慎重型', 'Careful'] },
-  { id: 'yellow', hex: '#f0c22c', ja: '黄', en: 'Yellow', name: ['イナズマ', 'Inazuma'], trait: ['ジャンプ好き', 'Jumper'] },
-  { id: 'green', hex: '#3aa64c', ja: '緑', en: 'Green', name: ['コケモモ', 'Kokemomo'], trait: ['近道好き', 'Shortcut fan'] },
+  { id: 'red', hex: '#d63a2c' },
+  { id: 'blue', hex: '#2f6fe0' },
+  { id: 'yellow', hex: '#f0c22c' },
+  { id: 'green', hex: '#3aa64c' },
 ] as const
+
+/** RALLY_COLORS の文言（日本語は src/i18n/rallyColors.ja.ts、英語は rallyColors.en.ts） */
+export type RallyColorText = {
+  /** 色の名前 */
+  color: string
+  /** コンピューターが運転するときの名前 */
+  name: string
+  trait: string
+}
 
 export const COUNT_SEC = 3.6
 

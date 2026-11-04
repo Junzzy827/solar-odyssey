@@ -71,6 +71,7 @@ import { evaToolsJa } from './evaTools.ja'
 import { phaserFactsJa } from './phaserFacts.ja'
 import { poisJa } from './pois.ja'
 import { probesJa } from './probes.ja'
+import { rallyColorsJa } from './rallyColors.ja'
 import { rallyTracksJa } from './rallyTracks.ja'
 import { rockSamplesJa } from './rockSamples.ja'
 import { shipsJa } from './ships.ja'
@@ -210,6 +211,7 @@ export const ja = {
   phaserFacts: phaserFactsJa,
   pois: poisJa,
   probes: probesJa,
+  rallyColors: rallyColorsJa,
   rallyTracks: rallyTracksJa,
   rockSamples: rockSamplesJa,
   rockComp: rockCompJa,
