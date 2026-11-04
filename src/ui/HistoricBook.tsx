@@ -6,15 +6,12 @@ import { ui } from '../i18n'
 
 // アポロ17号の史跡ずかん：タウルス・リットロウ谷で訪ねた場所の話。まだの場所は ？？？ と、着陸船からの向きと距離だけ
 
-const DIRS_JA = ['北', '北東', '東', '南東', '南', '南西', '西', '北西']
-const DIRS_EN = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest']
-
 /** 着陸地点（レース場のスタート）からの向きと距離 */
 function where(it: Historic) {
   const d = Math.hypot(it.x, it.z)
   const k = Math.round(((Math.atan2(it.x, -it.z) * 180) / Math.PI + 360) / 45) % 8
   const dist = d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d / 10) * 10} m`
-  return ui().historicBook.fromLandingSpot(DIRS_JA[k], dist, DIRS_EN[k])
+  return ui().historicBook.fromLandingSpot(ui().historicBook.directions[k], dist)
 }
 
 function Detail({ it, got }: { it: Historic; got: boolean }) {
