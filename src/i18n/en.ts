@@ -57,6 +57,8 @@ import { timeBarEn } from './timeBar.en'
 import { touchBarEn } from './touchBar.en'
 import { touchControlsEn } from './touchControls.en'
 import { apollo17En } from './apollo17.en'
+import { rockCompEn } from './rockComp.en'
+import { rockGroupsEn } from './rockGroups.en'
 import { bodiesEn } from './bodies.en'
 import { bridgePartsEn } from './bridgeParts.en'
 import { compareItemsEn } from './compareItems.en'
@@ -201,5 +203,7 @@ export const en: Translation<typeof ja> = {
   pois: poisEn,
   probes: probesEn,
   rockSamples: rockSamplesEn,
+  rockComp: rockCompEn,
+  rockGroups: rockGroupsEn,
   ships: shipsEn,
 }

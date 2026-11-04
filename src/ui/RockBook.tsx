@@ -5,7 +5,7 @@ import { PLANETS } from '../data/bodies'
 import { nearLander, spotsOf } from '../data/rockSpots'
 import { useSampleLog } from '../state/rover'
 import { closeRocks, useRockBook } from '../state/rockBook'
-import { getLang, t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
 import { ui } from '../i18n'
 
 function bodyName(id: string) {
@@ -17,7 +17,7 @@ function bodyName(id: string) {
   return id
 }
 
-const groupName = (g: RockGroup) => (g.name[0] ? t(g.name[0], g.name[1]) : bodyName(g.id))
+const groupName = (g: RockGroup) => ui().rockGroups[g.id] ?? bodyName(g.id)
 
 function RockCard({ g, k, found }: { g: RockGroup; k: RockSample; found: boolean }) {
   return (
@@ -61,7 +61,7 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
               <div className="sample-comp">
                 {k.comp.map(([label, v]) => (
                   <div className="sample-bar" key={label}>
-                    <span className="sb-k">{compLabel(label, getLang())}</span>
+                    <span className="sb-k">{compLabel(label)}</span>
                     <span className="sb-track">
                       <span className="sb-fill" style={{ width: `${(v / max) * 100}%` }} />
                     </span>

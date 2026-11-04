@@ -1381,7 +1381,7 @@ function holdProps(on: () => void, off: () => void) {
 /** ローバーを出しているあいだの表示：速さ・見方の切り替え・回収、スマホでは運転のボタン */
 /** 採集した岩の分析結果のカード */
 function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
-  const lang = useLang()
+  useLang()
   const all = samplesFor(bodyId)
   const k = all.find((s) => s.id === id)
   const got = useSampleLog((l) => l.log[bodyId]?.length ?? 0)
@@ -1399,7 +1399,7 @@ function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
       <div className="sample-comp">
         {k.comp.map(([label, v]) => (
           <div className="sample-bar" key={label}>
-            <span className="sb-k">{compLabel(label, lang)}</span>
+            <span className="sb-k">{compLabel(label)}</span>
             <span className="sb-track">
               <span className="sb-fill" style={{ width: `${(v / max) * 100}%` }} />
             </span>

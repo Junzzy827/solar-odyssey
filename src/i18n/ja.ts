@@ -55,6 +55,8 @@ import { timeBarJa } from './timeBar.ja'
 import { touchBarJa } from './touchBar.ja'
 import { touchControlsJa } from './touchControls.ja'
 import { apollo17Ja } from './apollo17.ja'
+import { rockCompJa } from './rockComp.ja'
+import { rockGroupsJa } from './rockGroups.ja'
 import { bodiesJa } from './bodies.ja'
 import { bridgePartsJa } from './bridgeParts.ja'
 import { compareItemsJa } from './compareItems.ja'
@@ -199,5 +201,7 @@ export const ja = {
   pois: poisJa,
   probes: probesJa,
   rockSamples: rockSamplesJa,
+  rockComp: rockCompJa,
+  rockGroups: rockGroupsJa,
   ships: shipsJa,
 }
