@@ -31,7 +31,7 @@ type Meta = {
   attribution: string[]
 }
 
-async function pixels(url: string) {
+export async function pixels(url: string) {
   const blob = await (await fetch(url)).blob()
   // 色の補正をかけずに、画素の値をそのまま読む
   const bmp = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' })
