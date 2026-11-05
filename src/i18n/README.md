@@ -15,7 +15,7 @@ is shown in Japanese in English mode.
 - **`facts.ja.ts` / `facts.en.ts`** (`FACTS`, `FACTS_EN`) and **`sfFacts.ja.ts` / `sfFacts.en.ts`** (the SF objects'
   tables, spread into `FACTS`): the ship's log, read with `factsFor(id)` in `data/facts.ts`.
 - `index.ts`: `ui()` and the other readers · `translation.ts`: the shape of a translation and how its gaps are filled
-  · `lang.ts`: the current language and `useLang()`.
+  · `lang.ts`: the current language and `useLang()` · `list.ts`: how English joins names in a list.
 
 ## Reading a text
 
@@ -38,6 +38,8 @@ missionText(m.id).title           // a mission's text
   (`surfaceView.tempRange(min, max)`, `timeBar.degrees(t)`), the `？？？` of something not found yet
   (`rockBook.unknownName`), and the colon and the gap inside a line (`labelled(label, value)`, `gap`). The Japanese
   files keep the full-width forms, and the English files write `°C`, `???`, `: ` and ` · `.
+- Names in a list are joined by `ui().list(names)`: `火星・フォボス` in Japanese, `Mars and Phobos` or
+  `Mars, Phobos, and Deimos` in English (`list.ts`).
 
 ## Data records
 
@@ -67,6 +69,3 @@ With `#debug` in the address, the console lists every text that has no English y
 Words painted into textures (the ship's name on the hull is read from the English file), the language picker and the
 loading screen, which show both languages at once, the language buttons, which name each language in its own script,
 and developer pages such as `#terrain-lab`.
-
-The `・` that joins names in the rock book is still written in the code, the same in both languages (2 places;
-`l10n-check` lists them as `NO-EN-SYM`).

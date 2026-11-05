@@ -35,7 +35,7 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
   const log = useSampleLog((l) => l.log)
   const at = foundAt(g, k.id, log)
   const found = at.length > 0
-  const where = g.bodies.length > 3 ? groupName(g) : g.bodies.map(bodyName).join('・')
+  const where = g.bodies.length > 3 ? groupName(g) : ui().list(g.bodies.map(bodyName))
   // どこで採れるか：着陸地点のまわりか、見どころ（名前がかぶるものは 1 つに）
   const atLander = g.bodies.some((b) => nearLander(b, k.id))
   const spots = [...new Set(g.bodies.flatMap((b) => spotsOf(b, k.id).map((p) => ui().pois[p.id].name)))].slice(0, 3)
@@ -71,7 +71,7 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
               </div>
               <p className="muted small">
                 {ui().rockBook.foundOn}
-                {at.map(bodyName).join('・')}
+                {ui().list(at.map(bodyName))}
               </p>
             </>
           ) : (

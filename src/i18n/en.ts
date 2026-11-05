@@ -1,5 +1,6 @@
 import type { ja } from './ja'
 import type { Translation } from './translation'
+import { listEn } from './list'
 import { approachEn } from './approach.en'
 import { beamGaugeEn } from './beamGauge.en'
 import { blackHoleEn } from './blackHole.en'
@@ -123,6 +124,7 @@ export const en: Translation<typeof ja> = {
   skill: 'Skill',
   labelled: (label: string, value: string) => `${label}: ${value}`,
   gap: ' · ',
+  list: listEn,
   shipForChapter: (ship: string) => `In this chapter you fly the ${ship} (you switch ships when a mission starts)`,
   backToChapters: 'All chapters',
   chapterDone: 'You have completed every mission in this chapter! Try another ship’s chapter.',
