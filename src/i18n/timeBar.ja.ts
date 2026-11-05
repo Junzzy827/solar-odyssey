@@ -15,7 +15,7 @@ export const timeBarJa = {
   waningGibbous: '欠けていく月',
   moonFromEarth: 'いま地球から見た月',
   earthPhase: (earthFull: boolean) => `空の地球は${earthFull ? '満ちて' : '欠けて'}見えます`,
-  luxLarge: (lx: number, _lx2: number) => `約${lx}万`,
+  luxLarge: (lx: number) => `約${Math.round(lx / 10000)}万`,
   luxValue: (lx: number | string) => `約${lx}`,
   brightSummerSun: '真夏の日なた',
   overcastDay: 'くもりの日の外',

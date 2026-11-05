@@ -66,7 +66,7 @@ const LUX_TOP = Math.log10(1e6)
 /** 明るさの数字と、身近なたとえ（ルクス） */
 function luxText(lx: number) {
   const value =
-    lx >= 10000 ? ui().timeBar.luxLarge(Math.round(lx / 10000), Math.round(lx / 1000)) :
+    lx >= 10000 ? ui().timeBar.luxLarge(lx) :
     lx >= 10 ? ui().timeBar.luxValue(Math.round(lx)) :
     lx >= 0.1 ? ui().timeBar.luxValue(lx.toFixed(1)) : '0'
   const like =

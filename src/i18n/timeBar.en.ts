@@ -17,7 +17,7 @@ export const timeBarEn: Translation<typeof timeBarJa> = {
   waningGibbous: 'Waning gibbous',
   moonFromEarth: 'The Moon from Earth now',
   earthPhase: (earthFull: boolean) => `Earth in this sky looks ${earthFull ? 'full-ish' : 'thin'}`,
-  luxLarge: (_lx: number, lx2: number) => `~${lx2}k`,
+  luxLarge: (lx: number) => `~${Math.round(lx / 1000)}k`,
   luxValue: (lx: number | string) => `~${lx}`,
   brightSummerSun: 'bright summer sun',
   overcastDay: 'an overcast day',

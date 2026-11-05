@@ -362,10 +362,10 @@ function EvaPanel() {
             {swapping ? (
               <span className="es-busy">{ui().evaView.swappingTools}</span>
             ) : working ? (
-              <span className="es-busy">{ui().evaView.workingWithTool(toolName, toolName.toLowerCase())}</span>
+              <span className="es-busy">{ui().evaView.workingWithTool(toolName)}</span>
             ) : (
               <button className="eva-work" {...holdProps(() => (evaInput.work = true), () => (evaInput.work = false))}>
-                {ui().evaView.useTool(toolName, toolName.toLowerCase())} <kbd>E</kbd>
+                {ui().evaView.useTool(toolName)} <kbd>E</kbd>
               </button>
             )}
           </div>
