@@ -18,6 +18,8 @@ export type Historic = {
   no?: number
   /** 観測点の目印の特別な物：オレンジの土・割れた大岩・大きな岩 */
   feature?: 'orange' | 'split' | 'boulders'
+  /** その場所の当時の写真（説明と出典は i18n の photoCaption・photoCredit）。src は画像、page は出典のページ */
+  photo?: { src: string; page: string }
 }
 
 /** Historic の文言（日本語は src/i18n/apollo17.ja.ts、英語は apollo17.en.ts） */
@@ -26,6 +28,10 @@ export type HistoricText = {
   /** いつ（船外活動の何回目か） */
   when: string
   story: string
+  /** 写真の説明（photo がある史跡だけ） */
+  photoCaption?: string
+  /** 写真の出典 */
+  photoCredit?: string
 }
 
 export const APOLLO17: Historic[] = [
@@ -114,6 +120,12 @@ export const APOLLO17: Historic[] = [
     kind: 'station',
     no: 6,
     feature: 'split',
+    // シュミット飛行士とトレイシーの岩。セルナン船長が撮った 2 枚（AS17-140-21493・21497）をつないだもの。
+    // NASA の写真なのでパブリックドメイン。画像は Wikimedia Commons から読む
+    photo: {
+      src: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Apollo_17_Harrison_H._Schmitt_and_Tracy%27s_Rock_-_AS17-140-21493%2BAS17-140-21497_2025.jpg/960px-Apollo_17_Harrison_H._Schmitt_and_Tracy%27s_Rock_-_AS17-140-21493%2BAS17-140-21497_2025.jpg",
+      page: "https://commons.wikimedia.org/wiki/File:Apollo_17_Harrison_H._Schmitt_and_Tracy%27s_Rock_-_AS17-140-21493%2BAS17-140-21497_2025.jpg",
+    },
     x: 959.9,
     z: -3142.7,
     r: 30,

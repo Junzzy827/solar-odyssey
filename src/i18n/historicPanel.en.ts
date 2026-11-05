@@ -11,5 +11,6 @@ export const historicPanelEn: Translation<typeof historicPanelJa> = {
   allVisited: 'You visited every site!',
   siteFound: 'Apollo 17 site found',
   sitesVisited: 'Sites visited',
+  photoSource: 'Source page',
   close: 'Close',
 }

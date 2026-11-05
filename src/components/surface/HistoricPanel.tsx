@@ -3,6 +3,7 @@ import { openHistoricBook, useHistoric } from '../../state/historic'
 import { useRover } from '../../state/rover'
 import { useLang } from '../../i18n/lang'
 import { ui } from '../../i18n'
+import { HistoricPhoto } from '../../ui/HistoricPhoto'
 
 // アポロ17号の史跡：運転中の「ずかん n/13」ボタンと次の史跡への矢印、近づいたときのカード
 
@@ -60,6 +61,7 @@ export function HistoricCard() {
         </div>
       </div>
       <p className="sample-note">{ui().apollo17[it.id].story}</p>
+      <HistoricPhoto it={it} />
       <div className="sample-foot">
         <span>
           {ui().historicPanel.sitesVisited} {found.length} / {APOLLO17_TOTAL}
