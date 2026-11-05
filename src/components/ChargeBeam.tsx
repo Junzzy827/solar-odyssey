@@ -8,7 +8,7 @@ import { shipScale } from '../state/zoom'
 import { useStore } from '../state/store'
 import { useLevel } from '../state/quality'
 import { usePostFxActive } from './SpaceLighting'
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 import { beamHum, playChargeFire, playChargeStep, startChargeHum, type ChargeHum } from '../audio/sfx'
 
 // チャージビーム（長押しで溜めて、離して撃つ）の見た目と破壊。
@@ -681,8 +681,8 @@ export function ChargeBeam() {
         if (s.rocks + s.junk > 0)
           st.showToast(
             s.junk > 0
-              ? t(`チャージビームで小惑星を${s.rocks}個、宇宙ごみを${s.junk}個こわしました。`, `Charge beam: ${s.rocks} asteroids and ${s.junk} pieces of space junk destroyed.`)
-              : t(`チャージビームで小惑星を${s.rocks}個こわしました。`, `Charge beam: ${s.rocks} asteroids destroyed.`),
+              ? ui().chargeBeam.rocksAndJunkDestroyed(s.rocks, s.junk)
+              : ui().chargeBeam.rocksDestroyed(s.rocks),
           )
       } else {
         beamOn = true

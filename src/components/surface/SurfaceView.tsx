@@ -14,7 +14,7 @@ import { goToRally, useRally } from '../../state/rally'
 import { TRACKS, trackForBody } from '../../data/rallyTracks'
 import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded, type Rock } from './terrain'
 import { WideWorld, isWide, wideNow, withHole } from './wideGround'
-import { named, t, useLang } from '../../i18n/lang'
+import { t, useLang } from '../../i18n/lang'
 import { AirParams, ApUniforms, SkyLut, airFor, airUniforms, apUniforms, autoExposure, luminance, skyLookupGlsl, sunTransmittance, withAir } from './atmosphere'
 import { SurfacePost } from './SurfacePost'
 import { SurfaceLab } from './SurfaceLab'
@@ -25,6 +25,8 @@ import { useDem } from './dem'
 import { Rally } from './Rally'
 import { RallyGhost } from './RallyGhost'
 import { RallyPanel, RallyStart } from './RallyPanel'
+import { Apollo17 } from './Apollo17'
+import { HistoricCard, HistoricStatus } from './HistoricPanel'
 import { FAR_SHRINK, farTerrainGeometry } from './farTerrain'
 import { STORM_HAZE, STORM_KIND, WEATHER_BODIES, WEATHER_FX, devilTarget, stepWeather, useWeather, stormTarget, weatherNow } from './weather'
 import { Weather } from './Weather'
@@ -43,6 +45,7 @@ import { useMapTerrain } from './mapRelief'
 import { bindRoverKeys, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
 import { openRocks } from '../../state/rockBook'
 import { compLabel, samplesFor } from '../../data/rockSamples'
+import { ui } from '../../i18n'
 
 // 着陸した天体の地表の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 // 立つ場所は 1 か所に決めて、まわりを 360° 見回せる。着陸船は少し先に降りてくる。
@@ -64,9 +67,9 @@ function dirFrom(azDeg: number, elDeg: number) {
 
 function bodyName(id: string) {
   for (const p of PLANETS) {
-    if (p.id === id) return named(p)
+    if (p.id === id) return ui().bodies[p.id].name
     const m = p.moons.find((x) => x.id === id)
-    if (m) return named(m)
+    if (m) return ui().bodies[m.id].name
   }
   return id
 }
@@ -1354,6 +1357,7 @@ function Scene({ def }: { def: SurfaceDef }) {
           <RallyGhost key={def.site + ':ghost'} track={def.site} />
         </Suspense>
       )}
+      {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} />}
       <Look terrain={terrain} />
       <WhenReady />
     </>
@@ -1390,8 +1394,8 @@ function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
       <div className="sample-head">
         <span className="sample-swatch" style={{ background: k.color }} />
         <div>
-          <div className="sample-kicker">{t('試料を分析しました', 'Sample analysed')}</div>
-          <div className="sample-name">{lang === 'en' ? k.name[1] : k.name[0]}</div>
+          <div className="sample-kicker">{ui().surfaceView.sampleAnalysed}</div>
+          <div className="sample-name">{ui().rockSamples[k.id].name}</div>
         </div>
       </div>
       <div className="sample-comp">
@@ -1405,13 +1409,13 @@ function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
           </div>
         ))}
       </div>
-      <p className="sample-note">{lang === 'en' ? k.note[1] : k.note[0]}</p>
+      <p className="sample-note">{ui().rockSamples[k.id].note}</p>
       <div className="sample-foot">
         <span>
-          {t('この天体の試料', 'Samples here')} {got} / {all.length}
+          {ui().surfaceView.samplesHere} {got} / {all.length}
         </span>
         <button className="secondary" onClick={() => useRover.setState({ result: null })}>
-          {t('閉じる', 'Close')}
+          {ui().surfaceView.close}
         </button>
       </div>
     </div>
@@ -1443,31 +1447,33 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
     <>
       <div className="surface-hint rover-hint" hidden={racing}>
         {drive
-          ? t('W/↑ 前進・S/↓ 後退・A D/← → 曲がる・スペース ジャンプ・E 採集・V 見方', 'W/↑ drive · S/↓ reverse · A D/← → steer · Space jump · E sample · V view')
+          ? ui().surfaceView.keysHint
           : phase === 'drop'
-            ? t('ローバーを投下…', 'Dropping the rover…')
-            : t('ローバーを展開中…', 'Rover unfolding…')}
+            ? ui().surfaceView.droppingRover
+            : ui().surfaceView.roverUnfolding}
       </div>
       {drive && <RoverHud />}
       {site && <RallyPanel />}
       {drive && site && TRACKS[site] && !racing && <RallyStart track={site} compact />}
       {drive && edge && !racing && (
         <div className="rover-edge">
-          {t('これ以上は遠くへ行けません', "Can't go any farther")}
-          <small>{t(`探査できるのは着陸地点のまわり ${sizeLabel(range * 2)} 四方です`, `The rover can explore a ${sizeLabel(range * 2)} square around the landing site`)}</small>
+          {ui().surfaceView.cantGoFarther}
+          <small>{ui().surfaceView.roverRange(sizeLabel(range * 2))}</small>
         </div>
       )}
       {drive && result && <SampleCard bodyId={bodyId} id={result} />}
+      {drive && site === 'taurus' && !racing && !result && <HistoricCard />}
+      {drive && site === 'taurus' && !racing && <HistoricStatus />}
       {drive && !racing && (
         <div className="sample-status">
-          <button className="sample-count" onClick={openRocks} title={t('岩石コレクションを開く', 'Open the rock collection')}>
-            ◆ {t('試料', 'Samples')} {got}/{total} <span className="sample-book">{t('図鑑', 'Book')} ▸</span>
+          <button className="sample-count" onClick={openRocks} title={ui().surfaceView.openRockCollection}>
+            ◆ {ui().surfaceView.samples} {got}/{total} <span className="sample-book">{ui().surfaceView.book} ▸</span>
           </button>
           {sampling ? (
-            <span className="sample-busy">{t('アームで採集中…', 'Arm collecting…')}</span>
+            <span className="sample-busy">{ui().surfaceView.armCollecting}</span>
           ) : canSample ? (
             <button className="sample-btn" onClick={() => (roverInput.sample = true)}>
-              {t('採集する', 'Collect')} <kbd>E</kbd>
+              {ui().surfaceView.collect} <kbd>E</kbd>
             </button>
           ) : next ? (
             <span className="sample-guide">
@@ -1475,11 +1481,11 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
                 ▲
               </span>
               {next.where
-                ? t(`見どころ「${next.where.ja}」の岩まで ${next.dist} m・光の柱が目印`, `Rock at ${next.where.en}: ${next.dist} m · follow the light beam`)
-                : t(`光の柱の岩まで ${next.dist} m・近くで止まると採集できます`, `Rock at the light beam: ${next.dist} m · stop next to it to collect`)}
+                ? ui().surfaceView.rockAtPlace(ui().pois[next.where].name, next.dist)
+                : ui().surfaceView.rockAtBeam(next.dist)}
             </span>
           ) : (
-            <span className="sample-busy">{t('ここの岩はすべて採集しました', 'All rocks here collected')}</span>
+            <span className="sample-busy">{ui().surfaceView.allRocksCollected}</span>
           )}
         </div>
       )}
@@ -1491,7 +1497,7 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
           </div>
           <div className="rover-pad-right">
             <button className="jump" {...holdProps(() => (roverInput.jump = true), () => undefined)}>
-              {t('ジャンプ', 'Jump')}
+              {ui().surfaceView.jump}
             </button>
             <button {...holdProps(() => (roverInput.throttle = -1), () => (roverInput.throttle = 0))}>▼</button>
             <button className="go" {...holdProps(() => (roverInput.throttle = 1), () => (roverInput.throttle = 0))}>▲</button>
@@ -1499,24 +1505,24 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
         </div>
       )}
       <div className="surface-buttons rover-actions">
-        <button className={`secondary${menu ? ' on' : ''}`} onClick={() => useRover.setState({ menu: !menu })} title={t('時刻・天気・説明', 'Time, weather and notes')}>
-          {menu ? t('▴ メニューをたたむ', '▴ Hide menu') : t('☰ メニュー', '☰ Menu')}
+        <button className={`secondary${menu ? ' on' : ''}`} onClick={() => useRover.setState({ menu: !menu })} title={ui().surfaceView.roverMenuTip}>
+          {menu ? ui().surfaceView.hideMenu : ui().surfaceView.menu}
         </button>
         {drive && (
           <button className="secondary" onClick={() => setView(view === 'chase' ? 'cam' : 'chase')}>
-            {view === 'chase' ? t('◉ ローバーのカメラに切替', '◉ Switch to rover cam') : t('◎ 後ろからの視点に切替', '◎ Switch to chase cam')}
+            {view === 'chase' ? ui().surfaceView.switchToRoverCam : ui().surfaceView.switchToChaseCam}
           </button>
         )}
         <button className="secondary" onClick={recallRover}>
-          {t('回収', 'Recall')}
+          {ui().surfaceView.recall}
         </button>
         {!site && trackForBody(bodyId) && (
-          <button className="secondary rally-site" onClick={() => goToRally(trackForBody(bodyId)!)} title={t('レース場へ。着いたらすぐローバーで走れます', 'To the race track, rover ready to go')}>
+          <button className="secondary rally-site" onClick={() => goToRally(trackForBody(bodyId)!)} title={ui().surfaceView.raceTrackTip}>
             🏁 {t(`${TRACKS[trackForBody(bodyId)!].button[0]}へ`, TRACKS[trackForBody(bodyId)!].button[1])}
           </button>
         )}
         <button className="primary" onClick={startTakeoff}>
-          {t('母船に戻る', 'Back to ship')}
+          {ui().surfaceView.backToShip}
         </button>
       </div>
     </>
@@ -1537,7 +1543,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
   // スマホ（縦も横も）では、説明は畳んでおく（タップで開く）
   const [open, setOpen] = useState(() => window.innerWidth > 700 && window.innerHeight > 500)
   const siteName = def.site ? SITES[def.site].name : null
-  const name = bodyName(def.id) + (siteName ? t(`・${siteName[0]}`, ` · ${siteName[1]}`) : '')
+  const name = bodyName(def.id) + (siteName ? ui().surfaceView.siteSuffix(siteName[0], siteName[1]) : '')
   const weight = Math.max(0.01, 30 * def.gravity)
   const temp = def.temp[0] === def.temp[1] ? `${def.temp[0]}℃` : `${def.temp[0]}〜${def.temp[1]}℃`
   const skyName = def.skyBody ? bodyName(def.skyBody.id) : null
@@ -1545,39 +1551,39 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
     <div className={`surface-ui${rover !== 'none' && showInfo ? ' rover-menu' : ''}`}>
       {phase === 'descent' && (
         <div className="surface-caption">
-          <div>{t(`${name}へ降下中…`, `Descending to ${name}…`)}</div>
+          <div>{ui().surfaceView.descendingTo(name)}</div>
           <button className="secondary" onClick={skipDescent}>
-            {t('スキップ', 'Skip')}
+            {ui().surfaceView.skip}
           </button>
         </div>
       )}
-      {phase === 'ascent' && <div className="surface-caption">{t('離陸！母船へもどります', 'Lift-off! Heading back to the ship')}</div>}
+      {phase === 'ascent' && <div className="surface-caption">{ui().surfaceView.liftOff}</div>}
       {phase === 'surface' && (
         <>
           {/* 左上の列：説明・（スマホでは）時刻と天気・ミニマップを上から順に積む。重ならず、たたんだぶんだけ詰まる */}
           <div className={`surface-left${showInfo ? ' menu-open' : ''}${rover === 'none' ? '' : ' rover'}`}>
           {showInfo && <div className={`surface-card${open ? '' : ' closed'}`}>
             <button className="surface-title" onClick={() => setOpen(!open)}>
-              {t(`${name}に着陸`, `Landed on ${name}`)} <span className="muted">{open ? '▾' : '▸'}</span>
+              {ui().surfaceView.landedOn(name)} <span className="muted">{open ? '▾' : '▸'}</span>
             </button>
             {open && (
               <>
                 <div className="surface-stats">
                   <span>
-                    {t('重力', 'Gravity')} {def.gravity < 0.01 ? def.gravity.toFixed(4) : def.gravity.toFixed(2)} G
+                    {ui().surfaceView.gravity} {def.gravity < 0.01 ? def.gravity.toFixed(4) : def.gravity.toFixed(2)} G
                   </span>
                   <span>
-                    {t('気温', 'Temp.')} {temp}
+                    {ui().surfaceView.temperature} {temp}
                   </span>
                 </div>
                 <div className="surface-weight">
-                  {t(`体重30kgの人は、ここでは${weight < 1 ? weight.toFixed(2) : weight.toFixed(1)}kgの重さに`, `Someone who weighs 30 kg on Earth would weigh ${weight < 1 ? weight.toFixed(2) : weight.toFixed(1)} kg here`)}
+                  {ui().surfaceView.weightNote(weight < 1 ? weight.toFixed(2) : weight.toFixed(1))}
                 </div>
                 <p>{t(def.note[0], def.note[1])}</p>
                 {def.skyNote && <p className="muted">{t(def.skyNote[0], def.skyNote[1])}</p>}
                 {skyName && !def.skyNote && (
                   <p className="muted">
-                    {t(`空に${skyName}が見えています（見かけの大きさ ${def.skyBody!.angle.toFixed(1)}°。満月は約0.5°）`, `${skyName} hangs in the sky (${def.skyBody!.angle.toFixed(1)}° across; the full Moon is about 0.5°)`)}
+                    {ui().surfaceView.skyBodyNote(skyName, def.skyBody!.angle.toFixed(1))}
                   </p>
                 )}
               </>
@@ -1593,22 +1599,22 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
           {def.site && TRACKS[def.site] && <RallyStart track={def.site} />}
           <div className="surface-hint">
             {view === 'eye'
-              ? t('ドラッグで見回す・ホイール／2本指でズーム', 'Drag to look around · scroll or pinch to zoom')
-              : t('ドラッグで回る・ホイール／2本指で近づく', 'Drag to orbit · scroll or pinch to move closer')}
+              ? ui().surfaceView.lookAroundHint
+              : ui().surfaceView.orbitViewHint}
           </div>
           <div className="surface-buttons lander-actions">
-            <button className={`secondary${landerMenu ? ' on' : ''}`} onClick={() => useLanding.setState({ menu: !landerMenu })} title={t('説明・時刻・天気', 'Notes, time and weather')}>
-              {landerMenu ? t('▴ メニューをたたむ', '▴ Hide menu') : t('☰ メニュー', '☰ Menu')}
+            <button className={`secondary${landerMenu ? ' on' : ''}`} onClick={() => useLanding.setState({ menu: !landerMenu })} title={ui().surfaceView.landerMenuTip}>
+              {landerMenu ? ui().surfaceView.hideMenu : ui().surfaceView.menu}
             </button>
             <button className="secondary" onClick={() => setView(view === 'eye' ? 'lander' : 'eye')}>
-              {view === 'eye' ? t('着陸船を眺める', 'View the lander') : t('地面に立って見回す', 'Stand and look around')}
+              {view === 'eye' ? ui().surfaceView.viewLander : ui().surfaceView.standAndLook}
             </button>
             <button className="secondary" onClick={() => launchRover()}>
-              {t('ローバーを出す', 'Deploy the rover')}
+              {ui().surfaceView.deployRover}
             </button>
             {!def.site && trackForBody(def.id) && (
               <button className="secondary rally-site" onClick={() => goToSite(trackForBody(def.id))}>
-                🏁 {t(`${TRACKS[trackForBody(def.id)!].button[0]}場へ`, `To the ${TRACKS[trackForBody(def.id)!].button[1].toLowerCase()}`)}
+                🏁 {ui().surfaceView.toRaceTrack(TRACKS[trackForBody(def.id)!].button[0], TRACKS[trackForBody(def.id)!].button[1].toLowerCase())}
               </button>
             )}
             {def.site && TRACKS[def.site] && (
@@ -1617,7 +1623,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
               </button>
             )}
             <button className="primary" onClick={startTakeoff}>
-              {t('離陸する', 'Take off')}
+              {ui().surfaceView.takeOff}
             </button>
           </div>
           </>

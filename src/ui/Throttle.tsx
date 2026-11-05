@@ -2,17 +2,18 @@ import { useEffect } from 'react'
 import { useStore } from '../state/store'
 import { THROTTLE_STEPS } from '../state/throttle'
 import { raceActive } from '../state/race'
-import { t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 /** 推進の段階の名前 */
 const stepName = (step: number) =>
   [
-    t('微速', 'Dead slow'),
-    t('低速', 'Slow'),
-    t('半速', 'Half'),
-    t('巡航', 'Cruise'),
-    t('高速', 'Fast'),
-    t('全速', 'Full'),
+    ui().throttle.deadSlow,
+    ui().throttle.slow,
+    ui().throttle.half,
+    ui().throttle.cruise,
+    ui().throttle.fast,
+    ui().throttle.full,
   ][step]
 
 /** 倍率の表示（×0.1・×1・×4） */
@@ -58,21 +59,21 @@ export function ThrottleMeter() {
   const mode = useStore((s) => s.mode)
   if (mode !== 'flight') return null
   return (
-    <div className="nav-throttle" title={t('操縦中にマウスホイールで切り替え（奥で速く・手前で遅く）', 'Scroll the mouse wheel while flying (up = faster, down = slower)')}>
+    <div className="nav-throttle" title={ui().throttle.wheelTip}>
       <div className="nav-throttle-head">
         <span>
-          {t('推進', 'Thrust')} <b>{stepName(throttle)}</b> <span className="muted">{times(throttle)}</span>
+          {ui().throttle.thrust} <b>{stepName(throttle)}</b> <span className="muted">{times(throttle)}</span>
         </span>
         <span className="nav-throttle-speed">
-          {t('速度', 'Speed')} <b>{speed.toFixed(1)}</b>
+          {ui().throttle.speed} <b>{speed.toFixed(1)}</b>
         </span>
       </div>
-      <div className="nav-throttle-bar" role="group" aria-label={t('推進の段階', 'Thrust level')}>
+      <div className="nav-throttle-bar" role="group" aria-label={ui().throttle.thrustLevel}>
         {THROTTLE_STEPS.map((_, i) => (
           <button key={i} className={i <= throttle ? 'on' : ''} onClick={() => setThrottle(i)} aria-pressed={i === throttle} title={`${stepName(i)} ${times(i)}`} />
         ))}
       </div>
-      <div className="nav-throttle-hint muted">{t('ホイールで切り替え', 'Mouse wheel to change')}</div>
+      <div className="nav-throttle-hint muted">{ui().throttle.wheelHint}</div>
     </div>
   )
 }
@@ -84,17 +85,17 @@ export function TouchThrottle() {
   const setThrottle = useStore((s) => s.setThrottle)
   const speed = useStore((s) => s.telemetry.speed)
   return (
-    <div className="touch-throttle" role="group" aria-label={t('推進の段階', 'Thrust level')}>
-      <button onClick={() => setThrottle(throttle - 1)} disabled={throttle === 0} aria-label={t('遅く', 'Slower')}>
+    <div className="touch-throttle" role="group" aria-label={ui().throttle.thrustLevel}>
+      <button onClick={() => setThrottle(throttle - 1)} disabled={throttle === 0} aria-label={ui().throttle.slower}>
         −
       </button>
       <span className="touch-throttle-read">
         <b>{stepName(throttle)}</b>
         <span>
-          {t('速度', 'Speed')} {speed.toFixed(1)}
+          {ui().throttle.speed} {speed.toFixed(1)}
         </span>
       </span>
-      <button onClick={() => setThrottle(throttle + 1)} disabled={throttle === THROTTLE_STEPS.length - 1} aria-label={t('速く', 'Faster')}>
+      <button onClick={() => setThrottle(throttle + 1)} disabled={throttle === THROTTLE_STEPS.length - 1} aria-label={ui().throttle.faster}>
         ＋
       </button>
     </div>

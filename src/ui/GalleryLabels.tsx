@@ -2,7 +2,8 @@ import { useShip } from '../data/ships'
 import { compareLabels } from '../components/ship/CompareModels'
 import { galleryAnchors, selectPart, useGallery } from '../state/gallery'
 import { useStore } from '../state/store'
-import { named, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 /** 名札の要素を登録する（位置は GalleryCamera が毎フレーム決める） */
 const anchor = (key: string, pos: [number, number, number], side: [number, number, number] | null) => (el: HTMLDivElement | null) => {
@@ -25,7 +26,7 @@ export function GalleryLabels() {
         ship.parts.map((p) => (
           <div key={`${ship.id}:${p.id}`} ref={anchor(`part:${p.id}`, p.pos, p.id === part ? null : p.side)} className="gallery-anchor">
             <button className={part === p.id ? 'on' : ''} onClick={() => selectPart(part === p.id ? null : p.id)}>
-              {named(p)}
+              {ui().ships[ship.id].parts[p.id].name}
             </button>
           </div>
         ))}

@@ -1,7 +1,8 @@
 import { BRIDGE_PARTS } from '../data/bridgeParts'
 import { bridgeAnchors, useBridge } from '../state/bridge'
 import { useStore } from '../state/store'
-import { named, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 const anchor = (id: string, pos: [number, number, number]) => (el: HTMLDivElement | null) => {
   if (el) bridgeAnchors.set(id, { el, pos })
@@ -19,7 +20,7 @@ export function BridgeLabels() {
       {BRIDGE_PARTS.map((p) => (
         <div key={p.id} ref={anchor(p.id, p.pos)} className="gallery-anchor">
           <button className={part === p.id ? 'on' : ''} onClick={() => selectPart(part === p.id ? null : p.id)}>
-            {named(p)}
+            {ui().bridgeParts[p.id].name}
           </button>
         </div>
       ))}

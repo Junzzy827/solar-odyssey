@@ -14,7 +14,7 @@ import { useSpaceEnvOn } from '../SpaceLighting'
 import { useSite } from './useSite'
 import { ApproachLights } from './ApproachLights'
 import { startObserve, useObserve } from '../../state/observe'
-import { t } from '../../i18n/lang'
+import { ui } from '../../i18n'
 
 // 地球の軌道の宇宙船ドック「天の湊（あまのみなと）」（オリジナルのデザイン。junji さんの設定画がもと）。
 // 差し渡し約 5 km の輪と十字の基地。前の腕は大型艦の入るメインドック、後ろの腕は船を組み立てる船台。
@@ -57,11 +57,11 @@ const isBig = () => BIG_SHIPS.has(useStore.getState().settings.ship)
 const LANE = 6000
 
 const DOCK_TEXT = {
-  enter: () => t('メインドックに進入します。誘導灯に沿って、着艦の位置まで自動で進みます', 'Entering the main dock. Following the guide lights to the berth'),
-  berthed: () => t('メインドックに着艦しました。前進（W）で出航できます', 'Berthed in the main dock. Thrust forward (W) to depart'),
+  enter: () => ui().spaceDock.entering,
+  berthed: () => ui().spaceDock.berthed,
   outer: () =>
-    t('この船はメインドックに入らない大きさなので、係留塔の外に横づけしました。前進（W）で離れられます', 'This ship is too big for the main dock, so it is moored alongside the outer tower. Thrust (W) to depart'),
-  arrive: () => t('天の湊に到着。周辺観察に切り替えました。「着艦」でドックへ入れます', 'Arrived at Amano-Minato. Observing now; press Berth to go into the dock'),
+    ui().spaceDock.mooredOutside,
+  arrive: () => ui().spaceDock.arrived,
 }
 
 /** 着艦の様子（ドックの中の照明を明るくする） */

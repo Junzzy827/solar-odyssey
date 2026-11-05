@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { t } from '../../i18n/lang'
+import { ui } from '../../i18n'
 import { ARM_STOW, applyPose, deployPose, type Rig } from './Rover'
 import { rallyNow, useRally } from '../../state/rally'
 import { roverPose } from '../../state/rover'
@@ -160,7 +160,7 @@ export function RallyGhost({ track }: { track: string }) {
     const el = label.current
     if (el) {
       el.style.display = gold ? '' : 'none'
-      const name = `🏆 ${s.gold?.name ?? t('あなた', 'You')}`
+      const name = `🏆 ${s.gold?.name ?? ui().rallyHiscore.you}`
       if (el.textContent !== name) el.textContent = name
     }
     // 自分のベストは、金色と同じ走りでなければ出す

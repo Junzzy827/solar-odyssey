@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react'
 import { RALLY_COLORS, useRally } from '../../state/rally'
 import { buildCourse } from './Rally'
 import { TRACKS } from '../../data/rallyTracks'
+import { APOLLO17, APOLLO17_TRAVERSE } from '../../data/apollo17'
+import { useHistoric } from '../../state/historic'
 import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
-import { t, useLang } from '../../i18n/lang'
+import { useLang } from '../../i18n/lang'
 import { isTouchDevice } from '../../state/input'
+import { ui } from '../../i18n'
 
 // ローバーの計器：速度計（0〜60 km/h の弧）と、向き・傾き・着陸船からの距離・宙に浮いているかの表示
 
@@ -87,13 +90,13 @@ export function RoverHud() {
       </svg>
       <div className="rover-readouts">
         <div className="rr-row">
-          <span className="rr-k">{t('方位', 'HDG')}</span>
+          <span className="rr-k">{ui().roverHud.heading}</span>
           <span className="rr-v">
             {String(hud.hdg).padStart(3, '0')}° <small>{DIRS[Math.round(hud.hdg / 45) % 8]}</small>
           </span>
         </div>
         <div className="rr-row">
-          <span className="rr-k">{t('傾き', 'TILT')}</span>
+          <span className="rr-k">{ui().roverHud.tilt}</span>
           <span className="rr-tilt" title={`${hud.pitch}° / ${hud.roll}°`}>
             <span className="rr-horizon" style={{ transform: `translateY(${Math.max(-8, Math.min(8, hud.pitch * 0.4))}px) rotate(${-hud.roll}deg)` }} />
             <span className="rr-wings" />
@@ -104,13 +107,13 @@ export function RoverHud() {
           </span>
         </div>
         <div className="rr-row">
-          <span className="rr-k">{t('距離', 'DIST')}</span>
+          <span className="rr-k">{ui().roverHud.distance}</span>
           <span className="rr-v">
             {hud.dist} <small>m</small>
           </span>
         </div>
         <div className="rr-row">
-          <span className="rr-k">{t('岩', 'ROCK')}</span>
+          <span className="rr-k">{ui().roverHud.rock}</span>
           {next ? (
             <>
               <span className="rr-next" style={{ transform: `rotate(${next.rel}deg)` }}>
@@ -121,13 +124,13 @@ export function RoverHud() {
               </span>
             </>
           ) : (
-            <span className="rr-v small">{t('完了', 'done')}</span>
+            <span className="rr-v small">{ui().roverHud.done}</span>
           )}
         </div>
         <div className="rr-airrow">
-          <div className={`rr-air${hud.air ? ' on' : ''}`}>{t('空中', 'AIR')}</div>
-          <div className={`rr-fuel${hud.fuel < 0.25 ? ' low' : ''}`} title={t('姿勢制御の噴射剤（空中で◀▶・▼）', 'Thruster propellant (◀▶ and ▼ in the air)')}>
-            <span>{t('噴射', 'RCS')}</span>
+          <div className={`rr-air${hud.air ? ' on' : ''}`}>{ui().roverHud.air}</div>
+          <div className={`rr-fuel${hud.fuel < 0.25 ? ' low' : ''}`} title={ui().roverHud.rcsTip}>
+            <span>{ui().roverHud.rcs}</span>
             <i style={{ width: `${Math.round(hud.fuel * 100)}%` }} />
           </div>
         </div>
@@ -185,6 +188,9 @@ export function RoverMap() {
     return tr ? buildCourse(tr.line) : null
   }, [terrain])
   const pois = wide ? (terrain?.pois ?? []) : []
+  // アポロ17号の谷：月面車が走った道と史跡
+  const apollo = terrain?.def.site === 'taurus'
+  const histFound = useHistoric((h) => h.found)
   /** 見どころに残っている、まだ採っていない岩の数 */
   const left = (id: string) => sites.filter((s, i) => s.poi === id && !taken.includes(i)).length
   const coarse = useRelief(terrain, wide ? { cx: 0, cz: 0, half: R * 1.04 } : { cx: LANDER_POS.x, cz: LANDER_POS.y, half: V })
@@ -214,15 +220,15 @@ export function RoverMap() {
           e.stopPropagation()
           useRover.setState(touch ? { map: true, menu: false } : { map: true })
         }}
-        title={t('ミニマップを出す', 'Show the minimap')}
+        title={ui().roverHud.showMinimap}
       >
-        <span className="chip-icon">▦</span> {t('地図', 'Map')}
+        <span className="chip-icon">▦</span> {ui().roverHud.map}
       </button>
     )
   }
   return (
     <div className={`rover-map${edge ? ' edge' : ''}`}>
-      <svg viewBox={`${-V} ${-V} ${V * 2} ${V * 2}`} aria-label={t('ミニマップ', 'Minimap')}>
+      <svg viewBox={`${-V} ${-V} ${V * 2} ${V * 2}`} aria-label={ui().roverHud.minimap}>
         {relief(coarse)}
         {wide && !whole && relief(fine)}
         {wide ? (
@@ -262,7 +268,7 @@ export function RoverMap() {
                 <>
                   <circle cx={x} cy={z} r={4} className="m-poi" />
                   <text x={x} y={z + 19} className="m-poi-name">
-                    {t(p.name.ja, p.name.en)}
+                    {ui().pois[p.id].name}
                     {left(p.id) > 0 && <tspan className="m-poi-rocks"> ◆{left(p.id)}</tspan>}
                   </text>
                 </>
@@ -272,6 +278,29 @@ export function RoverMap() {
             </g>
           )
         })}
+        {apollo && (
+          <>
+            {APOLLO17_TRAVERSE.map((ln, i) => (
+              <polyline key={`t${i}`} className="m-trav" points={ln.reduce((a, v, j) => (j % 2 ? `${a}${mz(v)} ` : `${a}${mx(v)},`), '')} />
+            ))}
+            {APOLLO17.map((h) => {
+              const x = mx(h.x)
+              const z = mz(h.z)
+              if (Math.abs(x) > V || Math.abs(z) > V) return null
+              const got = histFound.includes(h.id)
+              return (
+                <g key={h.id}>
+                  <path d={`M ${x} ${z - 7} L ${x + 2} ${z - 2} L ${x + 7} ${z - 2} L ${x + 3} ${z + 1.5} L ${x + 4.5} ${z + 7} L ${x} ${z + 3.5} L ${x - 4.5} ${z + 7} L ${x - 3} ${z + 1.5} L ${x - 7} ${z - 2} L ${x - 2} ${z - 2} Z`} className={`m-hist${got ? ' got' : ''}`} />
+                  {h.no && (whole || !wide) && (
+                    <text x={x} y={z - 10} className="m-hist-name">
+                      {h.no}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
+          </>
+        )}
         {course && (
           <>
             <polyline points={course.pts.filter((_, i) => i % 3 === 0).map((p) => `${mx(p.x)},${mz(p.y)}`).join(' ')} className="m-course" />
@@ -302,8 +331,8 @@ export function RoverMap() {
           e.stopPropagation()
           useRover.setState({ map: false })
         }}
-        title={t('ミニマップをたたむ', 'Hide the minimap')}
-        aria-label={t('ミニマップをたたむ', 'Hide the minimap')}
+        title={ui().roverHud.hideMinimap}
+        aria-label={ui().roverHud.hideMinimap}
       >
         −
       </button>
@@ -317,7 +346,7 @@ export function RoverMap() {
             setWhole((w) => !w)
           }}
         >
-          {whole ? t('近く', 'Near') : t('全体', 'All')}
+          {whole ? ui().roverHud.near : ui().roverHud.all}
         </button>
       )}
     </div>

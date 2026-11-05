@@ -14,91 +14,70 @@ export type Carry = 'patch' | 'sensor'
 export type JobStep = {
   tool: EvaTool
   sec: number
-  /** 手順の説明 [日本語, English] */
-  text: [string, string]
   /** 'fetch' = 部品棚で取る、'place' = 運んだ部品を付ける */
   kind?: 'fetch' | 'place'
   carry?: Carry
 }
 
+/** JobStep の文言（日本語は src/i18n/evaJobs.ja.ts、英語は evaJobs.en.ts） */
+export type JobStepText = {
+  /** 手順の説明 */
+  text: string
+}
+
 export type JobDef = {
-  name: [string, string]
   steps: JobStep[]
-  note: [string, string]
+}
+
+/** JobDef の文言（日本語は src/i18n/evaJobs.ja.ts、英語は evaJobs.en.ts） */
+export type JobDefText = {
+  name: string
+  steps: JobStepText[]
+  note: string
 }
 
 export const JOB_TYPES: JobType[] = ['hole', 'panel', 'cable', 'antenna', 'radiator', 'sensor']
 
 export const JOBS: Record<JobType, JobDef> = {
   hole: {
-    name: ['微小隕石の穴をふさぐ', 'Patch a micrometeoroid hole'],
     steps: [
-      { tool: 'cutter', sec: 2.2, text: ['めくれた縁をカッターで切りそろえる', 'Trim the torn edges with the cutter'] },
-      { tool: 'pad', sec: 0.8, kind: 'fetch', carry: 'patch', text: ['部品棚の当て板を吸着パッドで取る', 'Pick up a patch plate from the parts rack with the suction pad'] },
-      { tool: 'pad', sec: 1.0, kind: 'place', carry: 'patch', text: ['当て板を穴に当てる', 'Hold the patch over the hole'] },
-      { tool: 'welder', sec: 3.0, text: ['当て板のまわりを溶接する', 'Weld around the patch'] },
-    ],
-    note: [
-      '宇宙ステーションの外壁には、飛んでくる小さなちりを受け止める「ホイップル・シールド」という、すき間をあけて重ねた板が付いています。2021年には、ロボットアーム「カナダアーム2」に小さな穴が見つかりました（アームはそのまま使われ続けています）。',
-      'Space-station modules carry “Whipple shields”: thin bumper sheets spaced away from the wall that shatter incoming specks of dust. In 2021 a small hole was found in the Canadarm2 robotic arm, which kept on working.',
+      { tool: 'cutter', sec: 2.2 },
+      { tool: 'pad', sec: 0.8, kind: 'fetch', carry: 'patch' },
+      { tool: 'pad', sec: 1.0, kind: 'place', carry: 'patch' },
+      { tool: 'welder', sec: 3.0 },
     ],
   },
   panel: {
-    name: ['浮いた外装パネルを留め直す', 'Refasten a loose hull panel'],
     steps: [
-      { tool: 'pad', sec: 1.6, text: ['浮いたパネルを吸着パッドで押さえる', 'Hold the loose panel down with the suction pad'] },
-      { tool: 'drill', sec: 2.4, text: ['ボルトをドリルで締め直す', 'Drive the bolts back in with the drill'] },
-    ],
-    note: [
-      '宇宙では、手を離したボルトはそのまま漂っていってしまいます。船外で使う工具はひもでつなぎ、ボルトもゆるめても抜け落ちない作り（脱落防止ねじ）にしてあります。',
-      'In orbit a bolt you let go of simply drifts away. Spacewalk tools are tethered, and bolts are made “captive” so they stay in their holes even when loosened.',
+      { tool: 'pad', sec: 1.6 },
+      { tool: 'drill', sec: 2.4 },
     ],
   },
   cable: {
-    name: ['抜けたケーブルを差し直す', 'Reconnect a loose cable'],
     steps: [
-      { tool: 'cutter', sec: 1.4, text: ['焦げたケーブルの端を切る', 'Cut off the scorched end of the cable'] },
-      { tool: 'hand', sec: 2.0, text: ['コネクターを差し込む', 'Plug the connector back in'] },
-    ],
-    note: [
-      '船外活動の手袋は分厚く、指先が自由に動きません。宇宙で使うコネクターは、手袋のままでもつかんで回せるように、大きなつまみや持ち手を付けて作られています。',
-      'Spacesuit gloves are thick and stiff. Connectors used outside are built with big knobs and handles so they can be gripped and turned with gloved hands.',
+      { tool: 'cutter', sec: 1.4 },
+      { tool: 'hand', sec: 2.0 },
     ],
   },
   antenna: {
-    name: ['アンテナの向きを直す', 'Realign an antenna'],
     steps: [
-      { tool: 'drill', sec: 1.4, text: ['止めボルトをゆるめる', 'Loosen the locking bolt'] },
-      { tool: 'hand', sec: 2.6, text: ['皿を正しい向きへ回す', 'Turn the dish back to the right direction'] },
-      { tool: 'drill', sec: 1.4, text: ['止めボルトを締める', 'Tighten the locking bolt'] },
-    ],
-    note: [
-      'たくさんのデータを送るアンテナは、向きが少しずれるだけで電波が弱くなります。宇宙ステーションのアンテナは、通信衛星の方向を自動で追いかけながら地上とつながっています。',
-      'A high-rate antenna loses signal if it points even slightly off. The space station’s dish keeps tracking relay satellites automatically to stay in touch with the ground.',
+      { tool: 'drill', sec: 1.4 },
+      { tool: 'hand', sec: 2.6 },
+      { tool: 'drill', sec: 1.4 },
     ],
   },
   radiator: {
-    name: ['放熱板のひびを直す', 'Repair a cracked radiator'],
     steps: [
-      { tool: 'drill', sec: 1.6, text: ['ひびの先に止め穴をあける', 'Drill a stop hole at the tip of the crack'] },
-      { tool: 'welder', sec: 3.2, text: ['ひびを溶接する', 'Weld the crack shut'] },
-    ],
-    note: [
-      'ひびの先に小さな丸い穴をあけると、ひびがそれ以上のびにくくなります（ストップホール）。飛行機の修理でも使う方法です。宇宙船の外での溶接は、1984年にソ連の宇宙飛行士スベトラーナ・サビツカヤさんたちが試しました。',
-      'A small round “stop hole” drilled at the tip of a crack keeps it from spreading — the same trick is used on aircraft. Welding outside a spacecraft was first tried in 1984 by Soviet cosmonauts including Svetlana Savitskaya.',
+      { tool: 'drill', sec: 1.6 },
+      { tool: 'welder', sec: 3.2 },
     ],
   },
   sensor: {
-    name: ['壊れたセンサーを交換する', 'Replace a broken sensor'],
     steps: [
-      { tool: 'drill', sec: 1.6, text: ['固着したボルトをドリルで外す', 'Back out the stuck bolts with the drill'] },
-      { tool: 'hand', sec: 1.2, text: ['壊れたセンサーを抜いて背中にしまう', 'Pull out the broken sensor and stow it'] },
-      { tool: 'hand', sec: 0.8, kind: 'fetch', carry: 'sensor', text: ['部品棚から新しいセンサーを取る', 'Take a new sensor from the parts rack'] },
-      { tool: 'hand', sec: 1.2, kind: 'place', carry: 'sensor', text: ['新しいセンサーを差し込む', 'Plug in the new sensor'] },
-    ],
-    note: [
-      '宇宙ステーションの部品の多くは、壊れたら箱ごと取り替えられる「軌道上交換ユニット（ORU）」になっています。カナダのロボット「デクスター」は、こうした部品の交換を人の代わりに船外で行います。',
-      'Many station parts are “orbital replacement units” (ORUs): boxes swapped out whole when they fail. Canada’s robot Dextre does some of these swaps outside, so astronauts don’t have to.',
+      { tool: 'drill', sec: 1.6 },
+      { tool: 'hand', sec: 1.2 },
+      { tool: 'hand', sec: 0.8, kind: 'fetch', carry: 'sensor' },
+      { tool: 'hand', sec: 1.2, kind: 'place', carry: 'sensor' },
     ],
   },
 }

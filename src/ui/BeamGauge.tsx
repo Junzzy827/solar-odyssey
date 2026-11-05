@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../state/store'
 import { CHARGE_STEPS, beamCharge, beamFx, now } from '../state/beam'
-import { t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 const FULL = CHARGE_STEPS[CHARGE_STEPS.length - 1]
 /** 段階ごとのゲージの色（青→水色→白） */
@@ -31,7 +32,7 @@ export function BeamGauge() {
     const cache = new Map<HTMLElement, Record<string, string>>()
     const tick = () => {
       raf = requestAnimationFrame(tick)
-      const texts = { charge: t('チャージ', 'Charge'), cool: t('クールダウン', 'Cooldown'), firing: t('発射中', 'Firing') }
+      const texts = { charge: ui().beamGauge.charge, cool: ui().beamGauge.cooldown, firing: ui().beamGauge.firing }
       const time = now()
       const dt = Math.min(0.1, time - last)
       last = time

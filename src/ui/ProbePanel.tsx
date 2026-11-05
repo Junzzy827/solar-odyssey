@@ -5,7 +5,8 @@ import { EPOCH_MS, formatDate } from '../data/ephemeris'
 import { closeProbes, pathAt, playProbe, probeById, probeClock, probePath, realDistanceNow, togglePlay, useProbes } from '../state/probes'
 import { useStore } from '../state/store'
 import { raceActive, useRace } from '../state/race'
-import { named, t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 const YEAR_MS = 365.25 * 86_400_000
 /** 1天文単位（億km） */
@@ -42,10 +43,7 @@ function nowText(id: string) {
   if (!probe || au === null) return null
   const hours = Math.round((au * 8.317) / 60)
   const today = formatDate(new Date(EPOCH_MS))
-  return t(
-    `今日（${today}）は太陽から約${Math.round(au)}天文単位、約${Math.round(au * AU_OKU_KM)}億km。電波が届くのに約${hours}時間かかります。`,
-    `Today (${today}) it is about ${Math.round(au)} AU from the Sun, about ${((au * AU_OKU_KM) / 10).toFixed(1)} billion km. Its radio signals take about ${hours} hours to reach us.`,
-  )
+  return ui().probePanel.distanceToday(today, Math.round(au), Math.round(au * AU_OKU_KM), hours, ((au * AU_OKU_KM) / 10).toFixed(1))
 }
 
 /** 探査機の旅：一覧から選ぶと、打ち上げから順に、惑星をその日の位置に動かしながら道すじをたどる */
@@ -71,13 +69,13 @@ export function ProbePanel() {
   if (!open) return null
 
   return (
-    <section className="probe-panel" aria-label={t('探査機の旅', 'Probe journeys')}>
+    <section className="probe-panel" aria-label={ui().probePanel.probeJourneys}>
       <header>
         <h2>
-          {t('探査機の旅', 'Probe journeys')}
-          {probe && <span style={{ color: probe.color }}>{t('：', ': ')}{named(probe)}</span>}
+          {ui().probePanel.probeJourneys}
+          {probe && <span style={{ color: probe.color }}>{ui().probePanel.separator}{ui().probes[probe.id].name}</span>}
         </h2>
-        <button className="close" onClick={closeProbes} aria-label={t('閉じる', 'Close')}>
+        <button className="close" onClick={closeProbes} aria-label={ui().probePanel.close}>
           ×
         </button>
       </header>
@@ -85,18 +83,15 @@ export function ProbePanel() {
       {!probe ? (
         <>
           <p className="muted">
-            {t(
-              '本物の探査機がたどった道を、打ち上げの日から再生します。惑星も、その日の本当の位置に動きます。',
-              'Replay the paths real probes took, starting on launch day. The planets move to where they really were on each date.',
-            )}
+            {ui().probePanel.introNote}
           </p>
           <div className="probe-list">
             {PROBES.map((p) => (
               <button key={p.id} className="nav-item" onClick={() => playProbe(p.id)}>
                 <span className="probe-dot" style={{ background: p.color }} />
                 <span>
-                  {named(p)}
-                  <span className="muted small"> {t(p.summary, p.summaryEn)}</span>
+                  {ui().probes[p.id].name}
+                  <span className="muted small"> {ui().probes[p.id].summary}</span>
                 </span>
               </button>
             ))}
@@ -107,39 +102,36 @@ export function ProbePanel() {
           <div className="probe-date">
             {formatDate(new Date(readout.ms))}
             <span className="muted">
-              {t('太陽から約', 'About ')}
+              {ui().probePanel.sunDistancePrefix}
               {readout.au < 10 ? readout.au.toFixed(1) : Math.round(readout.au)}
-              {t('天文単位', ' AU from the Sun')}
+              {ui().probePanel.sunDistanceSuffix}
             </span>
           </div>
           <ol className="probe-events" ref={list}>
             {probe.events.map((e, i) => (
               <li key={e.date} className={i === event ? 'now' : i < event ? 'past' : ''}>
                 <span className="probe-when">{formatDate(new Date(dateMs(e.date)))}</span>
-                {t(e.text, e.textEn)}
+                {ui().probes[probe.id].events[i].text}
               </li>
             ))}
             {finished && (
               <li className="now">
-                {t(probe.last, probe.lastEn)} {nowText(probe.id)}
+                {ui().probes[probe.id].last} {nowText(probe.id)}
               </li>
             )}
           </ol>
           <div className="probe-controls">
             <button className="secondary" onClick={togglePlay}>
-              {finished ? t('もう一度', 'Replay') : playing ? t('一時停止', 'Pause') : t('再生', 'Play')}
+              {finished ? ui().probePanel.replay : playing ? ui().probePanel.pause : ui().probePanel.play}
             </button>
             <button className="secondary" onClick={() => useProbes.setState({ probeId: null, playing: false })}>
-              {t('ほかの探査機', 'Other probes')}
+              {ui().probePanel.otherProbes}
             </button>
           </div>
         </>
       )}
       <p className="muted small">
-        {t(
-          '道すじは、通った天体を太陽のまわりの弧でつないだ、おおよその形です。日付と、通った天体は本物です。',
-          'The paths are rough shapes made by joining the bodies each probe passed with arcs around the Sun. The dates and the bodies visited are real.',
-        )}
+        {ui().probePanel.pathsNote}
       </p>
     </section>
   )

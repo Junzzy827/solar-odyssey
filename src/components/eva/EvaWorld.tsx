@@ -12,6 +12,7 @@ import { proximity } from '../../state/proximity'
 import { ship } from '../../state/flight'
 import { lowMemory, useQuality } from '../../state/quality'
 import type { ShipSpec } from '../../data/ships'
+import { uiEn } from '../../i18n'
 import { AIRLOCK, HULL_HALF, HULL_R, evaSite, hullNormal, hullPoint } from './hull'
 import { focus, hatchState } from './Tsumugi'
 import { hullTextures } from './hullTex'
@@ -108,7 +109,7 @@ function Hull({ spec }: { spec: ShipSpec }) {
   }, [])
   const deco = useMemo(() => {
     const ink = new THREE.Color(spec.swatch[1]).getHexString()
-    return nameTexture(spec.registry, spec.nameEn.toUpperCase(), `#${ink}`)
+    return nameTexture(spec.registry, uiEn.ships[spec.id].name.toUpperCase(), `#${ink}`)
   }, [spec])
   const decoGeo = useMemo(() => [hullPatch(0.62, 0.2, -6, -30, 12, 12, 0.02, true), hullPatch(-0.62, -0.2, -30, -6, 12, 12, 0.02, true)], [])
   useEffect(

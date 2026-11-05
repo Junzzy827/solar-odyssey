@@ -7,10 +7,11 @@ import { enterBridge, leaveBridge } from '../state/bridge'
 import { factsFor } from '../data/facts'
 import { setWorld, useSF } from '../data/sf'
 import { useRace } from '../state/race'
-import { t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
 import { ScaleSheet } from './ScaleToggle'
 import { canStartEva, startEva } from '../state/eva'
 import { landed } from '../state/landing'
+import { ui } from '../i18n'
 
 /** 中で指を動かすとスクロールしてよい画面（ほかの場所では、なぞってもページは動かさない） */
 const SCROLLABLE = '.nav-panel, .log-panel, .quiz-run, .probe-panel, .stamp-book, .rock-book, .scope-view, .lang-picker, .bridge-panel, .race-bar, .notice-panel, .surface-left'
@@ -131,31 +132,31 @@ export function TouchBar() {
   return (
     <>
       {sheet && <div className="sheet-backdrop" onClick={() => setSheet(null)} />}
-      <nav className="touch-bar" aria-label={t('メニュー', 'Menu')}>
+      <nav className="touch-bar" aria-label={ui().touchBar.menu}>
         {mode === 'gallery' ? (
-          <Icon glyph="◀" label={t('操縦席へ', 'Cockpit')} onClick={closeGallery} />
+          <Icon glyph="◀" label={ui().touchBar.cockpit} onClick={closeGallery} />
         ) : (
           <>
             <Icon
               glyph={mode === 'map' ? '◀' : '◎'}
-              label={mode === 'map' ? t('操縦席へ', 'Cockpit') : t('マップ', 'Map')}
+              label={mode === 'map' ? ui().touchBar.cockpit : ui().touchBar.map}
               onClick={() => setMode(mode === 'map' ? 'flight' : 'map')}
             />
-            <Icon glyph="✦" label={t('航法', 'Navigate')} on={sheet === 'nav'} onClick={() => toggle('nav')} />
-            <Icon glyph="⇔" label={t('スケール', 'Scale')} on={sheet === 'scale'} onClick={() => toggle('scale')} />
-            <Icon glyph="❒" label={t('日誌', 'Log')} on={sheet === 'log'} badge={logOpen && sheet !== 'log'} disabled={!hasLog} onClick={() => toggle('log')} />
-            <Icon glyph="✉" label={t('お知らせ', 'News')} on={sheet === 'notice'} badge={notices.unread} disabled={notices.list.length === 0} onClick={() => toggle('notice')} />
+            <Icon glyph="✦" label={ui().touchBar.navigate} on={sheet === 'nav'} onClick={() => toggle('nav')} />
+            <Icon glyph="⇔" label={ui().touchBar.scale} on={sheet === 'scale'} onClick={() => toggle('scale')} />
+            <Icon glyph="❒" label={ui().touchBar.log} on={sheet === 'log'} badge={logOpen && sheet !== 'log'} disabled={!hasLog} onClick={() => toggle('log')} />
+            <Icon glyph="✉" label={ui().touchBar.news} on={sheet === 'notice'} badge={notices.unread} disabled={notices.list.length === 0} onClick={() => toggle('notice')} />
             {mode === 'flight' &&
               (inBridge ? (
-                <Icon glyph="◀" label={t('外へ', 'Outside')} on onClick={leaveBridge} />
+                <Icon glyph="◀" label={ui().touchBar.outside} on onClick={leaveBridge} />
               ) : (
-                <Icon glyph="⌂" label={t('ブリッジ', 'Bridge')} disabled={racing} onClick={() => (setSheet(null), enterBridge())} />
+                <Icon glyph="⌂" label={ui().touchBar.bridge} disabled={racing} onClick={() => (setSheet(null), enterBridge())} />
               ))}
-            {mode === 'flight' && <Icon glyph="◇" label={t('船を見る', 'Ship')} disabled={warpPhase !== 'idle' || !canOpenGallery()} onClick={openGallery} />}
+            {mode === 'flight' && <Icon glyph="◇" label={ui().touchBar.ship} disabled={warpPhase !== 'idle' || !canOpenGallery()} onClick={openGallery} />}
             {mode === 'flight' && (
               <Icon
                 glyph="◉"
-                label={t('船外', 'EVA')}
+                label={ui().touchBar.eva}
                 disabled={warpPhase !== 'idle' || racing}
                 onClick={() => {
                   if (!canStartEva(landed())) return
@@ -166,8 +167,8 @@ export function TouchBar() {
             )}
           </>
         )}
-        <button className={`bar-world${sf ? ' sf' : ''}`} onClick={() => setWorld(sf ? 'real' : 'sf')} disabled={racing} aria-label={t('現実とSFの切りかえ', 'Switch Real / SF')}>
-          <span className={sf ? '' : 'on'}>{t('現実', 'Real')}</span>
+        <button className={`bar-world${sf ? ' sf' : ''}`} onClick={() => setWorld(sf ? 'real' : 'sf')} disabled={racing} aria-label={ui().touchBar.switchRealSf}>
+          <span className={sf ? '' : 'on'}>{ui().touchBar.real}</span>
           <span className={sf ? 'on' : ''}>SF</span>
         </button>
       </nav>
@@ -178,10 +179,10 @@ export function TouchBar() {
       )}
       {sheet === 'scale' && <ScaleSheet />}
       {sheet === 'notice' && (
-        <section className="notice-panel" aria-label={t('お知らせ', 'News')}>
+        <section className="notice-panel" aria-label={ui().touchBar.news}>
           <header>
-            <h2>{t('お知らせ', 'News')}</h2>
-            <button className="close" onClick={() => setSheet(null)} aria-label={t('閉じる', 'Close')}>
+            <h2>{ui().touchBar.news}</h2>
+            <button className="close" onClick={() => setSheet(null)} aria-label={ui().touchBar.close}>
               ×
             </button>
           </header>

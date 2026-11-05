@@ -42,8 +42,8 @@ type RoverState = {
   canSample: boolean
   sampling: boolean
   result: string | null
-  /** いちばん近い、まだ採っていない岩（距離 m と、ローバーの正面から右回りの角度） */
-  next: { dist: number; rel: number; where?: { ja: string; en: string } | null } | null
+  /** いちばん近い、まだ採っていない岩（距離 m と、ローバーの正面から右回りの角度、近くの見どころの id（pois.ts）） */
+  next: { dist: number; rel: number; where?: string | null } | null
   setView: (v: RoverView) => void
 }
 
@@ -149,7 +149,7 @@ export function bindRoverKeys() {
 }
 
 /** 運転しているローバーの今の姿（レースの門の判定と順位、ゴーストの記録に使う）。Rover が毎フレーム書き込む */
-export const roverPose = { x: 0, y: 0, z: 0, heading: 0, speed: 0, grounded: true, pitch: 0, roll: 0 }
+export const roverPose = { x: 0, y: 0, z: 0, heading: 0, speed: 0, slip: 0, grounded: true, pitch: 0, roll: 0 }
 
 /**
  * レースからローバーを動かす：place（スタートの列・直前の門へ置く）、locked（スタート前は動けない）、

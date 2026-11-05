@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { t, useLang } from '../../i18n/lang'
+import { ui } from '../../i18n'
+import { useLang } from '../../i18n/lang'
 import { RALLY_COLORS } from '../../state/rally'
 import { hiscoreTable, useRallyHiscore } from '../../state/rallyHiscore'
 
@@ -16,7 +17,6 @@ const day = (ms: number) => {
   const two = (n: number) => String(n).padStart(2, '0')
   return `${d.getMonth() + 1}/${d.getDate()} ${two(d.getHours())}:${two(d.getMinutes())}`
 }
-const ORD = ['1st', '2nd', '3rd', '4th']
 
 /** top 位まで。mark（今回の走りの日時）が top より下なら、すきまをあけてその行も出す */
 export function RallyHiscore({ track, top, mark }: { track: string; top: number; mark?: number }) {
@@ -29,25 +29,25 @@ export function RallyHiscore({ track, top, mark }: { track: string; top: number;
   return (
     <div className="rally-hiscore">
       <div className="rally-hiscore-title">
-        {t('ハイスコア', 'Hiscores')}
-        {marked && <small> · {t(`今回 ${marked.rank}位`, `this run: #${marked.rank}`)}</small>}
+        {ui().rallyHiscore.hiscores}
+        {marked && <small> · {ui().rallyHiscore.thisRun(marked.rank)}</small>}
       </div>
       {list.length === 0 ? (
-        <div className="muted small">{t('まだ記録がありません', 'No finished races yet')}</div>
+        <div className="muted small">{ui().rallyHiscore.noRecords}</div>
       ) : (
         <ol>
           {list.map(({ rank, result, gap }) => (
             <li key={result.at + ':' + rank} className={(result === marked?.result ? 'you' : '') + (gap ? ' gap' : '')} style={{ ['--c' as string]: RALLY_COLORS[result.color]?.hex ?? '#888' }}>
               <span className="n">{rank}.</span>
               <span className="dot" />
-              <span className="who">{result.name ?? t('あなた', 'You')}</span>
+              <span className="who">{result.name ?? ui().rallyHiscore.you}</span>
               <span className="when">{day(result.at)}</span>
               {result.caught !== undefined ? (
-                <span className="pl" title={t('つかまえたローバー', 'Rovers caught')}>
+                <span className="pl" title={ui().rallyHiscore.roversCaught}>
                   {result.caught}/3
                 </span>
               ) : (
-                <span className="pl">{t(`${result.place}位`, ORD[result.place - 1])}</span>
+                <span className="pl">{ui().rallyHiscore.place(result.place)}</span>
               )}
               <span className="t">{fmt(result.time)}</span>
             </li>

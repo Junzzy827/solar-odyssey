@@ -220,6 +220,8 @@ export function Rally({ track, terrain, prepare, dustColor, sky }: { track: stri
   const level = useLevel()
   const course = useMemo(() => buildCourse(TRACKS[track].line), [track])
   const chase = !!TRACKS[track].chase
+  // 氷（エウロパ）：カーブは遅め、車体は大きく横を向いてすべる
+  const ice = TRACKS[track].ice ?? 1
   const g = 9.8 * terrain.def.gravity
 
   // 自分のローバーの色：このレース場では、いつも選んだ色に塗る
@@ -508,7 +510,7 @@ export function Rally({ track, terrain, prepare, dustColor, sky }: { track: stri
           target = tr.top * k * b.form * (chase ? CHASE_PACE : 1)
           for (let a = 0; a <= 40; a += 10) {
             const curv = Math.abs(pointAt(course, b.s + a).k)
-            if (curv > 1e-4) target = Math.min(target, Math.sqrt((tr.lat * k) / curv) + a * 0.08)
+            if (curv > 1e-4) target = Math.min(target, Math.sqrt((tr.lat * k * (0.35 + 0.65 * ice)) / curv) + a * 0.08)
           }
           // 坂：登りは遅い
           const hA = terrain.height(b.x, b.z)
@@ -668,7 +670,7 @@ export function Rally({ track, terrain, prepare, dustColor, sky }: { track: stri
       b.spin -= (b.v * dt) / 0.2
       b.model.position.set(b.x, b.y, b.z)
       // 横すべり：速く曲がるほど、車体の前が曲がる側へ向いて、外へすべっていくように見える（重力の弱い星ほど大きく）
-      if (!b.air) b.drift += (THREE.MathUtils.clamp(b.turn * b.v * 0.026 / Math.sqrt(g), -0.26, 0.26) - b.drift) * Math.min(1, dt * 4)
+      if (!b.air) b.drift += (THREE.MathUtils.clamp((b.turn * b.v * 0.026) / Math.sqrt(g * ice), -0.26 / Math.sqrt(ice), 0.26 / Math.sqrt(ice)) - b.drift) * Math.min(1, dt * (ice < 1 ? 2.5 : 4))
       b.model.rotation.set(b.pitch, b.heading + b.drift, b.roll, 'YXZ')
       // サスペンション（自分のローバーと同じ）
       b.squashV += (-(b.squash - (b.air ? -0.045 : 0)) * 160 - b.squashV * 14) * dt

@@ -1,0 +1,27 @@
+// ui/QuizPanel.tsx の文言（日本語）
+
+export const quizPanelJa = {
+  quizResults: '連続クイズの結果',
+  resultScore: (score: number, QUIZ_LENGTH: number) => `結果：${score} / ${QUIZ_LENGTH}問 正解`,
+  close: '閉じる',
+  earnedTitle: (score: string) => `称号「${score}」`,
+  longestStreak: 'いちばん長い連続正解',
+  longestStreakCount: (bestStreak: number) => `${bestStreak}問`,
+  bestSoFar: 'これまでの最高',
+  bestSoFarCount: (best: number) => `${best}問`,
+  newRecord: '新記録！',
+  goSeeMissed: 'まちがえた天体を見に行こう',
+  warpTo: (id: string) => `${id}へワープ`,
+  arriveNote: '着いたら航海日誌に、くわしい解説とクイズがあります。',
+  allCorrect: '全問正解です。すばらしい！',
+  tryAgain: 'もう一度挑戦',
+  quizRun: '連続クイズ',
+  questionNumber: (index: number, QUIZ_LENGTH: number) => `第${index}問 / ${QUIZ_LENGTH}`,
+  correctCount: '正解',
+  streak: '連続',
+  correctStreak: (streak: number) => `正解！ ${streak}問連続！`,
+  correct: '正解！',
+  notQuiteAnswer: (answer: string) => `残念！ 正解は「${answer}」`,
+  seeResults: '結果を見る',
+  nextQuestion: '次の問題',
+}

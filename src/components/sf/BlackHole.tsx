@@ -11,8 +11,9 @@ import { useStore } from '../../state/store'
 import { textureUrl } from '../../data/textures'
 import { useOptionalTexture } from '../../hooks/useOptionalTexture'
 import { BH_DISK, BH_LENS, BH_RS, BLACK_HOLE_ID, BLACK_HOLE_POS, GATE_ID, SF_SPACE_TEXT, sfEntry } from '../../data/sf'
-import { t, useLang } from '../../i18n/lang'
+import { useLang } from '../../i18n/lang'
 import { LABEL_Z } from '../labels'
+import { ui } from '../../i18n'
 
 /** 円盤の面を、太陽系の側から見て少し上から見下ろすよう傾ける（ラジアン） */
 const TILT = 0.12
@@ -110,7 +111,7 @@ export function BlackHole() {
       <group ref={back} position={[BLACK_HOLE_POS[0] + RETURN_GATE[0], BLACK_HOLE_POS[1] + RETURN_GATE[1], BLACK_HOLE_POS[2] + RETURN_GATE[2]]} rotation={[0, -0.6, 0]}>
         <GateModel />
         <Html position={[0, GATE_RING + 0.6, 0]} center className="label" zIndexRange={LABEL_Z}>
-          <span ref={labelRef}>{t('帰りのゲート', 'Gate home')}</span>
+          <span ref={labelRef}>{ui().blackHole.gateHome}</span>
         </Html>
       </group>
     </>

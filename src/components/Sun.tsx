@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { registerBody } from '../state/registry'
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 import { useLayout } from '../state/useLayout'
 import { Atmosphere } from './Atmosphere'
 import { photoUniform } from '../state/look'
@@ -103,7 +103,7 @@ export function Sun() {
   uniforms.uToned.value = usePostToneMapping() ? 1 : 0
   const radius = useLayout().sun
 
-  useEffect(() => registerBody({ id: 'sun', get name() { return t('太陽', 'Sun') }, radius, object: surface.current }), [radius])
+  useEffect(() => registerBody({ id: 'sun', get name() { return ui().sun.sun }, radius, object: surface.current }), [radius])
 
   // 太陽は赤道付近で約25日かけて自転する
   useFrame(({ clock }, delta) => {

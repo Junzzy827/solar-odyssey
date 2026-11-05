@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 /**
  * 端末の GPU が描画をあきらめたとき（メモリ不足など）、3D が真っ黒のまま止まるので、
@@ -23,8 +24,8 @@ export function ContextLost() {
   if (!lost) return null
   return (
     <div className="context-lost" role="alert">
-      <p>{t('3D の描画が止まりました（この端末で処理が重すぎたようです）。', '3D drawing stopped (this device ran out of graphics power).')}</p>
-      <button onClick={() => location.reload()}>{t('読みこみ直す', 'Reload')}</button>
+      <p>{ui().contextLost.drawingStopped}</p>
+      <button onClick={() => location.reload()}>{ui().contextLost.reload}</button>
     </div>
   )
 }

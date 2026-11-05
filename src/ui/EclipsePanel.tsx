@@ -4,7 +4,8 @@ import { EPOCH_MS } from '../data/ephemeris'
 import { closeEclipses, eclipseClock, eclipseNow, eclipseStage, playEclipse, seekEclipse, toggleEclipsePlay, useEclipse } from '../state/eclipse'
 import { useStore } from '../state/store'
 import { raceActive, useRace } from '../state/race'
-import { getLang, t, useLang } from '../i18n/lang'
+import { getLang, useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 const HOUR_MS = 3_600_000
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -15,24 +16,24 @@ const zoned = (ms: number) => new Date(ms + (getLang() === 'en' ? 0 : 9 * HOUR_M
 
 function dayText(ms: number) {
   const d = zoned(ms)
-  return t(`${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日`, `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`)
+  return ui().eclipsePanel.date(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), MONTHS[d.getUTCMonth()])
 }
 
 function clockText(ms: number) {
   const d = zoned(ms)
   const time = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
-  return t(`${dayText(ms)} ${time}（日本時間）`, `${dayText(ms)} ${time} UTC`)
+  return ui().eclipsePanel.dateTime(dayText(ms), time)
 }
 
 function typeName(e: Eclipse) {
   if (e.kind === 'solar') {
-    if (e.type === 'total') return t('皆既日食', 'Total solar eclipse')
-    if (e.type === 'annular') return t('金環日食', 'Annular solar eclipse')
-    return t('部分日食', 'Partial solar eclipse')
+    if (e.type === 'total') return ui().eclipsePanel.totalSolarEclipse
+    if (e.type === 'annular') return ui().eclipsePanel.annularSolarEclipse
+    return ui().eclipsePanel.partialSolarEclipse
   }
-  if (e.type === 'total') return t('皆既月食', 'Total lunar eclipse')
-  if (e.type === 'partial') return t('部分月食', 'Partial lunar eclipse')
-  return t('半影月食', 'Penumbral lunar eclipse')
+  if (e.type === 'total') return ui().eclipsePanel.totalLunarEclipse
+  if (e.type === 'partial') return ui().eclipsePanel.partialLunarEclipse
+  return ui().eclipsePanel.penumbralLunarEclipse
 }
 
 /** 今の様子の説明 */
@@ -41,35 +42,23 @@ function stageText(e: Eclipse, before: boolean) {
   if (e.kind === 'solar') {
     if (stage === 'none')
       return before
-        ? t('月が太陽と地球のあいだに入っていきます。月の影は、まだ地球にかかっていません。', 'The Moon is moving between the Sun and Earth. Its shadow has not reached Earth yet.')
-        : t('月の影は、地球からはなれていきました。', 'The Moon’s shadow has moved off Earth.')
+        ? ui().eclipsePanel.solarBeforeNote
+        : ui().eclipsePanel.solarAfterNote
     if (stage === 'partial')
-      return t(
-        '月のうすい影（半影）が地球にかかっています。この影の中にいる人には、太陽が欠けて見えます。',
-        'The Moon’s faint outer shadow (the penumbra) is on Earth. People inside it see part of the Sun covered.',
-      )
+      return ui().eclipsePanel.solarPartialNote
     return eclipseNow.umbra < 0
-      ? t(
-          '月が地球から遠いので、濃い影は地球までとどきません。影の真ん中にいる人には、太陽が輪のように光って見えます（金環日食）。',
-          'The Moon is far from Earth, so its dark shadow falls short. People in the middle see a ring of sunlight around the Moon (an annular eclipse).',
-        )
-      : t(
-          '月の濃い影（本影）が地球に落ちています。小さな黒い点の中では、昼なのに空が暗くなり、星が見えます（皆既日食）。影は東へ動いていきます。',
-          'The Moon’s dark inner shadow (the umbra) is on Earth. Inside that small dark spot the daytime sky goes dark and stars come out: a total eclipse. The shadow races east.',
-        )
+      ? ui().eclipsePanel.solarAnnularNote
+      : ui().eclipsePanel.solarTotalNote
   }
   if (stage === 'none')
     return before
-      ? t('満月が、地球の影のほうへ近づいていきます。', 'The full Moon is moving toward Earth’s shadow.')
-      : t('月は地球の影からぬけて、いつもの満月にもどりました。', 'The Moon has left Earth’s shadow and is a normal full Moon again.')
+      ? ui().eclipsePanel.lunarBeforeNote
+      : ui().eclipsePanel.lunarAfterNote
   if (stage === 'penumbral')
-    return t('月が地球のうすい影（半影）に入りました。少しだけ暗くなりますが、目ではほとんどわかりません。', 'The Moon is in Earth’s faint outer shadow (the penumbra). It dims a little, but it is hard to notice by eye.')
+    return ui().eclipsePanel.lunarPenumbralNote
   if (stage === 'partial')
-    return t('月が地球の濃い影（本影）に入っていきます。地上から見ると、月が欠けていくように見えます。', 'The Moon is entering Earth’s dark inner shadow (the umbra). From the ground it looks like a bite is being taken out of it.')
-  return t(
-    '皆既月食：月がまるごと地球の影の中にいます。地球の大気を通って曲がった赤い光だけがとどくので、月は赤銅色に見えます。',
-    'Total lunar eclipse: the whole Moon is inside Earth’s shadow. Only red light bent through Earth’s air reaches it, so it glows a coppery red.',
-  )
+    return ui().eclipsePanel.lunarPartialNote
+  return ui().eclipsePanel.lunarTotalNote
 }
 
 /** 再生中の時刻と様子（0.2秒おきに読む） */
@@ -102,13 +91,13 @@ export function EclipsePanel() {
   if (!open) return null
 
   return (
-    <section className="probe-panel eclipse-panel" aria-label={t('日食・月食', 'Eclipses')}>
+    <section className="probe-panel eclipse-panel" aria-label={ui().eclipsePanel.eclipses}>
       <header>
         <h2>
-          {t('宇宙から見る日食・月食', 'Eclipses from space')}
-          {eclipse && <span className="eclipse-kind">{t('：', ': ')}{typeName(eclipse)}</span>}
+          {ui().eclipsePanel.eclipsesFromSpace}
+          {eclipse && <span className="eclipse-kind">{ui().eclipsePanel.separator}{typeName(eclipse)}</span>}
         </h2>
-        <button className="close" onClick={closeEclipses} aria-label={t('閉じる', 'Close')}>
+        <button className="close" onClick={closeEclipses} aria-label={ui().eclipsePanel.close}>
           ×
         </button>
       </header>
@@ -116,10 +105,7 @@ export function EclipsePanel() {
       {!eclipse ? (
         <>
           <p className="muted">
-            {t(
-              '本物の日時の、太陽・地球・月の並びを再生します。月の影が地球に落ちるところ（日食）や、月が地球の影に入って赤くなるところ（月食）を、宇宙から見てみよう。',
-              'Replay the real line-up of the Sun, Earth and Moon. Watch from space as the Moon’s shadow falls on Earth (a solar eclipse), or as the Moon slides into Earth’s shadow and turns red (a lunar eclipse).',
-            )}
+            {ui().eclipsePanel.introNote}
           </p>
           <div className="probe-list">
             {ECLIPSES.map((e) => {
@@ -129,8 +115,8 @@ export function EclipsePanel() {
                   <span className={`probe-dot eclipse-dot ${e.kind}`} />
                   <span>
                     {dayText(Date.parse(e.at))} {typeName(e)}
-                    {past && <span className="muted small"> {t('（過去）', ' (past)')}</span>}
-                    <span className="muted small"> {t(e.where, e.whereEn)}</span>
+                    {past && <span className="muted small"> {ui().eclipsePanel.pastSuffix}</span>}
+                    <span className="muted small"> {ui().eclipses[e.id].where}</span>
                   </span>
                 </button>
               )
@@ -141,8 +127,8 @@ export function EclipsePanel() {
         <>
           <div className="probe-date">{clockText(ms)}</div>
           <p className="eclipse-where muted small">
-            {t('見られる場所：', 'Seen from: ')}
-            {t(eclipse.where, eclipse.whereEn)}
+            {ui().eclipsePanel.seenFrom}
+            {ui().eclipses[eclipse.id].where}
           </p>
           <p className="eclipse-stage">{stageText(eclipse, ms < eclipseClock.peak)}</p>
           <input
@@ -153,24 +139,21 @@ export function EclipsePanel() {
             step={60_000}
             value={ms}
             onChange={(e) => seekEclipse(Number(e.target.value))}
-            aria-label={t('時刻', 'Time')}
+            aria-label={ui().eclipsePanel.time}
           />
-          <p className="muted small">{t(eclipse.note, eclipse.noteEn)}</p>
+          <p className="muted small">{ui().eclipses[eclipse.id].note}</p>
           <div className="probe-controls">
             <button className="secondary" onClick={toggleEclipsePlay}>
-              {playing ? t('一時停止', 'Pause') : ms >= eclipseClock.peak + eclipseClock.span ? t('もう一度', 'Replay') : t('再生', 'Play')}
+              {playing ? ui().eclipsePanel.pause : ms >= eclipseClock.peak + eclipseClock.span ? ui().eclipsePanel.replay : ui().eclipsePanel.play}
             </button>
             <button className="secondary" onClick={() => useEclipse.setState({ eclipseId: null, playing: false })}>
-              {t('ほかの日食・月食', 'Other eclipses')}
+              {ui().eclipsePanel.otherEclipses}
             </button>
           </div>
         </>
       )}
       <p className={`muted small eclipse-about${eclipse ? ' watching' : ''}`}>
-        {t(
-          '日食は「太陽・月・地球」、月食は「太陽・地球・月」の順に一直線に並ぶと起きます。月の通り道は少し傾いているので、毎月は起きません。月の大きさと距離は見やすく変えてありますが、日時と影の当たる場所は計算した本物です。',
-          'A solar eclipse happens when the Sun, Moon and Earth line up in that order, and a lunar eclipse when it is Sun, Earth, Moon. The Moon’s path is slightly tilted, so this does not happen every month. The Moon’s size and distance are changed for easy viewing, but the dates and where the shadows fall are calculated for real.',
-        )}
+        {ui().eclipsePanel.lineUpNote}
       </p>
     </section>
   )

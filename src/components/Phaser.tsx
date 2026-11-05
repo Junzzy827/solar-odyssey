@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { asteroids, beamTargets, type RockType } from '../state/registry'
+import { asteroids, beamTargets } from '../state/registry'
 import { useStore } from '../state/store'
 import { playBeam, playBlast } from '../audio/sfx'
 import { touchInput } from '../state/input'
 import { beamCharge, chargeReady, fireCharge, levelFor, muzzle, now } from '../state/beam'
 import { shipScale } from '../state/zoom'
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 
 const RANGE = 40
 const BEAM_SECONDS = 0.35
@@ -15,25 +15,6 @@ const DEBRIS = 80
 const DEBRIS_SECONDS = 1.6
 /** 任務の目標には、照準から約10°以内なら当たる */
 const AIM_ASSIST = Math.cos(THREE.MathUtils.degToRad(10))
-
-const ROCK_FACTS: Record<RockType, [string, string]> = {
-  0: [
-    '炭素質（C型）の小惑星を破壊。小惑星の約4分の3がこのタイプで、太陽系ができたころの材料がほぼそのまま残っています。',
-    'Carbon-rich (C-type) asteroid destroyed. About three quarters of asteroids are this type, and they still hold material from when the solar system formed.',
-  ],
-  1: [
-    '石質（S型）の小惑星を破壊。岩と金属が混ざっていて、地球に落ちてくる隕石に多いタイプです。',
-    'Stony (S-type) asteroid destroyed. It is a mix of rock and metal, a common type among meteorites that fall to Earth.',
-  ],
-  2: [
-    '金属（M型）の小惑星を破壊。鉄やニッケルが多く、昔の小さな惑星の芯のかけらだと考えられています。',
-    'Metal (M-type) asteroid destroyed. Rich in iron and nickel, it is thought to be a piece of the core of an ancient small planet.',
-  ],
-}
-const SPARSE_FACT: [string, string] = [
-  '本物の小惑星帯はとてもまばらで、大きな岩どうしは数十万〜100万kmほど離れています。探査機は何にもぶつからずに通り抜けられます。',
-  'The real asteroid belt is very sparse: big rocks are hundreds of thousands to a million km apart. Probes fly through without hitting anything.',
-]
 
 const tmpM = new THREE.Matrix4()
 const zero = new THREE.Matrix4().makeScale(0, 0, 0)
@@ -181,7 +162,7 @@ export function Phaser() {
 
     const type = asteroids.types.get(mesh)?.[hit.instanceId] ?? 0
     destroyedCount.current += 1
-    useStore.getState().showToast(destroyedCount.current === 1 ? `${t(...ROCK_FACTS[type])}\n${t(...SPARSE_FACT)}` : t(...ROCK_FACTS[type]))
+    useStore.getState().showToast(destroyedCount.current === 1 ? `${ui().phaserFacts[type]}\n${ui().phaserFacts.sparse}` : ui().phaserFacts[type])
   }
 
   function burst(at: THREE.Vector3) {

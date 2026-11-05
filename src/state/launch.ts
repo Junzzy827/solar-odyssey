@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { MISSIONS } from '../data/missions'
 import { useMission } from './mission'
 import { useStore } from './store'
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 
 // アルカディアの発進路から着陸船を送り出す演出。
 // 時間の流れ（秒）：0〜STANDBY 発進準備（誘導灯が前へ流れ、着陸船のエンジンが温まる）、
@@ -43,7 +43,7 @@ export function canLaunchLander() {
 export function launchLander() {
   if (!canLaunchLander()) return
   useLaunch.setState({ start: launchNow() })
-  useStore.getState().showToast(t('着陸船、発進！', 'Lander away!'))
+  useStore.getState().showToast(ui().stateLaunch.landerAway)
 }
 
 /** 待機にもどす（船を乗りかえたときなど） */

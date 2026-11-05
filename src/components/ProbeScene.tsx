@@ -7,7 +7,8 @@ import { endMs, pathAt, probeById, probeClock, probePath, ryuguAu, useProbes } f
 import { useLayout } from '../state/useLayout'
 import type { Layout } from '../data/layout'
 import { LABEL_Z } from './labels'
-import { named, t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 // 探査機の旅：道すじの線（通ったところは明るく）、今いるところの光る点と名前、はやぶさ2のときはリュウグウ
 
@@ -47,7 +48,7 @@ function Ryugu({ layout }: { layout: Layout }) {
           <meshStandardMaterial color="#8d8378" roughness={1} />
         </mesh>
         <Html position={[0, 1.2, 0]} center className="label" zIndexRange={LABEL_Z}>
-          <span>{t('リュウグウ', 'Ryugu')}</span>
+          <span>{ui().probeScene.ryugu}</span>
         </Html>
       </group>
     </>
@@ -129,7 +130,7 @@ export function ProbeScene() {
           <meshBasicMaterial color={new THREE.Color(probe.color).multiplyScalar(2.5)} toneMapped={false} />
         </mesh>
         <Html position={[0, 1.6, 0]} center className="label probe-label" zIndexRange={LABEL_Z}>
-          <span style={{ color: probe.color }}>{named(probe)}</span>
+          <span style={{ color: probe.color }}>{ui().probes[probe.id].name}</span>
         </Html>
       </group>
       {probe.stops.some((s) => s.body === RYUGU_ID) && <Ryugu layout={layout} />}
