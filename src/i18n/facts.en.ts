@@ -1,11 +1,7 @@
-import type { Facts } from './facts'
-import { SPACE_FACTS_EN } from './sfSpace'
-import { JAPAN_FACTS_EN } from './sfJapan'
-import { HOURGLASS_FACTS_EN } from './sfHourglass'
-import { SIDE_FACTS_EN } from './sfSides'
-import { ENGINE_FACTS_EN } from './sfEngine'
+import type { Facts } from '../data/facts'
+import { SPACE_FACTS_EN, JAPAN_FACTS_EN, HOURGLASS_FACTS_EN, SIDE_FACTS_EN, ENGINE_FACTS_EN } from './sfFacts.en'
 
-// FACTS の英語版。キーと並びは facts.ts と同じ（数値も同じ概数）
+// FACTS の英語版。キーと並びは facts.ja.ts と同じ（数値も同じ概数）
 
 export const FACTS_EN: Record<string, Facts> = {
   ...SPACE_FACTS_EN,

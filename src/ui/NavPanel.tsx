@@ -22,7 +22,7 @@ import { ShipSection } from './ShipPicker'
 import { scaleFacts, scalePatch, stepName, stepOf } from './ScaleToggle'
 import { useLevel, useQuality, type QualitySetting } from '../state/quality'
 import { setLook } from '../state/look'
-import { named, setLang, t, useLang } from '../i18n/lang'
+import { setLang, useLang } from '../i18n/lang'
 import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
 import { ThrottleMeter } from './Throttle'
@@ -70,9 +70,9 @@ function Settings({ racing }: { racing: boolean }) {
   const step = settings.distance === settings.size ? stepOf(settings.distance) : null
   return (
     <details className="nav-settings">
-      <summary>{t('表示の設定', 'Display settings')}</summary>
+      <summary>{ui().navPanel.displaySettings}</summary>
       <div className="nav-check">
-        {t('言語', 'Language')}
+        {ui().navPanel.language}
         <span className="nav-lang-pick">
           <button className={lang === 'ja' ? 'on' : ''} onClick={() => setLang('ja')} lang="ja">
             日本語
@@ -88,40 +88,34 @@ function Settings({ racing }: { racing: boolean }) {
       <ThrustPick />
       <label className="nav-slider">
         <span>
-          {t('スケール', 'Scale')} <span className="muted">{step === null ? '' : stepName(step)}</span>
+          {ui().navPanel.scale} <span className="muted">{step === null ? '' : stepName(step)}</span>
         </span>
         <input type="range" min={0} max={1} step={0.05} value={settings.distance} onChange={(e) => update(scalePatch(Number(e.target.value)))} disabled={racing} />
       </label>
       <div className="muted small">
-        {t(
-          `月まで：地球の直径の約${moonGap}個分（本物は約30個分）。太陽：地球の約${sunSize}倍（本物は約109倍）。右にすると距離と大きさがいっしょに本物に近づきます（地球の大きさはそのまま、惑星どうしの距離は本物の約20〜50分の1まで）。小さな衛星は見失わないよう、ある大きさより小さくはしません。`,
-          `To the Moon: about ${moonGap} Earth diameters (really about 30). The Sun: about ${sunSize} times Earth (really about 109). Slide right and distances and sizes move toward real together (Earth keeps its size; planets spread out to about 1/20 to 1/50 of the real distances). Tiny moons never get too small to find.`,
-        )}
-        {racing && t('レース中は見やすいスケールで走ります。', ' During the race, the easy-to-see scale is used.')}
+        {ui().navPanel.scaleFacts(moonGap, sunSize)}
+        {racing && ui().navPanel.raceScaleNote}
       </div>
       <label className="nav-slider">
         <span>
-          {t('音の大きさ', 'Volume')} <span className="muted">{settings.muted ? t('消音中', 'muted') : `${Math.round(settings.volume * 100)}%`}</span>
+          {ui().navPanel.volume} <span className="muted">{settings.muted ? ui().navPanel.muted : `${Math.round(settings.volume * 100)}%`}</span>
         </span>
         <input type="range" min={0} max={1} step={0.05} value={settings.volume} onChange={(e) => update({ volume: Number(e.target.value), muted: false })} />
       </label>
       <label className="nav-check">
         <input type="checkbox" checked={settings.muted} onChange={(e) => update({ muted: e.target.checked })} />
-        {t('音を消す', 'Mute')}
+        {ui().navPanel.mute}
       </label>
       <label className="nav-check">
         <input type="checkbox" checked={settings.music} onChange={(e) => update({ music: e.target.checked })} />
-        {t('BGM を流す', 'Play music')}
+        {ui().navPanel.playMusic}
       </label>
       <label className="nav-check">
         <input type="checkbox" checked={settings.banking} onChange={(e) => update({ banking: e.target.checked })} />
-        {t('旋回で船体を傾ける', 'Bank the ship when turning')}
+        {ui().navPanel.bankWhenTurning}
       </label>
       <div className="muted small">
-        {t(
-          '宇宙には空気がないので、本当は傾けなくても曲がれます（飛行機が傾くのは、翼で空気を押して曲がるため）。',
-          'There is no air in space, so a ship can really turn without tilting (airplanes tilt because their wings push on the air to turn).',
-        )}
+        {ui().navPanel.bankNote}
       </div>
     </details>
   )
@@ -134,30 +128,30 @@ function LookPick() {
   return (
     <>
       <div className="nav-check">
-        {t('天体の描き方', 'Planet look')}
-        <span className="nav-lang-pick" role="group" aria-label={t('天体の描き方', 'Planet look')}>
+        {ui().navPanel.planetLook}
+        <span className="nav-lang-pick" role="group" aria-label={ui().navPanel.planetLook}>
           <button className={look === 'illustrated' ? 'on' : ''} onClick={() => setLook('illustrated')}>
-            {t('図鑑', 'Illustrated')}
+            {ui().navPanel.illustrated}
           </button>
           <button className={look === 'photo' ? 'on' : ''} onClick={() => setLook('photo')}>
-            {t('写真', 'Photographic')}
+            {ui().navPanel.photographic}
           </button>
         </span>
       </div>
       <div className="muted small">
         {look === 'photo'
-          ? t('探査機のカメラで撮ったような見え方。大気の光は薄く、明るい天体を見ると星は写りません。', 'As a spacecraft camera would see it: thin air glow, and stars fade out next to bright worlds.')
-          : t('見やすく強調した図鑑の絵。大気の光や星をはっきり見せます。', 'An enhanced, easy-to-read picture-book view with bold air glow and stars.')}
+          ? ui().navPanel.photographicNote
+          : ui().navPanel.illustratedNote}
       </div>
     </>
   )
 }
 
 const LEVEL_NAME: Record<QualitySetting, () => string> = {
-  auto: () => t('自動', 'Auto'),
-  high: () => t('高', 'High'),
-  medium: () => t('標準', 'Medium'),
-  low: () => t('軽量', 'Light'),
+  auto: () => ui().navPanel.auto,
+  high: () => ui().navPanel.high,
+  medium: () => ui().navPanel.medium,
+  low: () => ui().navPanel.light,
 }
 
 /** 画質。自動のときは、いま選んでいる画質と FPS も見せる */
@@ -170,7 +164,7 @@ function QualityPick() {
   return (
     <>
       <div className="nav-check">
-        {t('画質', 'Quality')}
+        {ui().navPanel.quality}
         <span className="nav-lang-pick">
           {(['auto', 'high', 'medium', 'low'] as const).map((q) => (
             <button key={q} className={setting === q ? 'on' : ''} onClick={() => update({ quality: q })}>
@@ -180,13 +174,10 @@ function QualityPick() {
         </span>
       </div>
       <div className="muted small">
-        {t('いま', 'Now')}: {LEVEL_NAME[level]()}
+        {ui().navPanel.qualityNow}: {LEVEL_NAME[level]()}
         {fps > 0 && ` · ${fps} fps`}
         {' '}
-        {t(
-          '— 惑星がちらついたり動きがカクカクするときは「軽量」に。自動では、描画が追いつかないと自動で下げます。',
-          '— If planets flicker or motion stutters, pick Light. Auto lowers the quality when drawing falls behind.',
-        )}
+        {ui().navPanel.qualityNote}
       </div>
     </>
   )
@@ -200,20 +191,20 @@ function FxPick() {
   const level = useLevel()
   const toggle = (key: keyof typeof fx) => update({ fx: { ...fx, [key]: !fx[key] } })
   const items: [keyof typeof fx, string][] = [
-    ['bloom', t('光のにじみ', 'Glow')],
-    ['ao', t('陰影', 'Shading')],
-    ['film', t('フィルム調', 'Film look')],
+    ['bloom', ui().navPanel.glow],
+    ['ao', ui().navPanel.shading],
+    ['film', ui().navPanel.filmLook],
   ]
   const beamFx = useStore((s) => s.settings.beamFx)
   const beamItems: [keyof typeof beamFx, string][] = [
-    ['flash', t('フラッシュ', 'Flash')],
-    ['shake', t('揺れ', 'Shake')],
+    ['flash', ui().navPanel.flash],
+    ['shake', ui().navPanel.shake],
   ]
   return (
     <>
       <div className="nav-check">
-        {t('後処理', 'Effects')}
-        <span className="nav-lang-pick" role="group" aria-label={t('後処理', 'Effects')}>
+        {ui().navPanel.effects}
+        <span className="nav-lang-pick" role="group" aria-label={ui().navPanel.effects}>
           {items.map(([key, label]) => (
             <button key={key} className={fx[key] ? 'on' : ''} aria-pressed={fx[key]} onClick={() => toggle(key)} disabled={level === 'low'}>
               {label}
@@ -223,15 +214,12 @@ function FxPick() {
       </div>
       <div className="muted small">
         {level === 'low'
-          ? t('画質が「軽量」のあいだは、後処理を使いません。', 'Effects are off while the quality is Light.')
-          : t(
-              '光のにじみ：エンジンや窓の光がにじむ。陰影：部品のすき間が暗く締まる。フィルム調：薄い粒子と周辺減光。重いときは切ってください。',
-              'Glow: engines and windows bleed light. Shading: gaps between parts darken. Film look: light grain and vignette. Turn them off if things feel slow.',
-            )}
+          ? ui().navPanel.effectsOffNote
+          : ui().navPanel.effectsNote}
       </div>
       <div className="nav-check">
-        {t('チャージビーム', 'Charge beam')}
-        <span className="nav-lang-pick" role="group" aria-label={t('チャージビームの演出', 'Charge beam effects')}>
+        {ui().navPanel.chargeBeam}
+        <span className="nav-lang-pick" role="group" aria-label={ui().navPanel.chargeBeamEffects}>
           {beamItems.map(([key, label]) => (
             <button key={key} className={beamFx[key] ? 'on' : ''} aria-pressed={beamFx[key]} onClick={() => update({ beamFx: { ...beamFx, [key]: !beamFx[key] } })}>
               {label}
@@ -240,7 +228,7 @@ function FxPick() {
         </span>
       </div>
       <div className="muted small">
-        {t('ビームを長押しで溜めて、離すと太いビーム。光の点滅や画面の揺れが苦手なら、フラッシュや揺れを切れます。', 'Hold the beam to charge, release to fire a heavy beam. Turn off the flash or the shake if flashing light or screen shake bothers you.')}
+        {ui().navPanel.beamNote}
       </div>
     </>
   )
@@ -252,14 +240,14 @@ function ThrustPick() {
   const thrust = useStore((s) => s.settings.thrust)
   const update = useStore((s) => s.updateSettings)
   const items: [ThrustFxLevel, string][] = [
-    ['many', t('多い', 'More')],
-    ['normal', t('普通', 'Normal')],
-    ['off', t('オフ', 'Off')],
+    ['many', ui().navPanel.more],
+    ['normal', ui().navPanel.normal],
+    ['off', ui().navPanel.off],
   ]
   return (
     <div className="nav-check">
-      {t('噴射の演出', 'Thrusters')}
-      <span className="nav-lang-pick" role="group" aria-label={t('噴射の演出', 'Thrusters')}>
+      {ui().navPanel.thrusters}
+      <span className="nav-lang-pick" role="group" aria-label={ui().navPanel.thrusters}>
         {items.map(([key, label]) => (
           <button key={key} className={thrust === key ? 'on' : ''} aria-pressed={thrust === key} onClick={() => update({ thrust: key })}>
             {label}
@@ -272,7 +260,7 @@ function ThrustPick() {
 
 /** 1秒に進む時間の名前（1秒で1秒＝本物と同じ速さ） */
 const rateName = (hours: number) =>
-  hours === 0 ? t('停止', 'Stop') : hours < 1 / 60 ? t('1秒', '1 s') : hours < 1 ? t('1分', '1 min') : hours === 1 ? t('1時間', '1 hr') : t('1日', '1 day')
+  hours === 0 ? ui().navPanel.stop : hours < 1 / 60 ? ui().navPanel.oneSecond : hours < 1 ? ui().navPanel.oneMinute : hours === 1 ? ui().navPanel.oneHour : ui().navPanel.oneDay
 
 /** 表示している日時（惑星はこの日の本当の位置にある）。時間を進めていたら、今に戻せる */
 function SimDate() {
@@ -286,10 +274,10 @@ function SimDate() {
   const today = Math.abs(time) < 2 * SIM_SECONDS_PER_HOUR
   return (
     <div className="nav-date muted small">
-      {t('日時', 'Date')} {formatDate(simDate(time))} {simDate(time).toTimeString().slice(0, 5)}
+      {ui().navPanel.date} {formatDate(simDate(time))} {simDate(time).toTimeString().slice(0, 5)}
       {!today && (
         <button className="nav-today" onClick={() => (sim.time = 0)}>
-          {t('今へ', 'Now')}
+          {ui().navPanel.backToNow}
         </button>
       )}
     </div>
@@ -332,15 +320,15 @@ export function NavPanel() {
   const sf = s.settings.world === 'sf'
   const other = (
     <>
-      <button className="nav-lang" onClick={() => setLang(lang === 'en' ? 'ja' : 'en')} lang={lang === 'en' ? 'ja' : 'en'} title={t('Switch to English', '日本語にする')}>
+      <button className="nav-lang" onClick={() => setLang(lang === 'en' ? 'ja' : 'en')} lang={lang === 'en' ? 'ja' : 'en'} title={ui().navPanel.switchLanguage}>
         {lang === 'en' ? '日本語' : 'English'}
       </button>
       {/* 本物の太陽系だけか、架空の船や構造物も出す SF モードか */}
-      <span className="nav-world" role="group" aria-label={t('世界', 'World')}>
-        <button className={sf ? '' : 'on'} onClick={() => setWorld('real')} disabled={racing} title={t('本物の太陽系だけ', 'Only the real solar system')}>
-          {t('現実', 'Real')}
+      <span className="nav-world" role="group" aria-label={ui().navPanel.world}>
+        <button className={sf ? '' : 'on'} onClick={() => setWorld('real')} disabled={racing} title={ui().navPanel.realWorldTip}>
+          {ui().navPanel.real}
         </button>
-        <button className={sf ? 'on sf' : 'sf'} onClick={() => setWorld('sf')} disabled={racing} title={t('架空の船や構造物も出す', 'Show imaginary ships and structures too')}>
+        <button className={sf ? 'on sf' : 'sf'} onClick={() => setWorld('sf')} disabled={racing} title={ui().navPanel.sfWorldTip}>
           SF
         </button>
       </span>
@@ -352,39 +340,39 @@ export function NavPanel() {
       {small ? (
         <h2 className="nav-head">
           <button className="nav-collapse" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
-            {t('航法コンピュータ', 'Nav computer')} <span>{expanded ? t('▲ たたむ', '▲ Close') : t('▼ ひらく', '▼ Open')}</span>
+            {ui().navPanel.navComputer} <span>{expanded ? ui().navPanel.close : ui().navPanel.open}</span>
           </button>
           {/* たたんだ小さな形には入りきらないので、ひらいたときだけ */}
           {expanded && other}
         </h2>
       ) : (
         <h2 className="nav-head">
-          {t('航法コンピュータ', 'Navigation computer')}
+          {ui().navPanel.navigationComputer}
           {other}
         </h2>
       )}
       <div className="nav-list">
-        <TargetButton id="sun" name={t('太陽', 'Sun')} onPick={pick} />
+        <TargetButton id="sun" name={ui().navPanel.sun} onPick={pick} />
         {PLANETS.map((p) => (
           <div key={p.id}>
-            {p.dwarf && <div className="nav-heading">{t('準惑星', 'Dwarf planet')}</div>}
+            {p.dwarf && <div className="nav-heading">{ui().navPanel.dwarfPlanet}</div>}
             <div className="nav-row">
-              <TargetButton id={p.id} name={named(p)} onPick={pick} />
+              <TargetButton id={p.id} name={ui().bodies[p.id].name} onPick={pick} />
               {p.moons.length > 0 && (
-                <button className="nav-toggle" onClick={() => setOpen(open === p.id ? null : p.id)} aria-label={t(`${p.name}の衛星`, `Moons of ${p.nameEn}`)}>
+                <button className="nav-toggle" onClick={() => setOpen(open === p.id ? null : p.id)} aria-label={ui().navPanel.moonsOf(ui().bodies[p.id].name)}>
                   {open === p.id ? '−' : `+${p.moons.length}`}
                 </button>
               )}
             </div>
-            {open === p.id && p.moons.map((m) => <TargetButton key={m.id} id={m.id} name={named(m)} sub onPick={pick} />)}
+            {open === p.id && p.moons.map((m) => <TargetButton key={m.id} id={m.id} name={ui().bodies[m.id].name} sub onPick={pick} />)}
           </div>
         ))}
-        <div className="nav-heading">{t('宇宙望遠鏡', 'Space telescopes')}</div>
+        <div className="nav-heading">{ui().navPanel.spaceTelescopes}</div>
         <TargetButton id={HUBBLE_ID} name={scopeName(HUBBLE_ID)} onPick={pick} />
         <TargetButton id={WEBB_ID} name={scopeName(WEBB_ID)} onPick={pick} />
         {sf && (
           <>
-            <div className="nav-heading">{t('SF（架空）', 'SF (imaginary)')}</div>
+            <div className="nav-heading">{ui().navPanel.sfImaginary}</div>
             {SF_OBJECTS.map((e) => (
               <TargetButton key={e.id} id={e.id} name={e.name()} onPick={pick} />
             ))}
@@ -396,66 +384,66 @@ export function NavPanel() {
         {info ? (
           <>
             <div className="nav-target-name">
-              {t('目標：', 'Target: ')}
+              {ui().navPanel.target}
               {info.name}
-              {info.parent && <span className="muted">{t(`（${info.parent}の衛星）`, ` (moon of ${info.parent})`)}</span>}
+              {info.parent && <span className="muted">{ui().navPanel.moonOf(info.parent)}</span>}
             </div>
             <div className="muted">
-              {t('距離', 'Distance')} {fmtDistance(s.telemetry.distance)}
+              {ui().navPanel.distance} {fmtDistance(s.telemetry.distance)}
             </div>
-            {facts && <div className="muted">{t(`太陽から光で約${Math.round(facts.lightMinutes)}分`, `About ${Math.round(facts.lightMinutes)} light-minutes from the Sun`)}</div>}
+            {facts && <div className="muted">{ui().navPanel.lightMinutes(Math.round(facts.lightMinutes))}</div>}
             {!s.logOpen && (
               <button className="nav-log" onClick={() => (s.setLogOpen(true), touch && setSheet('log'))}>
-                {t('航海日誌をひらく', 'Open ship’s log')} <kbd>I</kbd>
+                {ui().navPanel.openShipsLog} <kbd>I</kbd>
               </button>
             )}
           </>
         ) : (
-          <div className="muted">{t('目標を選んでください', 'Choose a target')}</div>
+          <div className="muted">{ui().navPanel.chooseTarget}</div>
         )}
       </div>
 
       {!touch && <ThrottleMeter />}
       <label className="nav-warp">
-        {t('ワープの速さ', 'Warp speed')} {s.warpFactor}
+        {ui().navPanel.warpSpeed} {s.warpFactor}
         <input type="range" min={1} max={9} step={1} value={s.warpFactor} onChange={(e) => s.setWarpFactor(Number(e.target.value))} disabled={busy} />
       </label>
       <button className="engage" onClick={engage} disabled={!s.targetId || busy}>
-        {pendingWarp ? t('準備中…', 'Getting ready…') : <>{t('ワープ', 'Warp')} <kbd>Enter</kbd></>}
+        {pendingWarp ? ui().navPanel.gettingReady : <>{ui().navPanel.warp} <kbd>Enter</kbd></>}
       </button>
       <button className={`secondary nav-auto${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
-        {t('自動航行', 'Autopilot')} <kbd>G</kbd>
+        {ui().navPanel.autopilot} <kbd>G</kbd>
       </button>
       <button className={`secondary nav-observe${observing ? ' on' : ''}`} onClick={toggleObserve} disabled={!s.targetId || busy || racing}>
-        {observing ? t('観察をやめる', 'Stop observing') : t('周辺観察（目標のまわりを回る）', 'Observe (orbit the target)')} <kbd>O</kbd>
+        {observing ? ui().navPanel.stopObserving : ui().navPanel.observe} <kbd>O</kbd>
       </button>
       <button className={`secondary mission-start${missionPhase !== 'closed' ? ' on' : ''}`} onClick={() => (pick(), missionPhase !== 'active' && closeEclipses(), openMissions())} disabled={racing}>
         {ui().missionsButton}
       </button>
       <button className="secondary race-start" onClick={startRace} disabled={busy || onMission}>
-        {t('レース：火星 → 木星 → 土星スイングバイ → 火星', 'Race: Mars → Jupiter → Saturn swing-by → Mars')}
+        {ui().navPanel.race}
       </button>
       <button className={`secondary quiz-start${quizOpen ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), startQuiz())} disabled={racing}>
-        {t(`連続クイズ（${QUIZ_LENGTH}問）`, `Quiz run (${QUIZ_LENGTH} questions)`)}
+        {ui().navPanel.quizRun(QUIZ_LENGTH)}
       </button>
       <button className="secondary eva-start" onClick={() => (pick(), closeEclipses(), startEva())} disabled={busy || racing || s.mode !== 'flight'}>
-        {t('船外活動（ロボット「ツムギ」を出す）', 'Spacewalk (send out the Tsumugi robot)')} <kbd>K</kbd>
+        {ui().navPanel.spacewalk} <kbd>K</kbd>
       </button>
       <button className={`secondary stamp-start${stampsOpen ? ' on' : ''}`} onClick={() => (pick(), openStamps())}>
-        {t('訪問スタンプ帳', 'Stamp book')} <span className="muted">{stampCount}/{NATURAL.length}</span>
+        {ui().navPanel.stampBook} <span className="muted">{stampCount}/{NATURAL.length}</span>
       </button>
       <button className={`secondary rock-start${rocksOpen ? ' on' : ''}`} onClick={() => (pick(), openRocks())}>
-        {t('岩石コレクション', 'Rock collection')} <span className="muted">{rocksGot}/{ROCK_TOTAL}</span>
+        {ui().navPanel.rockCollection} <span className="muted">{rocksGot}/{ROCK_TOTAL}</span>
       </button>
       <button className={`secondary probe-start${probesOpen ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), openProbes())} disabled={busy}>
-        {t('探査機の旅（ボイジャーなど）', 'Probe journeys (Voyager and more)')}
+        {ui().navPanel.probeJourneys}
       </button>
       <button className={`secondary eclipse-start${eclipsesOpen ? ' on' : ''}`} onClick={() => (pick(), closeMissions(), openEclipses())} disabled={busy || onMission}>
-        {t('宇宙から見る日食・月食', 'Eclipses from space')}
+        {ui().navPanel.eclipsesFromSpace}
       </button>
       {/* 1秒にどれだけ時間が進むか */}
       <div className="nav-time">
-        <span className="nav-time-label">{t('時間の速さ（1秒に進む時間）', 'Time speed (time passed per second)')}</span>
+        <span className="nav-time-label">{ui().navPanel.timeSpeed}</span>
         {TIME_RATES.map((k) => (
           <button key={k} className={s.timeScale === k ? 'on' : ''} onClick={() => s.setTimeScale(k)} disabled={racing}>
             {rateName(k)}

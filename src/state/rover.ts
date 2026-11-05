@@ -36,8 +36,8 @@ type RoverState = {
   canSample: boolean
   sampling: boolean
   result: string | null
-  /** いちばん近い、まだ採っていない岩（距離 m と、ローバーの正面から右回りの角度） */
-  next: { dist: number; rel: number; where?: { ja: string; en: string } | null } | null
+  /** いちばん近い、まだ採っていない岩（距離 m と、ローバーの正面から右回りの角度、近くの見どころの id（pois.ts）） */
+  next: { dist: number; rel: number; where?: string | null } | null
   setView: (v: RoverView) => void
 }
 

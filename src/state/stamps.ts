@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { NATURAL, STAMP_IDS, TITLES, titleEarned } from '../data/stamps'
 import { playBeep } from '../audio/sfx'
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 import { bodies } from './registry'
 import { useStore } from './store'
 
@@ -75,7 +75,7 @@ function newTitles(stamps: Record<string, number>) {
   useStamps.setState({ titles })
   return fresh.map((id) => {
     const title = TITLES.find((x) => x.id === id)!
-    return t(`称号「${title.name}」をもらいました！`, `New title: ${title.nameEn}!`)
+    return ui().stamps.newTitle(title.name, title.nameEn)
   })
 }
 
@@ -89,8 +89,8 @@ export function collectStamp(id: string) {
   const name = bodies.get(id)?.name ?? id
   const count = NATURAL.filter((x) => x in next).length
   const line = NATURAL.includes(id)
-    ? t(`スタンプ「${name}」をもらいました（${count}/${NATURAL.length}）`, `Stamp collected: ${name} (${count}/${NATURAL.length})`)
-    : t(`スタンプ「${name}」をもらいました`, `Stamp collected: ${name}`)
+    ? ui().stamps.stampCollectedCount(name, count, NATURAL.length)
+    : ui().stamps.stampCollected(name)
   announce([line, ...newTitles(next)])
 }
 

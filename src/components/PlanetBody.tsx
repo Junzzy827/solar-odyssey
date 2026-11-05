@@ -19,8 +19,9 @@ import { CloudInterior } from './CloudInterior'
 import { PlanetSurface } from './PlanetSurface'
 import { approachKind } from '../data/approach'
 import { LABEL_Z, useHideBehindSun } from './labels'
-import { named, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
 import { eclipseMoonOffset, eclipseNow } from '../state/eclipse'
+import { ui } from '../i18n'
 
 const DEG = Math.PI / 180
 
@@ -34,7 +35,7 @@ function MoonBody({ moon, radius, orbitRadius }: { moon: Moon; radius: number; o
   const label = useRef<HTMLSpanElement>(null!)
   useLang()
   const labelAt = useRef<THREE.Group>(null!)
-  useEffect(() => registerBody({ id: moon.id, get name() { return named(moon) }, radius, object: ref.current }), [moon, radius])
+  useEffect(() => registerBody({ id: moon.id, get name() { return ui().bodies[moon.id].name }, radius, object: ref.current }), [moon, radius])
   useFrame(({ camera }) => {
     if (!label.current) return
     ref.current.getWorldPosition(moonWorld)
@@ -52,7 +53,7 @@ function MoonBody({ moon, radius, orbitRadius }: { moon: Moon; radius: number; o
       <group ref={labelAt}>
         <Html center className="label moon-label" zIndexRange={LABEL_Z}>
           <span ref={label} style={{ display: 'none' }} onClick={() => useStore.getState().setTarget(moon.id)}>
-            {named(moon)}
+            {ui().bodies[moon.id].name}
           </span>
         </Html>
       </group>
@@ -80,7 +81,7 @@ export function PlanetBody({ planet }: { planet: Planet }) {
   const map = useOptionalTexture(isGas ? textureUrl(planet.id) : undefined)
   const deep = useMemo(() => '#' + new THREE.Color(planet.color).multiplyScalar(0.18).getHexString(), [planet.color])
 
-  useEffect(() => registerBody({ id: planet.id, get name() { return named(planet) }, radius, object: orbit.current }), [planet, radius])
+  useEffect(() => registerBody({ id: planet.id, get name() { return ui().bodies[planet.id].name }, radius, object: orbit.current }), [planet, radius])
 
   useHideBehindSun(label, orbit)
 
@@ -147,7 +148,7 @@ export function PlanetBody({ planet }: { planet: Planet }) {
         </group>
         <Html position={[0, radius + 1, 0]} center className={`label planet-label${planet.id === 'earth' ? ' home-label' : ''}`} zIndexRange={LABEL_Z}>
           <span ref={label} onClick={() => useStore.getState().setTarget(planet.id)}>
-            {named(planet)}
+            {ui().bodies[planet.id].name}
           </span>
         </Html>
         {/* 衛星はふつう惑星の赤道の上を回る（横倒しの天王星では縦に回る）。地球の月は公転の面の近く */}

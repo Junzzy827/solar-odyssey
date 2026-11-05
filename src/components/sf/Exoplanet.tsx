@@ -9,8 +9,9 @@ import { ship } from '../../state/flight'
 import { colliders } from '../../state/registry'
 import { useStore } from '../../state/store'
 import { DESERT_ID, DESERT_POS, EXO_RADIUS as R, EXO_TEXT, GATE_ID, ICE_ID, ICE_POS, sfEntry } from '../../data/sf'
-import { t, useLang } from '../../i18n/lang'
+import { useLang } from '../../i18n/lang'
 import { LABEL_Z } from '../labels'
+import { ui } from '../../i18n'
 
 type Star = {
   /** 星の色（明るさこみ）と、見かけの大きさ（表示単位の半径） */
@@ -195,7 +196,7 @@ function Exoplanet({ id, position, kind, air, stars, binarySpin = 0, arrived }: 
       <group ref={back} position={gatePos} quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), frame.toHome)}>
         <GateModel />
         <Html position={[0, GATE_RING + 0.6, 0]} center className="label" zIndexRange={LABEL_Z}>
-          <span ref={labelRef}>{t('帰りのゲート', 'Gate home')}</span>
+          <span ref={labelRef}>{ui().exoplanet.gateHome}</span>
         </Html>
       </group>
     </>

@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { dayHours, useSkyClock, type TimeRate } from './skyClock'
 import { PROFILE_N, dayProfile, sampleAt, type DayProfile } from './dayProfile'
 import { WEATHER_BODIES, useWeather, type WeatherMode } from './weather'
+import { ui } from '../../i18n'
 
 // 地表の時計：現地の時刻と、時間の速さ（止める・1 秒で 1 時間・1 日を 1 分で）。
 // 月では「地球から見た今の月」の小窓も出す。月面の昼と夜は、地球から見た月の満ち欠けと同じ周期で巡る。
@@ -12,8 +13,8 @@ const pad = (n: number) => String(n).padStart(2, '0')
 
 function dayText(id: string) {
   const h = Math.abs(dayHours(id))
-  if (h < 48) return t(`1日 = 地球の${h.toFixed(1)}時間`, `1 day = ${h.toFixed(1)} Earth hours`)
-  return t(`1日 = 地球の約${(h / 24).toFixed(h > 240 ? 0 : 1)}日`, `1 day ≈ ${(h / 24).toFixed(h > 240 ? 0 : 1)} Earth days`)
+  if (h < 48) return ui().timeBar.dayInEarthHours(h.toFixed(1))
+  return ui().timeBar.dayInEarthDays((h / 24).toFixed(h > 240 ? 0 : 1))
 }
 
 /** 満ち欠けの形（k = 見えている昼側の割合、waxing = 満ちていく途中なら右側が光る） */
@@ -27,11 +28,11 @@ function phasePath(k: number, waxing: boolean, r: number) {
 }
 
 function phaseName(k: number, waxing: boolean) {
-  if (k < 0.04) return t('新月', 'New moon')
-  if (k > 0.96) return t('満月', 'Full moon')
-  if (Math.abs(k - 0.5) < 0.06) return waxing ? t('上弦の月', 'First quarter') : t('下弦の月', 'Last quarter')
-  if (k < 0.5) return waxing ? t('三日月のころ', 'Waxing crescent') : t('明け方の細い月', 'Waning crescent')
-  return waxing ? t('満月に向かう月', 'Waxing gibbous') : t('欠けていく月', 'Waning gibbous')
+  if (k < 0.04) return ui().timeBar.newMoon
+  if (k > 0.96) return ui().timeBar.fullMoon
+  if (Math.abs(k - 0.5) < 0.06) return waxing ? ui().timeBar.firstQuarter : ui().timeBar.lastQuarter
+  if (k < 0.5) return waxing ? ui().timeBar.waxingCrescent : ui().timeBar.waningCrescent
+  return waxing ? ui().timeBar.waxingGibbous : ui().timeBar.waningGibbous
 }
 
 function MoonFromEarth({ earthLit, earthWaxing }: { earthLit: number; earthWaxing: boolean }) {
@@ -45,9 +46,9 @@ function MoonFromEarth({ earthLit, earthWaxing }: { earthLit: number; earthWaxin
         <path d={phasePath(k, waxing, 28)} fill="#e9e4d6" />
       </svg>
       <div>
-        <div className="muted">{t('いま地球から見た月', 'The Moon from Earth now')}</div>
+        <div className="muted">{ui().timeBar.moonFromEarth}</div>
         <b>{phaseName(k, waxing)}</b>
-        <div className="muted small">{t(`空の地球は${k < 0.5 ? '満ちて' : '欠けて'}見えます`, `Earth in this sky looks ${k < 0.5 ? 'full-ish' : 'thin'}`)}</div>
+        <div className="muted small">{ui().timeBar.earthPhase(k < 0.5)}</div>
       </div>
     </div>
   )
@@ -64,17 +65,17 @@ const LUX_TOP = Math.log10(1e6)
 /** 明るさの数字と、身近なたとえ（ルクス） */
 function luxText(lx: number) {
   const value =
-    lx >= 10000 ? t(`約${Math.round(lx / 10000)}万`, `~${Math.round(lx / 1000)}k`) :
-    lx >= 10 ? t(`約${Math.round(lx)}`, `~${Math.round(lx)}`) :
-    lx >= 0.1 ? t(`約${lx.toFixed(1)}`, `~${lx.toFixed(1)}`) : '0'
+    lx >= 10000 ? ui().timeBar.luxLarge(Math.round(lx / 10000), Math.round(lx / 1000)) :
+    lx >= 10 ? ui().timeBar.luxValue(Math.round(lx)) :
+    lx >= 0.1 ? ui().timeBar.luxValue(lx.toFixed(1)) : '0'
   const like =
-    lx > 30000 ? t('真夏の日なた', 'bright summer sun') :
-    lx > 3000 ? t('くもりの日の外', 'an overcast day') :
-    lx > 300 ? t('明るい部屋', 'a bright room') :
-    lx > 10 ? t('夕方の薄暗さ', 'dusk') :
-    lx > 0.1 ? t('満月の夜', 'a full-moon night') :
-    t('星明かりだけ', 'starlight only')
-  return { value, unit: t('ルクス', ' lux'), like }
+    lx > 30000 ? ui().timeBar.brightSummerSun :
+    lx > 3000 ? ui().timeBar.overcastDay :
+    lx > 300 ? ui().timeBar.brightRoom :
+    lx > 10 ? ui().timeBar.dusk :
+    lx > 0.1 ? ui().timeBar.fullMoonNight :
+    ui().timeBar.starlightOnly
+  return { value, unit: ui().timeBar.luxUnit, like }
 }
 
 function DayGraph({ p, clock, extraLux, dim = 1 }: { p: DayProfile; clock: number; extraLux: number; dim?: number }) {
@@ -113,13 +114,13 @@ function DayGraph({ p, clock, extraLux, dim = 1 }: { p: DayProfile; clock: numbe
   return (
     <div className="day-graph">
       <div className="day-now">
-        <span className="temp-chip">{t('地表', 'Ground')} <b>{Math.round(temp)}℃</b></span>
+        <span className="temp-chip">{ui().timeBar.ground} <b>{Math.round(temp)}℃</b></span>
         <span className="lux-chip">
-          {t('明るさ', 'Light')} <b>{L.value}</b>
+          {ui().timeBar.light} <b>{L.value}</b>
           {L.unit}
         </span>
       </div>
-      <div className="muted small">{t(`いまは「${L.like}」くらい`, `About like ${L.like}`)}</div>
+      <div className="muted small">{ui().timeBar.luxLike(L.like)}</div>
       <svg viewBox={`0 0 ${GW} ${GH + 12}`} width="100%" aria-hidden>
         {night.map(([a, b], i) => (
           <rect key={i} x={a} y={0} width={b - a} height={GH} fill="rgba(40,60,120,0.28)" />
@@ -137,9 +138,9 @@ function DayGraph({ p, clock, extraLux, dim = 1 }: { p: DayProfile; clock: numbe
         ))}
       </svg>
       <div className="g-legend muted small">
-        <span><i className="sw-temp" />{t('地表の温度', 'Ground temp')}</span>
-        <span><i className="sw-light" />{t('明るさ', 'Light')}</span>
-        <span><i className="sw-night" />{t('夜', 'Night')}</span>
+        <span><i className="sw-temp" />{ui().timeBar.groundTemp}</span>
+        <span><i className="sw-light" />{ui().timeBar.light}</span>
+        <span><i className="sw-night" />{ui().timeBar.night}</span>
       </div>
     </div>
   )
@@ -185,7 +186,7 @@ function WeatherRow({ id }: { id: string }) {
   return (
     <div className="weather-row">
       <span className="muted small">
-        {t('天気', 'Weather')} <b>{now}</b>
+        {ui().timeBar.weather} <b>{now}</b>
       </span>
       <div className="time-rates">
         {MODE_KEYS.map((m, i) => (
@@ -216,7 +217,7 @@ export function TimeBar({ def }: { def: SurfaceDef }) {
   return (
     <div className="surface-time">
       <div className="time-now">
-        <span className="muted">{t('現地時刻', 'Local time')}</span> <b>{`${pad(h)}:${pad(m)}`}</b>
+        <span className="muted">{ui().timeBar.localTime}</span> <b>{`${pad(h)}:${pad(m)}`}</b>
         <span className="muted small"> {dayText(def.id)}</span>
       </div>
       <div className="time-rates">

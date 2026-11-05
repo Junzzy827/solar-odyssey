@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { useStore } from './store'
 import { raceActive } from './race'
 import { demIdFor, siteDef, surfaceFor } from '../data/surfaces'
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 import { isNear } from './proximity'
 import { ship } from './flight'
 import { recallRover } from './rover'
@@ -142,7 +142,7 @@ export function startTakeoff() {
   window.setTimeout(() => {
     if (useLanding.getState().phase === 'fadeOut') {
       useLanding.setState({ phase: 'idle', bodyId: null, site: null })
-      useStore.getState().showToast(t('母船にもどりました', 'Back aboard the ship'))
+      useStore.getState().showToast(ui().landing.backAboard)
     }
   }, (ASCENT + FADE) * 1000)
 }

@@ -3,7 +3,8 @@ import { useStore } from '../state/store'
 import { raceActive, useRace } from '../state/race'
 import { playBeep } from '../audio/sfx'
 import { closeQuiz, nextQuestion, pickAnswer, QUIZ_LENGTH, quizBodyName, quizText, quizTitle, startQuiz, useQuiz, warpToMissed } from '../state/quiz'
-import { t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
+import { ui } from '../i18n'
 
 /** 正解・不正解の短い音 */
 function chime(right: boolean) {
@@ -61,48 +62,48 @@ export function QuizPanel() {
 
   if (q.finished) {
     return (
-      <section className="quiz-run" aria-label={t('連続クイズの結果', 'Quiz results')}>
+      <section className="quiz-run" aria-label={ui().quizPanel.quizResults}>
         <header>
-          <h2>{t(`結果：${q.score} / ${QUIZ_LENGTH}問 正解`, `Result: ${q.score} / ${QUIZ_LENGTH} correct`)}</h2>
-          <button className="close" onClick={closeQuiz} aria-label={t('閉じる', 'Close')}>
+          <h2>{ui().quizPanel.resultScore(q.score, QUIZ_LENGTH)}</h2>
+          <button className="close" onClick={closeQuiz} aria-label={ui().quizPanel.close}>
             ×
           </button>
         </header>
-        <div className="quiz-title">{t(`称号「${quizTitle(q.score)}」`, `Title: ${quizTitle(q.score)}`)}</div>
+        <div className="quiz-title">{ui().quizPanel.earnedTitle(quizTitle(q.score))}</div>
         <dl>
           <div>
-            <dt>{t('いちばん長い連続正解', 'Longest streak')}</dt>
-            <dd>{t(`${q.bestStreak}問`, String(q.bestStreak))}</dd>
+            <dt>{ui().quizPanel.longestStreak}</dt>
+            <dd>{ui().quizPanel.longestStreakCount(q.bestStreak)}</dd>
           </div>
           <div>
-            <dt>{t('これまでの最高', 'Best so far')}</dt>
+            <dt>{ui().quizPanel.bestSoFar}</dt>
             <dd>
-              {t(`${q.best ?? q.score}問`, String(q.best ?? q.score))}
-              {q.newBest && <span className="badge">{t('新記録！', 'New record!')}</span>}
+              {ui().quizPanel.bestSoFarCount(q.best ?? q.score)}
+              {q.newBest && <span className="badge">{ui().quizPanel.newRecord}</span>}
             </dd>
           </div>
         </dl>
         {q.missed.length > 0 ? (
           <>
-            <div className="nav-heading">{t('まちがえた天体を見に行こう', 'Go and see the ones you missed')}</div>
+            <div className="nav-heading">{ui().quizPanel.goSeeMissed}</div>
             <div className="quiz-missed">
               {q.missed.map((id) => (
                 <button key={id} className="secondary" onClick={() => warpToMissed(id)}>
-                  {t(`${quizBodyName(id)}へワープ`, `Warp to ${quizBodyName(id)}`)}
+                  {ui().quizPanel.warpTo(quizBodyName(id))}
                 </button>
               ))}
             </div>
-            <p className="muted small">{t('着いたら航海日誌に、くわしい解説とクイズがあります。', 'When you arrive, the ship’s log has more facts and a quiz.')}</p>
+            <p className="muted small">{ui().quizPanel.arriveNote}</p>
           </>
         ) : (
-          <p>{t('全問正解です。すばらしい！', 'All correct. Amazing!')}</p>
+          <p>{ui().quizPanel.allCorrect}</p>
         )}
         <div className="quiz-actions">
           <button className="engage" onClick={startQuiz}>
-            {t('もう一度挑戦', 'Try again')}
+            {ui().quizPanel.tryAgain}
           </button>
           <button className="secondary" onClick={closeQuiz}>
-            {t('閉じる', 'Close')}
+            {ui().quizPanel.close}
           </button>
         </div>
       </section>
@@ -117,21 +118,21 @@ export function QuizPanel() {
   const text = quizText(question)
 
   return (
-    <section className="quiz-run" aria-label={t('連続クイズ', 'Quiz run')}>
+    <section className="quiz-run" aria-label={ui().quizPanel.quizRun}>
       <header>
         <h2>
-          {t('連続クイズ', 'Quiz run')} <span className="muted">{t(`第${q.index + 1}問 / ${QUIZ_LENGTH}`, `Question ${q.index + 1} / ${QUIZ_LENGTH}`)}</span>
+          {ui().quizPanel.quizRun} <span className="muted">{ui().quizPanel.questionNumber(q.index + 1, QUIZ_LENGTH)}</span>
         </h2>
-        <button className="close" onClick={closeQuiz} aria-label={t('閉じる', 'Close')}>
+        <button className="close" onClick={closeQuiz} aria-label={ui().quizPanel.close}>
           ×
         </button>
       </header>
       <div className="quiz-status">
         <span>
-          {t('正解', 'Correct')} {q.score}
+          {ui().quizPanel.correctCount} {q.score}
         </span>
         <span className={q.streak >= 3 ? 'hot' : ''}>
-          {t('連続', 'Streak')} {q.streak}
+          {ui().quizPanel.streak} {q.streak}
         </span>
       </div>
       <ol className="quiz-dots" aria-hidden>
@@ -158,14 +159,14 @@ export function QuizPanel() {
             <strong>
               {right
                 ? q.streak >= 3
-                  ? t(`正解！ ${q.streak}問連続！`, `Correct! ${q.streak} in a row!`)
-                  : t('正解！', 'Correct!')
-                : t(`残念！ 正解は「${text.choices[question.answer]}」`, `Not quite! The answer is “${text.choices[question.answer]}.”`)}
+                  ? ui().quizPanel.correctStreak(q.streak)
+                  : ui().quizPanel.correct
+                : ui().quizPanel.notQuiteAnswer(text.choices[question.answer])}
             </strong>{' '}
             {text.explanation}
           </div>
           <button className="engage" onClick={nextQuestion}>
-            {last ? t('結果を見る', 'See results') : t('次の問題', 'Next question')} <kbd>Enter</kbd>
+            {last ? ui().quizPanel.seeResults : ui().quizPanel.nextQuestion} <kbd>Enter</kbd>
           </button>
         </>
       )}

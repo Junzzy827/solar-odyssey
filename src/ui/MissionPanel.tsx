@@ -64,7 +64,7 @@ function ChapterList() {
   const stars = useMission((m) => m.stars)
   const sf = useStore((s) => s.settings.world === 'sf')
   const t = ui()
-  const ja = useLang() === 'ja'
+  useLang()
   const chapters = CHAPTERS.map((c, i) => ({ c, i })).filter(({ c }) => c.world === 'real' || sf)
   return (
     <>
@@ -81,7 +81,7 @@ function ChapterList() {
                 <img src={thumb(c.ship)} alt="" loading="lazy" />
                 <span className="chapter-body">
                   <span className="chapter-ship">
-                    {c.fleet ? t.fleet : shipLabel(spec, ja)}
+                    {c.fleet ? t.fleet : shipLabel(spec)}
                     {c.world === 'sf' && <span className="chapter-tag">SF</span>}
                   </span>
                   <span className="mission-name">{text.title}</span>
@@ -112,13 +112,13 @@ function Header({ title, onClose = closeMissions }: { title: string; onClose?: (
 /** 船と得意技の説明（最終章では、任務ごとの船の得意技） */
 function ShipSkill({ chapter, ship = chapter.ship }: { chapter: ChapterDef; ship?: ShipId }) {
   const t = ui()
-  const ja = useLang() === 'ja'
+  useLang()
   const text = chapterText(chapter.fleet ? skillChapterOf(ship).id : chapter.id)
   return (
     <div className="chapter-skill">
       <img src={thumb(ship)} alt="" />
       <div>
-        <div className="muted small">{chapter.fleet ? t.shipForMission(shipLabel(shipSpec(ship), ja)) : t.shipForChapter(shipLabel(shipSpec(ship), ja))}</div>
+        <div className="muted small">{chapter.fleet ? t.shipForMission(shipLabel(shipSpec(ship))) : t.shipForChapter(shipLabel(shipSpec(ship)))}</div>
         <div>
           <b>{t.skill}：{text.skill}</b>
         </div>

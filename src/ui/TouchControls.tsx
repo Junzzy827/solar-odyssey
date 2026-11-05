@@ -2,13 +2,14 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { isTouchDevice, touchInput } from '../state/input'
 import { nextCameraMode, useStore } from '../state/store'
 import { useQuiz } from '../state/quiz'
-import { t, useLang } from '../i18n/lang'
+import { useLang } from '../i18n/lang'
 import { useTouchUI } from '../state/touchUI'
 import { bodyInfo, engage, useWarpPrep } from '../state/flight'
 import { TouchThrottle } from './Throttle'
 import { raceActive } from '../state/race'
 import { launchLander, useLaunchBusy } from '../state/launch'
 import { toggleObserve, useObserve } from '../state/observe'
+import { ui } from '../i18n'
 
 /** スティックを倒しきったときの、つまみの動く半径（ピクセル） */
 const STICK_RADIUS = 48
@@ -142,14 +143,14 @@ export function TouchWarp() {
           </div>
           <div className="touch-row">
             <button className="touch-button wide warp" onClick={engage} disabled={busy}>
-              {pendingWarp ? t('準備中…', 'Getting ready…') : t('ワープ', 'Warp')}
+              {pendingWarp ? ui().touchControls.gettingReady : ui().touchControls.warp}
             </button>
             <button className={`touch-button wide auto${autopilot ? ' on' : ''}`} onClick={() => setAutopilot(!autopilot)} disabled={busy}>
-              {t('自動', 'Auto')}
+              {ui().touchControls.auto}
             </button>
             {mode === 'flight' && (
               <button className={`touch-button wide observe${observing ? ' on' : ''}`} onClick={toggleObserve} disabled={busy}>
-                {t('観察', 'Observe')}
+                {ui().touchControls.observe}
               </button>
             )}
           </div>
@@ -187,25 +188,25 @@ export function TouchControls() {
       <Stick />
       <div className="touch-buttons">
         <div className="touch-row">
-          <HoldButton label="⟲" title={t('左に回転', 'Roll left')} onHold={(on) => (touchInput.roll = on ? 1 : 0)} />
-          <HoldButton label="⟳" title={t('右に回転', 'Roll right')} onHold={(on) => (touchInput.roll = on ? -1 : 0)} />
+          <HoldButton label="⟲" title={ui().touchControls.rollLeft} onHold={(on) => (touchInput.roll = on ? 1 : 0)} />
+          <HoldButton label="⟳" title={ui().touchControls.rollRight} onHold={(on) => (touchInput.roll = on ? -1 : 0)} />
         </div>
         <div className="touch-row">
-          <HoldButton label="▲" title={t('上昇', 'Up')} onHold={(on) => (touchInput.lift = on ? 1 : 0)} />
-          <HoldButton label="▼" title={t('下降', 'Down')} onHold={(on) => (touchInput.lift = on ? -1 : 0)} />
+          <HoldButton label="▲" title={ui().touchControls.up} onHold={(on) => (touchInput.lift = on ? 1 : 0)} />
+          <HoldButton label="▼" title={ui().touchControls.down} onHold={(on) => (touchInput.lift = on ? -1 : 0)} />
         </div>
         {shipId === 'arcadia' && (
           <div className="touch-row">
             <button className="touch-button wide launch" onClick={launchLander} disabled={launching || warpPhase !== 'idle'}>
-              {t('発進', 'Launch')}
+              {ui().touchControls.launch}
             </button>
           </div>
         )}
         <div className="touch-row">
           <button className="touch-button wide" onClick={() => setCameraMode(nextCameraMode(cameraMode))}>
-            {t('カメラ', 'Camera')}
+            {ui().touchControls.camera}
           </button>
-          <HoldButton className="wide beam" label={t('ビーム', 'Beam')} title={t('ビーム（長押しでチャージ）', 'Beam (hold to charge)')} onHold={(on) => {
+          <HoldButton className="wide beam" label={ui().touchControls.beam} title={ui().touchControls.beamTip} onHold={(on) => {
               touchInput.beam = on
               if (on) touchInput.beamPressed = true
             }} />

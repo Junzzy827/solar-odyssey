@@ -1,4 +1,76 @@
-// 画面の短い文言（日本語）。いまはストーリーモードのぶんだけ。ほかの画面も少しずつここへ移す
+import { approachJa } from './approach.ja'
+import { beamGaugeJa } from './beamGauge.ja'
+import { blackHoleJa } from './blackHole.ja'
+import { bridgeJa } from './bridge.ja'
+import { bridgePanelJa } from './bridgePanel.ja'
+import { chargeBeamJa } from './chargeBeam.ja'
+import { compareModelsJa } from './compareModels.ja'
+import { consolesJa } from './consoles.ja'
+import { contextLostJa } from './contextLost.ja'
+import { cubeJa } from './cube.ja'
+import { deepSpaceJa } from './deepSpace.ja'
+import { eclipsePanelJa } from './eclipsePanel.ja'
+import { evaJa } from './eva.ja'
+import { evaViewJa } from './evaView.ja'
+import { exoplanetJa } from './exoplanet.ja'
+import { flightJa } from './flight.ja'
+import { galleryPanelJa } from './galleryPanel.ja'
+import { historicBookJa } from './historicBook.ja'
+import { historicPanelJa } from './historicPanel.ja'
+import { hudJa } from './hud.ja'
+import { landingJa } from './landing.ja'
+import { logPanelJa } from './logPanel.ja'
+import { navPanelJa } from './navPanel.ja'
+import { observeJa } from './observe.ja'
+import { observePanelJa } from './observePanel.ja'
+import { photoNoteJa } from './photoNote.ja'
+import { probePanelJa } from './probePanel.ja'
+import { probeSceneJa } from './probeScene.ja'
+import { quizPanelJa } from './quizPanel.ja'
+import { raceJa } from './race.ja'
+import { racePanelJa } from './racePanel.ja'
+import { rallyPanelJa } from './rallyPanel.ja'
+import { rockBookJa } from './rockBook.ja'
+import { roverHudJa } from './roverHud.ja'
+import { scaleToggleJa } from './scaleToggle.ja'
+import { sfJa } from './sf.ja'
+import { sfBadgeJa } from './sfBadge.ja'
+import { sfEngineJa } from './sfEngine.ja'
+import { sfHourglassJa } from './sfHourglass.ja'
+import { sfJapanJa } from './sfJapan.ja'
+import { sfSidesJa } from './sfSides.ja'
+import { sfSpaceJa } from './sfSpace.ja'
+import { shipPickerJa } from './shipPicker.ja'
+import { sizeCompareJa } from './sizeCompare.ja'
+import { spaceDockJa } from './spaceDock.ja'
+import { stampBookJa } from './stampBook.ja'
+import { stampsJa } from './stamps.ja'
+import { stateLaunchJa } from './stateLaunch.ja'
+import { sunJa } from './sun.ja'
+import { surfaceViewJa } from './surfaceView.ja'
+import { telescopeViewJa } from './telescopeView.ja'
+import { telescopesJa } from './telescopes.ja'
+import { throttleJa } from './throttle.ja'
+import { timeBarJa } from './timeBar.ja'
+import { touchBarJa } from './touchBar.ja'
+import { touchControlsJa } from './touchControls.ja'
+import { apollo17Ja } from './apollo17.ja'
+import { bodiesJa } from './bodies.ja'
+import { bridgePartsJa } from './bridgeParts.ja'
+import { compareItemsJa } from './compareItems.ja'
+import { deepSpaceImagesJa } from './deepSpaceImages.ja'
+import { eclipsesJa } from './eclipses.ja'
+import { evaJobsJa } from './evaJobs.ja'
+import { evaSitesJa } from './evaSites.ja'
+import { evaToolsJa } from './evaTools.ja'
+import { phaserFactsJa } from './phaserFacts.ja'
+import { poisJa } from './pois.ja'
+import { probesJa } from './probes.ja'
+import { rockSamplesJa } from './rockSamples.ja'
+import { shipsJa } from './ships.ja'
+
+// 画面の文言（日本語）。ストーリーモードの短い文言はここに書く。ほかの画面の文言は画面ごとのファイル（navPanel.ja.ts など）にあり、ここに集める
+// まだ使う場所に t('日本語', 'English') と書いてある文言もある
 
 export const ja = {
   missionsButton: 'ストーリーモード（任務）',
@@ -58,4 +130,74 @@ export const ja = {
     hidden: 'ほかの天体のかげ',
     fast: 'もっとゆっくり',
   } as Record<string, string>,
+  approach: approachJa,
+  beamGauge: beamGaugeJa,
+  blackHole: blackHoleJa,
+  bridge: bridgeJa,
+  bridgePanel: bridgePanelJa,
+  chargeBeam: chargeBeamJa,
+  compareModels: compareModelsJa,
+  consoles: consolesJa,
+  contextLost: contextLostJa,
+  cube: cubeJa,
+  deepSpace: deepSpaceJa,
+  eclipsePanel: eclipsePanelJa,
+  eva: evaJa,
+  evaView: evaViewJa,
+  exoplanet: exoplanetJa,
+  flight: flightJa,
+  galleryPanel: galleryPanelJa,
+  historicBook: historicBookJa,
+  historicPanel: historicPanelJa,
+  hud: hudJa,
+  landing: landingJa,
+  logPanel: logPanelJa,
+  navPanel: navPanelJa,
+  observe: observeJa,
+  observePanel: observePanelJa,
+  photoNote: photoNoteJa,
+  probePanel: probePanelJa,
+  probeScene: probeSceneJa,
+  quizPanel: quizPanelJa,
+  race: raceJa,
+  racePanel: racePanelJa,
+  rallyPanel: rallyPanelJa,
+  rockBook: rockBookJa,
+  roverHud: roverHudJa,
+  scaleToggle: scaleToggleJa,
+  sf: sfJa,
+  sfBadge: sfBadgeJa,
+  sfEngine: sfEngineJa,
+  sfHourglass: sfHourglassJa,
+  sfJapan: sfJapanJa,
+  sfSides: sfSidesJa,
+  sfSpace: sfSpaceJa,
+  shipPicker: shipPickerJa,
+  sizeCompare: sizeCompareJa,
+  spaceDock: spaceDockJa,
+  stampBook: stampBookJa,
+  stamps: stampsJa,
+  stateLaunch: stateLaunchJa,
+  sun: sunJa,
+  surfaceView: surfaceViewJa,
+  telescopeView: telescopeViewJa,
+  telescopes: telescopesJa,
+  throttle: throttleJa,
+  timeBar: timeBarJa,
+  touchBar: touchBarJa,
+  touchControls: touchControlsJa,
+  apollo17: apollo17Ja,
+  bodies: bodiesJa,
+  bridgeParts: bridgePartsJa,
+  compareItems: compareItemsJa,
+  deepSpaceImages: deepSpaceImagesJa,
+  eclipses: eclipsesJa,
+  evaJobs: evaJobsJa,
+  evaSites: evaSitesJa,
+  evaTools: evaToolsJa,
+  phaserFacts: phaserFactsJa,
+  pois: poisJa,
+  probes: probesJa,
+  rockSamples: rockSamplesJa,
+  ships: shipsJa,
 }

@@ -1,4 +1,4 @@
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 
 // 実在の宇宙望遠鏡。形は公開されている写真を参考に、簡単な部品の組み合わせで作っている。
 export const HUBBLE_ID = 'hubble'
@@ -8,9 +8,9 @@ export type ScopeId = typeof HUBBLE_ID | typeof WEBB_ID
 
 export const isTelescope = (id: string | null): id is ScopeId => id === HUBBLE_ID || id === WEBB_ID
 
-export const scopeName = (id: ScopeId) => (id === HUBBLE_ID ? t('ハッブル宇宙望遠鏡', 'Hubble Space Telescope') : t('ウェッブ宇宙望遠鏡', 'Webb Space Telescope'))
+export const scopeName = (id: ScopeId) => (id === HUBBLE_ID ? ui().telescopes.hubbleSpaceTelescope : ui().telescopes.webbSpaceTelescope)
 /** 3Dのラベルに出す短い名前 */
-export const scopeShortName = (id: ScopeId) => (id === HUBBLE_ID ? t('ハッブル', 'Hubble') : t('ウェッブ', 'Webb'))
+export const scopeShortName = (id: ScopeId) => (id === HUBBLE_ID ? ui().telescopes.hubble : ui().telescopes.webb)
 
 /**
  * 表示上の大きさ。本物の大きさ（全長13m・日よけ21m）では自機（全長640m＝表示0.3）の
@@ -38,6 +38,6 @@ export const SCOPE_NEAR = 3
 
 export const TELESCOPE_TEXT = {
   found: (name: string) =>
-    t(`${name}のそばに来ました。\nT キーで、望遠鏡の目で深宇宙をのぞいてみよう。（I で航海日誌）`, `You are next to the ${name}.\nPress T to look into deep space through its eyes. (I for the ship’s log)`),
-  tooFar: (name: string) => t(`${name}のそばまで行くと、望遠鏡の写真をのぞけます。`, `Fly close to the ${name} to look through its pictures.`),
+    ui().telescopes.found(name),
+  tooFar: (name: string) => ui().telescopes.tooFar(name),
 }

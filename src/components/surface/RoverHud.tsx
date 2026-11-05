@@ -7,8 +7,9 @@ import { useHistoric } from '../../state/historic'
 import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
-import { t, useLang } from '../../i18n/lang'
+import { useLang } from '../../i18n/lang'
 import { isTouchDevice } from '../../state/input'
+import { ui } from '../../i18n'
 
 // ローバーの計器：速度計（0〜60 km/h の弧）と、向き・傾き・着陸船からの距離・宙に浮いているかの表示
 
@@ -89,13 +90,13 @@ export function RoverHud() {
       </svg>
       <div className="rover-readouts">
         <div className="rr-row">
-          <span className="rr-k">{t('方位', 'HDG')}</span>
+          <span className="rr-k">{ui().roverHud.heading}</span>
           <span className="rr-v">
             {String(hud.hdg).padStart(3, '0')}° <small>{DIRS[Math.round(hud.hdg / 45) % 8]}</small>
           </span>
         </div>
         <div className="rr-row">
-          <span className="rr-k">{t('傾き', 'TILT')}</span>
+          <span className="rr-k">{ui().roverHud.tilt}</span>
           <span className="rr-tilt" title={`${hud.pitch}° / ${hud.roll}°`}>
             <span className="rr-horizon" style={{ transform: `translateY(${Math.max(-8, Math.min(8, hud.pitch * 0.4))}px) rotate(${-hud.roll}deg)` }} />
             <span className="rr-wings" />
@@ -106,13 +107,13 @@ export function RoverHud() {
           </span>
         </div>
         <div className="rr-row">
-          <span className="rr-k">{t('距離', 'DIST')}</span>
+          <span className="rr-k">{ui().roverHud.distance}</span>
           <span className="rr-v">
             {hud.dist} <small>m</small>
           </span>
         </div>
         <div className="rr-row">
-          <span className="rr-k">{t('岩', 'ROCK')}</span>
+          <span className="rr-k">{ui().roverHud.rock}</span>
           {next ? (
             <>
               <span className="rr-next" style={{ transform: `rotate(${next.rel}deg)` }}>
@@ -123,13 +124,13 @@ export function RoverHud() {
               </span>
             </>
           ) : (
-            <span className="rr-v small">{t('完了', 'done')}</span>
+            <span className="rr-v small">{ui().roverHud.done}</span>
           )}
         </div>
         <div className="rr-airrow">
-          <div className={`rr-air${hud.air ? ' on' : ''}`}>{t('空中', 'AIR')}</div>
-          <div className={`rr-fuel${hud.fuel < 0.25 ? ' low' : ''}`} title={t('姿勢制御の噴射剤（空中で◀▶・▼）', 'Thruster propellant (◀▶ and ▼ in the air)')}>
-            <span>{t('噴射', 'RCS')}</span>
+          <div className={`rr-air${hud.air ? ' on' : ''}`}>{ui().roverHud.air}</div>
+          <div className={`rr-fuel${hud.fuel < 0.25 ? ' low' : ''}`} title={ui().roverHud.rcsTip}>
+            <span>{ui().roverHud.rcs}</span>
             <i style={{ width: `${Math.round(hud.fuel * 100)}%` }} />
           </div>
         </div>
@@ -219,15 +220,15 @@ export function RoverMap() {
           e.stopPropagation()
           useRover.setState(touch ? { map: true, menu: false } : { map: true })
         }}
-        title={t('ミニマップを出す', 'Show the minimap')}
+        title={ui().roverHud.showMinimap}
       >
-        <span className="chip-icon">▦</span> {t('地図', 'Map')}
+        <span className="chip-icon">▦</span> {ui().roverHud.map}
       </button>
     )
   }
   return (
     <div className={`rover-map${edge ? ' edge' : ''}`}>
-      <svg viewBox={`${-V} ${-V} ${V * 2} ${V * 2}`} aria-label={t('ミニマップ', 'Minimap')}>
+      <svg viewBox={`${-V} ${-V} ${V * 2} ${V * 2}`} aria-label={ui().roverHud.minimap}>
         {relief(coarse)}
         {wide && !whole && relief(fine)}
         {wide ? (
@@ -267,7 +268,7 @@ export function RoverMap() {
                 <>
                   <circle cx={x} cy={z} r={4} className="m-poi" />
                   <text x={x} y={z + 19} className="m-poi-name">
-                    {t(p.name.ja, p.name.en)}
+                    {ui().pois[p.id].name}
                     {left(p.id) > 0 && <tspan className="m-poi-rocks"> ◆{left(p.id)}</tspan>}
                   </text>
                 </>
@@ -330,8 +331,8 @@ export function RoverMap() {
           e.stopPropagation()
           useRover.setState({ map: false })
         }}
-        title={t('ミニマップをたたむ', 'Hide the minimap')}
-        aria-label={t('ミニマップをたたむ', 'Hide the minimap')}
+        title={ui().roverHud.hideMinimap}
+        aria-label={ui().roverHud.hideMinimap}
       >
         −
       </button>
@@ -345,7 +346,7 @@ export function RoverMap() {
             setWhole((w) => !w)
           }}
         >
-          {whole ? t('近く', 'Near') : t('全体', 'All')}
+          {whole ? ui().roverHud.near : ui().roverHud.all}
         </button>
       )}
     </div>

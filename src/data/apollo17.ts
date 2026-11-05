@@ -18,10 +18,14 @@ export type Historic = {
   no?: number
   /** 観測点の目印の特別な物：オレンジの土・割れた大岩・大きな岩 */
   feature?: 'orange' | 'split' | 'boulders'
-  name: [string, string]
+}
+
+/** Historic の文言（日本語は src/i18n/apollo17.ja.ts、英語は apollo17.en.ts） */
+export type HistoricText = {
+  name: string
   /** いつ（船外活動の何回目か） */
-  when: [string, string]
-  story: [string, string]
+  when: string
+  story: string
 }
 
 export const APOLLO17: Historic[] = [
@@ -32,12 +36,6 @@ export const APOLLO17: Historic[] = [
     z: -140.1,
     r: 20,
     icon: '🚀',
-    name: ['着陸船チャレンジャー号の下半分', 'Challenger, the descent stage'],
-    when: ['1972年12月11日 着陸', 'Landed 11 December 1972'],
-    story: [
-      'ユージン・セルナン船長と地質学者ハリソン・シュミット飛行士が乗ってきた着陸船です。帰るときは上半分だけが、この下半分を発射台にして飛び立ちました。だから下半分は今もここに残っています。はしごのある脚には「ここで人類は月の最初の探検を終えた。1972年12月。われわれが平和の心で来たように、その心が全人類の生活に映し出されますように」と書かれた板がついています。',
-      'The lander that carried commander Eugene Cernan and geologist Harrison Schmitt. To go home, only the top half flew off, using this bottom half as its launch pad, so the descent stage is still here. A plaque on the ladder leg reads: "Here Man completed his first explorations of the Moon, December 1972 AD. May the spirit of peace in which we came be reflected in the lives of all mankind."',
-    ],
   },
   {
     id: 'flag',
@@ -46,12 +44,6 @@ export const APOLLO17: Historic[] = [
     z: -158.4,
     r: 12,
     icon: '🏳️',
-    name: ['月に立てた旗', 'The flag'],
-    when: ['1回目の船外活動', 'First moonwalk'],
-    story: [
-      '着陸船のすぐそばに立てられたアメリカの旗です。月の探査機ルナー・リコネサンス・オービターの写真には、今もこの旗の影が写っています。空気のない月で50年以上強い日光をあびて、色はすっかりあせて白っぽくなっていると考えられています。',
-      'The American flag planted next to the lander. Photos from the Lunar Reconnaissance Orbiter still show its shadow today. After more than 50 years of harsh sunlight with no air to filter it, its colours have probably faded to almost white.',
-    ],
   },
   {
     id: 'lrv',
@@ -60,12 +52,6 @@ export const APOLLO17: Historic[] = [
     z: -150,
     r: 14,
     icon: '🚙',
-    name: ['月面車（ルナ・ローバー）', 'The lunar rover'],
-    when: ['3回の船外活動で約36 km', 'About 36 km over three moonwalks'],
-    story: [
-      '2人乗りの電気自動車で、この谷を合わせて約36 km 走りました。最高速度は時速18 kmくらい。1回目の船外活動でセルナン船長のハンマーが当たって泥よけが折れ、砂ぼこりを浴びて困りました。そこで地図のページ4枚をテープとクリップで貼り合わせて泥よけを直したのです。最後はここに止められ、テレビカメラで着陸船が飛び立つところを地球に送りました。',
-      'A two-seat electric car that drove about 36 km around this valley, at up to about 18 km/h. On the first moonwalk Cernan caught a fender with his hammer and broke it, and dust sprayed everywhere. The crew fixed it with four map pages, tape and clamps. At the end it was parked here, and its TV camera sent pictures of the lander lifting off back to Earth.',
-    ],
   },
   {
     id: 'alsep',
@@ -74,12 +60,6 @@ export const APOLLO17: Historic[] = [
     z: -175.8,
     r: 22,
     icon: '📡',
-    name: ['月面実験装置 ALSEP', 'ALSEP science station'],
-    when: ['1回目の船外活動で設置', 'Set up on the first moonwalk'],
-    story: [
-      '原子力電池で動く、無人の観測所です。月の地面の中から出てくる熱、月のうすい「大気」、飛んでくるちり、地面のゆれなどを、1977年まで地球に送り続けました。2人は8か所に小さな爆薬を置き、帰ったあとに地球から合図して爆発させ、そのゆれから谷の地下のようすを調べました。',
-      'An unmanned station powered by a nuclear battery. Until 1977 it sent back measurements of the heat flowing out of the Moon, its very thin "atmosphere", flying dust and ground shaking. The crew also left eight small explosive charges; after they left, a signal from Earth set them off, and the shaking revealed what lies under the valley.',
-    ],
   },
   {
     id: 'st1',
@@ -89,12 +69,6 @@ export const APOLLO17: Historic[] = [
     z: 891.1,
     r: 28,
     icon: '①',
-    name: ['観測点1 スティーノ・クレーター', 'Station 1, Steno crater'],
-    when: ['1回目の船外活動', 'First moonwalk'],
-    story: [
-      '1回目の船外活動でただ一つ立ち寄った観測点です。クレーターのふちで岩や土を集め、地面のゆれを調べるための爆薬（6番）をここに置いていきました。',
-      'The only stop of the first moonwalk. The crew collected rocks and soil at the crater rim and left explosive charge number 6 here for the seismic experiment.',
-    ],
   },
   {
     id: 'st2',
@@ -105,12 +79,6 @@ export const APOLLO17: Historic[] = [
     z: 2637.4,
     r: 32,
     icon: '②',
-    name: ['観測点2 南の山のふもと', 'Station 2, foot of the South Massif'],
-    when: ['2回目の船外活動', 'Second moonwalk'],
-    story: [
-      '着陸船から約7.4 km、アポロ17号がいちばん遠くまで来た場所です。高さ2 km をこえる南マシフから転がり落ちてきた大きな岩を調べました。山の岩は、月ができてまもないころの、とても古い岩です。',
-      'About 7.4 km from the lander, the farthest Apollo 17 went. The crew studied big boulders that had rolled down the South Massif, a mountain over 2 km high. Mountain rocks like these date from soon after the Moon formed.',
-    ],
   },
   {
     id: 'st3',
@@ -120,12 +88,6 @@ export const APOLLO17: Historic[] = [
     z: 368.6,
     r: 30,
     icon: '③',
-    name: ['観測点3 ララ・クレーター', 'Station 3, Lara crater'],
-    when: ['2回目の船外活動', 'Second moonwalk'],
-    story: [
-      '南マシフから流れ出た「明るいマントル」という地すべりの土の上です。大昔、山がくずれて、明るい色の土が谷の底まで何kmも広がりました。',
-      'This spot sits on the "light mantle", a landslide that poured off the South Massif long ago and spread bright soil kilometres across the valley floor.',
-    ],
   },
   {
     id: 'st4',
@@ -136,12 +98,6 @@ export const APOLLO17: Historic[] = [
     z: -881.9,
     r: 30,
     icon: '④',
-    name: ['観測点4 ショーティ・クレーター', 'Station 4, Shorty crater'],
-    when: ['2回目の船外活動', 'Second moonwalk'],
-    story: [
-      '灰色ばかりの月で、シュミット飛行士が「オレンジ色の土がある！」と大発見をした場所です。調べると、約36億年前の火山のふん火でふき出した、とても小さなガラスの粒でした。月にも昔は火山があったのです。',
-      'On the grey Moon, Schmitt shouted that there was orange soil here. It turned out to be tiny glass beads sprayed out by a volcanic eruption about 3.6 billion years ago, proof that the Moon once had volcanoes.',
-    ],
   },
   {
     id: 'st5',
@@ -152,12 +108,6 @@ export const APOLLO17: Historic[] = [
     z: 17.3,
     r: 30,
     icon: '⑤',
-    name: ['観測点5 カメロット・クレーター', 'Station 5, Camelot crater'],
-    when: ['2回目の船外活動', 'Second moonwalk'],
-    story: [
-      '谷の底にあいたクレーターのふちに、黒っぽい玄武岩の大きな岩がごろごろしています。昔、溶岩が谷を埋めて固まった岩で、隕石がぶつかってほり出されました。',
-      'Big dark basalt boulders litter the rim of this crater. They are lava that once flooded and filled the valley, dug back up by an impact.',
-    ],
   },
   {
     id: 'st6',
@@ -168,12 +118,6 @@ export const APOLLO17: Historic[] = [
     z: -3142.7,
     r: 30,
     icon: '⑥',
-    name: ['観測点6 トレイシーの岩', "Station 6, Tracy's Rock"],
-    when: ['3回目の船外活動', 'Third moonwalk'],
-    story: [
-      '北マシフから転がり落ちて、いくつかに割れた家ほどの大岩です。セルナン船長は、この岩を娘のトレイシーさんにちなんで「トレイシーの岩」と呼びました。岩の上の山の斜面には、岩が転がってきた跡が今も残っています。',
-      "A house-sized boulder that rolled down the North Massif and split into pieces. Cernan called it Tracy's Rock after his daughter. The track it left rolling down the slope is still visible above it.",
-    ],
   },
   {
     id: 'st7',
@@ -183,12 +127,6 @@ export const APOLLO17: Historic[] = [
     z: -3176.6,
     r: 30,
     icon: '⑦',
-    name: ['観測点7 北の山のふもと', 'Station 7, foot of the North Massif'],
-    when: ['3回目の船外活動', 'Third moonwalk'],
-    story: [
-      '北マシフのふもとで、もう1つの大きな岩を調べました。山の岩を何か所かで集めると、山がどうやってできたかを比べられます。',
-      'Another boulder at the foot of the North Massif. Sampling the mountain in several places lets geologists compare how it formed.',
-    ],
   },
   {
     id: 'st8',
@@ -198,12 +136,6 @@ export const APOLLO17: Historic[] = [
     z: -2740.5,
     r: 30,
     icon: '⑧',
-    name: ['観測点8 彫刻の丘', 'Station 8, Sculptured Hills'],
-    when: ['3回目の船外活動', 'Third moonwalk'],
-    story: [
-      '「スカルプチャード・ヒルズ（彫刻の丘）」と呼ばれる、でこぼこした丘のふもとです。北マシフや南マシフとは見た目がちがう丘で、どうやってできたのかを調べるために岩を集めました。',
-      'The foot of the lumpy Sculptured Hills, which look different from the North and South Massifs. The crew collected rocks here to learn how they formed.',
-    ],
   },
   {
     id: 'st9',
@@ -213,12 +145,6 @@ export const APOLLO17: Historic[] = [
     z: -1368.4,
     r: 30,
     icon: '⑨',
-    name: ['観測点9 ヴァン・サーグ・クレーター', 'Station 9, Van Serg crater'],
-    when: ['3回目の船外活動・最後の観測点', 'Third moonwalk, the last stop'],
-    story: [
-      'アポロ17号の最後の観測点です。黒っぽいクレーターなので火山かもしれないと考えられていましたが、調べてみると、隕石がぶつかって砕けた土が固まったものでした。ここにも爆薬（5番）を置きました。このあと2人は着陸船にもどり、セルナン船長が月を歩いた最後の人になりました。',
-      'The last stop of Apollo 17. This dark crater was thought to be volcanic, but it turned out to be soil crushed and welded by an impact. Charge number 5 was left here too. Then the crew went back to the lander, and Cernan became the last person to walk on the Moon.',
-    ],
   },
 ]
 

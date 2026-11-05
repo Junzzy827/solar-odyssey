@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import { create } from 'zustand'
 import { PLANETS } from '../data/bodies'
-import { named, t } from '../i18n/lang'
 import { isTelescope, scopeName } from '../data/telescopes'
 import { SF_OBJECTS, sfEntry } from '../data/sf'
 import { RACE_TEXT, raceActive } from './race'
@@ -9,6 +8,7 @@ import { bodies } from './registry'
 import { useStore } from './store'
 import { playWarp, speak } from '../audio/sfx'
 import { planetLongitude, simDays } from '../data/ephemeris'
+import { ui } from '../i18n'
 
 const UP = new THREE.Vector3(0, 1, 0)
 
@@ -134,14 +134,14 @@ function warpCall(id: string, factor: number) {
 
 /** 天体の名前と、太陽からの実際の距離（衛星は親の惑星の距離） */
 export function bodyInfo(id: string) {
-  if (id === 'sun') return { name: t('太陽', 'Sun'), au: 0, parent: null as string | null }
+  if (id === 'sun') return { name: ui().flight.sun, au: 0, parent: null as string | null }
   const sf = sfEntry(id)
   if (sf) return { name: sf.name(), au: 0, parent: null }
   if (isTelescope(id)) return { name: scopeName(id), au: 0, parent: null }
   for (const p of PLANETS) {
-    if (p.id === id) return { name: named(p), au: p.distanceAu, parent: null }
+    if (p.id === id) return { name: ui().bodies[p.id].name, au: p.distanceAu, parent: null }
     const moon = p.moons.find((m) => m.id === id)
-    if (moon) return { name: named(moon), au: p.distanceAu, parent: named(p) }
+    if (moon) return { name: ui().bodies[moon.id].name, au: p.distanceAu, parent: ui().bodies[p.id].name }
   }
   // 任務の小惑星など、一時的に加わったもの
   const extra = bodies.get(id)

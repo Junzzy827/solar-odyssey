@@ -1,12 +1,14 @@
 import { create } from 'zustand'
-import { FACTS, type Quiz } from '../data/facts'
-import { FACTS_EN } from '../data/facts.en'
+import type { Quiz } from '../data/facts'
+import { FACTS } from '../i18n/facts.ja'
+import { FACTS_EN } from '../i18n/facts.en'
 import { PLANETS, type Planet } from '../data/bodies'
 import { isSFObject } from '../data/sf'
 import { bodyInfo, engage } from './flight'
 import { useStore } from './store'
 import { closeProbes } from './probes'
 import { getLang } from '../i18n/lang'
+import { uiEn, uiJa } from '../i18n'
 
 // 連続クイズ：航海日誌のクイズと、天体のデータから作る「くらべる」問題を混ぜて10問続けて出す。
 // まちがえた天体は、終わったあとにワープして見に行ける
@@ -113,13 +115,13 @@ const MAKERS: (() => QuizQuestion)[] = [
     return {
       bodyId: top.id,
       question: 'この中で、いちばん大きい惑星は？',
-      choices: three.map((p) => p.name),
+      choices: three.map((p) => uiJa.bodies[p.id].name),
       answer: three.indexOf(top),
-      explanation: `${top.name}の直径は約${num(top.radiusKm * 2)}km。地球の約${num(top.radiusKm / 6371)}倍です。`,
+      explanation: `${uiJa.bodies[top.id].name}の直径は約${num(top.radiusKm * 2)}km。地球の約${num(top.radiusKm / 6371)}倍です。`,
       en: {
         question: 'Which of these planets is the biggest?',
-        choices: three.map((p) => p.nameEn),
-        explanation: `${top.nameEn} is about ${num(top.radiusKm * 2)} km across, about ${num(top.radiusKm / 6371)} times Earth.`,
+        choices: three.map((p) => uiEn.bodies[p.id].name),
+        explanation: `${uiEn.bodies[top.id].name} is about ${num(top.radiusKm * 2)} km across, about ${num(top.radiusKm / 6371)} times Earth.`,
       },
     }
   },
@@ -129,13 +131,13 @@ const MAKERS: (() => QuizQuestion)[] = [
     return {
       bodyId: top.id,
       question: 'この中で、太陽からいちばん遠い惑星は？',
-      choices: three.map((p) => p.name),
+      choices: three.map((p) => uiJa.bodies[p.id].name),
       answer: three.indexOf(top),
-      explanation: `${top.name}は太陽から地球の約${num(top.distanceAu)}倍の距離にあり、太陽の光が届くのに${lightTime(top.distanceAu)}かかります。`,
+      explanation: `${uiJa.bodies[top.id].name}は太陽から地球の約${num(top.distanceAu)}倍の距離にあり、太陽の光が届くのに${lightTime(top.distanceAu)}かかります。`,
       en: {
         question: 'Which of these planets is farthest from the Sun?',
-        choices: three.map((p) => p.nameEn),
-        explanation: `${top.nameEn} is about ${num(top.distanceAu)} times as far from the Sun as Earth, and sunlight takes ${lightTimeEn(top.distanceAu)} to get there.`,
+        choices: three.map((p) => uiEn.bodies[p.id].name),
+        explanation: `${uiEn.bodies[top.id].name} is about ${num(top.distanceAu)} times as far from the Sun as Earth, and sunlight takes ${lightTimeEn(top.distanceAu)} to get there.`,
       },
     }
   },
@@ -146,13 +148,13 @@ const MAKERS: (() => QuizQuestion)[] = [
     return {
       bodyId: top.id,
       question: 'この中で、太陽のまわりを1周するのにいちばん時間がかかる惑星は？',
-      choices: three.map((p) => p.name),
+      choices: three.map((p) => uiJa.bodies[p.id].name),
       answer: three.indexOf(top),
-      explanation: `${top.name}の1年（太陽を1周する時間）は${years >= 1 ? `約${num(years)}年` : `約${num(top.orbitDays)}日`}。太陽から遠いほど、ゆっくり大回りします。`,
+      explanation: `${uiJa.bodies[top.id].name}の1年（太陽を1周する時間）は${years >= 1 ? `約${num(years)}年` : `約${num(top.orbitDays)}日`}。太陽から遠いほど、ゆっくり大回りします。`,
       en: {
         question: 'Which of these planets takes the longest to go around the Sun once?',
-        choices: three.map((p) => p.nameEn),
-        explanation: `A year on ${top.nameEn} (one trip around the Sun) is ${years >= 1 ? `about ${num(years)} years` : `about ${num(top.orbitDays)} days`}. The farther from the Sun, the slower and wider the loop.`,
+        choices: three.map((p) => uiEn.bodies[p.id].name),
+        explanation: `A year on ${uiEn.bodies[top.id].name} (one trip around the Sun) is ${years >= 1 ? `about ${num(years)} years` : `about ${num(top.orbitDays)} days`}. The farther from the Sun, the slower and wider the loop.`,
       },
     }
   },
@@ -163,13 +165,13 @@ const MAKERS: (() => QuizQuestion)[] = [
     return {
       bodyId: top.id,
       question: 'この中で、1回の自転（1日）がいちばん短い惑星は？',
-      choices: three.map((p) => p.name),
+      choices: three.map((p) => uiJa.bodies[p.id].name),
       answer: three.indexOf(top),
-      explanation: `${top.name}は${duration(spin(top))}で1回自転します。木星や土星のような大きなガスの惑星は、とても速く回っています。`,
+      explanation: `${uiJa.bodies[top.id].name}は${duration(spin(top))}で1回自転します。木星や土星のような大きなガスの惑星は、とても速く回っています。`,
       en: {
         question: 'Which of these planets has the shortest day (one spin)?',
-        choices: three.map((p) => p.nameEn),
-        explanation: `${top.nameEn} spins once in ${durationEn(spin(top))}. Big gas planets like Jupiter and Saturn spin very fast.`,
+        choices: three.map((p) => uiEn.bodies[p.id].name),
+        explanation: `${uiEn.bodies[top.id].name} spins once in ${durationEn(spin(top))}. Big gas planets like Jupiter and Saturn spin very fast.`,
       },
     }
   },
@@ -180,14 +182,14 @@ const MAKERS: (() => QuizQuestion)[] = [
     const choices = shuffle([parent, ...others])
     return {
       bodyId: moon.id,
-      question: `${moon.name}は、どの天体のまわりを回る衛星？`,
-      choices: choices.map((p) => p.name),
+      question: `${uiJa.bodies[moon.id].name}は、どの天体のまわりを回る衛星？`,
+      choices: choices.map((p) => uiJa.bodies[p.id].name),
       answer: choices.indexOf(parent),
-      explanation: `${moon.name}は${parent.name}の衛星で、${duration(Math.abs(moon.orbitDays) * 24)}で${parent.name}を1周します${moon.orbitDays < 0 ? '（ほかの衛星と逆向き）' : ''}。`,
+      explanation: `${uiJa.bodies[moon.id].name}は${uiJa.bodies[parent.id].name}の衛星で、${duration(Math.abs(moon.orbitDays) * 24)}で${uiJa.bodies[parent.id].name}を1周します${moon.orbitDays < 0 ? '（ほかの衛星と逆向き）' : ''}。`,
       en: {
-        question: `Which world does ${moon.nameEn} orbit?`,
-        choices: choices.map((p) => p.nameEn),
-        explanation: `${moon.nameEn} is a moon of ${parent.nameEn} and goes around it once in ${durationEn(Math.abs(moon.orbitDays) * 24)}${moon.orbitDays < 0 ? ' (the opposite way to the other moons)' : ''}.`,
+        question: `Which world does ${uiEn.bodies[moon.id].name} orbit?`,
+        choices: choices.map((p) => uiEn.bodies[p.id].name),
+        explanation: `${uiEn.bodies[moon.id].name} is a moon of ${uiEn.bodies[parent.id].name} and goes around it once in ${durationEn(Math.abs(moon.orbitDays) * 24)}${moon.orbitDays < 0 ? ' (the opposite way to the other moons)' : ''}.`,
       },
     }
   },

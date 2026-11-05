@@ -1,4 +1,4 @@
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 
 /**
  * 艦橋（ブリッジ）の中の部屋。座標は m で、床の中心が原点、-Z が船の前。
@@ -33,12 +33,12 @@ export type Viewpoint = {
 }
 
 export const VIEWPOINTS: Viewpoint[] = [
-  { id: 'captain', name: () => t('艦長席', 'Captain’s chair'), eye: [0, 1.25, 0.55], look: [0, 1.15, -10] },
-  { id: 'helm', name: () => t('操舵席', 'Helm'), eye: [-1.0, 1.15, -1.75], look: [-1.0, 0.9, -10] },
-  { id: 'window', name: () => t('窓のそば', 'At the window'), eye: [1.2, 1.65, -5.3], look: [2.6, 0.5, -12] },
-  { id: 'rail', name: () => t('後ろの手すり', 'Aft rail'), eye: [0, ROOM.deck + 1.65, 4.4], look: [0, 1.1, -4] },
-  { id: 'science', name: () => t('科学ステーション', 'Science station'), eye: [-5.6, ROOM.deck + 1.6, 2.6], look: [0, 1, -2] },
-  { id: 'overhead', name: () => t('天井から', 'From above'), eye: [4.2, 3.7, 4.2], look: [0, 0.4, -1.2] },
+  { id: 'captain', name: () => ui().bridge.captainsChair, eye: [0, 1.25, 0.55], look: [0, 1.15, -10] },
+  { id: 'helm', name: () => ui().bridge.helm, eye: [-1.0, 1.15, -1.75], look: [-1.0, 0.9, -10] },
+  { id: 'window', name: () => ui().bridge.atWindow, eye: [1.2, 1.65, -5.3], look: [2.6, 0.5, -12] },
+  { id: 'rail', name: () => ui().bridge.aftRail, eye: [0, ROOM.deck + 1.65, 4.4], look: [0, 1.1, -4] },
+  { id: 'science', name: () => ui().bridge.scienceStation, eye: [-5.6, ROOM.deck + 1.6, 2.6], look: [0, 1, -2] },
+  { id: 'overhead', name: () => ui().bridge.fromAbove, eye: [4.2, 3.7, 4.2], look: [0, 0.4, -1.2] },
 ]
 
 export const viewpoint = (id: ViewpointId) => VIEWPOINTS.find((v) => v.id === id) ?? VIEWPOINTS[0]

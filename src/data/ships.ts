@@ -1,5 +1,6 @@
 import { useStore } from '../state/store'
-import { COMPARE_VIEW, DEFAULT_VIEW, METERS_PER_UNIT, SHIP_LENGTH_M, SHIP_PARTS, SHOTS, type ShipPart, type View } from './shipParts'
+import { COMPARE_VIEW, DEFAULT_VIEW, METERS_PER_UNIT, SHIP_LENGTH_M, SHIP_PARTS, SHOTS, type ShipPart, type ShipPartText, type View } from './shipParts'
+import { ui } from '../i18n'
 
 // 乗る船をえらべる。SV-01 のほかの船は Blender で組み立てたモデル（tools/blender/build_fleet.py）。
 // どれもこのアプリのオリジナルの空想の船で、本物の科学や乗り物と結びつく話をそえる。
@@ -19,14 +20,6 @@ export type Decal = { text: string; pos: [number, number, number]; rot: [number,
 export type ShipSpec = {
   id: ShipId
   registry: string
-  name: string
-  nameEn: string
-  /** 船の種類 */
-  kind: string
-  kindEn: string
-  /** 選ぶ画面の紹介文 */
-  blurb: string
-  blurbEn: string
   /** 設定上の全長（m） */
   lengthM: number
   /** 模型の座標の 1 が何 m か */
@@ -52,6 +45,16 @@ export type ShipSpec = {
   spinSeconds?: number
   /** 選ぶ画面のカードの色（外板の主な色） */
   swatch: string[]
+}
+
+/** ShipSpec の文言（日本語は src/i18n/ships.ja.ts、英語は ships.en.ts） */
+export type ShipSpecText = {
+  name: string
+  /** 船の種類 */
+  kind: string
+  /** 選ぶ画面の紹介文 */
+  blurb: string
+  parts: Record<string, ShipPartText>
 }
 
 type Vec3 = [number, number, number]
@@ -105,12 +108,6 @@ const PI = Math.PI
 const SV01: ShipSpec = {
   id: 'sv01',
   registry: 'SV-01',
-  name: 'ソーラーボイジャー',
-  nameEn: 'Solar Voyager',
-  kind: '調査船',
-  kindEn: 'Survey vessel',
-  blurb: '円盤部と2本のナセルを持つ、この船団の旗艦。バランスのよい船です。',
-  blurbEn: 'The flagship: a saucer and two nacelles. A well-balanced ship.',
   lengthM: SHIP_LENGTH_M,
   metersPerUnit: METERS_PER_UNIT,
   turn: 1,
@@ -137,12 +134,6 @@ const SV01: ShipSpec = {
 const HERON: ShipSpec = {
   id: 'heron',
   registry: 'SC-03',
-  name: 'ホワイトヘロン',
-  nameEn: 'White Heron',
-  kind: '探査母艦',
-  kindEn: 'Survey carrier',
-  blurb: '前へ長く伸びた2本の「脚」に、小型の探査艇を積む白い母艦。武装はありません。',
-  blurbEn: 'A white carrier whose two long forward "legs" hold small survey craft. It has no weapons.',
   lengthM: 400,
   metersPerUnit: 400 / 1.06,
   turn: 0.9,
@@ -151,60 +142,36 @@ const HERON: ShipSpec = {
   parts: [
     {
       id: 'legs',
-      name: '脚（格納庫と発進甲板）',
-      nameEn: 'Legs (hangars and launch decks)',
-      text: '左右に伸びた脚の中は、小型の探査艇の格納庫という設定です。上の甲板の光る線は、探査艇を押し出す発進レール（カタパルト）。本物の空母も、短い甲板で飛行機を飛ばすためにカタパルトを使います。',
-      textEn: 'In the story, each leg holds a hangar for small survey craft. The glowing line on top is a launch rail (catapult). Real aircraft carriers use catapults too, to launch planes from a short deck.',
       pos: [0.212, 0.03, -0.2],
       side: [0, 1, 0],
       view: { yaw: PI - 0.9, pitch: 0.42, dist: 0.85, target: [0.15, 0, -0.2] },
     },
     {
       id: 'bay',
-      name: '発進口',
-      nameEn: 'Launch bay',
-      text: '脚の先の開いた口。奥に格納庫の明かりが見えます。探査艇はここから前へ飛び出し、帰りもここへ入ります。',
-      textEn: 'The open mouth at the tip of each leg. You can see the hangar lights inside. Survey craft fly out forward here and come back the same way.',
       pos: [-0.212, -0.04, -0.48],
       side: [0, 0, -1],
       view: { yaw: PI + 0.45, pitch: 0.12, dist: 0.42, target: [-0.212, -0.044, -0.46] },
     },
     {
       id: 'bridge',
-      name: '艦橋（ブリッジ）',
-      nameEn: 'Bridge',
-      text: '背中に高く立つ塔の上が、船を指揮する部屋。左右に張り出しているのは、外を直接見るための見張り台（ブリッジウイング）で、本物の船にもあります。',
-      textEn: 'The command room sits on the tall tower on the ship’s back. The parts sticking out to each side are bridge wings for looking outside directly, just like on real ships.',
       pos: [0, 0.17, 0],
       side: [0, 1, 0],
       view: { yaw: PI - 0.6, pitch: 0.28, dist: 0.38, target: [0, 0.15, -0.01] },
     },
     {
       id: 'sensors',
-      name: 'アンテナとセンサー',
-      nameEn: 'Antennas and sensors',
-      text: '塔のてっぺんのアンテナと小さな皿は、通信と観測のため。本物の探査機も、地球と話すための皿形のアンテナ（ハイゲインアンテナ）を持っています。',
-      textEn: 'The mast and small dish on top are for radio and observation. Real space probes also carry a dish (a high-gain antenna) to talk to Earth.',
       pos: [0.024, 0.19, 0.035],
       side: null,
       view: { yaw: PI - 1.2, pitch: 0.35, dist: 0.3, target: [0.01, 0.18, 0.02] },
     },
     {
       id: 'engines',
-      name: '主機',
-      nameEn: 'Main engines',
-      text: '後ろの左右の機関ブロックに、ベル形の噴射口が2つずつ。本物のロケットのノズルも、ガスを広げて速く吹き出すためにこの形をしています。',
-      textEn: 'Two bell-shaped nozzles on each engine block at the back. Real rocket nozzles have this shape too: it lets the gas expand and shoot out faster.',
       pos: [0.118, 0.004, 0.55],
       side: [0, 0, 1],
       view: { yaw: 0.45, pitch: 0.2, dist: 0.6, target: [0, 0, 0.45] },
     },
     {
       id: 'wings',
-      name: '翼と尾翼',
-      nameEn: 'Wings and tail fins',
-      text: '宇宙には空気がないので、本当は翼は要りません。この船では、熱を逃がす放熱板と、大気のある星に近づくときの安定のための板、という設定です。',
-      textEn: 'Space has no air, so a ship does not really need wings. On this ship they double as radiators to shed heat, and steady the ship near worlds with air.',
       pos: [0.36, -0.02, 0.44],
       side: null,
       view: { yaw: 1.1, pitch: 0.5, dist: 0.9, target: [0.15, 0.02, 0.38] },
@@ -263,12 +230,6 @@ const HERON: ShipSpec = {
 const SORAKAZE: ShipSpec = {
   id: 'sorakaze',
   registry: 'LS-04',
-  name: 'ソラカゼ',
-  nameEn: 'Sorakaze',
-  kind: '光帆の連絡船',
-  kindEn: 'Light-sail courier',
-  blurb: '6枚の細長い帆をゆっくり回し、太陽の光に押されて進む小さな船。身軽でよく曲がります。',
-  blurbEn: 'A small ship that spins six long, thin sails and is pushed along by sunlight. Light and nimble.',
   lengthM: 150,
   metersPerUnit: 150 / 0.93,
   turn: 1.35,
@@ -277,50 +238,30 @@ const SORAKAZE: ShipSpec = {
   parts: [
     {
       id: 'blades',
-      name: '光の帆',
-      nameEn: 'Light sails',
-      text: '光は、当たったものをほんの少し押します。うすい鏡の帆でその力を集めて進みます。2010年、日本の「イカロス」が、太陽の光の力で宇宙を進んだ初めての宇宙船になりました。イカロスの帆の厚さは0.0075mm。',
-      textEn: 'Light gives a tiny push to whatever it hits. Thin mirror sails gather that push. In 2010 Japan’s IKAROS became the first spacecraft to travel through space on sunlight. Its sail was only 0.0075 mm thick.',
       pos: [0.45, 0, 0.05],
       side: null,
       view: { yaw: PI - 0.5, pitch: 0.5, dist: 1.9, target: [0, 0, 0] },
     },
     {
       id: 'hub',
-      name: '帆の軸',
-      nameEn: 'Sail hub',
-      text: '帆はゆっくり回って、遠心力でぴんと張ります。こういう形を「ヘリオジャイロ」と呼び、NASAが研究してきました。イカロスも回転して帆を広げました。',
-      textEn: 'The sails turn slowly, and the spin keeps them stretched tight. This design is called a heliogyro, and NASA has studied it. IKAROS also spun to unfold its sail.',
       pos: [0, 0.06, 0.05],
       side: null,
       view: { yaw: PI - 0.9, pitch: 0.3, dist: 0.5, target: [0, 0, 0.05] },
     },
     {
       id: 'capsule',
-      name: '居住区',
-      nameEn: 'Crew module',
-      text: '2人が乗れる小さな区画。燃料をほとんど積まないので、船はとても軽くできます。',
-      textEn: 'A small module for a crew of two. The ship carries almost no fuel, so it can be very light.',
       pos: [0, 0.05, -0.32],
       side: null,
       view: { yaw: PI - 0.7, pitch: 0.25, dist: 0.5, target: [0, 0, -0.3] },
     },
     {
       id: 'panels',
-      name: '太陽電池と放熱板',
-      nameEn: 'Solar panels and radiators',
-      text: '電気をつくり、いらない熱を宇宙へ逃がす板。宇宙では空気で冷やせないので、熱は光（赤外線）にして捨てます。',
-      textEn: 'Panels that make power and get rid of extra heat. There is no air in space to cool things, so heat is thrown away as light (infrared).',
       pos: [0.12, 0.01, 0.27],
       side: null,
       view: { yaw: 0.9, pitch: 0.5, dist: 0.55, target: [0.05, 0, 0.27] },
     },
     {
       id: 'ion',
-      name: 'イオンエンジン',
-      nameEn: 'Ion thrusters',
-      text: '向きを変えたり、細かく速さを合わせたりする小さなエンジン。本物では「はやぶさ」や「はやぶさ2」がイオンエンジンで小惑星まで旅しました。',
-      textEn: 'Small engines for turning and fine speed changes. In real life, Japan’s Hayabusa and Hayabusa2 used ion engines to reach asteroids.',
       pos: [0, 0, 0.43],
       side: [0, 0, 1],
       view: { yaw: 0.4, pitch: 0.25, dist: 0.4, target: [0, 0, 0.4] },
@@ -364,12 +305,6 @@ const SORAKAZE: ShipSpec = {
 const HAKOBUNE: ShipSpec = {
   id: 'hakobune',
   registry: 'HT-05',
-  name: 'ハコブネ',
-  nameEn: 'Hakobune',
-  kind: '大型貨物船',
-  kindEn: 'Heavy freighter',
-  blurb: '長い骨組みにコンテナをびっしり抱え、後ろの核融合ロケットで進む大きな貨物船。ゆっくり、どっしり曲がります。',
-  blurbEn: 'A big freighter: a long frame packed with cargo containers, pushed by a fusion rocket at the back. It turns slowly and steadily.',
   lengthM: 800,
   metersPerUnit: 800 / 1.053,
   turn: 0.7,
@@ -378,50 +313,30 @@ const HAKOBUNE: ShipSpec = {
   parts: [
     {
       id: 'cab',
-      name: '操縦区画',
-      nameEn: 'Command module',
-      text: '乗組員が暮らし、船を動かす区画。前の黄色と黒の帯は、ほかの船や基地とつながるドッキング口の目印です。',
-      textEn: 'Where the crew live and fly the ship. The yellow-and-black stripes at the front mark the docking port where it links to other ships and stations.',
       pos: [0, 0.07, -0.42],
       side: null,
       view: { yaw: PI - 0.6, pitch: 0.25, dist: 0.6, target: [0, 0, -0.42] },
     },
     {
       id: 'cargo',
-      name: 'コンテナ',
-      nameEn: 'Cargo containers',
-      text: '同じ大きさの箱に荷物を入れて運ぶのは、地球の貨物船と同じ考え方です。積み下ろしが速く、どの港でも同じ道具で扱えます。',
-      textEn: 'Packing goods into boxes of one size is the same idea as cargo ships on Earth. Loading is fast, and every port can handle them with the same tools.',
       pos: [0, 0.11, 0],
       side: null,
       view: { yaw: PI - 1.1, pitch: 0.3, dist: 0.95, target: [0, 0, 0] },
     },
     {
       id: 'radiators',
-      name: '放熱板',
-      nameEn: 'Radiators',
-      text: '核融合炉の熱を宇宙へ逃がす大きな板。国際宇宙ステーションにも、白い大きな放熱板があります。',
-      textEn: 'Big panels that shed the reactor’s heat into space. The International Space Station also has large white radiators.',
       pos: [0.2, 0.2, 0.2],
       side: null,
       view: { yaw: 0.9, pitch: 0.45, dist: 0.95, target: [0, 0, 0.2] },
     },
     {
       id: 'reactor',
-      name: '核融合炉と遮へい板',
-      nameEn: 'Fusion reactor and shield',
-      text: '太陽と同じ「核融合」でエネルギーをつくる炉、という設定です。前の金色の板は、放射線から乗組員と荷物を守る盾。本物の核融合炉は、まだ地上で研究中です。',
-      textEn: 'In the story, the reactor makes energy by fusion, like the Sun. The gold plate in front shields the crew and cargo from radiation. Real fusion reactors are still being researched on Earth.',
       pos: [0, 0.08, 0.36],
       side: null,
       view: { yaw: 0.7, pitch: 0.3, dist: 0.55, target: [0, 0, 0.37] },
     },
     {
       id: 'nozzle',
-      name: '磁気ノズル',
-      nameEn: 'Magnetic nozzle',
-      text: 'とても熱いガス（プラズマ）は、どんな金属も溶かします。そこで、輪の形の電磁石が作る磁場で、プラズマに触れずに後ろへ吹き出します。',
-      textEn: 'Very hot gas (plasma) would melt any metal. So ring-shaped electromagnets make a magnetic field that pushes the plasma out the back without touching it.',
       pos: [0, 0.08, 0.5],
       side: [0, 0, 1],
       view: { yaw: 0.45, pitch: 0.2, dist: 0.45, target: [0, 0, 0.48] },
@@ -467,12 +382,6 @@ const HAKOBUNE: ShipSpec = {
 const MEGURI: ShipSpec = {
   id: 'meguri',
   registry: 'RS-06',
-  name: 'メグリ',
-  nameEn: 'Meguri',
-  kind: '回転リングの探査船',
-  kindEn: 'Ring-ship explorer',
-  blurb: '輪に並べた10個のモジュールが回り、遠心力で床に重さを作る長旅の船。2機の着陸艇を積んでいます。',
-  blurbEn: 'A long-voyage ship whose ring of ten modules spins to make gravity on the floors. It carries two landers.',
   lengthM: 100,
   metersPerUnit: 45 / 0.42,
   turn: 1.1,
@@ -482,60 +391,36 @@ const MEGURI: ShipSpec = {
   parts: [
     {
       id: 'ring',
-      name: '回るリング',
-      nameEn: 'Spinning ring',
-      text: '直径約90mの輪が13.5秒で1回まわると、外側の床で地球と同じ重さ（1G）を感じます。回る乗り物の外側へ押しつけられる力（遠心力）を、重力のかわりに使う考え方です。長く無重力でいると骨や筋肉が弱るので、本物の宇宙でも研究されています。',
-      textEn: 'When the ring, about 90 m across, turns once every 13.5 seconds, the outer floor feels like Earth’s gravity (1 g). It uses the push you feel toward the outside of a turning ride in place of gravity. Long stays without gravity weaken bones and muscles, so real scientists study this idea too.',
       pos: [0.42, 0.06, 0],
       side: null,
       view: { yaw: PI - 0.7, pitch: 0.35, dist: 1.6, target: [0, 0, 0] },
     },
     {
       id: 'modules',
-      name: '居住区と機械区画',
-      nameEn: 'Crew and service modules',
-      text: '窓の並ぶ白いモジュールが乗組員の部屋、金色の断熱材を貼った灰色のモジュールが水・空気・電気をつくる機械の区画。交互に並べて、輪の重さをつり合わせています。',
-      textEn: 'The white modules with rows of windows are crew quarters; the grey ones with gold insulation hold machines for water, air and power. They alternate so the ring stays balanced.',
       pos: [-0.42, 0.06, 0],
       side: null,
       view: { yaw: PI + 1.2, pitch: 0.25, dist: 0.6, target: [-0.36, 0, 0] },
     },
     {
       id: 'hub',
-      name: 'ハブとスポーク',
-      nameEn: 'Hub and spokes',
-      text: '真ん中の軸は回らず、まわりのハブだけが軸受けで回ります。スポークの中は通路で、輪の外側へ行くほど体が重くなります。',
-      textEn: 'The central spine does not turn; only the hub around it spins on bearings. The spokes are corridors, and you feel heavier the farther out you go.',
       pos: [0, 0.09, 0],
       side: null,
       view: { yaw: PI - 0.5, pitch: 0.3, dist: 0.6, target: [0, 0, 0] },
     },
     {
       id: 'landers',
-      name: '着陸艇',
-      nameEn: 'Landers',
-      text: '軸の上と下に1機ずつ、腹を軸に向けてドッキングしています。全長24m・12人乗りの、どの船も使う共通の着陸船です。ドッキング中は4本の脚をたたんでいて、惑星や衛星に降りるときに広げます。',
-      textEn: 'One above the spine and one below, docked belly-in. They are the 24 m, 12-crew landers that every ship uses. The four legs stay folded while docked and unfold to land on planets and moons.',
       pos: [0, 0.112, -0.2],
       side: null,
       view: { yaw: PI - 1.0, pitch: 0.25, dist: 0.6, target: [0, 0, -0.18] },
     },
     {
       id: 'cab',
-      name: '操縦区画',
-      nameEn: 'Command module',
-      text: '軸の前の、回らない区画。船を操縦する部屋と、前のドッキング口があります。',
-      textEn: 'The non-spinning module at the front of the spine, with the flight deck and a docking port at the nose.',
       pos: [0, 0.06, -0.32],
       side: null,
       view: { yaw: PI - 0.6, pitch: 0.25, dist: 0.45, target: [0, 0, -0.32] },
     },
     {
       id: 'engines',
-      name: '主機と放熱板',
-      nameEn: 'Engines and radiators',
-      text: '後ろの3つの噴射口で進み、左右の板でエンジンの熱を宇宙へ逃がします。',
-      textEn: 'Three nozzles at the back push the ship; the side panels shed the engines’ heat into space.',
       pos: [0.14, 0.01, 0.26],
       side: null,
       view: { yaw: 0.5, pitch: 0.3, dist: 0.6, target: [0, 0, 0.36] },
@@ -578,12 +463,6 @@ const MEGURI: ShipSpec = {
 const AMATSU: ShipSpec = {
   id: 'amatsu',
   registry: 'SA-07',
-  name: 'アマツカゼ',
-  nameEn: 'Amatsukaze',
-  kind: '宇宙航行船',
-  kindEn: 'Ocean-hull starship',
-  blurb: '海を行く大きな船の姿のまま宇宙へ出た観測船。白銀の船体に臙脂の船底、ひさしが重なる細い艦橋、船尾の大きな噴射口。甲板には大砲のかわりに真鍮色の天文台があります。',
-  blurbEn: 'An observation starship shaped like a great ocean ship: silver hull, deep red bottom, a slim bridge tower with layered eaves, big engine at the stern. Its deck carries brass observatory domes instead of guns.',
   lengthM: 270,
   metersPerUnit: 270 / 1.04,
   turn: 0.85,
@@ -592,60 +471,36 @@ const AMATSU: ShipSpec = {
   parts: [
     {
       id: 'hull',
-      name: '船体',
-      nameEn: 'Hull',
-      text: '海の船と同じ形の船体。宇宙では水も空気もないので、本当はこの形でなくても進めます。この船は、海に降りて浮かび、港で点検できるように作られた、という設定です。船底の赤は、海の船が貝や海藻をつきにくくする塗料の色と同じです。',
-      textEn: 'The hull is shaped like an ocean ship. In space there is no water or air, so a ship does not need this shape. In the story it can land on a sea, float, and be checked in harbour. The red bottom is the colour of the paint real ships use to keep shellfish and seaweed off.',
       pos: [0.1, -0.04, 0.15],
       side: null,
       view: { yaw: PI / 2 + 0.2, pitch: 0.08, dist: 1.5, target: [0, 0, 0] },
     },
     {
       id: 'telescope',
-      name: '船首の望遠鏡',
-      nameEn: 'Bow telescope',
-      text: '船首の丸い口は、大きな望遠鏡の入り口。船ごと向きを変えて、遠くの星や銀河をねらいます。ハッブル宇宙望遠鏡も、望遠鏡ごと向きを変えて観測します。',
-      textEn: 'The round mouth at the bow is the opening of a big telescope. The whole ship turns to aim it at distant stars and galaxies. The Hubble Space Telescope also turns its whole body to point.',
       pos: [0, 0.012, -0.5],
       side: [0, 0, -1],
       view: { yaw: PI + 0.35, pitch: 0.12, dist: 0.4, target: [0, 0.01, -0.46] },
     },
     {
       id: 'domes',
-      name: '天文台のドーム',
-      nameEn: 'Observatory domes',
-      text: '甲板の丸い屋根は天文台。縦のすき間（スリット）の扉がときどき開いて、中の望遠鏡で空を見ます。地上の天文台と同じしくみです。',
-      textEn: 'The round roofs on deck are observatories. A slot opens and the telescope inside looks at the sky, just like observatories on Earth.',
       pos: [0, 0.09, -0.2],
       side: [0, 1, 0],
       view: { yaw: PI - 0.6, pitch: 0.4, dist: 0.6, target: [0, 0.05, -0.2] },
     },
     {
       id: 'bridge',
-      name: '艦橋',
-      nameEn: 'Bridge tower',
-      text: '上へ行くほど細くなる塔のいちばん上、窓の帯がある部分が、船を指揮する部屋。高いところほど遠くまで見渡せるので、海の船も艦橋を高くしています。',
-      textEn: 'The command room is at the top of the tapering tower, behind the band of windows. The higher you are, the farther you can see, which is why ocean ships build tall bridges too.',
       pos: [0, 0.235, 0.04],
       side: null,
       view: { yaw: PI - 0.7, pitch: 0.25, dist: 0.55, target: [0, 0.15, 0.03] },
     },
     {
       id: 'stack',
-      name: '排熱塔',
-      nameEn: 'Heat stack',
-      text: '海の船の煙突の位置にあるのは、エンジンの熱を逃がす塔。宇宙では空気で冷やせないので、熱は光（赤外線）にして宇宙へ捨てます。',
-      textEn: 'Where an ocean ship has its funnel, this ship has a tower that sheds engine heat. Space has no air to cool things, so heat is thrown away as light (infrared).',
       pos: [0, 0.11, 0.15],
       side: null,
       view: { yaw: 0.9, pitch: 0.35, dist: 0.5, target: [0, 0.08, 0.14] },
     },
     {
       id: 'engine',
-      name: '主噴射口',
-      nameEn: 'Main engine',
-      text: '船尾の大きな噴射口がひとつと、左右に小さな補助の噴射口。大きな噴射口で進み、小さいほうで向きや速さを細かく合わせます。',
-      textEn: 'One big nozzle at the stern and small helpers on each side. The big one pushes the ship; the small ones fine-tune direction and speed.',
       pos: [0, 0.05, 0.5],
       side: [0, 0, 1],
       view: { yaw: 0.4, pitch: 0.2, dist: 0.5, target: [0, 0, 0.45] },
@@ -699,12 +554,6 @@ const am = (x: number, y: number, z: number): Vec3 => [x * AS, z * AS, -y * AS]
 const ARCADIA: ShipSpec = {
   id: 'arcadia',
   registry: 'MC-09',
-  name: 'アルカディア',
-  nameEn: 'Arcadia',
-  kind: '機動母艦',
-  kindEn: 'Mobile carrier',
-  blurb: '全長1,200mの大きな母艦。前に突き出た2本の舳先のあいだが発進路で、着陸船を送り出せます（L キーか「発進」ボタン）。白い装甲に赤い船底、多段の艦橋。',
-  blurbEn: 'A 1,200 m carrier. The launch deck runs between its two forward prongs and can send out a lander (L key or the Launch button). White armour, red keel, a tall stepped bridge.',
   lengthM: 1200,
   metersPerUnit: 1 / AS,
   turn: 0.6,
@@ -713,50 +562,30 @@ const ARCADIA: ShipSpec = {
   parts: [
     {
       id: 'prongs',
-      name: '2本の舳先と発進路',
-      nameEn: 'Twin prongs and launch deck',
-      text: '前へ長く突き出た2本の舳先のあいだが、着陸船や小型艇の発進路です。床のレールで加速して、青い誘導灯に沿って前へ飛び出します。本物の空母も、カタパルトで飛行機を短い距離で加速させます。',
-      textEn: 'The launch deck runs between the two long forward prongs. Landers and small craft are pushed along rails and fly out past the blue guide lights. Real aircraft carriers also use catapults to get planes up to speed on a short deck.',
       pos: am(0, 420, 10),
       side: [0, 1, 0],
       view: { yaw: PI + 0.5, pitch: 0.35, dist: 0.55, target: am(0, 380, 0) },
     },
     {
       id: 'bridge',
-      name: '艦橋',
-      nameEn: 'Bridge tower',
-      text: '段を重ねた塔のいちばん上で船を指揮します。左右に張り出した細長い筒はセンサーの腕で、まわりの船や小惑星を見張ります。',
-      textEn: 'The ship is commanded from the top of the stepped tower. The long tubes reaching forward on each side are sensor arms that watch for other ships and asteroids.',
       pos: am(0, -190, 140),
       side: null,
       view: { yaw: PI - 0.7, pitch: 0.3, dist: 0.45, target: am(0, -190, 100) },
     },
     {
       id: 'pods',
-      name: '格納庫のポッド',
-      nameEn: 'Hangar pods',
-      text: '脇腹の六角形の筒が格納庫。前の暗い円すいの先から、小型艇が射出されます。設定上は1,800機を積めます。',
-      textEn: 'The hexagonal tubes on each flank are hangars. Small craft are shot out through the tip of the dark cone at the front. In the story it carries 1,800 craft.',
       pos: am(130, -170, 0),
       side: [1, 0, 0],
       view: { yaw: PI / 2 + 0.4, pitch: 0.15, dist: 0.6, target: am(98, -150, 0) },
     },
     {
       id: 'wings',
-      name: '赤い縁の翼',
-      nameEn: 'Red-edged wings',
-      text: '上へ反った翼は、宇宙で空気を受けるためではなく、熱を逃がす放熱板とアンテナの台を兼ねています。宇宙では熱を光（赤外線）にして捨てるしかないので、広い面が役に立ちます。',
-      textEn: 'The upswept wings do not catch air in space. They are radiators and antenna mounts: in space heat can only be thrown away as light (infrared), so wide surfaces help.',
       pos: am(150, -380, 75),
       side: null,
       view: { yaw: 0.9, pitch: 0.45, dist: 0.8, target: am(80, -350, 30) },
     },
     {
       id: 'engine',
-      name: '主機関',
-      nameEn: 'Main engines',
-      text: '船尾の暗い覆いの中に大きな噴射口が4つ、下に補助の噴射口が2つ。大きな船ほど重いので、たくさんの噴射口でいっしょに押します。',
-      textEn: 'Inside the dark shroud at the stern are four big nozzles, with two helper nozzles below. A heavy ship needs many nozzles pushing together.',
       pos: am(0, -600, 40),
       side: [0, 0, 1],
       view: { yaw: 0.45, pitch: 0.2, dist: 0.55, target: am(0, -560, 0) },
@@ -815,4 +644,4 @@ export const useShip = () => shipSpec(useStore((s) => s.settings.ship))
 /** 大きさくらべの模型は SV-01 の座標で作ってあるので、ほかの船ではこの倍率で拡大・縮小する */
 export const compareScale = (spec: ShipSpec) => METERS_PER_UNIT / spec.metersPerUnit
 
-export const shipLabel = (spec: ShipSpec, ja: boolean) => (ja ? `${spec.registry} ${spec.name}` : `${spec.registry} ${spec.nameEn}`)
+export const shipLabel = (spec: ShipSpec) => `${spec.registry} ${ui().ships[spec.id].name}`

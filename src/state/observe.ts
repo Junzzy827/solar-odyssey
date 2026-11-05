@@ -7,7 +7,7 @@ import { ship } from './flight'
 import { COLONY_ID, CROSS_ID, DOCK_ID, UMBRELLA_ID } from '../data/sf'
 import { ENGINE_ROCK_ID } from '../data/sfEngine'
 import { COLONY_GROUPS } from '../data/sfSides'
-import { t } from '../i18n/lang'
+import { ui } from '../i18n'
 
 /**
  * 周辺観察モード：目標の天体や構造物のまわりを、公転の向きにゆっくり回る。
@@ -56,11 +56,11 @@ export const isBerth = (id: string | null) => id === DOCK_ID
 export const canDock = (id: string | null) => !!id && ENTERABLE.has(id)
 
 export const OBSERVE_TEXT = {
-  far: (name: string) => t(`${name}のそばで使えます（ワープか自動航行で近づいてから）`, `Get closer to ${name} first (warp or autopilot)`),
-  none: () => t('目標を選んで、そばまで行くと使えます', 'Choose a target and get close to it first'),
-  inside: () => t('構造物の中では使えません', 'Not available inside a structure'),
-  start: (name: string) => t(`${name}の周辺観察を開始`, `Observing ${name}`),
-  docked: () => t('港の入口に着きました。前進（W）で中へ入れます', 'At the port entrance. Thrust forward (W) to go inside'),
+  far: (name: string) => ui().observe.tooFar(name),
+  none: () => ui().observe.noTarget,
+  inside: () => ui().observe.insideStructure,
+  start: (name: string) => ui().observe.observing(name),
+  docked: () => ui().observe.atPortEntrance,
 }
 
 const p = new THREE.Vector3()
