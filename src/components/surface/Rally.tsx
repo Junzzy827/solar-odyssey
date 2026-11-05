@@ -11,6 +11,7 @@ import { PAINT_PARTS, paintUniforms, withPaint } from './paint'
 import { windFor } from './landerFx'
 import { TRACKS } from '../../data/rallyTracks'
 import { COUNT_SEC, RALLY_COLORS, loadBest, rallyArrive, rallyNow, saveBest, setRallyPhase, useRally, type RallyEntry } from '../../state/rally'
+import { bookResult } from '../../state/rallyHiscore'
 import { launchRover, roverCtl, roverInput, roverPose, useRover } from '../../state/rover'
 import { useLanding } from '../../state/landing'
 import { lowMemory, useLevel } from '../../state/quality'
@@ -815,7 +816,8 @@ export function Rally({ track, terrain, prepare, dustColor, sky }: { track: stri
     }
     order.sort((a, b) => (a.time ?? 1e9) - (b.time ?? 1e9))
     const place = order.findIndex((e) => e.you) + 1
-    useRally.setState({ result: { time: t, place, best: newBest ? t : best!.time, newBest, order }, toGate: null, place })
+    const { at, rank } = bookResult(track, t, place, useRally.getState().color, chase ? (useRally.getState().chase?.caught.length ?? 0) : undefined)
+    useRally.setState({ result: { time: t, place, best: newBest ? t : best!.time, newBest, order, at, rank }, toGate: null, place })
     setRallyPhase('done')
   }
 

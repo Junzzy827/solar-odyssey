@@ -29,6 +29,7 @@ import { probeSceneJa } from './probeScene.ja'
 import { quizPanelJa } from './quizPanel.ja'
 import { raceJa } from './race.ja'
 import { racePanelJa } from './racePanel.ja'
+import { rallyHiscoreJa } from './rallyHiscore.ja'
 import { rallyPanelJa } from './rallyPanel.ja'
 import { rockBookJa } from './rockBook.ja'
 import { roverHudJa } from './roverHud.ja'
@@ -161,6 +162,7 @@ export const ja = {
   quizPanel: quizPanelJa,
   race: raceJa,
   racePanel: racePanelJa,
+  rallyHiscore: rallyHiscoreJa,
   rallyPanel: rallyPanelJa,
   rockBook: rockBookJa,
   roverHud: roverHudJa,

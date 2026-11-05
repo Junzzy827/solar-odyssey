@@ -31,6 +31,7 @@ import { probeSceneEn } from './probeScene.en'
 import { quizPanelEn } from './quizPanel.en'
 import { raceEn } from './race.en'
 import { racePanelEn } from './racePanel.en'
+import { rallyHiscoreEn } from './rallyHiscore.en'
 import { rallyPanelEn } from './rallyPanel.en'
 import { rockBookEn } from './rockBook.en'
 import { roverHudEn } from './roverHud.en'
@@ -163,6 +164,7 @@ export const en: Translation<typeof ja> = {
   quizPanel: quizPanelEn,
   race: raceEn,
   racePanel: racePanelEn,
+  rallyHiscore: rallyHiscoreEn,
   rallyPanel: rallyPanelEn,
   rockBook: rockBookEn,
   roverHud: roverHudEn,

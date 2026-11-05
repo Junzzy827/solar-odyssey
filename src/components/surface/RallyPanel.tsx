@@ -4,6 +4,7 @@ import { COUNT_SEC, RALLY_COLORS, loadBest, quitRally, rallyNow, setRallyColor, 
 import { roverInput } from '../../state/rover'
 import { TRACKS } from '../../data/rallyTracks'
 import { useLanding } from '../../state/landing'
+import { RallyHiscore } from './RallyHiscore'
 import { ui } from '../../i18n'
 
 // 峡谷レースの画面の表示：色えらびとスタート、3・2・1、タイム・順位・次の門、門の区間タイム、結果。
@@ -46,6 +47,7 @@ export function RallyStart({ track, compact = false }: { track: string; compact?
           </button>
         ))}
       </div>
+      {!compact && <RallyHiscore track={track} top={3} />}
       <div className="rally-row">
         {best && <span className="rally-best">{ui().rallyPanel.best} {fmtTime(best.time)}</span>}
         <button className="primary rally-go" onClick={startRally}>
@@ -73,6 +75,22 @@ export function RallyPanel() {
   const chase = useRally((r) => r.chase)
   const track = useLanding((l) => l.site)
   const isChase = !!(track && TRACKS[track]?.chase)
+  // 結果のカードで R を押すと、もう一度（「もう一度」のボタンと同じ）。ゴールから 0.5 秒は効かない：
+  // ゴールの直前に押した R（直前の門へ）で、すぐに走り直さないように
+  useEffect(() => {
+    if (phase !== 'done') return
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== 'KeyR' || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (rallyNow() - useRally.getState().since < 0.5) return
+      e.preventDefault()
+      roverInput.reset = false
+      startRally()
+    }
+    window.addEventListener('keydown', down, true)
+    return () => window.removeEventListener('keydown', down, true)
+  }, [phase])
   // 3・2・1 の数字を変えるため、数え中だけ画面を書き換える
   const [, tick] = useState(0)
   useEffect(() => {
@@ -180,12 +198,13 @@ export function RallyPanel() {
             ))}
           </ol>
           )}
+          {track && <RallyHiscore track={track} top={10} mark={result.at} />}
           <div className="rally-row">
             <button className="secondary" onClick={quitRally}>
               {ui().rallyPanel.freeDrive}
             </button>
             <button className="primary" onClick={startRally}>
-              {ui().rallyPanel.raceAgain}
+              {ui().rallyPanel.raceAgain} <kbd>R</kbd>
             </button>
           </div>
         </div>

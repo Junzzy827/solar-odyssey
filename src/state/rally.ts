@@ -37,8 +37,8 @@ type RallyState = {
   toGate: { dist: number; rel: number } | null
   /** 門をくぐったときの表示：自己ベストとの差（秒）。null は初めて */
   split: { gate: number; time: number; diff: number | null; at: number } | null
-  /** ゴールの結果 */
-  result: { time: number; place: number; best: number; newBest: boolean; order: RallyEntry[] } | null
+  /** ゴールの結果。at はハイスコア表に入れた日時、rank は表での順位（state/rallyHiscore.ts） */
+  result: { time: number; place: number; best: number; newBest: boolean; order: RallyEntry[]; at: number; rank: number } | null
   /** 門から外れて戻る（R）の案内を出す */
   lost: boolean
   /** 追いかけっこ（月）：つかまえたローバーと、ゴールまで逃げきったローバー（色の番号）、最後につかまえた時刻と色 */

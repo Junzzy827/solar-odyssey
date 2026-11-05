@@ -23,6 +23,7 @@ import { TimeBar } from './TimeBar'
 import { groundMaterial, withRockDetail } from './groundMaterial'
 import { useDem } from './dem'
 import { Rally } from './Rally'
+import { RallyGhost } from './RallyGhost'
 import { RallyPanel, RallyStart } from './RallyPanel'
 import { Apollo17 } from './Apollo17'
 import { HistoricCard, HistoricStatus } from './HistoricPanel'
@@ -1353,6 +1354,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       {def.site && TRACKS[def.site] && (
         <Suspense fallback={null}>
           <Rally key={def.site} track={def.site} terrain={terrain} prepare={prepareRover} dustColor={def.ground} sky={sky} />
+          <RallyGhost key={def.site + ':ghost'} track={def.site} />
         </Suspense>
       )}
       {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} />}
