@@ -1,4 +1,5 @@
 import { CONAMARA_RACE, COPRATES_RACE, TAURUS_RACE } from './raceLines'
+import type { RallyTracksJa } from '../i18n/rallyTracks.ja'
 
 // ローバーレースのコース（レース場ごと）。キーは着陸地点（SITES、surfaces.ts）の名前
 
@@ -42,7 +43,8 @@ export const TRACKS: Record<string, RallyTrack> = {
     ...CONAMARA_RACE,
     ice: 0.2,
   },
-}
+  // id は src/i18n/rallyTracks.ja.ts と同じ：文言のないコース（文言だけのコースも）は型エラー
+} satisfies Record<keyof RallyTracksJa, RallyTrack>
 
 /** その天体のレース場（無ければ null） */
 export function trackForBody(body: string): string | null {

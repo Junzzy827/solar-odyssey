@@ -3,6 +3,7 @@ import { launchRover, roverActive } from './rover'
 import { goToSite, useLanding } from './landing'
 import { TRACKS } from '../data/rallyTracks'
 import { coursePrint } from './rallyGhost'
+import type { RallyColorsJa } from '../i18n/rallyColors.ja'
 
 // 火星の峡谷レース（マリネリス峡谷のレース場）：色違いの ORV-7 が 4 台で、光の門を順にくぐってゴールを目指す。
 // 自分の 1 台のほかの 3 台はコンピューター（それぞれ性格がちがう）。
@@ -16,7 +17,8 @@ export const RALLY_COLORS = [
   { id: 'blue', hex: '#2f6fe0' },
   { id: 'yellow', hex: '#f0c22c' },
   { id: 'green', hex: '#3aa64c' },
-] as const
+  // id は src/i18n/rallyColors.ja.ts と同じ：文言のない色は型エラー
+] as const satisfies readonly { id: keyof RallyColorsJa; hex: string }[]
 
 /** RALLY_COLORS の文言（日本語は src/i18n/rallyColors.ja.ts、英語は rallyColors.en.ts） */
 export type RallyColorText = {

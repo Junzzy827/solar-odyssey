@@ -3,6 +3,7 @@ import { CUBE_ID } from './cube'
 import { COLONY_ID, SF_OBJECTS, sfEntry } from './sf'
 import { HUBBLE_ID, WEBB_ID } from './telescopes'
 import { ui } from '../i18n'
+import type { StampTitlesJa } from '../i18n/stampTitles.ja'
 
 // 訪問スタンプ帳：天体のそばまで行くとスタンプがもらえる。決まった組をそろえたり、たくさん集めたりすると称号がもらえる
 
@@ -40,7 +41,8 @@ export function stampColor(id: string) {
 }
 
 export type Title = {
-  id: string
+  /** 文言は src/i18n/stampTitles.ja.ts（同じ id）。文言のない id は型エラー */
+  id: keyof StampTitlesJa
   /** この中から count 個（stamp：行った天体、quiz：航海日誌のクイズに正解した天体） */
   ids: string[]
   count: number
@@ -61,14 +63,14 @@ export type TitleText = {
 }
 
 const group = (id: string) => STAMP_GROUPS.find((g) => g.id === id)!.ids
-const rank = (count: number, id: string): Title => ({
+const rank = (count: number, id: Title['id']): Title => ({
   id,
   ids: NATURAL,
   count,
   source: 'stamp',
   rank: true,
 })
-const set = (id: string, ids: string[], secret = false): Title => ({ id, ids, count: ids.length, source: 'stamp', secret })
+const set = (id: Title['id'], ids: string[], secret = false): Title => ({ id, ids, count: ids.length, source: 'stamp', secret })
 
 export const TITLES: Title[] = [
   rank(1, 'rookie'),

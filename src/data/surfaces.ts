@@ -1,4 +1,5 @@
 import { PLANETS } from './bodies'
+import type { SurfaceSitesJa } from '../i18n/surfaceSites.ja'
 
 // 着陸できる天体（地表のある惑星・衛星・冥王星とカロン）の、地表の景色の設定。
 // 色や地形は探査機の写真をもとにした「それらしい」作り。空に浮かぶ母惑星の見かけの大きさは、
@@ -206,9 +207,10 @@ export const SURFACES = build()
 
 export const surfaceFor = (id: string) => SURFACES.get(id) ?? null
 
+type Site = { body: string; dem: string; range?: number; look?: { ground?: string; ground2?: string; ev?: number; groundRough?: number } }
 /** 別の着陸地点。dem：本物の地形の地図（public/terrain/ の名前） */
 /** range：ローバーで走れる範囲（正方形の半分の幅、m）。書いていなければ wideGround.ts の SITE_RANGE */
-export const SITES: Record<string, { body: string; dem: string; range?: number; look?: { ground?: string; ground2?: string; ev?: number; groundRough?: number } }> = {
+export const SITES: Record<string, Site> = {
   coprates: {
     body: 'mars',
     dem: 'mars_coprates',
@@ -226,7 +228,8 @@ export const SITES: Record<string, { body: string; dem: string; range?: number; 
     // 露出を下げ、表面はざらざら（霜）にして、太陽の向こう側の大きな照り返しを抑える
     look: { ground: '#dcd8d0', ground2: '#c9c1b3', ev: -0.7, groundRough: 0.92 },
   },
-}
+  // id は src/i18n/surfaceSites.ja.ts と同じ：文言のない着陸地点（文言だけのものも）は型エラー
+} satisfies Record<keyof SurfaceSitesJa, Site>
 
 const siteCache = new Map<string, SurfaceDef>()
 /** 着陸地点つきの天体の設定（site が無ければ surfaceFor と同じ） */
