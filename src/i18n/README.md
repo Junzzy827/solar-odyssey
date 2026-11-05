@@ -38,8 +38,9 @@ missionText(m.id).title           // a mission's text
   (`surfaceView.tempRange(min, max)`, `timeBar.degrees(t)`), the `？？？` of something not found yet
   (`rockBook.unknownName`), and the colon and the gap inside a line (`labelled(label, value)`, `gap`). The Japanese
   files keep the full-width forms, and the English files write `°C`, `???`, `: ` and ` · `.
-- Names in a list are joined by `ui().list(names)`: `火星・フォボス` in Japanese, `Mars and Phobos` or
-  `Mars, Phobos, and Deimos` in English (`list.ts`).
+- Names in a list are joined by `ui().list(names)` when all of them are meant ("Found on: Phobos and Deimos") and by
+  `ui().listOr(names)` when one of them is ("Land on Phobos, Deimos, or Proteus"). Japanese joins both with `・`
+  (`フォボス・ダイモス・プロテウス`); English writes them as in `list.ts`.
 
 ## Data records
 

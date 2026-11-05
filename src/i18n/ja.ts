@@ -123,8 +123,10 @@ export const ja = {
   labelled: (label: string, value: string) => `${label}：${value}`,
   /** 一行に並べるものの間 */
   gap: '　',
-  /** 名前を並べる（火星・フォボス） */
+  /** 名前を並べる：どれも（見つけた場所：フォボス・ダイモス） */
   list: (items: readonly string[]) => items.join('・'),
+  /** 名前を並べる：どれか一つ（フォボス・ダイモス・プロテウスに着陸して） */
+  listOr: (items: readonly string[]) => items.join('・'),
   shipForChapter: (ship: string) => `この章では ${ship} に乗ります（任務を始めると乗り換えます）`,
   backToChapters: '章の一覧へ',
   chapterDone: 'この章の任務をすべて達成しました！ほかの船の章にも挑戦してみましょう。',

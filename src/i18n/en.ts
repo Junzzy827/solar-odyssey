@@ -125,6 +125,7 @@ export const en: Translation<typeof ja> = {
   labelled: (label: string, value: string) => `${label}: ${value}`,
   gap: ' · ',
   list: listEn,
+  listOr: (items: readonly string[]) => listEn(items, 'or'),
   shipForChapter: (ship: string) => `In this chapter you fly the ${ship} (you switch ships when a mission starts)`,
   backToChapters: 'All chapters',
   chapterDone: 'You have completed every mission in this chapter! Try another ship’s chapter.',
