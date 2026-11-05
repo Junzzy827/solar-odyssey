@@ -3,6 +3,7 @@ import { APOLLO17, APOLLO17_TOTAL, type Historic } from '../data/apollo17'
 import { closeHistoricBook, useHistoric } from '../state/historic'
 import { useLang } from '../i18n/lang'
 import { ui } from '../i18n'
+import { HistoricPhoto } from './HistoricPhoto'
 
 // アポロ17号の史跡ずかん：タウルス・リットロウ谷で訪ねた場所の話。まだの場所は ？？？ と、着陸船からの向きと距離だけ
 
@@ -31,6 +32,7 @@ function Detail({ it, got }: { it: Historic; got: boolean }) {
             <>
               <p className="historic-when">{ui().apollo17[it.id].when}</p>
               <p>{ui().apollo17[it.id].story}</p>
+              <HistoricPhoto it={it} />
             </>
           ) : (
             <p className="muted">
