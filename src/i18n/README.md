@@ -34,6 +34,10 @@ missionText(m.id).title           // a mission's text
 - How a language writes dates and large numbers is a function here too (`ephemeris.date(d)`, `hud.bigNumber(n)`), and
   so are the few settings that go with a language: the eclipse panel's time zone (`eclipsePanel.utcOffsetHours`, next
   to `dateTime`, whose label names it) and the bridge consoles' number format (`consoles.numberLocale`).
+- Punctuation that differs between the languages is here as well: a temperature with its unit
+  (`surfaceView.tempRange(min, max)`, `timeBar.degrees(t)`), the `？？？` of something not found yet
+  (`rockBook.unknownName`), and the colon and the gap inside a line (`labelled(label, value)`, `gap`). The Japanese
+  files keep the full-width forms, and the English files write `°C`, `???`, `: ` and ` · `.
 
 ## Data records
 
@@ -64,7 +68,5 @@ Words painted into textures (the ship's name on the hull is read from the Englis
 loading screen, which show both languages at once, the language buttons, which name each language in its own script,
 and developer pages such as `#terrain-lab`.
 
-Punctuation and symbols without words are still written in the code, the same in both languages: `℃` and `〜`, the `・`
-that joins names in a list, the `？` and `？？？` shown for something not found yet, and a few full-width colons and
-spaces (21 places; `l10n-check` lists them as `NO-EN-SYM`). In English the `・` and the full-width marks look Japanese,
-so moving them here is a possible next step.
+The `・` that joins names in the rock book is still written in the code, the same in both languages (2 places;
+`l10n-check` lists them as `NO-EN-SYM`).

@@ -48,4 +48,6 @@ export const surfaceViewEn: Translation<typeof surfaceViewJa> = {
   toRaceTrack: (track: string) => `To the ${track.toLowerCase()}`,
   takeOff: 'Take off',
   toApollo17: 'To the Apollo 17 site',
+  temp: (t: number) => `${t} °C`,
+  tempRange: (min: number, max: number) => `${min} to ${max} °C`,
 }

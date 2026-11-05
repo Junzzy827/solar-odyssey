@@ -3,6 +3,9 @@
 export const historicBookJa = {
   fromLandingSpot: (dir: string, dist: string) => `着陸地点から${dir}へ ${dist}`,
   back: '一覧へ',
+  /** まだ見つけていない場所の印と名前 */
+  unknownIcon: '？',
+  unknownName: '？？？',
   notVisitedYet: 'まだ訪ねていない場所です。',
   notVisitedWhere: (where: string) => `月のタウルス・リットロウ谷（月の追いかけっこ場）で、${where}。光の柱をめざしてローバーで走ろう。`,
   title: 'アポロ17号の史跡ずかん',

@@ -7,6 +7,7 @@ export const rockBookEn: Translation<typeof rockBookJa> = {
   landerHint: (where: string) => `Land on ${where} and look for the rocks marked by light beams with the rover.`,
   spotsHint: (where: string, spots: string[]) => `Try the ${spots.join(', ')} on ${where}. Drive to the ◆ on the minimap.`,
   back: 'Back',
+  unknownName: '???',
   foundOn: 'Found on: ',
   notFoundYet: 'Not found yet. ',
   rockCollection: 'Rock collection',

@@ -19,7 +19,7 @@ const shortDate = (ms: number) => ui().stampBook.shortDate(new Date(ms))
 function Stamp({ id, at, star }: { id: string; at: number | undefined; star: boolean }) {
   const got = at !== undefined
   const secret = id === CUBE_ID && !got
-  const name = secret ? '？？？' : (bodies.get(id)?.name ?? id)
+  const name = secret ? ui().stampBook.secret : (bodies.get(id)?.name ?? id)
   const style = { '--c': stampColor(id), '--r': `${tilt(id)}deg` } as CSSProperties
   return (
     <button
@@ -120,7 +120,7 @@ export function StampBook() {
             <li key={title.id} className={got ? 'got' : ''}>
               <span className="medal" aria-hidden />
               <span className="title-text">
-                <strong>{title.secret && !got ? '？？？' : titleText(title).name}</strong>
+                <strong>{title.secret && !got ? ui().stampBook.secret : titleText(title).name}</strong>
                 <span className="muted small">{titleText(title).how(title.count)}</span>
               </span>
               <span className="title-count">{got ? ui().stampBook.done : `${have}/${need}`}</span>

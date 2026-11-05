@@ -118,6 +118,10 @@ export const ja = {
   chaptersIntro: 'あなたは船団の艦長です。船を選ぶと、その船の得意技を使う任務が始まります。SF モードにすると、SF 編の章も出てきます。',
   chaptersIntroSF: 'あなたは船団の艦長です。船を選ぶと、その船の得意技を使う任務が始まります。紫の SF の章は、空想の建造物が舞台です。',
   skill: '得意技',
+  /** 「見出し：中身」 */
+  labelled: (label: string, value: string) => `${label}：${value}`,
+  /** 一行に並べるものの間 */
+  gap: '　',
   shipForChapter: (ship: string) => `この章では ${ship} に乗ります（任務を始めると乗り換えます）`,
   backToChapters: '章の一覧へ',
   chapterDone: 'この章の任務をすべて達成しました！ほかの船の章にも挑戦してみましょう。',

@@ -15,5 +15,6 @@ export const stampBookEn: Translation<typeof stampBookJa> = {
   titles: 'Titles',
   howToCollect: 'Fly close to a body to collect its stamp. Answer its ship’s log quiz to add a ★. Tap a stamp to set that body as your target.',
   done: 'Done',
+  secret: '???',
   shortDate: (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear() % 100}`,
 }

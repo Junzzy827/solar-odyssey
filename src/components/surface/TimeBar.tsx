@@ -115,7 +115,7 @@ function DayGraph({ p, clock, extraLux, dim = 1 }: { p: DayProfile; clock: numbe
   return (
     <div className="day-graph">
       <div className="day-now">
-        <span className="temp-chip">{ui().timeBar.ground} <b>{Math.round(temp)}℃</b></span>
+        <span className="temp-chip">{ui().timeBar.ground} <b>{ui().timeBar.degrees(Math.round(temp))}</b></span>
         <span className="lux-chip">
           {ui().timeBar.light} <b>{L.value}</b>
           {L.unit}
@@ -130,8 +130,8 @@ function DayGraph({ p, clock, extraLux, dim = 1 }: { p: DayProfile; clock: numbe
         <path d={tempPath} fill="none" stroke="#ff6a4a" strokeWidth="2" strokeLinejoin="round" />
         <line x1={now} x2={now} y1={0} y2={GH} stroke="#fff" strokeWidth="1.2" />
         <circle cx={now} cy={ty(temp)} r="3.2" fill="#ff6a4a" stroke="#fff" strokeWidth="1" />
-        <text x={2} y={9} className="g-label">{`${p.max}℃`}</text>
-        <text x={2} y={GH - 2} className="g-label">{`${p.min}℃`}</text>
+        <text x={2} y={9} className="g-label">{ui().timeBar.degrees(p.max)}</text>
+        <text x={2} y={GH - 2} className="g-label">{ui().timeBar.degrees(p.min)}</text>
         {[0, 6, 12, 18, 24].map((h) => (
           <text key={h} x={Math.min(GW - 8, Math.max(0, (h / 24) * GW - 4))} y={GH + 10} className="g-label">
             {h}

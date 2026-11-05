@@ -1,6 +1,8 @@
 // components/surface/TimeBar.tsx の文言（日本語）
 
 export const timeBarJa = {
+  /** 温度 */
+  degrees: (t: number) => `${t}℃`,
   dayInEarthHours: (h: string) => `1日 = 地球の${h}時間`,
   dayInEarthDays: (h: string) => `1日 = 地球の約${h}日`,
   newMoon: '新月',

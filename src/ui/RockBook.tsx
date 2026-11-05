@@ -26,7 +26,7 @@ function RockCard({ g, k, found }: { g: RockGroup; k: RockSample; found: boolean
         <img src={rockImage(k.id)} alt="" loading="lazy" draggable={false} />
         {!found && <span className="rock-q">?</span>}
       </span>
-      <span className="rock-name">{found ? ui().rockSamples[k.id].name : '？？？'}</span>
+      <span className="rock-name">{found ? ui().rockSamples[k.id].name : ui().rockBook.unknownName}</span>
     </button>
   )
 }
@@ -54,7 +54,7 @@ function RockDetail({ g, k }: { g: RockGroup; k: RockSample }) {
           {!found && <span className="rock-q">?</span>}
         </span>
         <div className="rock-text">
-          <h3>{found ? ui().rockSamples[k.id].name : '？？？'}</h3>
+          <h3>{found ? ui().rockSamples[k.id].name : ui().rockBook.unknownName}</h3>
           {found ? (
             <>
               <p>{ui().rockSamples[k.id].note}</p>

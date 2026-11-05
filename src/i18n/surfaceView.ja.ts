@@ -46,4 +46,8 @@ export const surfaceViewJa = {
   toRaceTrack: (track: string) => `${track}場へ`,
   takeOff: '離陸する',
   toApollo17: 'アポロ17号の跡地へ',
+  /** 気温（最低と最高が同じとき） */
+  temp: (t: number) => `${t}℃`,
+  /** 気温の幅 */
+  tempRange: (min: number, max: number) => `${min}〜${max}℃`,
 }

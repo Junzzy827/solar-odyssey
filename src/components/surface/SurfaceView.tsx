@@ -1548,7 +1548,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
   const [open, setOpen] = useState(() => window.innerWidth > 700 && window.innerHeight > 500)
   const name = bodyName(def.id) + (def.site ? ui().surfaceView.siteSuffix(ui().surfaceSites[def.site].name) : '')
   const weight = Math.max(0.01, 30 * def.gravity)
-  const temp = def.temp[0] === def.temp[1] ? `${def.temp[0]}℃` : `${def.temp[0]}〜${def.temp[1]}℃`
+  const temp = def.temp[0] === def.temp[1] ? ui().surfaceView.temp(def.temp[0]) : ui().surfaceView.tempRange(def.temp[0], def.temp[1])
   const skyName = def.skyBody ? bodyName(def.skyBody.id) : null
   // 説明：別の着陸地点ならその地点の、そうでなければ天体の。空の説明は天体のもの（無い天体もある）
   const note = def.site ? ui().surfaceSites[def.site].note : ui().surfaceNotes[def.id]

@@ -22,9 +22,9 @@ function Detail({ it, got }: { it: Historic; got: boolean }) {
         ◀ {ui().historicBook.back}
       </button>
       <div className="historic-detail">
-        <span className="historic-icon big">{got ? it.icon : '？'}</span>
+        <span className="historic-icon big">{got ? it.icon : ui().historicBook.unknownIcon}</span>
         <div className="rock-text">
-          <h3>{got ? ui().apollo17[it.id].name : '？？？'}</h3>
+          <h3>{got ? ui().apollo17[it.id].name : ui().historicBook.unknownName}</h3>
           {got ? (
             <>
               <p className="historic-when">{ui().apollo17[it.id].when}</p>
@@ -86,8 +86,8 @@ export function HistoricBook() {
               const got = found.includes(x.id)
               return (
                 <button key={x.id} className={`rock-card historic-item${got ? ' got' : ''}`} onClick={() => useHistoric.setState({ sel: x.id })}>
-                  <span className="historic-icon">{got ? x.icon : '？'}</span>
-                  <span className="rock-name">{got ? ui().apollo17[x.id].name : x.no ? ui().historicBook.station(x.no) : '？？？'}</span>
+                  <span className="historic-icon">{got ? x.icon : ui().historicBook.unknownIcon}</span>
+                  <span className="rock-name">{got ? ui().apollo17[x.id].name : x.no ? ui().historicBook.station(x.no) : ui().historicBook.unknownName}</span>
                 </button>
               )
             })}

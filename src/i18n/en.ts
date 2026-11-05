@@ -121,6 +121,8 @@ export const en: Translation<typeof ja> = {
   chaptersIntro: 'You command a fleet. Pick a ship to start missions that use its special skill. Switch to SF mode to unlock the SF chapters.',
   chaptersIntroSF: 'You command a fleet. Pick a ship to start missions that use its special skill. The purple SF chapters take place among imaginary structures.',
   skill: 'Skill',
+  labelled: (label: string, value: string) => `${label}: ${value}`,
+  gap: ' · ',
   shipForChapter: (ship: string) => `In this chapter you fly the ${ship} (you switch ships when a mission starts)`,
   backToChapters: 'All chapters',
   chapterDone: 'You have completed every mission in this chapter! Try another ship’s chapter.',

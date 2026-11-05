@@ -4,6 +4,7 @@ import type { Translation } from './translation'
 // The texts of components/surface/TimeBar.tsx (English). Same keys as timeBar.ja.ts
 
 export const timeBarEn: Translation<typeof timeBarJa> = {
+  degrees: (t: number) => `${t} °C`,
   dayInEarthHours: (h: string) => `1 day = ${h} Earth hours`,
   dayInEarthDays: (h: string) => `1 day ≈ ${h} Earth days`,
   newMoon: 'New moon',

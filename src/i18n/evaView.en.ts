@@ -45,4 +45,6 @@ export const evaViewEn: Translation<typeof evaViewJa> = {
   autoBrakeOn: 'Auto-brake ON',
   autoBrakeOff: 'Auto-brake OFF',
   recall: 'Recall and go back aboard',
+  pendingMark: '•',
+  sep: ' · ',
 }

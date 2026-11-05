@@ -42,4 +42,8 @@ export const evaViewJa = {
   autoBrakeOn: '自動ブレーキ ON',
   autoBrakeOff: '自動ブレーキ OFF',
   recall: '回収して船にもどる',
+  /** 作業リストの、まだの作業の印 */
+  pendingMark: '・',
+  /** 作業記録の行の区切り */
+  sep: ' ・ ',
 }

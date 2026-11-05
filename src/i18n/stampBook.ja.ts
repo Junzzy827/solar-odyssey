@@ -3,6 +3,8 @@
 export const stampBookJa = {
   setTarget: (name: string) => `${name}を目標にする`,
   quizAnswered: 'クイズ正解',
+  /** まだ見つけていない隠しスタンプ・隠し称号の名前 */
+  secret: '？？？',
   stampBook: '訪問スタンプ帳',
   close: '閉じる',
   currentTitle: '今の称号：',
