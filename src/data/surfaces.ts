@@ -52,6 +52,8 @@ export type SurfaceDef = {
   sunHidden?: boolean
   /** 露出の補正（EV）。暗く沈みすぎる天体の地面を、少しだけ明るく見せる */
   ev?: number
+  /** 地面の表面のざらつき（0 つるつる〜1 ざらざら）。書いていなければ地面の種類の値 */
+  groundRough?: number
   /** 星の見え方（0〜1） */
   stars: number
   sunEl: number
@@ -255,7 +257,7 @@ export const surfaceFor = (id: string) => SURFACES.get(id) ?? null
 
 /** 別の着陸地点。dem：本物の地形の地図（public/terrain/ の名前） */
 /** range：ローバーで走れる範囲（正方形の半分の幅、m）。書いていなければ wideGround.ts の SITE_RANGE */
-export const SITES: Record<string, { body: string; dem: string; name: [string, string]; note: [string, string]; range?: number; look?: { ground?: string; ground2?: string } }> = {
+export const SITES: Record<string, { body: string; dem: string; name: [string, string]; note: [string, string]; range?: number; look?: { ground?: string; ground2?: string; ev?: number; groundRough?: number } }> = {
   coprates: {
     body: 'mars',
     dem: 'mars_coprates',
@@ -279,8 +281,9 @@ export const SITES: Record<string, { body: string; dem: string; name: [string, s
   conamara: {
     body: 'europa',
     dem: 'europa_conamara',
-    // 若い氷の帯：ふつうのエウロパの地面より白く
-    look: { ground: '#ebe8e2', ground2: '#d6cfc2' },
+    // 若い氷の帯：ふつうのエウロパの地面より少し白く。白い地面が日を照り返してまぶしすぎないよう、
+    // 露出を下げ、表面はざらざら（霜）にして、太陽の向こう側の大きな照り返しを抑える
+    look: { ground: '#dcd8d0', ground2: '#c9c1b3', ev: -0.7, groundRough: 0.92 },
     name: ['コナマラ・カオスのそばの氷の尾根', 'Ice ridge near Conamara Chaos'],
     note: [
       'エウロパの大きな「二重尾根」の真ん中の溝。両側の尾根は高さ約100 m。氷の地面はとてもすべりやすく、北西には氷の板がばらばらに割れて傾いた「カオス地形」が広がります。エウロパには細かい高さの測定データがないので、この地形はガリレオ探査機の写真をもとに作った想像図です。',

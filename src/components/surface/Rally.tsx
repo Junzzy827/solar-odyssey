@@ -45,7 +45,7 @@ export type Course = {
   curve: number[]
 }
 
-export function buildCourse(line: [number, number][]): Course {
+export function buildCourse(line: [number, number][], gateS?: number[]): Course {
   const pts = line.map(([x, z]) => new THREE.Vector2(x, z))
   const len = [0]
   for (let i = 1; i < pts.length; i++) len.push(len[i - 1] + pts[i].distanceTo(pts[i - 1]))
@@ -63,9 +63,9 @@ export function buildCourse(line: [number, number][]): Course {
     return d / arc
   })
   const course: Course = { pts, len, total, gates: [], curve }
-  for (let g = 1; g <= GATE_COUNT; g++) {
-    // ゴールはコースの終わりの少し手前（地図の端に近すぎないように）
-    const s = ((total - 15) * g) / GATE_COUNT
+  // 門：決めてある道のり（ジグザグ、raceLines.ts）か、等しい間隔。ゴールはコースの終わりの少し手前
+  const at = gateS ?? Array.from({ length: GATE_COUNT }, (_, g) => ((total - 15) * (g + 1)) / GATE_COUNT)
+  for (const s of at) {
     const p = pointAt(course, s)
     course.gates.push({ s, x: p.x, z: p.z, dx: p.dx, dz: p.dz })
   }
@@ -218,7 +218,7 @@ export function Rally({ track, terrain, prepare, dustColor, sky }: { track: stri
   const color = useRally((r) => r.color)
   const roverPhase = useRover((r) => r.phase)
   const level = useLevel()
-  const course = useMemo(() => buildCourse(TRACKS[track].line), [track])
+  const course = useMemo(() => buildCourse(TRACKS[track].line, TRACKS[track].gates), [track])
   const chase = !!TRACKS[track].chase
   // 氷（エウロパ）：カーブは遅め、車体は大きく横を向いてすべる
   const ice = TRACKS[track].ice ?? 1
@@ -232,7 +232,7 @@ export function Rally({ track, terrain, prepare, dustColor, sky }: { track: stri
     }
   }, [color])
   useEffect(() => {
-    useRally.setState({ gates: GATE_COUNT })
+    useRally.setState({ gates: course.gates.length })
     // 確認用（#debug）：次の門
     if (!location.hash.includes('debug')) return
     const w = window as unknown as { __rallyGate?: () => unknown; __rallyBots?: () => unknown }

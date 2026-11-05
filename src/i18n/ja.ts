@@ -54,6 +54,7 @@ import { telescopesJa } from './telescopes.ja'
 import { throttleJa } from './throttle.ja'
 import { timeBarJa } from './timeBar.ja'
 import { touchBarJa } from './touchBar.ja'
+import { newsJa } from './news.ja'
 import { touchControlsJa } from './touchControls.ja'
 import { apollo17Ja } from './apollo17.ja'
 import { bodiesJa } from './bodies.ja'
@@ -187,6 +188,7 @@ export const ja = {
   throttle: throttleJa,
   timeBar: timeBarJa,
   touchBar: touchBarJa,
+  news: newsJa,
   touchControls: touchControlsJa,
   apollo17: apollo17Ja,
   bodies: bodiesJa,

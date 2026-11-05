@@ -389,7 +389,7 @@ export function groundMaterial(def: SurfaceDef, small: boolean) {
     uRockDetail: { value: detailTexture('rock', small) },
     uTile: { value: new THREE.Vector3(look.tileNear, look.tileFar, rock.tileNear) },
     uNormalK: { value: new THREE.Vector2(look.normal, rock.normal) },
-    uRough: { value: new THREE.Vector2(look.rough, rock.rough) },
+    uRough: { value: new THREE.Vector2(def.groundRough ?? look.rough, rock.rough) },
     uRockColor: { value: new THREE.Color(def.rock) },
     uStain: { value: stainTexture(kind, small) },
     uStainBright: { value: new THREE.Color(stain.bright[0]) },
@@ -401,7 +401,7 @@ export function groundMaterial(def: SurfaceDef, small: boolean) {
     // 斜面の傾き（1 - 法線の上向き成分）で岩肌に変わる範囲（真ん中＝約 37°）
     uSlope: { value: new THREE.Vector2(0.13, 0.27) },
   }
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: look.rough, metalness: 0 })
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: def.groundRough ?? look.rough, metalness: 0 })
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms)
     shader.vertexShader = shader.vertexShader
