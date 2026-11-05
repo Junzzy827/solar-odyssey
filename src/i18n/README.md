@@ -2,7 +2,7 @@
 
 Every text the player sees lives in this folder, in Japanese and in English, apart from the few listed at the end
 ("Outside on purpose"). Japanese is the master. English may be missing for any text: the build still passes, and that text
-is shown in Japanese in English mode.
+is shown in Japanese in English mode (the ship's log goes by whole entries, see "Adding a text").
 
 ## Files
 
@@ -49,11 +49,18 @@ their comments). `bodies.ja.ts` exports `bodiesJa` as a `Record<string, PlanetTe
 looked up, and the type `BodiesJa`, which keeps the ids: `bodies.en.ts` is checked against it. The Sun, the planets and
 the moons share one file, keyed by body id.
 
+The rally tracks, the landing sites, the titles and the rally colours are checked the other way as well: `TRACKS`,
+`SITES`, `Title.id` and `RALLY_COLORS` are typed by the ids of their `.ja.ts`, so one without its Japanese text is a
+type error. For the other records the compiler does not see a new id that has no text yet.
+
 ## Adding a text
 
 1. Write the Japanese in the screen's `.ja.ts`, under a key that says what the text is.
 2. Write the English under the same key in the `.en.ts`, if you have it. A key in `.en.ts` that `.ja.ts` does not
-   have (a typo) is a type error, also a record id in the data records' files; a key left out is not.
+   have (a typo) is a type error: in a screen's files, in the data records' files (the record ids) and in
+   `missions.en.ts` (the mission and chapter ids). A key left out is not. The ship's log is the exception: `facts.en.ts`
+   and `sfFacts.en.ts` hold whole entries, not checked by id, and `factsFor(id)` shows the Japanese entry only when
+   there is no English one, so a field that an English entry leaves out is not shown in English mode.
 3. Read it with `ui().<screen>.<key>`.
 
 A new screen gets a new pair of files, added to `ja.ts` and `en.ts`. A text with a value is a function in both files

@@ -1,3 +1,4 @@
+import type { Framing } from '../state/mission'
 import { approachJa } from './approach.ja'
 import { beamGaugeJa } from './beamGauge.ja'
 import { blackHoleJa } from './blackHole.ja'
@@ -147,7 +148,7 @@ export const ja = {
     near: '少し離れて',
     hidden: 'ほかの天体のかげ',
     fast: 'もっとゆっくり',
-  } as Record<string, string>,
+  } satisfies Record<Framing, string>,
   approach: approachJa,
   beamGauge: beamGaugeJa,
   blackHole: blackHoleJa,

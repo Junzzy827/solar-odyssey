@@ -148,7 +148,7 @@ export const en: Translation<typeof ja> = {
     near: 'Back off a little',
     hidden: 'Hidden behind another body',
     fast: 'Slow down',
-  } as Record<string, string>,
+  },
   approach: approachEn,
   beamGauge: beamGaugeEn,
   blackHole: blackHoleEn,
