@@ -33,6 +33,7 @@ import { quizEn } from './quiz.en'
 import { quizPanelEn } from './quizPanel.en'
 import { raceEn } from './race.en'
 import { racePanelEn } from './racePanel.en'
+import { rallyHiscoreEn } from './rallyHiscore.en'
 import { rallyPanelEn } from './rallyPanel.en'
 import { rockBookEn } from './rockBook.en'
 import { roverHudEn } from './roverHud.en'
@@ -59,6 +60,7 @@ import { telescopesEn } from './telescopes.en'
 import { throttleEn } from './throttle.en'
 import { timeBarEn } from './timeBar.en'
 import { touchBarEn } from './touchBar.en'
+import { newsEn } from './news.en'
 import { touchControlsEn } from './touchControls.en'
 import { apollo17En } from './apollo17.en'
 import { rockCompEn } from './rockComp.en'
@@ -176,6 +178,7 @@ export const en: Translation<typeof ja> = {
   quizPanel: quizPanelEn,
   race: raceEn,
   racePanel: racePanelEn,
+  rallyHiscore: rallyHiscoreEn,
   rallyPanel: rallyPanelEn,
   rockBook: rockBookEn,
   roverHud: roverHudEn,
@@ -202,6 +205,7 @@ export const en: Translation<typeof ja> = {
   throttle: throttleEn,
   timeBar: timeBarEn,
   touchBar: touchBarEn,
+  news: newsEn,
   touchControls: touchControlsEn,
   apollo17: apollo17En,
   bodies: bodiesEn,

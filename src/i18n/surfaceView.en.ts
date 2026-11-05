@@ -47,4 +47,5 @@ export const surfaceViewEn: Translation<typeof surfaceViewJa> = {
   raceButton: (track: string) => track,
   toRaceTrack: (track: string) => `To the ${track.toLowerCase()}`,
   takeOff: 'Take off',
+  toApollo17: 'To the Apollo 17 site',
 }

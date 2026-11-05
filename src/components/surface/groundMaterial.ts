@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { SurfaceDef } from '../../data/surfaces'
+import { marsGroundMaterial } from './marsGround'
 
 // 地面の素材：砂・レゴリス（月の砂）・氷のいろいろ・火山岩。それぞれの細かい凹凸（法線）とざらつき（粗さ）を、
 // その場で作る絵（つなぎ目の無い繰り返し模様）から描く。
@@ -380,6 +381,8 @@ vec4 labSample(sampler2D t, vec3 p, vec3 n, float tile, float k, bool tri) {
  * small：スマホなどメモリの少ないときは模様を小さく
  */
 export function groundMaterial(def: SurfaceDef, small: boolean) {
+  // 火星は Blender で焼いた素材（砂ぼこり・小石・黒い砂・岩盤）を塗り分ける専用の材質
+  if (def.id === 'mars') return marsGroundMaterial(def, small)
   const kind = kindFor(def)
   const look = LOOK[kind]
   const rock = LOOK.rock
@@ -389,7 +392,7 @@ export function groundMaterial(def: SurfaceDef, small: boolean) {
     uRockDetail: { value: detailTexture('rock', small) },
     uTile: { value: new THREE.Vector3(look.tileNear, look.tileFar, rock.tileNear) },
     uNormalK: { value: new THREE.Vector2(look.normal, rock.normal) },
-    uRough: { value: new THREE.Vector2(look.rough, rock.rough) },
+    uRough: { value: new THREE.Vector2(def.groundRough ?? look.rough, rock.rough) },
     uRockColor: { value: new THREE.Color(def.rock) },
     uStain: { value: stainTexture(kind, small) },
     uStainBright: { value: new THREE.Color(stain.bright[0]) },
@@ -401,7 +404,7 @@ export function groundMaterial(def: SurfaceDef, small: boolean) {
     // 斜面の傾き（1 - 法線の上向き成分）で岩肌に変わる範囲（真ん中＝約 37°）
     uSlope: { value: new THREE.Vector2(0.13, 0.27) },
   }
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: look.rough, metalness: 0 })
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: def.groundRough ?? look.rough, metalness: 0 })
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms)
     shader.vertexShader = shader.vertexShader
@@ -528,7 +531,7 @@ export function groundMaterial(def: SurfaceDef, small: boolean) {
  */
 export function withRockDetail<T extends THREE.MeshStandardMaterial>(
   m: T,
-  opts: { dust?: THREE.Color | null; dustOn?: { value: number }; tile?: number; strength?: number } = {},
+  opts: { dust?: THREE.Color | null; dustOn?: { value: number }; tile?: number; strength?: number; settle?: number } = {},
 ): T {
   const uniforms = {
     uRockT: { value: detailTexture('rock') },
@@ -536,6 +539,7 @@ export function withRockDetail<T extends THREE.MeshStandardMaterial>(
     uRockK: { value: opts.strength ?? 1.4 },
     uRockDust: { value: opts.dust ?? new THREE.Color(0, 0, 0) },
     uRockDustOn: opts.dustOn ?? { value: opts.dust ? 1 : 0 },
+    uRockSettle: { value: opts.settle ?? 0 },
   }
   const prev = m.onBeforeCompile
   m.onBeforeCompile = (shader, renderer) => {
@@ -558,7 +562,7 @@ export function withRockDetail<T extends THREE.MeshStandardMaterial>(
       .replace(
         '#include <common>',
         `#include <common>
-        uniform sampler2D uRockT; uniform float uRockTile; uniform float uRockK; uniform vec3 uRockDust; uniform float uRockDustOn;
+        uniform sampler2D uRockT; uniform float uRockTile; uniform float uRockK; uniform vec3 uRockDust; uniform float uRockDustOn; uniform float uRockSettle;
         varying vec3 vRkP; varying vec3 vRkN; varying mat3 vRkM;
         vec3 gRkN; float gRkDust;
         ${TRIPLANAR_GLSL}`,
@@ -580,6 +584,13 @@ export function withRockDetail<T extends THREE.MeshStandardMaterial>(
             float up = (vec4(gRkN, 0.0) * viewMatrix).y;
             gRkDust = smoothstep(-0.15, 0.15, smoothstep(0.45, 0.9, up) * 0.8 - h);
             diffuseColor.rgb = mix(diffuseColor.rgb, uRockDust, gRkDust * 0.45);
+            // 根元にかぶった砂（地面に置かれてしばらくたったように）：地面の線（岩の座標で y ≈ 0.15〜0.35）から少し上まで。
+            // 縁は割れ目の模様でぎざぎざに、上ほどうすく
+            if (uRockSettle > 0.0) {
+              float base = smoothstep(0.62, 0.22, vRkP.y + (h - 0.5) * 0.35);
+              diffuseColor.rgb = mix(diffuseColor.rgb, uRockDust * 0.95, base * uRockSettle);
+              gRkDust = max(gRkDust, base * uRockSettle);
+            }
           }
         }`,
       )

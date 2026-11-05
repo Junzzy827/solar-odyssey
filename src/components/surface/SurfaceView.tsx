@@ -21,8 +21,10 @@ import { SurfaceLab } from './SurfaceLab'
 import { SurfaceStars } from './SurfaceStars'
 import { TimeBar } from './TimeBar'
 import { groundMaterial, withRockDetail } from './groundMaterial'
+import { marsSun } from './marsGround'
 import { useDem } from './dem'
 import { Rally } from './Rally'
+import { RallyGhost } from './RallyGhost'
 import { RallyPanel, RallyStart } from './RallyPanel'
 import { Apollo17 } from './Apollo17'
 import { HistoricCard, HistoricStatus } from './HistoricPanel'
@@ -597,6 +599,8 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
           withRockDetail(new THREE.MeshStandardMaterial({ color: def.rock, roughness: round ? 0.7 : 0.92, metalness: 0, map: grain }), {
             dust: round ? null : new THREE.Color(def.ground),
             strength: round ? 0.6 : 1.4,
+            // 火星の岩は、根元に砂ぼこりをかぶせて、地面に落ち着いて見えるように
+            settle: def.id === 'mars' ? 0.75 : 0,
           }),
           ap,
         ),
@@ -1242,6 +1246,7 @@ function Scene({ def }: { def: SurfaceDef }) {
     applyHaze(hz, kind?.tint ? TINT.set(1, 1, 1).lerp(kind.tint, ta) : TINT.set(1, 1, 1))
     if (lab.sunEl !== null || lab.sunAz !== null) sky.sunDir.copy(dirFrom(lab.sunAz ?? def.sunAz, lab.sunEl ?? def.sunEl))
     else sky.frame.sunLocal(sky.sunDir)
+    marsSun.value.copy(sky.sunDir)
     const el = Math.asin(THREE.MathUtils.clamp(sky.sunDir.y, -1, 1))
     sky.sunT.copy(sunTransmittance(A.air, radiusM, el, hz))
     // 厚い雲の下は、目が慣れても薄暗く感じるくらいに
@@ -1353,6 +1358,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       {def.site && TRACKS[def.site] && (
         <Suspense fallback={null}>
           <Rally key={def.site} track={def.site} terrain={terrain} prepare={prepareRover} dustColor={def.ground} sky={sky} />
+          <RallyGhost key={def.site + ':ghost'} track={def.site} />
         </Suspense>
       )}
       {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} />}
@@ -1615,6 +1621,11 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             {!def.site && trackForBody(def.id) && (
               <button className="secondary rally-site" onClick={() => goToSite(trackForBody(def.id))}>
                 🏁 {ui().surfaceView.toRaceTrack(ui().rallyTracks[trackForBody(def.id)!].button)}
+              </button>
+            )}
+            {!def.site && def.id === 'moon' && (
+              <button className="secondary rally-site" onClick={() => goToSite('taurus')}>
+                🚩 {ui().surfaceView.toApollo17}
               </button>
             )}
             {def.site && TRACKS[def.site] && (

@@ -52,6 +52,8 @@ export type SurfaceDef = {
   sunHidden?: boolean
   /** 露出の補正（EV）。暗く沈みすぎる天体の地面を、少しだけ明るく見せる */
   ev?: number
+  /** 地面の表面のざらつき（0 つるつる〜1 ざらざら）。書いていなければ地面の種類の値 */
+  groundRough?: number
   /** 星の見え方（0〜1） */
   stars: number
   sunEl: number
@@ -206,7 +208,7 @@ export const surfaceFor = (id: string) => SURFACES.get(id) ?? null
 
 /** 別の着陸地点。dem：本物の地形の地図（public/terrain/ の名前） */
 /** range：ローバーで走れる範囲（正方形の半分の幅、m）。書いていなければ wideGround.ts の SITE_RANGE */
-export const SITES: Record<string, { body: string; dem: string; range?: number }> = {
+export const SITES: Record<string, { body: string; dem: string; range?: number; look?: { ground?: string; ground2?: string; ev?: number; groundRough?: number } }> = {
   coprates: {
     body: 'mars',
     dem: 'mars_coprates',
@@ -216,6 +218,13 @@ export const SITES: Record<string, { body: string; dem: string; range?: number }
     dem: 'moon_taurus',
     // アポロ17号の観測点2（西南西へ 7.2 km）まで走れるように。地形の地図（near）は 16 km 四方
     range: 7000,
+  },
+  conamara: {
+    body: 'europa',
+    dem: 'europa_conamara',
+    // 若い氷の帯：ふつうのエウロパの地面より少し白く。白い地面が日を照り返してまぶしすぎないよう、
+    // 露出を下げ、表面はざらざら（霜）にして、太陽の向こう側の大きな照り返しを抑える
+    look: { ground: '#dcd8d0', ground2: '#c9c1b3', ev: -0.7, groundRough: 0.92 },
   },
 }
 
@@ -228,7 +237,7 @@ export function siteDef(id: string, site: string | null | undefined): SurfaceDef
   let d = siteCache.get(key)
   if (!d) {
     // 峡谷の壁（南へ 15 km、高さ 8 km）が霞に消えないよう、もやは少しうすめ
-    d = { ...base, site, haze: base.haze * 0.6 }
+    d = { ...base, ...SITES[site].look, site, haze: base.haze * 0.6 }
     siteCache.set(key, d)
   }
   return d

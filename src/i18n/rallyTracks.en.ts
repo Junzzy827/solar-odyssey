@@ -16,4 +16,10 @@ export const rallyTracksEn: Translation<RallyTracksJa> = {
     button: 'Moon chase',
     home: 'Back to the landing site',
   },
+  conamara: {
+    title: 'Europa ice drift race',
+    intro: 'Race about 1.7 km along the trough of a Europa ice ridge! The ice is slick: steer hard at speed and the back end slides out. When it starts to slide, steer a little the other way to catch it (counter-steer). Ease off before the corners. Gravity is about 1/7 of Earth’s, so the jumps send you flying.',
+    button: 'Ice race',
+    home: 'Back to the landing site',
+  },
 }

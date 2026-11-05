@@ -5421,6 +5421,9 @@ button.sample-count {
   border: 1px solid rgba(255, 190, 110, 0.5);
   color: #ffe9d6;
   text-align: center;
+  /* ハイスコア表のぶん高くなるので、小さい画面ではスクロール */
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
 }
 .rally-big {
   font-size: 40px;
@@ -5455,6 +5458,82 @@ button.sample-count {
 .rally-result .t {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
+}
+/* ローバーレースのハイスコア表（RallyHiscore.tsx）：結果・スタートのカードの順位の表と同じ見た目で、少し小さく */
+.rally-hiscore {
+  margin-top: 10px;
+  text-align: left;
+}
+.rally-hiscore-title {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: #ffd9a8;
+}
+.rally-hiscore-title small {
+  font-weight: 400;
+  color: #c9a988;
+}
+.rally-hiscore ol {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.rally-hiscore li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.rally-hiscore li.you {
+  background: rgba(141, 255, 170, 0.16);
+  font-weight: 700;
+}
+.rally-hiscore li.gap {
+  margin-top: 6px;
+  border-top: 1px dashed rgba(255, 190, 110, 0.35);
+}
+.rally-hiscore li .n {
+  width: 22px;
+  color: #c9a988;
+}
+.rally-hiscore li .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c);
+  flex: none;
+}
+.rally-hiscore li .who {
+  max-width: 7.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+.rally-hiscore li .when,
+.rally-hiscore li .pl {
+  color: #c9a988;
+}
+.rally-hiscore li .pl {
+  min-width: 2.2em;
+}
+.rally-hiscore li .t {
+  margin-left: auto;
+}
+.rally-hiscore li:first-child .t {
+  color: #ffd24a;
+}
+/* 金色のゴーストの上の名前（RallyGhost.tsx） */
+.rally-ghost-name {
+  color: #ffd24a;
+  font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
+  text-shadow: 0 0 3px #000, 0 0 6px #000;
+  white-space: nowrap;
+  user-select: none;
 }
 .rally-actions {
   pointer-events: auto;
@@ -5745,4 +5824,37 @@ body.touch .historic-status {
   paint-order: stroke;
   stroke: rgba(0, 0, 0, 0.7);
   stroke-width: 3px;
+}
+
+/* 史跡の当時の写真（アポロ17号のカードとずかん） */
+.historic-photo {
+  margin: 8px 0 4px;
+}
+.historic-photo img {
+  display: block;
+  max-width: 100%;
+  max-height: 300px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 210, 122, 0.35);
+}
+.historic-photo figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  font-size: 0.92em;
+  line-height: 1.4;
+}
+.historic-photo small {
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+.historic-photo a {
+  color: inherit;
+}
+
+.sample-card .historic-photo img {
+  max-height: 180px;
 }

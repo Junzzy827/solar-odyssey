@@ -45,4 +45,5 @@ export const surfaceViewJa = {
   raceButton: (track: string) => `${track}へ`,
   toRaceTrack: (track: string) => `${track}場へ`,
   takeOff: '離陸する',
+  toApollo17: 'アポロ17号の跡地へ',
 }

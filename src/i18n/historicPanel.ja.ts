@@ -8,5 +8,6 @@ export const historicPanelJa = {
   allVisited: '史跡をぜんぶ訪ねました！',
   siteFound: 'アポロ17号の史跡を見つけた',
   sitesVisited: '訪ねた史跡',
+  photoSource: '出典のページ',
   close: '閉じる',
 }

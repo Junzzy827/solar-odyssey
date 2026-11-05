@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { launchRover, roverActive } from './rover'
 import { goToSite, useLanding } from './landing'
+import { TRACKS } from '../data/rallyTracks'
+import { coursePrint } from './rallyGhost'
 
 // 火星の峡谷レース（マリネリス峡谷のレース場）：色違いの ORV-7 が 4 台で、光の門を順にくぐってゴールを目指す。
 // 自分の 1 台のほかの 3 台はコンピューター（それぞれ性格がちがう）。
@@ -46,8 +48,8 @@ type RallyState = {
   toGate: { dist: number; rel: number } | null
   /** 門をくぐったときの表示：自己ベストとの差（秒）。null は初めて */
   split: { gate: number; time: number; diff: number | null; at: number } | null
-  /** ゴールの結果 */
-  result: { time: number; place: number; best: number; newBest: boolean; order: RallyEntry[] } | null
+  /** ゴールの結果。at はハイスコア表に入れた日時、rank は表での順位（state/rallyHiscore.ts） */
+  result: { time: number; place: number; best: number; newBest: boolean; order: RallyEntry[]; at: number; rank: number } | null
   /** 門から外れて戻る（R）の案内を出す */
   lost: boolean
   /** 追いかけっこ（月）：つかまえたローバーと、ゴールまで逃げきったローバー（色の番号）、最後につかまえた時刻と色 */
@@ -56,8 +58,12 @@ type RallyState = {
   bots: { c: number; x: number; z: number }[]
 }
 
-/** 自己ベストはレース場ごと */
-const bestKey = () => `solar-voyager:rally-best:${useLanding.getState().site ?? 'coprates'}`
+/** 自己ベストはレース場ごと。コースを作り直したら（門の数も変わる）別の名前にして、前のベストと比べない */
+const bestKey = () => {
+  const site = useLanding.getState().site ?? 'coprates'
+  const tr = TRACKS[site]
+  return `solar-voyager:rally-best:${site}${tr ? `:${coursePrint(tr.line)}` : ''}`
+}
 const COLOR_KEY = 'solar-voyager:rally-color'
 
 export type RallyBest = { time: number; splits: number[] }

@@ -185,7 +185,7 @@ export function RoverMap() {
   const bots = useRally((r) => (r.phase === 'off' ? NO_BOTS : r.bots))
   const course = useMemo(() => {
     const tr = terrain?.def.site ? TRACKS[terrain.def.site] : null
-    return tr ? buildCourse(tr.line) : null
+    return tr ? buildCourse(tr.line, tr.gates) : null
   }, [terrain])
   const pois = wide ? (terrain?.pois ?? []) : []
   // アポロ17号の谷：月面車が走った道と史跡

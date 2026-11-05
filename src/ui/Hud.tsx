@@ -126,7 +126,8 @@ function Toast() {
   useEffect(() => {
     if (!toast) return
     setVisible(true)
-    const timer = setTimeout(() => setVisible(false), 7000)
+    // 長いお知らせは読み終わるまで長めに出す
+    const timer = setTimeout(() => setVisible(false), Math.max(7000, toast.text.length * 110))
     return () => clearTimeout(timer)
   }, [toast])
   if (!toast || !visible) return null

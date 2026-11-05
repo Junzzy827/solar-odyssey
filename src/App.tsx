@@ -43,6 +43,7 @@ import { TouchControls, TouchWarp } from './ui/TouchControls'
 import { useThrottleWheel } from './ui/Throttle'
 import { TouchBar } from './ui/TouchBar'
 import { BootFrames, BootScreen } from './ui/Boot'
+import { News } from './ui/News'
 import { QuizPanel } from './ui/QuizPanel'
 import { ProbeScene } from './components/ProbeScene'
 import { ProbePanel } from './ui/ProbePanel'
@@ -135,6 +136,7 @@ export default function App() {
         <SurfaceMemory />
       </Canvas>
       <BootScreen />
+      <News />
       <GalleryLabels />
       <BridgeLabels />
       <Hud />

@@ -53,6 +53,8 @@ export const apollo17En: Translation<Apollo17Ja> = {
     name: "Station 6, Tracy's Rock",
     when: 'Third moonwalk',
     story: "A house-sized boulder that rolled down the North Massif and split into pieces. Cernan called it Tracy's Rock after his daughter. The track it left rolling down the slope is still visible above it.",
+    photoCaption: 'Schmitt beside the boulder. Behind him is the valley back to the lunar module, the ground you drove across in this game.',
+    photoCredit: 'Photo: NASA (Eugene Cernan, AS17-140-21493 + 21497 joined), public domain, via Wikimedia Commons',
   },
   st7: {
     name: 'Station 7, foot of the North Massif',

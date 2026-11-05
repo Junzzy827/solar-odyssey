@@ -7,6 +7,8 @@ import { isNear } from './proximity'
 import { ship } from './flight'
 import { recallRover } from './rover'
 import { DEM_BODIES, loadDem } from '../components/surface/dem'
+import { loadMarsGround } from '../components/surface/marsGround'
+import { currentLevel, lowMemory } from './quality'
 
 // 地表のある惑星・衛星への着陸。着陸しているあいだは、宇宙の場面を止めて、地表の場面（SurfaceView）を出す。
 // 流れ：fadeIn（宇宙から暗転）→ descent（着陸船が降りてくる）→ surface（360°見渡す）→ ascent（離陸）→ fadeOut → もとの宇宙
@@ -76,9 +78,11 @@ export function startLanding(bodyId = landableBody()) {
   setPhase('fadeIn')
   // 本物の地形は暗転しているあいだに読んでおく（読み終わるまで地表の場面を出さない）
   const dem = DEM_BODIES.has(bodyId) ? loadDem(bodyId).catch(() => null) : Promise.resolve(null)
+  // 火星の地面の素材（Blender で焼いたタイル）も、暗転のあいだに
+  const mats = bodyId === 'mars' ? loadMarsGround(currentLevel() === 'low' || lowMemory()).catch(() => null) : null
   const fade = new Promise((r) => window.setTimeout(r, FADE * 1000))
   const giveUp = new Promise((r) => window.setTimeout(r, READY_LIMIT * 1000))
-  void Promise.race([Promise.all([dem, fade]), giveUp]).then(() => {
+  void Promise.race([Promise.all([dem, fade, mats]), giveUp]).then(() => {
     if (useLanding.getState().phase === 'fadeIn' && useLanding.getState().bodyId === bodyId) setPhase('descent')
   })
 }

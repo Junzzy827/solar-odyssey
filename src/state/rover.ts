@@ -12,6 +12,12 @@ export const DEPLOY_SEC = 6
 export const ROVER_RANGE = 100
 /** 最高速度（m/s）。時速 60 km */
 export const ROVER_TOP = 60 / 3.6
+/**
+ * 走りの版。運転のしかた・地面・岩など、レースのタイムが変わる変更をしたら、同じコミットで 1 増やす
+ * （見た目だけ・コメントだけの変更では増やさない）。レースのハイスコア表・ゴースト・ゲームに入っている記録は、
+ * 同じ版で走ったものだけを使う（state/rallyHiscore.ts の courseOf）。だから版が同じなら、どのバージョンのゲームでも使える
+ */
+export const DRIVE_VERSION = 1
 
 type RoverState = {
   phase: RoverPhase
@@ -142,8 +148,8 @@ export function bindRoverKeys() {
   }
 }
 
-/** 運転しているローバーの今の姿（レースの門の判定と順位に使う）。Rover が毎フレーム書き込む */
-export const roverPose = { x: 0, y: 0, z: 0, heading: 0, speed: 0, grounded: true }
+/** 運転しているローバーの今の姿（レースの門の判定と順位、ゴーストの記録に使う）。Rover が毎フレーム書き込む */
+export const roverPose = { x: 0, y: 0, z: 0, heading: 0, speed: 0, slip: 0, grounded: true, pitch: 0, roll: 0 }
 
 /**
  * レースからローバーを動かす：place（スタートの列・直前の門へ置く）、locked（スタート前は動けない）、
