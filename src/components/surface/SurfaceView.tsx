@@ -1617,6 +1617,11 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
                 🏁 {ui().surfaceView.toRaceTrack(TRACKS[trackForBody(def.id)!].button[0], TRACKS[trackForBody(def.id)!].button[1].toLowerCase())}
               </button>
             )}
+            {!def.site && def.id === 'moon' && (
+              <button className="secondary rally-site" onClick={() => goToSite('taurus')}>
+                🚩 {ui().surfaceView.toApollo17}
+              </button>
+            )}
             {def.site && TRACKS[def.site] && (
               <button className="secondary" onClick={() => goToSite(null)}>
                 {t(TRACKS[def.site].home[0], TRACKS[def.site].home[1])}

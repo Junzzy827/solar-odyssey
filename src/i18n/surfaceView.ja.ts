@@ -43,4 +43,5 @@ export const surfaceViewJa = {
   deployRover: 'ローバーを出す',
   toRaceTrack: (trackJa: string, _trackEn: string) => `${trackJa}場へ`,
   takeOff: '離陸する',
+  toApollo17: 'アポロ17号の跡地へ',
 }

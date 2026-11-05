@@ -43,7 +43,7 @@ const SOIL_DRAG: Record<string, number> = {
 }
 const soilDrag = (id: string) => SOIL_DRAG[id] ?? 0.16
 /** 氷の地面：タイヤの力の倍率（横すべりを止める力・加速・ブレーキ）。エウロパはつるつる */
-const ICE_GRIP: Record<string, number> = { europa: 0.3 }
+const ICE_GRIP: Record<string, number> = { europa: 0.2 }
 export const iceGrip = (id: string) => ICE_GRIP[id] ?? 1
 /**
  * 横すべり（ドリフト）。タイヤが横に出せる力（m/s²）は、重力が強いほど大きい（車輪が地面に押しつけられる）。

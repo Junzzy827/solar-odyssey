@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { launchRover, roverActive } from './rover'
 import { goToSite, useLanding } from './landing'
+import { TRACKS } from '../data/rallyTracks'
+import { coursePrint } from './rallyGhost'
 
 // 火星の峡谷レース（マリネリス峡谷のレース場）：色違いの ORV-7 が 4 台で、光の門を順にくぐってゴールを目指す。
 // 自分の 1 台のほかの 3 台はコンピューター（それぞれ性格がちがう）。
@@ -47,8 +49,12 @@ type RallyState = {
   bots: { c: number; x: number; z: number }[]
 }
 
-/** 自己ベストはレース場ごと */
-const bestKey = () => `solar-voyager:rally-best:${useLanding.getState().site ?? 'coprates'}`
+/** 自己ベストはレース場ごと。コースを作り直したら（門の数も変わる）別の名前にして、前のベストと比べない */
+const bestKey = () => {
+  const site = useLanding.getState().site ?? 'coprates'
+  const tr = TRACKS[site]
+  return `solar-voyager:rally-best:${site}${tr ? `:${coursePrint(tr.line)}` : ''}`
+}
 const COLOR_KEY = 'solar-voyager:rally-color'
 
 export type RallyBest = { time: number; splits: number[] }

@@ -746,6 +746,10 @@ body.touch .surface-buttons.lander-actions button {
   body.touch .surface-ui .surface-hint {
     bottom: calc(env(safe-area-inset-bottom) + 112px);
   }
+  /* ボタンが6つ（月：レース場と史跡）だと3段になるので、さらに上に */
+  body.touch .surface-ui:has(.lander-actions > button:nth-child(6)) .surface-hint {
+    bottom: calc(env(safe-area-inset-bottom) + 158px);
+  }
 }
 
 /* スマホ横：画面が低いので、左上の列（説明・時刻）は幅を抑える。
