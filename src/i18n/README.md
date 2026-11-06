@@ -46,7 +46,8 @@ missionText(m.id).title           // a mission's text
   the Moon", "To the Sun", "Look through the Hubble Space Telescope", "Observing the Space Elevator", but "Land on
   Mars" and "To Colony Group 1 (L5)". The names that take "the" are listed in `article.ts`: the Sun, the Moon, the two
   space telescopes and the SF places, the ones the English warp call in `state/flight.ts` says with "the" (`SPOKEN`
-  and the `spoken` of `data/sf.ts`). Japanese needs nothing.
+  and the `spoken` of `data/sf.ts`). A new SF place whose `spoken` name starts with "the" goes into `article.ts` too.
+  Japanese needs nothing.
 
 ## Data records
 

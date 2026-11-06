@@ -84,16 +84,16 @@ const guard = (table: object, ja: object, at: string, lang: string): object => {
   return new Proxy(table, {
     get(t, k, r) {
       if (typeof k !== 'string' || PROTOCOL.has(k)) return Reflect.get(t, k, r)
-      const where = `${at}["${k}"]`
+      // 毎フレーム引く文言もあるので、二度目からは Map を見るだけ
       if (k in t) {
-        if (!inner.has(k)) inner.set(k, guardIds(Reflect.get(t, k, r), (ja as Record<string, unknown>)[k], lang, where))
+        if (!inner.has(k)) inner.set(k, guardIds(Reflect.get(t, k, r), (ja as Record<string, unknown>)[k], lang, `${at}["${k}"]`))
         return inner.get(k)
       }
       if (!made.has(k)) {
-        console.error(`ERROR [i18n] ${lang}: no text for ${where} (its id is shown instead)`)
+        console.error(`ERROR [i18n] ${lang}: no text for ${at}["${k}"] (its id is shown instead)`)
         sample ??= shapeOf(Object.values(ja))
         const s = stand(sample, k)
-        made.set(k, guardIds(s, s, lang, where))
+        made.set(k, guardIds(s, s, lang, `${at}["${k}"]`))
       }
       return made.get(k)
     },

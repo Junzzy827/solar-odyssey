@@ -11,7 +11,8 @@ import { telescopesEn } from './telescopes.en'
 // 英語の文の中で行き先の名前を呼ぶ形：the をつける名前（the Moon、the Space Elevator）と、そのままの名前（Mars、
 // Colony Group 1 (L5)）。分け方は state/flight.ts のワープの掛け声（SPOKEN と data/sf.ts の spoken）と同じ：
 // 太陽・月・宇宙望遠鏡 2 つ・SF の 25 か所に the。コロニー群と天の湊ドック（Amano-Minato dock）はそのまま。
-// 着陸地点つきの名前（"Moon · Taurus-Littrow valley"、区切りは surfaceView.en.ts の siteSuffix）にも the をつける
+// 着陸地点つきの名前（"Moon · Taurus-Littrow valley"、区切りは surfaceView.en.ts の siteSuffix）にも the をつける。
+// SF の場所を data/sf.ts に足して spoken が 'the …' なら、その英語の名前をここにも足す
 const WITH_THE = [
   bodiesEn.sun?.name,
   bodiesEn.moon?.name,
