@@ -7,11 +7,16 @@ import type { Translation } from './translation'
 export const quizEn: Translation<typeof quizJa> = {
   biggest: {
     question: 'Which of these planets is the biggest?',
-    explanation: (name: string, diameterKm: string, timesEarth: string) => `${name} is about ${diameterKm} km across, about ${timesEarth} times Earth.`,
+    // Earth itself (timesEarth "1") gets no comparison with Earth
+    explanation: (name: string, diameterKm: string, timesEarth: string) =>
+      timesEarth === '1' ? `${name} is about ${diameterKm} km across.` : `${name} is about ${diameterKm} km across, about ${timesEarth} times Earth.`,
   },
   farthest: {
     question: 'Which of these planets is farthest from the Sun?',
-    explanation: (name: string, au: string, sunlight: string) => `${name} is about ${au} times as far from the Sun as Earth, and sunlight takes ${sunlight} to get there.`,
+    explanation: (name: string, au: string, sunlight: string) =>
+      au === '1'
+        ? `${name} is the farthest of these from the Sun, and sunlight takes ${sunlight} to get there.`
+        : `${name} is about ${au} times as far from the Sun as Earth, and sunlight takes ${sunlight} to get there.`,
   },
   longestYear: {
     question: 'Which of these planets takes the longest to go around the Sun once?',
@@ -25,10 +30,10 @@ export const quizEn: Translation<typeof quizJa> = {
     question: (moon: string) => `Which world does ${moon} orbit?`,
     explanation: (moon: string, parent: string, period: string, backwards: boolean) => `${moon} is a moon of ${parent} and goes around it once in ${period}${backwards ? ' (the opposite way to the other moons)' : ''}.`,
   },
-  aboutYears: (n: string) => `about ${n} years`,
-  aboutDays: (n: string) => `about ${n} days`,
-  aboutHours: (n: string) => `about ${n} hours`,
-  aboutMinutes: (minutes: number) => `about ${minutes} minutes`,
+  aboutYears: (n: string) => (n === '1' ? 'about 1 year' : `about ${n} years`),
+  aboutDays: (n: string) => (n === '1' ? 'about 1 day' : `about ${n} days`),
+  aboutHours: (n: string) => (n === '1' ? 'about 1 hour' : `about ${n} hours`),
+  aboutMinutes: (minutes: number) => (minutes === 1 ? 'about 1 minute' : `about ${minutes} minutes`),
   aboutHoursMinutes: (hours: number, minutes: number) => `about ${hours} h ${minutes ? `${minutes} min` : ''}`.trim(),
   title: {
     master: 'Solar System Master',
