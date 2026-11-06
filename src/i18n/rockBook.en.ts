@@ -7,7 +7,8 @@ import { listEn } from './list'
 
 export const rockBookEn: Translation<typeof rockBookJa> = {
   landerHint: (where: string) => `Land on ${theEn(where)} and look for the rocks marked by light beams with the rover.`,
-  spotsHint: (where: string, spots: string[]) => `Try the ${listEn(spots)} on ${theEn(where)}. Drive to the ◆ on the minimap.`,
+  // The spots are place labels ("Large crater"), so they go in quotes, as the Japanese puts them in 「」
+  spotsHint: (where: string, spots: string[]) => `Try ${listEn(spots.map((s) => `“${s}”`))} on ${theEn(where)}. Drive to the ◆ on the minimap.`,
   back: 'Back',
   unknownName: '???',
   foundOn: 'Found on: ',
