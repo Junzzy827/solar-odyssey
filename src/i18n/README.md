@@ -15,7 +15,8 @@ is shown in Japanese in English mode (the ship's log goes by whole entries, see 
 - **`facts.ja.ts` / `facts.en.ts`** (`FACTS`, `FACTS_EN`) and **`sfFacts.ja.ts` / `sfFacts.en.ts`** (the SF objects'
   tables, spread into `FACTS`): the ship's log, read with `factsFor(id)` in `data/facts.ts`.
 - `index.ts`: `ui()` and the other readers · `translation.ts`: the shape of a translation and how its gaps are filled
-  · `lang.ts`: the current language and `useLang()` · `list.ts`: how English joins names in a list.
+  · `lang.ts`: the current language and `useLang()` · `list.ts`: how English joins names in a list · `article.ts`:
+  which names English writes with "the" inside a sentence.
 
 ## Reading a text
 
@@ -41,6 +42,9 @@ missionText(m.id).title           // a mission's text
 - Names in a list are joined by `ui().list(names)` when all of them are meant ("Found on: Phobos and Deimos") and by
   `ui().listOr(names)` when one of them is ("Land on Phobos, Deimos, or Proteus"). Japanese joins both with `・`
   (`フォボス・ダイモス・プロテウス`); English writes them as in `list.ts`.
+- A name inside an English sentence goes through `theEn(name)` (`TheEn(name)` at the start of a sentence): "Land on
+  the Moon", "To the Sun", "Look through the Hubble Space Telescope", but "Land on Mars". The names that take "the"
+  are listed in `article.ts`, as the English warp call in `state/flight.ts` names them. Japanese needs nothing.
 
 ## Data records
 
