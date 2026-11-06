@@ -43,8 +43,10 @@ missionText(m.id).title           // a mission's text
   `ui().listOr(names)` when one of them is ("Land on Phobos, Deimos, or Proteus"). Japanese joins both with `・`
   (`フォボス・ダイモス・プロテウス`); English writes them as in `list.ts`.
 - A name inside an English sentence goes through `theEn(name)` (`TheEn(name)` at the start of a sentence): "Land on
-  the Moon", "To the Sun", "Look through the Hubble Space Telescope", but "Land on Mars". The names that take "the"
-  are listed in `article.ts`, as the English warp call in `state/flight.ts` names them. Japanese needs nothing.
+  the Moon", "To the Sun", "Look through the Hubble Space Telescope", "Observing the Space Elevator", but "Land on
+  Mars" and "To Colony Group 1 (L5)". The names that take "the" are listed in `article.ts`: the Sun, the Moon, the two
+  space telescopes and the SF places, the ones the English warp call in `state/flight.ts` says with "the" (`SPOKEN`
+  and the `spoken` of `data/sf.ts`). Japanese needs nothing.
 
 ## Data records
 
@@ -59,9 +61,13 @@ The rally tracks, the landing sites, the titles and the rally colours are checke
 type error. For the other records the compiler does not see a new id that has no text yet.
 
 The game does not stop on such an id. The record files mark their catalog with `byId(texts)`, and `ui()` then answers
-an id it does not have with a stand-in of the same shape that shows the id (a `name` reads `vulcan`), and logs once
-`ERROR [i18n] ja: no text for ui.bodies["vulcan"] (its id is shown instead)`. The rock groups, the composition words
-and the landing and sky notes are not marked: there an id with no text is normal, and the reader falls back itself.
+an id it does not have with a stand-in that shows the id (a `name` reads `vulcan`), and logs once
+`ERROR [i18n] ja: no text for ui.bodies["vulcan"] (its id is shown instead)`. The stand-in has every field and every
+list entry that any record of the catalog has: a missing mission has as many steps as the longest mission, a missing
+ship every part id, so a reader that works for the records works for it. A table keyed by id inside a record is marked
+too (each ship's `parts`), so a part id with no text shows its id in the same way. The rock groups, the composition
+words and the landing and sky notes are not marked: there an id with no text is normal, and the reader falls back
+itself.
 
 ## Adding a text
 
@@ -80,7 +86,8 @@ A new screen gets a new pair of files, added to `ja.ts` and `en.ts`. A text with
 
 When the game loads, the console lists every text that has no English yet, as an error that does not stop anything:
 `ERROR [i18n] en: not translated (shown in Japanese): 3`, with the place of each (`navPanel.sun`,
-`missions.moon-supply.client`). The game shows those texts in Japanese.
+`missions.moon-supply.client`, and `facts.mars` for a ship's log entry with no English one). The game shows those
+texts in Japanese.
 
 ## Outside on purpose
 
