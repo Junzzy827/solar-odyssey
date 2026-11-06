@@ -4,6 +4,8 @@ import { chaptersJa, missionsJa } from './missions.ja'
 import { chaptersEn, missionsEn } from './missions.en'
 import { getLang, type Lang } from './lang'
 import { fill, guardIds, untranslated } from './translation'
+import { FACTS } from './facts.ja'
+import { FACTS_EN } from './facts.en'
 
 // 画面の文言の辞書（日本語・英語）。ui() と missionText() は、呼ぶたびに今の言語を見る
 // （読み込み時に文字列を決めてしまわないこと）。言語は設定（settings.lang）にあり、lang.ts の getLang() で読む。
@@ -23,6 +25,8 @@ const missing = [
   ...untranslated(ja, en),
   ...untranslated(missionsJa, missionsEn, 'missions'),
   ...untranslated(chaptersJa, chaptersEn, 'chapters'),
+  // 航海日誌（data/facts.ts の factsFor・クイズ）は、項目ごと英語がなければ日本語で出る
+  ...Object.keys(FACTS).filter((id) => !(id in FACTS_EN)).map((id) => `facts.${id}`),
 ]
 if (missing.length) console.error(`ERROR [i18n] en: not translated (shown in Japanese): ${missing.length}`, missing)
 
