@@ -63,7 +63,7 @@ import { newsJa } from './news.ja'
 import { touchControlsJa } from './touchControls.ja'
 import { apollo17Ja } from './apollo17.ja'
 import { rockCompJa } from './rockComp.ja'
-import { rockGroupsJa } from './rockGroups.ja'
+import { rockGroupsJa, rockGroupsWhereJa } from './rockGroups.ja'
 import { bodiesJa } from './bodies.ja'
 import { bridgePartsJa } from './bridgeParts.ja'
 import { compareItemsJa } from './compareItems.ja'
@@ -230,6 +230,7 @@ export const ja = {
   rockSamples: rockSamplesJa,
   rockComp: rockCompJa,
   rockGroups: rockGroupsJa,
+  rockGroupsWhere: rockGroupsWhereJa,
   ships: shipsJa,
   surfaceNotes: surfaceNotesJa,
   surfaceSites: surfaceSitesJa,

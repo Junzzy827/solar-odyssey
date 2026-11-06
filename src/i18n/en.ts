@@ -65,7 +65,7 @@ import { newsEn } from './news.en'
 import { touchControlsEn } from './touchControls.en'
 import { apollo17En } from './apollo17.en'
 import { rockCompEn } from './rockComp.en'
-import { rockGroupsEn } from './rockGroups.en'
+import { rockGroupsEn, rockGroupsWhereEn } from './rockGroups.en'
 import { bodiesEn } from './bodies.en'
 import { bridgePartsEn } from './bridgeParts.en'
 import { compareItemsEn } from './compareItems.en'
@@ -229,6 +229,7 @@ export const en: Translation<typeof ja> = {
   rockSamples: rockSamplesEn,
   rockComp: rockCompEn,
   rockGroups: rockGroupsEn,
+  rockGroupsWhere: rockGroupsWhereEn,
   ships: shipsEn,
   surfaceNotes: surfaceNotesEn,
   surfaceSites: surfaceSitesEn,
