@@ -1,5 +1,6 @@
 import type { quizJa } from './quiz.ja'
 import type { Translation } from './translation'
+import { theEn, TheEn } from './article'
 
 // The texts of state/quiz.ts (English): the "compare" questions made from the planet data, and the score titles.
 // name etc. are body names; numbers given as strings are already formatted by state/quiz.ts. Same keys as quiz.ja.ts
@@ -9,26 +10,26 @@ export const quizEn: Translation<typeof quizJa> = {
     question: 'Which of these planets is the biggest?',
     // Earth itself (timesEarth "1") gets no comparison with Earth
     explanation: (name: string, diameterKm: string, timesEarth: string) =>
-      timesEarth === '1' ? `${name} is about ${diameterKm} km across.` : `${name} is about ${diameterKm} km across, about ${timesEarth} times Earth.`,
+      timesEarth === '1' ? `${TheEn(name)} is about ${diameterKm} km across.` : `${TheEn(name)} is about ${diameterKm} km across, about ${timesEarth} times Earth.`,
   },
   farthest: {
     question: 'Which of these planets is farthest from the Sun?',
     explanation: (name: string, au: string, sunlight: string) =>
       au === '1'
-        ? `${name} is the farthest of these from the Sun, and sunlight takes ${sunlight} to get there.`
-        : `${name} is about ${au} times as far from the Sun as Earth, and sunlight takes ${sunlight} to get there.`,
+        ? `${TheEn(name)} is the farthest of these from the Sun, and sunlight takes ${sunlight} to get there.`
+        : `${TheEn(name)} is about ${au} times as far from the Sun as Earth, and sunlight takes ${sunlight} to get there.`,
   },
   longestYear: {
     question: 'Which of these planets takes the longest to go around the Sun once?',
-    explanation: (name: string, year: string) => `A year on ${name} (one trip around the Sun) is ${year}. The farther from the Sun, the slower and wider the loop.`,
+    explanation: (name: string, year: string) => `A year on ${theEn(name)} (one trip around the Sun) is ${year}. The farther from the Sun, the slower and wider the loop.`,
   },
   shortestDay: {
     question: 'Which of these planets has the shortest day (one spin)?',
-    explanation: (name: string, spin: string) => `${name} spins once in ${spin}. Big gas planets like Jupiter and Saturn spin very fast.`,
+    explanation: (name: string, spin: string) => `${TheEn(name)} spins once in ${spin}. Big gas planets like Jupiter and Saturn spin very fast.`,
   },
   moonOf: {
-    question: (moon: string) => `Which world does ${moon} orbit?`,
-    explanation: (moon: string, parent: string, period: string, backwards: boolean) => `${moon} is a moon of ${parent} and goes around it once in ${period}${backwards ? ' (the opposite way to the other moons)' : ''}.`,
+    question: (moon: string) => `Which world does ${theEn(moon)} orbit?`,
+    explanation: (moon: string, parent: string, period: string, backwards: boolean) => `${TheEn(moon)} is a moon of ${parent} and goes around it once in ${period}${backwards ? ' (the opposite way to the other moons)' : ''}.`,
   },
   aboutYears: (n: string) => (n === '1' ? 'about 1 year' : `about ${n} years`),
   aboutDays: (n: string) => (n === '1' ? 'about 1 day' : `about ${n} days`),

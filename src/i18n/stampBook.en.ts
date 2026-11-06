@@ -1,10 +1,11 @@
 import type { stampBookJa } from './stampBook.ja'
 import type { Translation } from './translation'
+import { theEn } from './article'
 
 // The texts of ui/StampBook.tsx (English). Same keys as stampBook.ja.ts
 
 export const stampBookEn: Translation<typeof stampBookJa> = {
-  setTarget: (name: string) => `Set ${name} as the target`,
+  setTarget: (name: string) => `Set ${theEn(name)} as the target`,
   quizAnswered: 'Quiz answered',
   stampBook: 'Stamp book',
   close: 'Close',

@@ -1,5 +1,6 @@
 import type { surfaceViewJa } from './surfaceView.ja'
 import type { Translation } from './translation'
+import { theEn } from './article'
 
 // The texts of components/surface/SurfaceView.tsx (English). Same keys as surfaceView.ja.ts
 
@@ -30,10 +31,10 @@ export const surfaceViewEn: Translation<typeof surfaceViewJa> = {
   raceTrackTip: 'To the race track, rover ready to go',
   backToShip: 'Back to ship',
   siteSuffix: (site: string) => ` · ${site}`,
-  descendingTo: (name: string) => `Descending to ${name}…`,
+  descendingTo: (name: string) => `Descending to ${theEn(name)}…`,
   skip: 'Skip',
   liftOff: 'Lift-off! Heading back to the ship',
-  landedOn: (name: string) => `Landed on ${name}`,
+  landedOn: (name: string) => `Landed on ${theEn(name)}`,
   gravity: 'Gravity',
   temperature: 'Temp.',
   weightNote: (kg: string) => `Someone who weighs 30 kg on Earth would weigh ${kg} kg here`,
