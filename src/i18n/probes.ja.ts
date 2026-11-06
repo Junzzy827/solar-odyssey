@@ -1,4 +1,5 @@
 import type { ProbeText } from '../data/probes'
+import { byId } from './translation'
 
 // data/probes.ts の文言（日本語）
 
@@ -71,4 +72,4 @@ const texts = {
 
 // 英語の probes.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type ProbesJa = typeof texts
-export const probesJa: Record<string, ProbeText> = texts
+export const probesJa: Record<string, ProbeText> = byId(texts)

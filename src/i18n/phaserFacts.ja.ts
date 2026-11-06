@@ -1,3 +1,4 @@
+import { byId } from './translation'
 // components/Phaser.tsx の文言（日本語）
 
 const texts = {
@@ -9,4 +10,4 @@ const texts = {
 
 // 英語の phaserFacts.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type PhaserFactsJa = typeof texts
-export const phaserFactsJa: Record<string, string> = texts
+export const phaserFactsJa: Record<string, string> = byId(texts)

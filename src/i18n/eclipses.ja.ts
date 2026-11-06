@@ -1,4 +1,5 @@
 import type { EclipseText } from '../data/eclipses'
+import { byId } from './translation'
 
 // data/eclipses.ts の文言（日本語）
 
@@ -48,4 +49,4 @@ const texts = {
 
 // 英語の eclipses.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type EclipsesJa = typeof texts
-export const eclipsesJa: Record<string, EclipseText> = texts
+export const eclipsesJa: Record<string, EclipseText> = byId(texts)

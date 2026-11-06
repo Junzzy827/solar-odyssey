@@ -1,4 +1,5 @@
 import type { ShipText } from '../data/ships'
+import { byId } from './translation'
 
 // data/ships.ts, data/shipParts.ts の文言（日本語）
 
@@ -224,4 +225,4 @@ const texts = {
 
 // 英語の ships.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type ShipsJa = typeof texts
-export const shipsJa: Record<string, ShipText> = texts
+export const shipsJa: Record<string, ShipText> = byId(texts)

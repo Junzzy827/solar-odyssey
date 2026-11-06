@@ -1,4 +1,5 @@
 import type { RockSampleText } from '../data/rockSamples'
+import { byId } from './translation'
 
 // data/rockSamples.ts の文言（日本語）
 
@@ -80,4 +81,4 @@ const texts = {
 
 // 英語の rockSamples.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type RockSamplesJa = typeof texts
-export const rockSamplesJa: Record<string, RockSampleText> = texts
+export const rockSamplesJa: Record<string, RockSampleText> = byId(texts)

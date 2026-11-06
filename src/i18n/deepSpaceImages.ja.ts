@@ -1,4 +1,5 @@
 import type { DeepSpaceImageText } from '../data/deepSpace'
+import { byId } from './translation'
 
 // data/deepSpace.ts の文言（日本語）
 
@@ -106,4 +107,4 @@ const texts = {
 
 // 英語の deepSpaceImages.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type DeepSpaceImagesJa = typeof texts
-export const deepSpaceImagesJa: Record<string, DeepSpaceImageText> = texts
+export const deepSpaceImagesJa: Record<string, DeepSpaceImageText> = byId(texts)

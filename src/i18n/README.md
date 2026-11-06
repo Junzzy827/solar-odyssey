@@ -54,6 +54,11 @@ The rally tracks, the landing sites, the titles and the rally colours are checke
 `SITES`, `Title.id` and `RALLY_COLORS` are typed by the ids of their `.ja.ts`, so one without its Japanese text is a
 type error. For the other records the compiler does not see a new id that has no text yet.
 
+The game does not stop on such an id. The record files mark their catalog with `byId(texts)`, and `ui()` then answers
+an id it does not have with a stand-in of the same shape that shows the id (a `name` reads `vulcan`), and logs once
+`ERROR [i18n] ja: no text for ui.bodies["vulcan"] (its id is shown instead)`. The rock groups, the composition words
+and the landing and sky notes are not marked: there an id with no text is normal, and the reader falls back itself.
+
 ## Adding a text
 
 1. Write the Japanese in the screen's `.ja.ts`, under a key that says what the text is.

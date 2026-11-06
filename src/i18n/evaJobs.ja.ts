@@ -1,4 +1,5 @@
 import type { JobText } from '../state/evaJobs'
+import { byId } from './translation'
 
 // state/evaJobs.ts の文言（日本語）
 
@@ -47,4 +48,4 @@ const texts = {
 
 // 英語の evaJobs.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type EvaJobsJa = typeof texts
-export const evaJobsJa: Record<string, JobText> = texts
+export const evaJobsJa: Record<string, JobText> = byId(texts)

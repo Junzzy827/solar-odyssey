@@ -1,4 +1,5 @@
 import type { RallyColorText } from '../state/rally'
+import { byId } from './translation'
 
 // state/rally.ts の文言（日本語）：4 色のローバー
 
@@ -11,4 +12,4 @@ const texts = {
 
 // 英語の rallyColors.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type RallyColorsJa = typeof texts
-export const rallyColorsJa: Record<string, RallyColorText> = texts
+export const rallyColorsJa: Record<string, RallyColorText> = byId(texts)

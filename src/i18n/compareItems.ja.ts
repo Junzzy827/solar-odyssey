@@ -1,4 +1,5 @@
 import type { CompareItemText } from '../data/shipParts'
+import { byId } from './translation'
 
 // data/shipParts.ts の文言（日本語）
 
@@ -11,4 +12,4 @@ const texts = {
 
 // 英語の compareItems.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type CompareItemsJa = typeof texts
-export const compareItemsJa: Record<string, CompareItemText> = texts
+export const compareItemsJa: Record<string, CompareItemText> = byId(texts)

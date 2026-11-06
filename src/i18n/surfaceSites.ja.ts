@@ -1,3 +1,4 @@
+import { byId } from './translation'
 // data/surfaces.ts の文言（日本語）
 
 const texts = {
@@ -17,4 +18,4 @@ const texts = {
 
 // 英語の surfaceSites.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type SurfaceSitesJa = typeof texts
-export const surfaceSitesJa: Record<string, { name: string; note: string }> = texts
+export const surfaceSitesJa: Record<string, { name: string; note: string }> = byId(texts)

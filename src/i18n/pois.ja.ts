@@ -1,4 +1,5 @@
 import type { PoiText } from '../components/surface/pois'
+import { byId } from './translation'
 
 // components/surface/pois.ts の文言（日本語）
 
@@ -50,4 +51,4 @@ const texts = {
 
 // 英語の pois.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type PoisJa = typeof texts
-export const poisJa: Record<string, PoiText> = texts
+export const poisJa: Record<string, PoiText> = byId(texts)

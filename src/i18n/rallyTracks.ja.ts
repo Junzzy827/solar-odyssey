@@ -1,4 +1,5 @@
 import type { RallyTrackText } from '../data/rallyTracks'
+import { byId } from './translation'
 
 // data/rallyTracks.ts の文言（日本語）
 
@@ -25,4 +26,4 @@ const texts = {
 
 // 英語の rallyTracks.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type RallyTracksJa = typeof texts
-export const rallyTracksJa: Record<string, RallyTrackText> = texts
+export const rallyTracksJa: Record<string, RallyTrackText> = byId(texts)

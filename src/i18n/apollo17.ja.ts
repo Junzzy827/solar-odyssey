@@ -1,4 +1,5 @@
 import type { HistoricText } from '../data/apollo17'
+import { byId } from './translation'
 
 // data/apollo17.ts の文言（日本語）
 
@@ -74,4 +75,4 @@ const texts = {
 
 // 英語の apollo17.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type Apollo17Ja = typeof texts
-export const apollo17Ja: Record<string, HistoricText> = texts
+export const apollo17Ja: Record<string, HistoricText> = byId(texts)

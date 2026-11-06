@@ -1,4 +1,5 @@
 import type { ChapterText, MissionText } from '../data/missions'
+import { byId } from './translation'
 
 // ストーリーモードの文章（日本語）。語り手は船の航法AI「ナビ」、艦長はプレイヤー。
 // 数値は NASA などの公開データの概数。
@@ -1583,7 +1584,7 @@ const missions = {
 
 // 英語の missions.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type MissionsJa = typeof missions
-export const missionsJa: Record<string, MissionText> = missions
+export const missionsJa: Record<string, MissionText> = byId(missions)
 
 const chapters = {
   'sv01-real': {
@@ -1662,4 +1663,4 @@ const chapters = {
 
 // 英語の chaptersEn（missions.en.ts）はこの型で調べる
 export type ChaptersJa = typeof chapters
-export const chaptersJa: Record<string, ChapterText> = chapters
+export const chaptersJa: Record<string, ChapterText> = byId(chapters)

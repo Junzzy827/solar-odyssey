@@ -1,4 +1,5 @@
 import type { TitleText } from '../data/stamps'
+import { byId } from './translation'
 
 // data/stamps.ts の文言（日本語）：称号（count：いる数）
 
@@ -27,4 +28,4 @@ const texts = {
 
 // 英語の stampTitles.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type StampTitlesJa = typeof texts
-export const stampTitlesJa: Record<string, TitleText> = texts
+export const stampTitlesJa: Record<string, TitleText> = byId(texts)

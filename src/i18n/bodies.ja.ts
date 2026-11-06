@@ -1,4 +1,5 @@
 import type { PlanetText, MoonText } from '../data/bodies'
+import { byId } from './translation'
 
 // data/bodies.ts の文言（日本語）
 
@@ -39,4 +40,4 @@ const texts = {
 
 // 英語の bodies.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type BodiesJa = typeof texts
-export const bodiesJa: Record<string, PlanetText | MoonText> = texts
+export const bodiesJa: Record<string, PlanetText | MoonText> = byId(texts)

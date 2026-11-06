@@ -1,3 +1,4 @@
+import { byId } from './translation'
 // components/eva/hull.ts の文言（日本語）
 
 const texts = {
@@ -8,4 +9,4 @@ const texts = {
 
 // 英語の evaSites.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type EvaSitesJa = typeof texts
-export const evaSitesJa: Record<string, string> = texts
+export const evaSitesJa: Record<string, string> = byId(texts)

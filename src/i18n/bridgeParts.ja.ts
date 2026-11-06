@@ -1,4 +1,5 @@
 import type { BridgePartText } from '../data/bridgeParts'
+import { byId } from './translation'
 
 // data/bridgeParts.ts の文言（日本語）
 
@@ -48,4 +49,4 @@ const texts = {
 
 // 英語の bridgeParts.en.ts はこの型（id つき）で調べる：id のつづりちがいは型エラー
 export type BridgePartsJa = typeof texts
-export const bridgePartsJa: Record<string, BridgePartText> = texts
+export const bridgePartsJa: Record<string, BridgePartText> = byId(texts)
