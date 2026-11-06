@@ -74,8 +74,9 @@ A new screen gets a new pair of files, added to `ja.ts` and `en.ts`. A text with
 
 ## Missing English
 
-With `#debug` in the address, the console lists every text that has no English yet
-(`[i18n] en: not translated (shown in Japanese)`).
+When the game loads, the console lists every text that has no English yet, as an error that does not stop anything:
+`ERROR [i18n] en: not translated (shown in Japanese): 3`, with the place of each (`navPanel.sun`,
+`missions.moon-supply.client`). The game shows those texts in Japanese.
 
 ## Outside on purpose
 
