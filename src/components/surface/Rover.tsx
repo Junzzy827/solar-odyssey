@@ -30,9 +30,13 @@ const D = Math.PI / 180
 const WHEEL_R = 0.2
 /** アクセルオフの減速（m/s²）：どの星でも効く最低限の抵抗と、速さに比例するギアの抵抗（1/s） */
 const ROLL_BASE = 0.8
-/** 空中の姿勢制御：横への加速度（m/s²）、向きを変える速さ（rad/s）、下へ押す加速度の下限（m/s²）、噴射剤が持つ時間（秒） */
-const AIR_SIDE = 5
-const AIR_YAW = 0.8
+/**
+ * 空中の姿勢制御：横への加速度（m/s²）、向きを変える速さ（rad/s）、下へ押す加速度の下限（m/s²）、噴射剤が持つ時間（秒）。
+ * 小さなガス噴射なので、横へはほんの少ししか動けない。向きを変えても進む向きはそのまま（着地してタイヤで曲がる）。
+ * 地面で曲がるより空中のほうがよく曲がる、ということがないように
+ */
+const AIR_SIDE = 1.2
+const AIR_YAW = 0.45
 const AIR_DOWN_MIN = 6
 const AIR_FUEL_SEC = 2.5
 const ROLL_GEAR = 0.35
@@ -903,7 +907,14 @@ export function Rover({
         s.thrustDown = on ? down : 0
         if (on) {
           s.slip += side * AIR_SIDE * dt
-          s.heading -= side * AIR_YAW * dt
+          // 車体だけが回る。速度（地面に対する向き）は変わらないので、そのぶんは横すべりになり、着地でタイヤが受け止める
+          const dh = side * AIR_YAW * dt
+          s.heading -= dh
+          const cs = Math.cos(dh)
+          const sn = Math.sin(dh)
+          const fw = s.speed * cs + s.slip * sn
+          s.slip = s.slip * cs - s.speed * sn
+          s.speed = fw
           s.vy -= down * Math.max(AIR_DOWN_MIN, g * 2) * dt
           s.fuel = Math.max(0, s.fuel - dt / AIR_FUEL_SEC)
         }
