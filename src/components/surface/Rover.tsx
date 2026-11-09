@@ -515,6 +515,8 @@ type Drive = {
   thrust: number
   thrustSide: number
   thrustDown: number
+  /** 空中で ▼（下へ押す噴射）を使った。着地しても、ボタンを離すまではブレーキにしない */
+  downHeld: boolean
   /** 横すべりの速さ（m/s、右へ +） */
   slip: number
   /** タイヤが車体を横へ押す加速度（m/s²、右へ +）。車体の傾きに使う */
@@ -782,6 +784,7 @@ export function Rover({
       thrust: 0,
       thrustSide: 0,
       thrustDown: 0,
+      downHeld: false,
       slip: 0,
       aLat: 0,
       sway: new Sway(),
@@ -846,7 +849,9 @@ export function Rover({
       const steerTarget = busy ? 0 : inp.steer
       s.steer += (steerTarget - s.steer) * Math.min(1, dt * 6)
       if (s.grounded) {
-        const th = busy ? 0 : inp.throttle
+        // 空中で ▼ を押したまま着地したときは、離すまでブレーキにしない（下へ押す噴射のつもりで押しているので）
+        if (inp.throttle >= 0) s.downHeld = false
+        const th = busy || (s.downHeld && inp.throttle < 0) ? 0 : inp.throttle
         if (busy) {
           s.speed *= 1 - Math.min(1, dt * 8)
           s.slip *= 1 - Math.min(1, dt * 8)
@@ -905,6 +910,7 @@ export function Rover({
         const on = s.fuel > 0 && (side !== 0 || down > 0)
         s.thrustSide = on ? side : 0
         s.thrustDown = on ? down : 0
+        if (down) s.downHeld = true
         if (on) {
           s.slip += side * AIR_SIDE * dt
           // 車体だけが回る。速度（地面に対する向き）は変わらないので、そのぶんは横すべりになり、着地でタイヤが受け止める
