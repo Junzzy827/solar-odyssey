@@ -4,7 +4,8 @@ There is no metre-scale elevation data for Europa (Galileo stereo covers only a 
 so this builds a plausible landscape modelled on Galileo photos of the Conamara Chaos region:
 a smooth band of ice (the race course) between two double ridges (~100 m high crests with a
 central trough), background double ridges crossing at many angles, and a field of tilted chaos
-blocks to the north-west. Three low transverse ridges cross the course as jumps.
+blocks to the north-west. The course is a stair of ice slabs: three jumps up onto higher slabs
+(each with a low lip at its edge) and one drop-off down to a lower slab.
 
 Usage: python3 tools/terrain/pack_europa.py public/terrain/
 The course runs in the central trough of a large arc-shaped double ridge (like Europa's cycloid ridges).
@@ -29,6 +30,10 @@ CTRL = [(0, 0), (90, -150), (260, -270), (470, -280), (650, -360), (760, -560), 
 BAND = 45.0      # smooth ice half-width
 WALL = 250.0     # distance from course to the centre of each flanking double ridge
 JUMPS = (330.0, 760.0, 1180.0)
+LIP = 3.6        # height of the lip at each jump (m)
+SLAB = 2.0       # how much higher the slab behind each jump is (m)
+DROP_AT = 540.0  # course distance (m) where a slab ends in a drop-off
+DROP = 4.0       # height of that drop-off (m)
 rng = np.random.default_rng(7)
 
 
@@ -136,9 +141,16 @@ def height(X, Z, fine=False):
     band = band * band * (3 - 2 * band)
     floor = noise2(X, Z, 9000, 1) * 60 + noise2(X, Z, 1800, 11) * 12
     h = floor + band * (h - floor)
-    # jumps: low ridges across the band
+    # the course is a stair of ice slabs (cratercamper's idea): each jump is the near edge of a higher
+    # slab, pushed up into a low lip (like a moraine bulldozed by flowing ice), so you land on the slab
+    # behind it after a shorter flight. One slab ends in a drop-off to a lower slab.
+    lat = 1 - np.clip((d - BAND) / 40, 0, 1)
+    lat = lat * lat * (3 - 2 * lat)
     for js in JUMPS:
-        h += 3.6 * np.exp(-((s - js) / 11) ** 2) * (1 - np.clip((d - BAND) / 25, 0, 1))
+        g = np.exp(-((s - js) / 11) ** 2)
+        h += np.where(s < js, LIP * g, SLAB + (LIP - SLAB) * g) * lat
+    edge = np.clip((s - DROP_AT) / 8, 0, 1)
+    h -= DROP * edge * edge * (3 - 2 * edge) * lat
     if fine:
         h += noise2(X, Z, 40, 41, 3) * (0.15 + 0.6 * band) + noise2(X, Z, 9, 43, 2) * 0.12 * band
     return h

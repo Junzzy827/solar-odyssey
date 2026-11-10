@@ -3,7 +3,7 @@ import type { SurfaceDef } from '../../data/surfaces'
 import { detailAt, heightAt, type Dem } from './dem'
 import { poisFor, poiWeight, type Poi } from './pois'
 import { FORM_KINDS, FORM_ROCK_TILE, formPalette, formRelief, formRocks, formTint } from './poiForms'
-import { CONAMARA_RACE, TAURUS_RACE } from '../../data/raceLines'
+import { CONAMARA_RACE, COPRATES_RACE, TAURUS_RACE } from '../../data/raceLines'
 
 // 地表の地形：なだらかな起伏・クレーター・砂丘・遠くの山並み・天体の丸み（小さな星ほど地平線が近い）。
 // 立つ場所（原点）と着陸船の場所は平らにならす。
@@ -76,8 +76,15 @@ const smooth = (e0: number, e1: number, x: number) => {
  * レース場のコースの上（ZONE_LANE の内側）は、少しでこぼこまでにおさえる（走りやすく）
  */
 const ZONE_BODIES = new Set(['moon', 'europa'])
-const RACE_LINES: Record<string, [number, number][]> = { taurus: TAURUS_RACE.line, conamara: CONAMARA_RACE.line }
-/** コースの線からこの距離（m）までは荒れた所を作らない。その外 ZONE_LANE_FADE m で元にもどる */
+const RACE_LINES: Record<string, [number, number][]> = {
+  coprates: COPRATES_RACE.line,
+  taurus: TAURUS_RACE.line,
+  conamara: CONAMARA_RACE.line,
+}
+/**
+ * レースのコースの上（線からこの距離 m まで）は、ほぼ平らにする（どの星でも、最初のレースは走りやすく）。
+ * その外 ZONE_LANE_FADE m で元の地面にもどる。でこぼこや荒れた所は、ふつうの着陸地点で楽しむ
+ */
 const ZONE_LANE = 14
 const ZONE_LANE_FADE = 18
 const LANE_CELL = 25
@@ -123,7 +130,7 @@ export class Terrain {
       this.zoneCut = [qs[Math.floor(qs.length * 0.35)], qs[Math.floor(qs.length * 0.75)]]
     }
     const line = def.site ? RACE_LINES[def.site] : undefined
-    if (this.zoned && line) {
+    if (line) {
       const lane = new Map<string, [number, number][]>()
       // 10 m ごとの点のあいだを 2.5 m ごとに埋める（線までの距離を点までの距離で測れるように）
       for (let i = 0; i < line.length - 1; i++) {
@@ -238,7 +245,10 @@ export class Terrain {
     if (this.dem) {
       // 本物の地形 ＋ 地図より細かい足もとのでこぼこ
       let real = heightAt(this.dem.near, x, z) ?? heightAt(this.dem.far, x, z) ?? 0
-      if (this.dem.detail) real += detailAt(this.dem.detail, x, z)
+      // レースのコースの上では、本物の地形の細かいでこぼこをならす（大きな地形の形はそのまま）
+      const lw = this.lane && this.def.id === 'mars' ? this.laneW(x, z) : 0
+      if (lw > 0) real += (this.nearSmooth(x, z) - real) * 0.75 * lw
+      if (this.dem.detail) real += detailAt(this.dem.detail, x, z) * (1 - 0.7 * lw)
       if (this.def.id === 'mars' && !this.def.site) real += this.marsRelief(x, z)
       if (this.pois.length) real += this.poiRelief(x, z)
       let h = real + (fbm(x / 22, z / 22, s + 50, 3) - 0.5) * 0.5 + (fbm(x / 5, z / 5, s + 51, 2) - 0.5) * 0.15
@@ -313,20 +323,21 @@ export class Terrain {
 
   /**
    * 荒れ具合の重み：flat（ほぼ平ら）・bumpy（少しでこぼこ）・rough（荒れた所）。足すと 1。
-   * 数百 m の大きさのむらで決める。レース場のコースの上では rough を bumpy に変える
+   * 数百 m の大きさのむらで決める。レース場のコースの上（lane = true のとき）は、ほぼ平らにする
    */
-  zoneMix(x: number, z: number) {
+  zoneMix(x: number, z: number, lane = true) {
     const q = this.zoneQ(x, z)
     const [a, b] = this.zoneCut
     let rough = smooth(b - 0.035, b + 0.035, q)
     const notFlat = smooth(a - 0.035, a + 0.035, q)
     let bumpy = notFlat - rough
-    if (this.lane && rough > 0) {
-      const keep = smooth(ZONE_LANE, ZONE_LANE + ZONE_LANE_FADE, this.laneDist(x, z))
-      bumpy += rough * (1 - keep)
-      rough *= keep
+    if (lane && this.lane && notFlat > 0) {
+      // コースの上：荒れた所はなくし、少しでこぼこも 2 割だけ残す（ほぼ平ら）
+      const w = this.laneW(x, z)
+      bumpy *= 1 - 0.8 * w
+      rough *= 1 - w
     }
-    return { flat: 1 - notFlat, bumpy, rough }
+    return { flat: 1 - bumpy - rough, bumpy, rough }
   }
 
   private zoneQ(x: number, z: number) {
@@ -335,6 +346,19 @@ export class Terrain {
 
   /** 荒れ具合のむらの境目：走れる範囲のうち、およそ 35 % がほぼ平ら・40 % が少しでこぼこ・25 % が荒れた所になるように */
   private zoneCut: [number, number] = [0.45, 0.58]
+
+  /** レースのコースの上か（1：コースの上〜0：コースから離れた所） */
+  private laneW(x: number, z: number) {
+    return 1 - smooth(ZONE_LANE, ZONE_LANE + ZONE_LANE_FADE, this.laneDist(x, z))
+  }
+
+  /** 地図の高さを、まわり ±9 m でならしたもの（コースの上の細かい起伏を消すため） */
+  private nearSmooth(x: number, z: number) {
+    const m = this.dem!.near
+    const at = (px: number, pz: number) => heightAt(m, px, pz) ?? heightAt(this.dem!.far, px, pz) ?? 0
+    const r = 9
+    return (at(x, z) * 2 + at(x + r, z) + at(x - r, z) + at(x, z + r) + at(x, z - r)) / 6
+  }
 
   /** コースの線までの距離（m、遠ければ大きな数） */
   private laneDist(x: number, z: number) {
@@ -860,9 +884,10 @@ export class Terrain {
       const pr = this.pois.length ? this.poiRocks(x, z) : null
       let more = pr?.more ?? 1
       if (this.zoned) {
-        // 平らな所は岩が少なく、荒れた所は多い
-        const m = this.zoneMix(x, z)
-        more *= 0.45 * m.flat + m.bumpy + 2.2 * m.rough
+        // 平らな所は岩が少なく、荒れた所は多い（レースのコースの上は、地面を平らにしても岩の数はこれまでどおり。岩を跳びこすのがレースのこつ）
+        const m = this.zoneMix(x, z, false)
+        const w = this.lane ? this.laneW(x, z) : 0
+        more *= 0.45 * m.flat + m.bumpy + (2.2 - 1.2 * w) * m.rough
       }
       if (this.flat(x, z) > 0.3) continue
       if (more <= 0.02) {
