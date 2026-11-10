@@ -39,6 +39,11 @@ const AIR_SIDE = 1.2
 const AIR_YAW = 0.45
 const AIR_DOWN_MIN = 6
 const AIR_FUEL_SEC = 2.5
+/**
+ * 自分で跳ぶ（ジャンプボタン）と、サスペンションのけりに加えて噴射剤も少し使う（満タンの 4 割）。
+ * 跳んだあとは空中で曲がれる分が減るので、いつ跳ぶか考えるようになる。残りが少ないと、跳ぶ高さも少し低い
+ */
+const JUMP_FUEL = 0.4
 const ROLL_GEAR = 0.35
 /** 地面の転がり抵抗係数。ふかふかの砂ほど車輪が沈んで大きい（舗装路はおよそ 0.015） */
 const SOIL_DRAG: Record<string, number> = {
@@ -736,6 +741,8 @@ export function Rover({
       if (st.current) Object.assign(st.current, { x, z, y: meshHeight(terrain, x, z), vy: 0, speed: 0, slip: 0, heading: heading ?? st.current.heading })
     }
     roverDebug.rocks = () => [...bodiesNow().values()].flat().map(({ x, z, r, h }) => ({ x, z, r, h }))
+    roverDebug.height = (x, z) => terrain.height(x, z)
+    roverDebug.drive = () => (st.current ? { ...st.current } : null)
     // レース：スタートの列・直前の門へ置く（止まった状態で、地面の上に）
     roverCtl.place = (x, z, heading) => {
       const d = st.current
@@ -749,6 +756,8 @@ export function Rover({
       roverDebug.sites = undefined
       roverDebug.place = undefined
       roverDebug.rocks = undefined
+      roverDebug.height = undefined
+      roverDebug.drive = undefined
     }
   }, [sites, staticBodies, terrain])
   useEffect(() => {
@@ -896,7 +905,9 @@ export function Rover({
         s.speed = Math.sign(s.speed) * Math.sqrt(Math.max(0, vt * vt - s.slip * s.slip))
         if (inp.jump && !busy) {
           // ぴょーん（重力の弱い星ほど高く、長く飛ぶ）
-          s.vy = 3.2 + Math.abs(s.speed) * 0.08
+          const kick = 0.6 + 0.4 * Math.min(1, s.fuel / JUMP_FUEL)
+          s.vy = (3.2 + Math.abs(s.speed) * 0.08) * kick
+          s.fuel = Math.max(0, s.fuel - JUMP_FUEL)
           s.grounded = false
           s.squashV = -0.4
         }

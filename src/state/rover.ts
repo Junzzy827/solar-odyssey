@@ -17,7 +17,7 @@ export const ROVER_TOP = 60 / 3.6
  * （見た目だけ・コメントだけの変更では増やさない）。レースのハイスコア表・ゴースト・ゲームに入っている記録は、
  * 同じ版で走ったものだけを使う（state/rallyHiscore.ts の courseOf）。だから版が同じなら、どのバージョンのゲームでも使える
  */
-export const DRIVE_VERSION = 3
+export const DRIVE_VERSION = 4
 
 type RoverState = {
   phase: RoverPhase
@@ -200,4 +200,4 @@ export const useSampleLog = create<{ log: Record<string, string[]>; add: (bodyId
 export const roverDebug: {
   /** 確認用のカメラ：ローバーから見た [前, 右, 上, 見る高さ]（m） */
   cam?: [number, number, number, number]
-  moveTo?: (site: number) => void; sites?: () => { x: number; z: number }[]; place?: (x: number, z: number, heading?: number) => void; rocks?: () => { x: number; z: number; r: number; h: number }[] } = {}
+  moveTo?: (site: number) => void; sites?: () => { x: number; z: number }[]; place?: (x: number, z: number, heading?: number) => void; rocks?: () => { x: number; z: number; r: number; h: number }[]; height?: (x: number, z: number) => number; drive?: () => Record<string, unknown> | null } = {}
