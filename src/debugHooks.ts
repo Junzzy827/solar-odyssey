@@ -17,6 +17,7 @@ import { goToSite, skipDescent, startLanding, startTakeoff, useLanding } from '.
 import { quitRally, startRally, useRally } from './state/rally'
 import { useSurfaceLab } from './state/surfaceLab'
 import { launchRover, recallRover, roverCtl, roverDebug, roverFocus, roverInput, roverPose, useRover } from './state/rover'
+import { shipCol } from './components/eva/shipCollider'
 import { evaDebug, evaInput, recallEva, startEva, useEva } from './state/eva'
 import { evaJobsDebug, jobsRt, useEvaJobs } from './state/evaJobs'
 import { evaSite } from './components/eva/hull'
@@ -44,7 +45,7 @@ const sv = {
   surfaceLab: useSurfaceLab,
   wide: wideNow,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus, ctl: roverCtl, pose: roverPose },
-  eva: { site: evaSite, state: useEva, start: startEva, recall: recallEva, input: evaInput, debug: evaDebug, jobs: evaJobsDebug, jobsRt, jobsState: useEvaJobs },
+  eva: { site: evaSite, state: useEva, start: startEva, recall: recallEva, input: evaInput, debug: evaDebug, jobs: evaJobsDebug, jobsRt, jobsState: useEvaJobs, col: shipCol },
   historic: useHistoric,
   skyClock: useSkyClock,
   weather: weatherNow,
