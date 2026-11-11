@@ -7,6 +7,7 @@ import { blackHoleEn } from './blackHole.en'
 import { bridgeEn } from './bridge.en'
 import { bridgePanelEn } from './bridgePanel.en'
 import { chargeBeamEn } from './chargeBeam.en'
+import { cleanScreenEn } from './cleanScreen.en'
 import { compareModelsEn } from './compareModels.en'
 import { consolesEn } from './consoles.en'
 import { contextLostEn } from './contextLost.en'
@@ -156,6 +157,7 @@ export const en: Translation<typeof ja> = {
   bridge: bridgeEn,
   bridgePanel: bridgePanelEn,
   chargeBeam: chargeBeamEn,
+  cleanScreen: cleanScreenEn,
   compareModels: compareModelsEn,
   consoles: consolesEn,
   contextLost: contextLostEn,

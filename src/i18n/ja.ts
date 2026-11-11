@@ -5,6 +5,7 @@ import { blackHoleJa } from './blackHole.ja'
 import { bridgeJa } from './bridge.ja'
 import { bridgePanelJa } from './bridgePanel.ja'
 import { chargeBeamJa } from './chargeBeam.ja'
+import { cleanScreenJa } from './cleanScreen.ja'
 import { compareModelsJa } from './compareModels.ja'
 import { consolesJa } from './consoles.ja'
 import { contextLostJa } from './contextLost.ja'
@@ -157,6 +158,7 @@ export const ja = {
   bridge: bridgeJa,
   bridgePanel: bridgePanelJa,
   chargeBeam: chargeBeamJa,
+  cleanScreen: cleanScreenJa,
   compareModels: compareModelsJa,
   consoles: consolesJa,
   contextLost: contextLostJa,

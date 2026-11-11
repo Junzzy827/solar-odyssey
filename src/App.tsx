@@ -26,6 +26,7 @@ import { SFBadge } from './ui/SFBadge'
 import { ScaleBadge } from './ui/ScaleToggle'
 import { ContextLost } from './ui/ContextLost'
 import { LabelDeclutter } from './ui/LabelDeclutter'
+import { CleanScreenButton } from './ui/CleanScreen'
 import { Telescopes } from './components/telescope/Telescopes'
 import { Race } from './components/race/Race'
 import { RacePanel } from './ui/RacePanel'
@@ -166,6 +167,7 @@ export default function App() {
       <RockBook />
       <HistoricBook />
       <LabelDeclutter />
+      <CleanScreenButton />
       <div className="credit">
         Planet textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a> (CC BY 4.0) · Hubble 3D model:{' '}
         <a href="https://science.nasa.gov/resource/hubble-space-telescope-3d-model/" target="_blank" rel="noreferrer">NASA VTAD</a> · Stars:{' '}
