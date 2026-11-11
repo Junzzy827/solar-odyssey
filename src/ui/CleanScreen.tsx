@@ -6,6 +6,13 @@ import { ui } from '../i18n'
 import { useLang } from '../i18n/lang'
 
 const CLEAN = 'clean-screen'
+
+// 右上のボタンをいつ出すか：off（出さない）・clean（消したときだけ、戻すため）・hud（ふだんの画面のときだけ、消すため）・both（いつでも）。
+// ここで決める。リンクでも試せる（#cleanbutton=clean など）
+type ButtonWhen = 'off' | 'clean' | 'hud' | 'both'
+const BUTTON_WHEN: ButtonWhen = 'both'
+const buttonWhen = (/[?&#]cleanbutton=(off|clean|hud|both)\b/.exec(location.search + location.hash)?.[1] as ButtonWhen | undefined) ?? BUTTON_WHEN
+
 const listeners = new Set<() => void>()
 const isClean = () => document.documentElement.classList.contains(CLEAN)
 
@@ -35,10 +42,11 @@ export function setupCleanScreen() {
   )
 }
 
-/** 右上の小さなボタン。どの画面でも同じ場所にあり、消したあとも残る。ふだんはほとんど見えず、マウスを重ねるとはっきり見える */
+/** 右上の小さなボタン。どの画面でも同じ場所。いつ出すかは buttonWhen。ふだんはほとんど見えず、マウスを重ねるとはっきり見える */
 export function CleanScreenButton() {
   useLang()
   const clean = useSyncExternalStore(subscribe, isClean)
+  if (buttonWhen === 'off' || (buttonWhen === 'clean' && !clean) || (buttonWhen === 'hud' && clean)) return null
   const t = ui().cleanScreen
   return (
     <button className="clean-screen-button" onClick={toggleCleanScreen} title={t.tip}>
