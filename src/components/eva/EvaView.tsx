@@ -45,10 +45,11 @@ const EvaCanvas = memo(function EvaCanvas() {
   const level = useLevel()
   const spec = useShip()
   const tint = useMemo(() => new THREE.Color(spec.swatch[0]), [spec])
-  // 母船のまわりでは、数 cm のツムギと 1 km の船を同時に描くので、奥行きを対数で持つ（遠くの面がちらつかない）
+  // 母船のまわりでは修理の依頼を出さない。奥行きの対数（logarithmicDepthBuffer）は使わない：
+  // 手前の面が消えて船の中が透けることがあったので、代わりにカメラの near を少し遠くして精度を保つ（Tsumugi.tsx）
   const [free] = useState(() => evaSite.id === 'ship')
   return (
-    <Canvas shadows="percentage" dpr={Math.min(dprFor(level), 1.75)} gl={{ alpha: false, logarithmicDepthBuffer: free }} camera={{ fov: 62, near: 0.05, far: free ? 20000 : 12000, position: [2.4, 1.7, 3.3] }}>
+    <Canvas shadows="percentage" dpr={Math.min(dprFor(level), 1.75)} gl={{ alpha: false }} camera={{ fov: 62, near: 0.05, far: free ? 9000 : 12000, position: [2.4, 1.7, 3.3] }}>
       <color attach="background" args={['#000']} />
       <Suspense fallback={null}>
         <EvaWorld spec={spec} />

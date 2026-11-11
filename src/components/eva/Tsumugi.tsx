@@ -759,10 +759,11 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
     if (s.phase === 'fly' && s.view === 'head') {
       cam.position.set(0, 0.17, -0.17).applyMatrix4(g.matrixWorld)
       cam.quaternion.copy(sim.quat)
-      cam.near = 0.02
+      // 母船のまわりは奥行きが 1 km を超えるので、near を遠めにして遠くの面の精度を保つ
+      cam.near = evaSite.id === 'ship' ? 0.08 : 0.02
       sim.camPos.copy(cam.position)
     } else {
-      cam.near = 0.05
+      cam.near = evaSite.id === 'ship' ? 0.2 : 0.05
       let wantPos: THREE.Vector3
       let wantLook: THREE.Vector3
       let wantUp: THREE.Vector3
