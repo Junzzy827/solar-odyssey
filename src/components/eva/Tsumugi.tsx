@@ -29,7 +29,7 @@ import {
 } from '../../state/eva'
 import { AIRLOCK, evaSite, hullAlt, hullClearance } from './hull'
 import { shipBoxDistance, shipCol, shipDistance, shipSweep } from './shipCollider'
-import { workLink } from '../../state/evaJobs'
+import { jobsRt, useEvaJobs, workLink } from '../../state/evaJobs'
 
 // 船外活動ロボット EVR-1「ツムギ」（全幅 0.8 m）。模型は tools/blender/build_eva_robot.py の eva-tsumugi.glb。
 // 関節（肩・ひじ・手首・スラスター・首）は模型ではすべて 0 で、ここで回して「たたんだ姿 → 展開」、
@@ -418,6 +418,14 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       hatch: 0,
       close: 0,
       pull: 0,
+      /** いちばん近い面までの距離（m） */
+      dSurf: 99,
+      /** カメラの横ずれ（0 = ツムギがまんなか、1 = 作業向けに左寄せ） */
+      side: 0,
+      /** 飛んでいるときのカメラの向き（ツムギの向きを少し遅れて追う） */
+      camQ: new THREE.Quaternion(),
+      /** 発進のカメラから、ツムギの後ろのカメラへ移りきったか（0..1） */
+      rigid: 0,
     }),
     [],
   )
@@ -535,6 +543,7 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       sim.gas = Math.max(0, sim.gas - v0.distanceTo(sim.vel) * 0.035)
       // ---- 面のそば：面へ向かう速さを抑える（速く飛んでいても、外壁にぶつからない） ----
       const dSurf = surfaceDistance(sim.pos, surfN)
+      sim.dSurf = dSurf
       if (dSurf < SURF_PROBE) {
         const toward = -sim.vel.dot(surfN)
         const cap = Math.max(NEAR_MIN, NEAR_K * (dSurf - BODY_R))
@@ -762,20 +771,31 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
         sim.close += ((workLink.assist ? 1 : 0) - sim.close) * (1 - Math.exp(-dt * 2.5))
         const c = sim.close
         // 速く飛ぶほど、カメラを少し引いて広く見せる
-        sim.pull += (Math.min(2.2, sim.vel.length() / 14) - sim.pull) * (1 - Math.exp(-dt * 1.5))
+        sim.pull += (Math.min(1.4, sim.vel.length() / 18) - sim.pull) * (1 - Math.exp(-dt * 1.5))
         const pz = 1 + sim.pull
-        wantPos = tmp.a.set((0.35 + 0.35 * c) * pz, (0.5 - 0.05 * c) * (1 + sim.pull * 0.6), (1.65 - 0.6 * c) * pz).applyQuaternion(sim.quat).add(sim.pos)
-        wantLook = tmp.b.set(0.1 - 0.1 * c, 0.2 - 0.35 * c, -1.2 + 0.6 * c).applyQuaternion(sim.quat).add(sim.pos)
-        wantUp = tmp.c.set(0, 1, 0).applyQuaternion(sim.quat)
+        // 壁や作業ポイントのそばでは、手もとが見えるようにツムギを左寄せ。離れて飛ぶときはまんなか
+        const ju = useEvaJobs.getState().ui
+        const nearJob = jobsRt.list.length > 0 && ju.jobs.length > 0 && ju.dist < 7
+        const wantSide = workLink.assist || nearJob || sim.dSurf < 4 ? 1 : sim.dSurf < 8 ? (8 - sim.dSurf) / 4 : 0
+        sim.side += (wantSide - sim.side) * (1 - Math.exp(-dt * 2))
+        const sx = sim.side * (0.35 + 0.35 * c)
+        // カメラの向きはツムギの向きを少し遅れて追う。位置はいつもツムギから決めるので、旋回しながら速く飛んでも画面から外れない
+        if (sim.rigid === 0) sim.camQ.copy(sim.quat)
+        sim.camQ.slerp(sim.quat, 1 - Math.exp(-dt * 6))
+        wantPos = tmp.a.set(sx * pz, (0.5 - 0.05 * c) * (1 + sim.pull * 0.6), (1.65 - 0.6 * c) * pz).applyQuaternion(sim.camQ).add(sim.pos)
+        wantLook = tmp.b.set(sim.side * (0.1 - 0.1 * c), 0.2 - 0.35 * c, -1.2 + 0.6 * c).applyQuaternion(sim.camQ).add(sim.pos)
+        wantUp = tmp.c.set(0, 1, 0).applyQuaternion(sim.camQ)
+        sim.rigid = Math.min(1, sim.rigid + dt * 0.8)
       } else {
         // 発進・展開・回収：エアロックを斜め上から
         wantPos = tmp.a.set(AIRLOCK.x + 2.4, 1.7, AIRLOCK.z + 3.3)
         wantLook = tmp.b.copy(sim.pos).lerp(OUTSIDE, 0.5)
         wantUp = tmp.c.set(0, 1, 0)
+        sim.rigid = 0
       }
-      const f = 1 - Math.exp(-dt * (s.phase === 'fly' ? 5 : 2.5))
-      // 速いときは、カメラが置いていかれないように、動いたぶんを先に足す
-      if (s.phase === 'fly') sim.camPos.addScaledVector(sim.vel, dt * 0.85)
+      // 飛んでいるときは、発進のカメラから 1 秒ほどで移りきって、あとはツムギにぴったりつく
+      const soft = 1 - Math.exp(-dt * (s.phase === 'fly' ? 5 : 2.5))
+      const f = s.phase === 'fly' ? Math.max(soft, sim.rigid * sim.rigid) : soft
       sim.camPos.lerp(wantPos, f)
       sim.camLook.lerp(wantLook, f)
       sim.camUp.lerp(wantUp, f).normalize()
@@ -788,7 +808,7 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
         cam.lookAt(sim.pos)
       }
     }
-    const fov = 62 + 10 * Math.min(1, sim.pull / 2)
+    const fov = 62 + 10 * Math.min(1, sim.pull / 1.4)
     if (Math.abs(cam.fov - fov) > 0.05) cam.fov = fov
     cam.updateProjectionMatrix()
     focus.copy(sim.pos)
@@ -825,6 +845,8 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
     sim.swapT = -1
     sim.recallFrom.set(0, 0, 0)
     sim.pull = 0
+    sim.side = 0
+    sim.rigid = 0
     sim.camPos.set(AIRLOCK.x + 2.4, 1.7, AIRLOCK.z + 3.3)
     sim.camLook.set(AIRLOCK.x, 0.6, AIRLOCK.z)
     sim.camUp.set(0, 1, 0)
