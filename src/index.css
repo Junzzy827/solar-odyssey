@@ -1286,6 +1286,22 @@ button:disabled {
   opacity: 0.4;
 }
 
+/* 船外活動（ブリッジのボタンの上）：ボタン一つでツムギを出す */
+.eva-button {
+  position: fixed;
+  right: calc(50% + 96px);
+  bottom: 72px;
+  padding: 10px 18px;
+  border: 1px solid rgba(120, 220, 200, 0.75);
+  border-radius: 20px;
+  background: rgba(8, 20, 22, 0.75);
+  color: #bff2e4;
+}
+
+.eva-button:disabled {
+  opacity: 0.4;
+}
+
 /* アルカディアの「着陸船を発進」（船を眺めるボタンの上） */
 .launch-button {
   position: fixed;
@@ -4524,6 +4540,11 @@ body.touch .sample-btn {
   stroke-width: 0.4;
 }
 
+.eva-map .m-warn {
+  fill: none;
+  stroke: rgba(255, 200, 90, 0.4);
+}
+
 .eva-map .m-range {
   fill: none;
   stroke: rgba(95, 212, 255, 0.45);
@@ -4653,6 +4674,70 @@ body.touch .sample-btn {
 .eva-stick,
 .eva-pad {
   display: none;
+}
+
+.eh-level {
+  margin-left: 10px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #8fb3d0;
+}
+
+.eva-speed-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px;
+  border-radius: 18px;
+  background: rgba(8, 12, 20, 0.6);
+  pointer-events: auto;
+}
+
+.eva-speed-btns button {
+  min-width: 34px;
+  padding: 6px 10px;
+}
+
+.esb-label {
+  font-size: 12px;
+  color: #d6e6f8;
+  min-width: 92px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+body.touch .esb-word {
+  display: none;
+}
+
+body.touch .esb-label {
+  min-width: 52px;
+}
+
+body.touch .eva-speed-btns button {
+  min-width: 30px;
+  padding: 5px 8px;
+}
+
+.eva-lock {
+  display: block;
+  margin-top: 4px;
+  color: #8fe0ff;
+}
+
+.eva-lock.on {
+  color: #8fffb0;
+}
+
+.rover-edge.eva-range.soft {
+  background: rgba(40, 30, 6, 0.66);
+  border-color: rgba(255, 200, 90, 0.7);
+  color: #ffe6b0;
+  box-shadow: 0 0 14px rgba(255, 200, 90, 0.25);
+}
+
+.eva-pad button.go.boost {
+  background: rgba(95, 212, 255, 0.8);
 }
 
 /* スマホ：左下にスティック、右下に上下・作業。計器は右上、ツールは右の縦の列、ボタンは左上 */

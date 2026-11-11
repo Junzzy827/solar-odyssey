@@ -8,7 +8,12 @@ import { MAP_KEYS, shrinkTexture } from '../surface/shrinkTexture'
 import {
   DEPLOY_SEC,
   EVA_FADE,
-  EVA_TOP,
+  EVA_BOOST,
+  EVA_SPEEDS,
+  RETURN_FAR,
+  RETURN_SEC,
+  evaRecall,
+  recallEva,
   LAUNCH_SEC,
   RECALL_SEC,
   TETHER_M,
@@ -22,7 +27,8 @@ import {
   type EvaTool,
   EVA_TOOLS,
 } from '../../state/eva'
-import { AIRLOCK, hullAlt, hullClearance } from './hull'
+import { AIRLOCK, evaSite, hullAlt, hullClearance } from './hull'
+import { shipBoxDistance, shipCol, shipDistance, shipSweep } from './shipCollider'
 import { workLink } from '../../state/evaJobs'
 
 // 船外活動ロボット EVR-1「ツムギ」（全幅 0.8 m）。模型は tools/blender/build_eva_robot.py の eva-tsumugi.glb。
@@ -271,8 +277,20 @@ const RCS = [
   [-0.15, -0.08, 0.27],
 ].map((v) => new THREE.Vector3(...v))
 
-const ACC = 0.9 // m/s²
 const TURN = 1.1 // rad/s
+/** 慣性のまま（自動ブレーキ OFF）のときの加速（最高速度の何倍 /s） */
+const INERTIA_ACC = 0.5
+/** 面のそばでは、面へ向かう速さをこれ（m/s、面までの距離 1 m あたり）までに抑える（ぶつからない） */
+const NEAR_K = 1.4
+const NEAR_MIN = 2.5
+const SURF_PROBE = 60
+const surfN = new THREE.Vector3()
+/** いちばん近い面までの距離と外向き（母船のまわりは本物の形、ほかは足場の形） */
+function surfaceDistance(p: THREE.Vector3, n: THREE.Vector3) {
+  if (evaSite.id === 'ship') return shipDistance(p, n, SURF_PROBE)
+  const depth = hullClearance(p, SURF_PROBE, n)
+  return depth > 0 ? SURF_PROBE - depth : SURF_PROBE
+}
 
 export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
   const { scene } = useGLTF(url('eva-tsumugi.glb'))
@@ -399,6 +417,7 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       camUp: new THREE.Vector3(0, 1, 0),
       hatch: 0,
       close: 0,
+      pull: 0,
     }),
     [],
   )
@@ -412,6 +431,14 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
     return () => {
       evaDebug.place = undefined
       evaDebug.state = undefined
+    }
+  }, [sim])
+
+  // 回収のボタン・K：母船のまわりで遠くにいれば、暗転して連れもどす
+  useEffect(() => {
+    evaRecall.request = () => recallEva(evaSite.id === 'ship' && sim.pos.distanceTo(OUTSIDE) > RETURN_FAR)
+    return () => {
+      evaRecall.request = () => recallEva()
     }
   }, [sim])
 
@@ -480,15 +507,39 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       const right = THREE.MathUtils.clamp(evaInput.right + evaInput.stickX, -1, 1)
       const up = THREE.MathUtils.clamp(evaInput.up + evaInput.padUp, -1, 1)
       thrustLocal = tmp.d.set(right, up, -fwd)
-      const thrusting = thrustLocal.lengthSq() > 0.01
+      if (thrustLocal.lengthSq() > 1) thrustLocal.normalize()
       const power = sim.gas > 0 ? 1 : 0.25
-      tmp.a.copy(thrustLocal).applyQuaternion(sim.quat).multiplyScalar(ACC * power * dt)
-      sim.vel.add(tmp.a)
-      sim.gas = Math.max(0, sim.gas - thrustLocal.length() * dt * 0.42)
-      // 手を離すと、ゆっくり止まる（自動ブレーキ）。X で強く止める
-      if (evaInput.brake) sim.vel.multiplyScalar(Math.exp(-dt * 3))
-      else if (s.assist && !thrusting) sim.vel.multiplyScalar(Math.exp(-dt * 0.8))
-      if (sim.vel.length() > EVA_TOP) sim.vel.setLength(EVA_TOP)
+      const top = EVA_SPEEDS[s.speed] * (evaInput.boost ? EVA_BOOST : 1) * power
+      // 速さの段階が上がるほど、強く噴かす
+      const accel = Math.max(1.2, top * 0.9)
+      const v0 = tmp.c.copy(sim.vel)
+      if (s.assist) {
+        // 飛行アシスト：押している向きへ、その段階の速さで進むように噴かす。手を離すと止まる
+        tmp.a.copy(thrustLocal).applyQuaternion(sim.quat).multiplyScalar(top)
+        tmp.a.sub(sim.vel)
+        const k = evaInput.brake ? 2.5 : 1
+        const lim = accel * k * dt
+        if (tmp.a.length() > lim) tmp.a.setLength(lim)
+        sim.vel.add(tmp.a)
+      } else {
+        // 慣性のまま：噴かしたぶんだけ速くなり、手を離しても進み続ける。X で止める
+        tmp.a.copy(thrustLocal).applyQuaternion(sim.quat).multiplyScalar(top * INERTIA_ACC * dt)
+        sim.vel.add(tmp.a)
+        if (evaInput.brake) {
+          const l = sim.vel.length()
+          sim.vel.setLength(Math.max(0, l - accel * 2 * dt))
+        }
+        if (sim.vel.length() > top * 1.05) sim.vel.setLength(Math.max(top, sim.vel.length() - accel * dt))
+      }
+      // ガス：速さを変えたぶんだけ使う
+      sim.gas = Math.max(0, sim.gas - v0.distanceTo(sim.vel) * 0.035)
+      // ---- 面のそば：面へ向かう速さを抑える（速く飛んでいても、外壁にぶつからない） ----
+      const dSurf = surfaceDistance(sim.pos, surfN)
+      if (dSurf < SURF_PROBE) {
+        const toward = -sim.vel.dot(surfN)
+        const cap = Math.max(NEAR_MIN, NEAR_K * (dSurf - BODY_R))
+        if (toward > cap) sim.vel.addScaledVector(surfN, toward - cap)
+      }
       // ---- 向き ----
       sim.spin.x += (evaInput.pitch * TURN - sim.spin.x) * (1 - Math.exp(-dt * 6))
       sim.spin.y += (-evaInput.yaw * TURN - sim.spin.y) * (1 - Math.exp(-dt * 6))
@@ -497,7 +548,19 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       sim.quat.multiply(tmp.q).normalize()
       evaInput.lookX = 0
       evaInput.lookY = 0
-      sim.pos.addScaledVector(sim.vel, dt)
+      // 飛行アシスト：横回転を押していなければ、母船の上（+Y）へ頭をゆっくりもどす（上下がわからなくならない）
+      if (s.assist && !evaInput.roll) levelRoll(sim.quat, dt)
+      // ---- 動く（母船のまわりは、本物の形をすり抜けないように光線で確かめる） ----
+      tmp.a.copy(sim.pos).addScaledVector(sim.vel, dt)
+      const tHit = evaSite.id === 'ship' ? shipSweep(sim.pos, tmp.a, BODY_R, tmp.b) : null
+      if (tHit !== null) {
+        sim.pos.lerp(tmp.a, tHit)
+        const into = sim.vel.dot(tmp.b)
+        if (into < 0) {
+          if (into < -1.2) sim.ouchUntil = now + 1.2
+          sim.vel.addScaledVector(tmp.b, -into * 1.3)
+        }
+      } else sim.pos.copy(tmp.a)
       // ---- 外壁に当たる ----
       const hit = hullClearance(sim.pos, BODY_R, tmp.b)
       if (hit > 0) {
@@ -508,15 +571,34 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
           sim.vel.addScaledVector(tmp.b, -into * 1.3)
         }
       }
-      // ---- 命綱 ----
-      tmp.a.subVectors(sim.pos, TETHER_A)
-      const dist = tmp.a.length()
-      const taut = dist > TETHER_M
-      if (taut) {
-        tmp.a.setLength(TETHER_M)
-        sim.pos.copy(TETHER_A).add(tmp.a)
-        const out = sim.vel.dot(tmp.a.normalize())
-        if (out > 0) sim.vel.addScaledVector(tmp.a, -out * 1.2)
+      // ---- 命綱（修理の場所）・母船から離れられる範囲（母船のまわり） ----
+      let taut = false
+      if (evaSite.id === 'ship') {
+        const d = shipBoxDistance(sim.pos)
+        if (d > shipCol.limit) {
+          // 外形の箱のいちばん近い点から、限界の距離まで押しもどす
+          shipCol.box.clampPoint(sim.pos, tmp.a)
+          tmp.b.subVectors(sim.pos, tmp.a).normalize()
+          sim.pos.copy(tmp.a).addScaledVector(tmp.b, shipCol.limit)
+          const out = sim.vel.dot(tmp.b)
+          if (out > 0) sim.vel.addScaledVector(tmp.b, -out * 1.2)
+        }
+        const r = s.range
+        const rd = Math.round(Math.min(d, shipCol.limit))
+        const warn = d > shipCol.warn
+        const edge = d > shipCol.limit - 1
+        if (rd !== r.d || warn !== r.warn || edge !== r.edge) useEva.setState({ range: { d: rd, warn, edge } })
+        taut = edge
+      } else {
+        tmp.a.subVectors(sim.pos, TETHER_A)
+        const dist = tmp.a.length()
+        taut = dist > TETHER_M
+        if (taut) {
+          tmp.a.setLength(TETHER_M)
+          sim.pos.copy(TETHER_A).add(tmp.a)
+          const out = sim.vel.dot(tmp.a.normalize())
+          if (out > 0) sim.vel.addScaledVector(tmp.a, -out * 1.2)
+        }
       }
       if (taut !== s.taut) useEva.setState({ taut })
       // ---- 作業：故障の所へ体を寄せる（ツールの先が作業する点に来るように） ----
@@ -556,6 +638,18 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       sim.battery = Math.max(0, sim.battery - dt * (100 / (8 * 3600)) * 20)
       const happy = now < Math.max(sim.happyUntil, workLink.happyUntil)
       face = now < sim.ouchUntil ? 'ouch' : happy ? 'happy' : taut || sim.gas < 15 ? 'sweat' : working ? 'focus' : 'normal'
+    } else if (s.phase === 'return') {
+      // 遠くから回収：暗転しているあいだに、エアロックの斜め上へ連れもどす
+      sim.vel.set(0, 0, 0)
+      face = 'happy'
+      if (T >= RETURN_SEC / 2 && sim.pos.distanceTo(OUTSIDE) > 4) {
+        sim.pos.copy(OUTSIDE).add(tmp.a.set(0, 2.2, 3.2))
+        sim.quat.identity()
+        sim.camPos.copy(sim.pos).add(tmp.a.set(0.35, 0.5, 1.65))
+        sim.camLook.copy(sim.pos)
+        sim.camUp.set(0, 1, 0)
+      }
+      if (T >= RETURN_SEC) setEvaPhase('recall')
     } else if (s.phase === 'recall') {
       // 命綱を巻き取って、たたみながらエアロックへ
       if (T < 0.05 || sim.recallFrom.lengthSq() === 0) {
@@ -648,7 +742,8 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
     const span = back.distanceTo(TETHER_A)
     const slack = Math.max(0, 1 - span / TETHER_M)
     tether.update(TETHER_A, UPV, back, backDir, slack, SIDE)
-    tether.mesh.visible = s.phase !== 'launch' || T > 0.8
+    // 母船のまわりを自由に飛ぶときは、命綱なし（何百 m も伸ばすと船体を突き抜けてしまう）
+    tether.mesh.visible = evaSite.id !== 'ship' && (s.phase !== 'launch' || T > 0.8)
 
     // ---- カメラ ----
     const cam = state.camera as THREE.PerspectiveCamera
@@ -666,7 +761,10 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
         // 作業中は手もとに寄る
         sim.close += ((workLink.assist ? 1 : 0) - sim.close) * (1 - Math.exp(-dt * 2.5))
         const c = sim.close
-        wantPos = tmp.a.set(0.35 + 0.35 * c, 0.5 - 0.05 * c, 1.65 - 0.6 * c).applyQuaternion(sim.quat).add(sim.pos)
+        // 速く飛ぶほど、カメラを少し引いて広く見せる
+        sim.pull += (Math.min(2.2, sim.vel.length() / 14) - sim.pull) * (1 - Math.exp(-dt * 1.5))
+        const pz = 1 + sim.pull
+        wantPos = tmp.a.set((0.35 + 0.35 * c) * pz, (0.5 - 0.05 * c) * (1 + sim.pull * 0.6), (1.65 - 0.6 * c) * pz).applyQuaternion(sim.quat).add(sim.pos)
         wantLook = tmp.b.set(0.1 - 0.1 * c, 0.2 - 0.35 * c, -1.2 + 0.6 * c).applyQuaternion(sim.quat).add(sim.pos)
         wantUp = tmp.c.set(0, 1, 0).applyQuaternion(sim.quat)
       } else {
@@ -676,6 +774,8 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
         wantUp = tmp.c.set(0, 1, 0)
       }
       const f = 1 - Math.exp(-dt * (s.phase === 'fly' ? 5 : 2.5))
+      // 速いときは、カメラが置いていかれないように、動いたぶんを先に足す
+      if (s.phase === 'fly') sim.camPos.addScaledVector(sim.vel, dt * 0.85)
       sim.camPos.lerp(wantPos, f)
       sim.camLook.lerp(wantLook, f)
       sim.camUp.lerp(wantUp, f).normalize()
@@ -688,6 +788,8 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
         cam.lookAt(sim.pos)
       }
     }
+    const fov = 62 + 10 * Math.min(1, sim.pull / 2)
+    if (Math.abs(cam.fov - fov) > 0.05) cam.fov = fov
     cam.updateProjectionMatrix()
     focus.copy(sim.pos)
 
@@ -722,6 +824,7 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
     sim.battery = 100
     sim.swapT = -1
     sim.recallFrom.set(0, 0, 0)
+    sim.pull = 0
     sim.camPos.set(AIRLOCK.x + 2.4, 1.7, AIRLOCK.z + 3.3)
     sim.camLook.set(AIRLOCK.x, 0.6, AIRLOCK.z)
     sim.camUp.set(0, 1, 0)
@@ -741,6 +844,19 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
 }
 
 const UPV = new THREE.Vector3(0, 1, 0)
+
+// ---- 横回転を水平へもどす（飛行アシスト） ----
+const lv = { f: new THREE.Vector3(), r: new THREE.Vector3(), want: new THREE.Vector3(), c: new THREE.Vector3(), q: new THREE.Quaternion() }
+function levelRoll(quat: THREE.Quaternion, dt: number) {
+  const f = lv.f.set(0, 0, -1).applyQuaternion(quat)
+  // 真上・真下を向いているときは、水平がない
+  if (Math.abs(f.y) > 0.92) return
+  const r = lv.r.set(1, 0, 0).applyQuaternion(quat)
+  const want = lv.want.crossVectors(f, UPV).normalize()
+  const ang = Math.atan2(lv.c.crossVectors(r, want).dot(f), r.dot(want))
+  const k = Math.min(1, dt * 1.6) * (1 - Math.abs(f.y))
+  quat.premultiply(lv.q.setFromAxisAngle(f, ang * k)).normalize()
+}
 
 // ---- 作業の姿勢へ寄せる ----
 const al = { f: new THREE.Vector3(), x: new THREE.Vector3(), z: new THREE.Vector3(), m: new THREE.Matrix4(), q: new THREE.Quaternion(), tilt: new THREE.Quaternion(), want: new THREE.Vector3() }

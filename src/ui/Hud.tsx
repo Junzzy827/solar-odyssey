@@ -286,6 +286,11 @@ export function Hud() {
               {ui().hud.launchLander} <kbd>L</kbd>
             </button>
           )}
+          {mode === 'flight' && cameraMode !== 'bridge' && (
+            <button className="eva-button" onClick={() => canStartEva(landed()) && startEva()} disabled={warpPhase !== 'idle' || raceActive()}>
+              {ui().hud.spacewalk} <kbd>K</kbd>
+            </button>
+          )}
           {mode === 'flight' && (
             <button className="gallery-button" onClick={openGallery} disabled={warpPhase !== 'idle' || !canOpenGallery()}>
               {ui().hud.viewShip} <kbd>V</kbd>
