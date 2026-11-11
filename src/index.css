@@ -4592,9 +4592,9 @@ body.touch .sample-btn {
   gap: 8px;
 }
 
-@media (max-height: 700px) {
+@media (max-height: 720px) {
   .eva-tools {
-    right: 182px;
+    right: 292px;
     top: auto;
     bottom: 18px;
   }
