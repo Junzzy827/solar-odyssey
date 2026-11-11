@@ -4582,13 +4582,22 @@ body.touch .sample-btn {
   color: #8fb3d6;
 }
 
+/* ツールは画面の右に縦に並べる（ミニマップの上） */
 .eva-tools {
   position: absolute;
-  left: 50%;
-  bottom: 84px;
-  transform: translateX(-50%);
+  right: 18px;
+  top: 76px;
   display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+
+@media (max-height: 700px) {
+  .eva-tools {
+    right: 182px;
+    top: auto;
+    bottom: 18px;
+  }
 }
 
 .eva-tool {
@@ -4820,17 +4829,18 @@ body.touch .eva-map {
   display: none;
 }
 
+/* スマホ：ツールは右の縦の列。横の画面は計器の左、縦の画面は計器と右下のボタンのあいだ */
 body.touch .eva-tools {
   top: calc(env(safe-area-inset-top) + 10px);
   bottom: auto;
+  right: 190px;
   gap: 6px;
 }
 
-/* 縦の画面：ツールはスティックと作業ボタンの上に */
 @media (max-width: 600px) {
   body.touch .eva-tools {
-    top: auto;
-    bottom: calc(env(safe-area-inset-bottom) + 160px);
+    right: 10px;
+    top: calc(env(safe-area-inset-top) + 230px);
   }
 }
 
