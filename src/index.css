@@ -3861,6 +3861,52 @@ body.touch .surface-time .day-graph { width: 100%; }
 body.touch .rover-airgauge {
   bottom: 42%;
 }
+.rover-mouse {
+  position: fixed;
+  left: 50%;
+  bottom: 78px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  z-index: 5;
+}
+.rover-mouse .rm-cruise {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(6, 10, 16, 0.55);
+  border: 1px solid rgba(127, 227, 255, 0.5);
+  color: #bdf0ff;
+  font-size: 12px;
+  pointer-events: auto;
+}
+.rover-mouse .rm-steer {
+  position: relative;
+  width: 160px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.rover-mouse .rm-steer::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.5);
+}
+.rover-mouse .rm-steer i {
+  position: absolute;
+  top: -3px;
+  width: 10px;
+  height: 12px;
+  margin-left: -5px;
+  border-radius: 3px;
+  background: #ffc46b;
+}
 .rr-air.on {
   color: #1a1206;
   background: #ffc46b;

@@ -45,6 +45,8 @@ type RoverState = {
   /** いちばん近い、まだ採っていない岩（距離 m と、ローバーの正面から右回りの角度、近くの見どころの id（pois.ts）） */
   next: { dist: number; rel: number; where?: string | null } | null
   setView: (v: RoverView) => void
+  /** マウスを固定して運転しているか（PC） */
+  mouse: boolean
 }
 
 export const roverNow = () => performance.now() / 1000
@@ -53,6 +55,7 @@ export const useRover = create<RoverState>((set) => ({
   phase: 'none',
   since: 0,
   view: 'chase',
+  mouse: false,
   kmh: 0,
   hud: { hdg: 0, pitch: 0, roll: 0, dist: 0, air: false, fuel: 1, x: 0, z: 0 },
   edge: false,
@@ -99,7 +102,125 @@ function fromKeys() {
   roverInput.steer = r - l
 }
 
-const DRIVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyV', 'KeyE', 'KeyR'])
+const DRIVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyV', 'KeyE', 'KeyR', 'KeyC'])
+
+// ---- マウスで運転（PC、cratercamper さんの案 2026-11-12） ----
+// 3D の画面をクリックするとマウスを固定（宇宙船・船外活動と同じ）。左右に動かすとハンドルが切れ、離すと少しずつまっすぐに戻る。
+// ホイールで巡航の速さ（5 km/h ずつ）を決めると、アクセルを押さなくてもその速さで走る（右手だけで運転できる）。
+// 右クリックでジャンプ、左クリックで採集（E）。Esc かホイールのクリックで固定をはずす。
+// キーボードの ◀▶・▲▼ を押しているあいだは、キーのほうが勝つ。▼（ブレーキ）を押すと巡航は止まり、C でさっきの速さにもどる
+
+/** 巡航の速さの刻み（km/h） */
+export const CRUISE_STEP = 5
+/** マウスの動き（px）あたりのハンドルの切れ（-1..1） */
+const MOUSE_STEER = 0.0045
+/** 手を止めたとき、ハンドルがまっすぐに戻る速さ（1 秒あたり） */
+const MOUSE_CENTER = 0.9
+
+/** マウス運転の状態（steer は毎フレーム Rover が読む。cruise は km/h、0 は巡航なし） */
+export const roverMouse = { locked: false, steer: 0, lastMove: 0 }
+export const useRoverCruise = create<{ cruise: number; last: number }>(() => ({ cruise: 0, last: 0 }))
+
+const setCruise = (kmh: number) => {
+  const cruise = Math.max(0, Math.min(Math.round(ROVER_TOP * 3.6), kmh))
+  useRoverCruise.setState((c) => ({ cruise, last: cruise > 0 ? cruise : c.last }))
+}
+
+/** 巡航を止める（速さは覚えておいて、C でもどせる） */
+export const stopCruise = () => useRoverCruise.setState({ cruise: 0 })
+/** C：さっきの巡航の速さにもどす（巡航中なら止める） */
+export const toggleCruise = () => {
+  const { cruise, last } = useRoverCruise.getState()
+  if (cruise > 0) stopCruise()
+  else if (last > 0) setCruise(last)
+}
+
+/**
+ * Rover が毎フレーム読む、運転の入力：キーボード・画面のボタン（roverInput）に、マウスのハンドルと巡航を足したもの。
+ * speed はローバーの今の速さ（m/s）
+ */
+export function driveInput(speed: number, dt: number): { steer: number; throttle: number } {
+  const m = roverMouse
+  if (m.locked && performance.now() - m.lastMove > 80) m.steer -= Math.sign(m.steer) * Math.min(Math.abs(m.steer), MOUSE_CENTER * dt)
+  const steer = roverInput.steer !== 0 ? roverInput.steer : m.locked ? m.steer : 0
+  let throttle = roverInput.throttle
+  if (throttle < 0 && useRoverCruise.getState().cruise > 0) stopCruise()
+  const cruise = useRoverCruise.getState().cruise / 3.6
+  if (throttle === 0 && cruise > 0) {
+    // 巡航：決めた速さより遅ければアクセル、速すぎればアクセルを離す（坂を下って速すぎるときだけ、軽くブレーキ）
+    const dv = cruise - speed
+    throttle = dv > 0.15 ? Math.min(1, dv / 1.5 + 0.25) : dv < -2.5 ? -0.4 : 0
+  }
+  return { steer, throttle }
+}
+
+/** マウスの固定をはずす */
+export const releaseRoverMouse = () => {
+  if (document.pointerLockElement) document.exitPointerLock()
+}
+
+/**
+ * マウスで運転するための、3D の画面（canvas）のイベント。運転中（drive）だけ効く。
+ * 固定していないときのホイールとドラッグは、今までどおり（カメラ）
+ */
+export function bindRoverMouse(el: HTMLElement) {
+  const driving = () => useRover.getState().phase === 'drive'
+  const lockChange = () => {
+    roverMouse.locked = document.pointerLockElement === el
+    roverMouse.steer = 0
+    useRover.setState({ mouse: roverMouse.locked })
+  }
+  const down = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse' || !driving()) return
+    if (!roverMouse.locked) {
+      if (e.button === 0) void el.requestPointerLock?.()
+      return
+    }
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    if (e.button === 0) roverInput.sample = true
+    else if (e.button === 2) roverInput.jump = true
+    else if (e.button === 1) releaseRoverMouse()
+  }
+  const move = (e: PointerEvent) => {
+    if (!roverMouse.locked) return
+    e.stopImmediatePropagation()
+    roverMouse.steer = Math.max(-1, Math.min(1, roverMouse.steer + e.movementX * MOUSE_STEER))
+    if (e.movementX !== 0) roverMouse.lastMove = performance.now()
+  }
+  const wheel = (e: WheelEvent) => {
+    if (!roverMouse.locked || !driving()) return
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    const { cruise } = useRoverCruise.getState()
+    setCruise(cruise + (e.deltaY < 0 ? CRUISE_STEP : -CRUISE_STEP))
+  }
+  const menu = (e: Event) => {
+    if (roverMouse.locked) e.preventDefault()
+  }
+  // 運転をやめたら固定をはずす
+  const unsub = useRover.subscribe((r, prev) => {
+    if (r.phase !== prev.phase && r.phase !== 'drive') {
+      releaseRoverMouse()
+      stopCruise()
+    }
+  })
+  document.addEventListener('pointerlockchange', lockChange)
+  el.addEventListener('pointerdown', down, true)
+  el.addEventListener('pointermove', move, true)
+  el.addEventListener('wheel', wheel, { capture: true, passive: false })
+  el.addEventListener('contextmenu', menu)
+  return () => {
+    unsub()
+    document.removeEventListener('pointerlockchange', lockChange)
+    el.removeEventListener('pointerdown', down, true)
+    el.removeEventListener('pointermove', move, true)
+    el.removeEventListener('wheel', wheel, true)
+    el.removeEventListener('contextmenu', menu)
+    if (document.pointerLockElement === el) document.exitPointerLock()
+    roverMouse.locked = false
+  }
+}
 
 /** キーボード：WASD／矢印で走る、スペースでジャンプ、V で見方を切り替え */
 export function bindRoverKeys() {
@@ -120,6 +241,10 @@ export function bindRoverKeys() {
     }
     if (e.code === 'KeyE') {
       if (!e.repeat) roverInput.sample = true
+      return
+    }
+    if (e.code === 'KeyC') {
+      if (!e.repeat) toggleCruise()
       return
     }
     if (e.code === 'KeyV') {

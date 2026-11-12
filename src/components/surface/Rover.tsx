@@ -10,7 +10,7 @@ import { lowMemory, useLevel } from '../../state/quality'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { useLanding } from '../../state/landing'
 import { isWide, roverRangeFor, wideNow } from './wideGround'
-import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, roverCtl, roverFocus, roverInput, roverDebug, roverNow, roverPose, roverQuick, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
+import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, driveInput, roverCtl, roverFocus, roverInput, roverDebug, roverNow, roverPose, roverQuick, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
 import { PAINT_PARTS, paintUniforms, withPaint } from './paint'
 import { samplesFor, type RockSample } from '../../data/rockSamples'
 import { rockSpots } from '../../data/rockSpots'
@@ -865,12 +865,14 @@ export function Rover({
         inp.jump = false
       }
       const busy = s.sampleT >= 0 || locked
-      const steerTarget = busy ? 0 : inp.steer
+      // キーボード・ボタンに、マウスのハンドルと巡航を足したもの（state/rover.ts の driveInput）
+      const di = driveInput(s.speed, dt)
+      const steerTarget = busy ? 0 : di.steer
       s.steer += (steerTarget - s.steer) * Math.min(1, dt * 6)
       if (s.grounded) {
         // 空中で ▼ を押したまま着地したときは、離すまでブレーキにしない（下へ押す噴射のつもりで押しているので）
         if (inp.throttle >= 0) s.downHeld = false
-        const th = busy || (s.downHeld && inp.throttle < 0) ? 0 : inp.throttle
+        const th = busy || (s.downHeld && inp.throttle < 0) ? 0 : di.throttle
         if (busy) {
           s.speed *= 1 - Math.min(1, dt * 8)
           s.slip *= 1 - Math.min(1, dt * 8)
@@ -929,7 +931,7 @@ export function Rover({
         // 横は終わり際に弱まり、最後のひと残り（AIR_RESERVE）は ▼ だけが使える
         const sideK = smooth01((s.fuel - AIR_RESERVE) / AIR_FADE)
         const downK = smooth01(s.fuel / 0.04)
-        const side = busy ? 0 : inp.steer * sideK
+        const side = busy ? 0 : di.steer * sideK
         const down = !busy && inp.throttle < 0 ? downK : 0
         const on = s.fuel > 0 && (Math.abs(side) > 0.02 || down > 0)
         s.thrustSide = on ? side : 0

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLang } from '../../i18n/lang'
 import { COUNT_SEC, RALLY_COLORS, loadBest, pickRallyTrack, quitRally, rallyNow, setRallyColor, startRally, useRally, useRallyTrack } from '../../state/rally'
-import { roverInput } from '../../state/rover'
+import { releaseRoverMouse, roverInput } from '../../state/rover'
 import { TRACKS, siteOfTrack, tracksAt } from '../../data/rallyTracks'
 import { useLanding } from '../../state/landing'
 import { RallyHiscore } from './RallyHiscore'
@@ -91,6 +91,8 @@ export function RallyPanel() {
   // ゴールの直前に押した R（直前の門へ）で、すぐに走り直さないように
   useEffect(() => {
     if (phase !== 'done') return
+    // 結果のカードのボタンを押せるように、マウスの固定をはずす
+    releaseRoverMouse()
     const down = (e: KeyboardEvent) => {
       if (e.code !== 'KeyR' || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return
       const tag = (e.target as HTMLElement | null)?.tagName

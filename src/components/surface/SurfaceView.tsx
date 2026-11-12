@@ -43,7 +43,8 @@ import { Rover } from './Rover'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { RoverHud, RoverMap } from './RoverHud'
 import { useMapTerrain } from './mapRelief'
-import { bindRoverKeys, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
+import { isTouchDevice } from '../../state/input'
+import { bindRoverKeys, bindRoverMouse, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
 import { openRocks } from '../../state/rockBook'
 import { compLabel, samplesFor } from '../../data/rockSamples'
 import { ui } from '../../i18n'
@@ -987,6 +988,8 @@ function Look({ terrain }: { terrain: Terrain }) {
   const eyeY = useMemo(() => terrain.height(0, 0) + EYE, [terrain])
   const landerAt = useMemo(() => new THREE.Vector3(LANDER_POS.x, terrain.height(LANDER_POS.x, LANDER_POS.y) + 3, LANDER_POS.y), [terrain])
 
+  // PC：運転中は、画面をクリックするとマウスで運転（state/rover.ts の bindRoverMouse）。先に登録して、固定中はこちらが受け取る
+  useEffect(() => (isTouchDevice() ? undefined : bindRoverMouse(gl.domElement)), [gl])
   useEffect(() => {
     const el = gl.domElement
     const pointers = new Map<number, { x: number; y: number }>()
@@ -1446,6 +1449,7 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
   const got = useSampleLog((l) => l.log[bodyId]?.length ?? 0)
   const total = samplesFor(bodyId).length
   const view = useRover((r) => r.view)
+  const mouseDrive = useRover((r) => r.mouse)
   const menu = useRover((r) => r.menu)
   const setView = useRover((r) => r.setView)
   useEffect(() => bindRoverKeys(), [])
@@ -1454,7 +1458,12 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
     <>
       <div className="surface-hint rover-hint" hidden={racing}>
         {drive
-          ? ui().surfaceView.keysHint
+          ? (
+            <>
+              {ui().surfaceView.keysHint}
+              {!isTouchDevice() && <span className={`eva-lock${mouseDrive ? ' on' : ''}`}>{mouseDrive ? ui().roverHud.mouseOn : ui().roverHud.mouseOff}</span>}
+            </>
+          )
           : phase === 'drop'
             ? ui().surfaceView.droppingRover
             : ui().surfaceView.roverUnfolding}

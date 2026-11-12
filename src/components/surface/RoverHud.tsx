@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { RALLY_COLORS, useRally, useRallyTrack } from '../../state/rally'
 import { buildCourse } from './Rally'
 import { TRACKS } from '../../data/rallyTracks'
 import { APOLLO17, APOLLO17_TRAVERSE } from '../../data/apollo17'
 import { useHistoric } from '../../state/historic'
-import { useRover, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
+import { roverMouse, useRover, useRoverCruise, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
 import { useLang } from '../../i18n/lang'
@@ -137,6 +137,35 @@ export function RoverHud() {
       </div>
       <div className="rover-badge">ORV-7</div>
       {hud.air && <AirGauge fuel={hud.fuel} />}
+      <MouseDrive />
+    </div>
+  )
+}
+
+/** マウスで運転（PC）：巡航の速さ、マウスのハンドルの切れ（固定しているときだけ） */
+function MouseDrive() {
+  const mouse = useRover((r) => r.mouse)
+  const cruise = useRoverCruise((c) => c.cruise)
+  const [, tick] = useState(0)
+  // ハンドルの切れは React の外（roverMouse）にあるので、固定中だけ 1 秒に 15 回書き換える
+  useEffect(() => {
+    if (!mouse) return
+    const id = window.setInterval(() => tick((n) => n + 1), 66)
+    return () => window.clearInterval(id)
+  }, [mouse])
+  if (!mouse && cruise === 0) return null
+  return (
+    <div className="rover-mouse">
+      {cruise > 0 && (
+        <span className="rm-cruise" title={ui().roverHud.cruiseTip}>
+          {ui().roverHud.cruise(cruise)}
+        </span>
+      )}
+      {mouse && (
+        <span className="rm-steer">
+          <i style={{ left: `${50 + roverMouse.steer * 50}%` }} />
+        </span>
+      )}
     </div>
   )
 }
