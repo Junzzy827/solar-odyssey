@@ -3,7 +3,7 @@ import type { SurfaceDef } from '../../data/surfaces'
 import { detailAt, heightAt, type Dem } from './dem'
 import { poisFor, poiWeight, type Poi } from './pois'
 import { FORM_KINDS, FORM_ROCK_TILE, formPalette, formRelief, formRocks, formTint } from './poiForms'
-import { CONAMARA_RACE, COPRATES_RACE, TAURUS_RACE } from '../../data/raceLines'
+import { TRACKS, tracksAt } from '../../data/rallyTracks'
 
 // 地表の地形：なだらかな起伏・クレーター・砂丘・遠くの山並み・天体の丸み（小さな星ほど地平線が近い）。
 // 立つ場所（原点）と着陸船の場所は平らにならす。
@@ -76,11 +76,8 @@ const smooth = (e0: number, e1: number, x: number) => {
  * レース場のコースの上（ZONE_LANE の内側）は、少しでこぼこまでにおさえる（走りやすく）
  */
 const ZONE_BODIES = new Set(['moon', 'europa'])
-const RACE_LINES: Record<string, [number, number][]> = {
-  coprates: COPRATES_RACE.line,
-  taurus: TAURUS_RACE.line,
-  conamara: CONAMARA_RACE.line,
-}
+/** レース場ごとの、すべてのコースの線（やさしいコースと上級のコースの両方を平らにする） */
+const raceLines = (site: string) => tracksAt(site).map((id) => TRACKS[id].line)
 /**
  * レースのコースの上（線からこの距離 m まで）は、ほぼ平らにする（どの星でも、最初のレースは走りやすく）。
  * その外 ZONE_LANE_FADE m で元の地面にもどる。でこぼこや荒れた所は、ふつうの着陸地点で楽しむ
@@ -129,11 +126,11 @@ export class Terrain {
       qs.sort((p, q) => p - q)
       this.zoneCut = [qs[Math.floor(qs.length * 0.35)], qs[Math.floor(qs.length * 0.75)]]
     }
-    const line = def.site ? RACE_LINES[def.site] : undefined
-    if (line) {
+    const lines = def.site ? raceLines(def.site) : []
+    if (lines.length) {
       const lane = new Map<string, [number, number][]>()
       // 10 m ごとの点のあいだを 2.5 m ごとに埋める（線までの距離を点までの距離で測れるように）
-      for (let i = 0; i < line.length - 1; i++) {
+      for (const line of lines) for (let i = 0; i < line.length - 1; i++) {
         const [ax, az] = line[i]
         const [bx, bz] = line[i + 1]
         const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 2.5))

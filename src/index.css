@@ -3812,6 +3812,101 @@ body.touch .surface-time .day-graph { width: 100%; }
   text-align: center;
   color: #eaf8ff;
 }
+.rover-airgauge {
+  position: fixed;
+  left: 50%;
+  bottom: 36%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(6, 10, 16, 0.45);
+  color: #eaf8ff;
+  font-size: 12px;
+  letter-spacing: 1px;
+  pointer-events: none;
+  z-index: 5;
+}
+.rover-airgauge .bar {
+  position: relative;
+  width: 180px;
+  height: 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(160, 220, 255, 0.45);
+  overflow: hidden;
+}
+.rover-airgauge .bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(127, 227, 255, 0.8);
+  transition: width 0.1s linear;
+}
+.rover-airgauge.low .bar i {
+  background: rgba(255, 196, 107, 0.85);
+}
+.rover-airgauge.reserve .bar i {
+  background: rgba(255, 120, 90, 0.9);
+}
+.rover-airgauge .bar b {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.7);
+}
+body.touch .rover-airgauge {
+  bottom: 42%;
+}
+.rover-mouse {
+  position: fixed;
+  left: 50%;
+  bottom: 78px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  z-index: 5;
+}
+.rover-mouse .rm-cruise {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(6, 10, 16, 0.55);
+  border: 1px solid rgba(127, 227, 255, 0.5);
+  color: #bdf0ff;
+  font-size: 12px;
+  pointer-events: auto;
+}
+.rover-mouse .rm-steer {
+  position: relative;
+  width: 160px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.rover-mouse .rm-steer::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.5);
+}
+.rover-mouse .rm-steer i {
+  position: absolute;
+  top: -3px;
+  width: 10px;
+  height: 12px;
+  margin-left: -5px;
+  border-radius: 3px;
+  background: #ffc46b;
+}
 .rr-air.on {
   color: #1a1206;
   background: #ffc46b;
@@ -5343,6 +5438,17 @@ button.sample-count {
 }
 .rally-start.compact .rally-title {
   font-size: 14px;
+  white-space: nowrap;
+}
+.rally-start.compact .rally-levels {
+  margin: 0;
+  flex: none;
+}
+.rally-start.compact .rally-levels button {
+  flex: none;
+  white-space: nowrap;
+  padding: 4px 9px;
+  font-size: 12px;
 }
 .rally-title {
   font-weight: 700;
@@ -5370,6 +5476,31 @@ button.sample-count {
   border-color: var(--c);
   background: color-mix(in srgb, var(--c) 30%, transparent);
   box-shadow: 0 0 10px color-mix(in srgb, var(--c) 60%, transparent);
+}
+.rally-levels {
+  display: flex;
+  gap: 0;
+  margin: 2px 0 6px;
+}
+.rally-levels button {
+  flex: 1;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.rally-levels button:first-child {
+  border-radius: 999px 0 0 999px;
+}
+.rally-levels button:last-child {
+  border-radius: 0 999px 999px 0;
+}
+.rally-levels button.on {
+  border-color: #7fe3ff;
+  background: rgba(127, 227, 255, 0.22);
+  font-weight: bold;
 }
 .rally-start .dot,
 .rally-result .dot {

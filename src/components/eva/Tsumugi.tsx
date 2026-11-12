@@ -408,6 +408,8 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       swapTo: 'hand' as EvaTool,
       happyUntil: 0,
       ouchUntil: 0,
+      /** 前へ進み続けている時間（秒）。横回転を押すと 0 にもどる（頭を上へもどすのは、しばらく前へ進んでから） */
+      cruise: 0,
       gas: 100,
       battery: 100,
       hudAt: 0,
@@ -557,8 +559,12 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
       sim.quat.multiply(tmp.q).normalize()
       evaInput.lookX = 0
       evaInput.lookY = 0
-      // 飛行アシスト：横回転を押していなければ、母船の上（+Y）へ頭をゆっくりもどす（上下がわからなくならない）
-      if (s.assist && !evaInput.roll) levelRoll(sim.quat, dt)
+      // 飛行アシスト：前へしばらく（1.5 秒）進み続けたときだけ、母船の上（+Y）へ頭をゆっくりもどす（上下がわからなくならない）。
+      // 止まっているときや、横回転（Z・C）で自分で向きを変えたあとは、その向きのまま（cratercamper さん：好きな向きでいたい）
+      if (evaInput.roll) sim.cruise = 0
+      else if (fwd > 0.3) sim.cruise += dt
+      else sim.cruise = Math.max(0, sim.cruise - dt * 2)
+      if (s.assist && !evaInput.roll && sim.cruise > 1.5) levelRoll(sim.quat, dt * Math.min(1, sim.cruise - 1.5))
       // ---- 動く（母船のまわりは、本物の形をすり抜けないように光線で確かめる） ----
       tmp.a.copy(sim.pos).addScaledVector(sim.vel, dt)
       const tHit = evaSite.id === 'ship' ? shipSweep(sim.pos, tmp.a, BODY_R, tmp.b) : null
@@ -580,24 +586,17 @@ export function Tsumugi({ shipTint }: { shipTint: THREE.Color }) {
           sim.vel.addScaledVector(tmp.b, -into * 1.3)
         }
       }
-      // ---- 命綱（修理の場所）・母船から離れられる範囲（母船のまわり） ----
+      // ---- 命綱（修理の場所）・母船からの距離（母船のまわり） ----
+      // 母船のまわりの宇宙では、どこまでも離れられる（junji 2026-11-12、cratercamper さん：何 km も離れて、宇宙の広さと
+      // 「迷子になった」気分を味わいたい）。活動範囲（shipCol.limit）の外では、距離と「回収して船にもどる」を目立たせるだけ
       let taut = false
       if (evaSite.id === 'ship') {
         const d = shipBoxDistance(sim.pos)
-        if (d > shipCol.limit) {
-          // 外形の箱のいちばん近い点から、限界の距離まで押しもどす
-          shipCol.box.clampPoint(sim.pos, tmp.a)
-          tmp.b.subVectors(sim.pos, tmp.a).normalize()
-          sim.pos.copy(tmp.a).addScaledVector(tmp.b, shipCol.limit)
-          const out = sim.vel.dot(tmp.b)
-          if (out > 0) sim.vel.addScaledVector(tmp.b, -out * 1.2)
-        }
         const r = s.range
-        const rd = Math.round(Math.min(d, shipCol.limit))
-        const warn = d > shipCol.warn
-        const edge = d > shipCol.limit - 1
+        const rd = Math.round(d)
+        const warn = d > shipCol.limit
+        const edge = false
         if (rd !== r.d || warn !== r.warn || edge !== r.edge) useEva.setState({ range: { d: rd, warn, edge } })
-        taut = edge
       } else {
         tmp.a.subVectors(sim.pos, TETHER_A)
         const dist = tmp.a.length()
