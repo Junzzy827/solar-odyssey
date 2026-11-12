@@ -17,7 +17,7 @@ export const ROVER_TOP = 60 / 3.6
  * （見た目だけ・コメントだけの変更では増やさない）。レースのハイスコア表・ゴースト・ゲームに入っている記録は、
  * 同じ版で走ったものだけを使う（state/rallyHiscore.ts の courseOf）。だから版が同じなら、どのバージョンのゲームでも使える
  */
-export const DRIVE_VERSION = 4
+export const DRIVE_VERSION = 5
 
 type RoverState = {
   phase: RoverPhase

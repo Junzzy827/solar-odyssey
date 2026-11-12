@@ -44,6 +44,16 @@ const AIR_FUEL_SEC = 2.5
  * 跳んだあとは空中で曲がれる分が減るので、いつ跳ぶか考えるようになる。残りが少ないと、跳ぶ高さも少し低い
  */
 const JUMP_FUEL = 0.4
+/**
+ * 噴射剤の終わり際（cratercamper さんの案）：◀▶ の横噴射は、残りが AIR_RESERVE + AIR_FADE から AIR_RESERVE まで
+ * だんだん弱まって止まる（ぷつっと切れない）。最後の AIR_RESERVE は ▼（下へ押して着地）だけに取っておく
+ */
+const AIR_FADE = 0.3
+const AIR_RESERVE = 0.12
+const smooth01 = (v: number) => {
+  const t = Math.min(1, Math.max(0, v))
+  return t * t * (3 - 2 * t)
+}
 const ROLL_GEAR = 0.35
 /** 地面の転がり抵抗係数。ふかふかの砂ほど車輪が沈んで大きい（舗装路はおよそ 0.015） */
 const SOIL_DRAG: Record<string, number> = {
@@ -916,9 +926,12 @@ export function Rover({
         s.aLat = 0
         // 空中の姿勢制御：小さな噴射で、◀▶ は横へ動きながら向きを変え、▼ は下へ押して早く着地する。
         // 噴射剤は 1 回のジャンプで 2.5 秒ぶん。地面にいると回復する（押しっぱなしで飛び続けられない）
-        const side = busy ? 0 : inp.steer
-        const down = !busy && inp.throttle < 0 ? 1 : 0
-        const on = s.fuel > 0 && (side !== 0 || down > 0)
+        // 横は終わり際に弱まり、最後のひと残り（AIR_RESERVE）は ▼ だけが使える
+        const sideK = smooth01((s.fuel - AIR_RESERVE) / AIR_FADE)
+        const downK = smooth01(s.fuel / 0.04)
+        const side = busy ? 0 : inp.steer * sideK
+        const down = !busy && inp.throttle < 0 ? downK : 0
+        const on = s.fuel > 0 && (Math.abs(side) > 0.02 || down > 0)
         s.thrustSide = on ? side : 0
         s.thrustDown = on ? down : 0
         if (down) s.downHeld = true
@@ -933,7 +946,7 @@ export function Rover({
           s.slip = s.slip * cs - s.speed * sn
           s.speed = fw
           s.vy -= down * Math.max(AIR_DOWN_MIN, g * 2) * dt
-          s.fuel = Math.max(0, s.fuel - dt / AIR_FUEL_SEC)
+          s.fuel = Math.max(0, s.fuel - (dt / AIR_FUEL_SEC) * Math.max(Math.abs(side), down))
         }
       }
       if (s.grounded) s.fuel = Math.min(1, s.fuel + dt * 0.6)

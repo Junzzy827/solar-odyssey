@@ -10,8 +10,8 @@ import { useOptionalTexture } from '../../hooks/useOptionalTexture'
 import { haloTexture } from '../ship/ShipModel'
 import { currentLevel, dprFor, lowMemory, useLevel } from '../../state/quality'
 import { ASCENT, DESCENT, FADE, goToSite, landingNow, skipDescent, startTakeoff, surfaceReady, useLanding } from '../../state/landing'
-import { goToRally, useRally } from '../../state/rally'
-import { TRACKS, trackForBody } from '../../data/rallyTracks'
+import { goToRally, trackAt, useRally, useRallyTrack } from '../../state/rally'
+import { trackForBody } from '../../data/rallyTracks'
 import { LANDER_POS, Terrain, grainTexture, rockGeometry, seeded, type Rock } from './terrain'
 import { WideWorld, isWide, wideNow, withHole } from './wideGround'
 import { useLang } from '../../i18n/lang'
@@ -1124,6 +1124,8 @@ type Air = {
 const tmpDir = new THREE.Vector3()
 
 function Scene({ def }: { def: SurfaceDef }) {
+  /** このレース場で選んでいるコース（レース場でなければ null） */
+  const rallyTrack = useRallyTrack(def.site)
   // ローバーなどの十数 cm より小さな部品は影を落とさない（影のための描画を減らす）
   useTrimShadows(0.12)
   // 本物の地形（火星・地球）。読み終わるまでは今までの作った地形
@@ -1355,10 +1357,10 @@ function Scene({ def }: { def: SurfaceDef }) {
       <Suspense fallback={null}>
         <Rover terrain={terrain} dustColor={def.ground} sky={sky} landerYaw={LANDER_YAW} prepare={prepareRover} />
       </Suspense>
-      {def.site && TRACKS[def.site] && (
+      {rallyTrack && (
         <Suspense fallback={null}>
-          <Rally key={def.site} track={def.site} terrain={terrain} prepare={prepareRover} dustColor={def.ground} sky={sky} />
-          <RallyGhost key={def.site + ':ghost'} track={def.site} />
+          <Rally key={rallyTrack} track={rallyTrack} terrain={terrain} prepare={prepareRover} dustColor={def.ground} sky={sky} />
+          <RallyGhost key={rallyTrack + ':ghost'} track={rallyTrack} />
         </Suspense>
       )}
       {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} />}
@@ -1430,6 +1432,7 @@ function SampleCard({ bodyId, id }: { bodyId: string; id: string }) {
 const sizeLabel = (m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`)
 
 function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
+  const rallyTrack = useRallyTrack(site)
   useLang()
   const rally = useRally((r) => r.phase)
   const racing = !!site && rally !== 'off'
@@ -1458,7 +1461,7 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
       </div>
       {drive && <RoverHud />}
       {site && <RallyPanel />}
-      {drive && site && TRACKS[site] && !racing && <RallyStart track={site} compact />}
+      {drive && rallyTrack && !racing && <RallyStart track={rallyTrack} compact />}
       {drive && edge && !racing && (
         <div className="rover-edge">
           {ui().surfaceView.cantGoFarther}
@@ -1522,7 +1525,7 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
         </button>
         {!site && trackForBody(bodyId) && (
           <button className="secondary rally-site" onClick={() => goToRally(trackForBody(bodyId)!)} title={ui().surfaceView.raceTrackTip}>
-            🏁 {ui().surfaceView.raceButton(ui().rallyTracks[trackForBody(bodyId)!].button)}
+            🏁 {ui().surfaceView.raceButton(ui().rallyTracks[trackAt(trackForBody(bodyId)!)].button)}
           </button>
         )}
         <button className="primary" onClick={startTakeoff}>
@@ -1534,6 +1537,7 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
 }
 
 function SurfacePanel({ def }: { def: SurfaceDef }) {
+  const rallyTrack = useRallyTrack(def.site)
   useLang()
   const rover = useRover((r) => r.phase)
   // ローバーを出しているあいだは、説明と時刻・天気の表示をたたんで景色を広く（メニューのボタンで開く）
@@ -1602,7 +1606,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             <RoverPanel bodyId={def.id} site={def.site} />
           ) : (
           <>
-          {def.site && TRACKS[def.site] && <RallyStart track={def.site} />}
+          {rallyTrack && <RallyStart track={rallyTrack} />}
           <div className="surface-hint">
             {view === 'eye'
               ? ui().surfaceView.lookAroundHint
@@ -1620,7 +1624,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             </button>
             {!def.site && trackForBody(def.id) && (
               <button className="secondary rally-site" onClick={() => goToSite(trackForBody(def.id))}>
-                🏁 {ui().surfaceView.toRaceTrack(ui().rallyTracks[trackForBody(def.id)!].button)}
+                🏁 {ui().surfaceView.toRaceTrack(ui().rallyTracks[trackAt(trackForBody(def.id)!)].button)}
               </button>
             )}
             {!def.site && def.id === 'moon' && (
@@ -1628,9 +1632,9 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
                 🚩 {ui().surfaceView.toApollo17}
               </button>
             )}
-            {def.site && TRACKS[def.site] && (
+            {rallyTrack && (
               <button className="secondary" onClick={() => goToSite(null)}>
-                {ui().rallyTracks[def.site].home}
+                {ui().rallyTracks[rallyTrack].home}
               </button>
             )}
             <button className="primary" onClick={startTakeoff}>

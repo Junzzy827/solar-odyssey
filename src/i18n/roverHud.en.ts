@@ -12,6 +12,7 @@ export const roverHudEn: Translation<typeof roverHudJa> = {
   air: 'AIR',
   rcsTip: 'Thruster propellant (◀▶ and ▼ in the air)',
   rcs: 'RCS',
+  airReserve: '▼ only',
   showMinimap: 'Show the minimap',
   map: 'Map',
   minimap: 'Minimap',

@@ -49,7 +49,7 @@ const EvaCanvas = memo(function EvaCanvas() {
   // 手前の面が消えて船の中が透けることがあったので、代わりにカメラの near を少し遠くして精度を保つ（Tsumugi.tsx）
   const [free] = useState(() => evaSite.id === 'ship')
   return (
-    <Canvas shadows="percentage" dpr={Math.min(dprFor(level), 1.75)} gl={{ alpha: false }} camera={{ fov: 62, near: 0.05, far: free ? 9000 : 12000, position: [2.4, 1.7, 3.3] }}>
+    <Canvas shadows="percentage" dpr={Math.min(dprFor(level), 1.75)} gl={{ alpha: false }} camera={{ fov: 62, near: 0.05, far: free ? 40000 : 12000, position: [2.4, 1.7, 3.3] }}>
       <color attach="background" args={['#000']} />
       <Suspense fallback={null}>
         <EvaWorld spec={spec} />
@@ -151,10 +151,10 @@ function EvaHud() {
       {free ? (
         <div className="eh-row">
           <span className="eh-k">{ui().evaView.fromShip}</span>
-          <Bar v={(1 - range.d / Math.max(1, shipCol.limit)) * 100} warn={range.warn} />
+          <Bar v={Math.max(0, 1 - range.d / Math.max(1, shipCol.limit)) * 100} warn={range.warn} />
           <span className="eh-v">
-            {range.d.toFixed(0)}
-            <small> m</small>
+            {range.d >= 1000 ? (range.d / 1000).toFixed(2) : range.d.toFixed(0)}
+            <small>{range.d >= 1000 ? ' km' : ' m'}</small>
           </span>
         </div>
       ) : (
@@ -197,7 +197,8 @@ function ShipMap() {
   const range = useEva((e) => e.range)
   const sil = shipCol.sil
   const b = shipCol.box
-  const lim = shipCol.limit
+  // 活動範囲の外へ出たら、自分が地図に入るように広げる
+  const lim = Math.max(shipCol.limit, range.d * 1.15 + 10)
   const x0 = b.min.x - lim
   const z0 = b.min.z - lim
   const w = b.max.x - b.min.x + lim * 2
@@ -224,7 +225,7 @@ function ShipMap() {
           {ring(shipCol.warn)}
         </g>
         <g className="m-range" style={{ strokeWidth: k, strokeDasharray: `${k * 3} ${k * 2}` }}>
-          {ring(lim)}
+          {ring(shipCol.limit)}
         </g>
         <rect x={-k * 3} y={-k * 3} width={k * 6} height={k * 6} className="m-lock" />
         <g transform={`translate(${hud.x} ${hud.z}) rotate(${hud.hdg}) scale(${k * 1.6})`}>
@@ -446,8 +447,8 @@ function EvaPanel() {
             )}
           </div>
           {free && range.warn && (
-            <div className={`rover-edge eva-range${range.edge ? '' : ' soft'}`}>
-              {range.edge ? ui().evaView.rangeEdge : ui().evaView.rangeWarn}
+            <div className="rover-edge eva-range soft">
+              {ui().evaView.rangeWarn}
               <small>{ui().evaView.rangeNote(Math.round(shipCol.limit))}</small>
             </div>
           )}

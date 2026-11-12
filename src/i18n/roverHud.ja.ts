@@ -9,6 +9,7 @@ export const roverHudJa = {
   air: '空中',
   rcsTip: '姿勢制御の噴射剤（空中で◀▶・▼）',
   rcs: '噴射',
+  airReserve: '残りは▼だけ',
   showMinimap: 'ミニマップを出す',
   map: '地図',
   minimap: 'ミニマップ',

@@ -4,8 +4,8 @@ There is no metre-scale elevation data for Europa (Galileo stereo covers only a 
 so this builds a plausible landscape modelled on Galileo photos of the Conamara Chaos region:
 a smooth band of ice (the race course) between two double ridges (~100 m high crests with a
 central trough), background double ridges crossing at many angles, and a field of tilted chaos
-blocks to the north-west. The course is a stair of ice slabs: three jumps up onto higher slabs
-(each with a low lip at its edge) and one drop-off down to a lower slab.
+blocks to the north-west. The course crosses four tilted ice slabs (3, 8, 15 and 5 m high) that you
+drive up and fly off, and one 4 m drop-off down to a lower sheet of ice.
 
 Usage: python3 tools/terrain/pack_europa.py public/terrain/
 The course runs in the central trough of a large arc-shaped double ridge (like Europa's cycloid ridges).
@@ -29,9 +29,12 @@ CTRL = [(0, 0), (90, -150), (260, -270), (470, -280), (650, -360), (760, -560), 
         (840, -960), (1020, -1050)]
 BAND = 45.0      # smooth ice half-width
 WALL = 250.0     # distance from course to the centre of each flanking double ridge
-JUMPS = (330.0, 760.0, 1180.0)
-LIP = 3.6        # height of the lip at each jump (m)
-SLAB = 2.0       # how much higher the slab behind each jump is (m)
+# tilted ice slabs (cratercamper 2026-11-12: 2 m up-slabs were not much; try 2 to 15 m for a "wow"):
+# (course distance of the top edge m, height m, ramp length m). The ground climbs the slab's back to its
+# top edge, then falls away in a cliff back to the ice below, so you fly off the edge. The slabs are
+# different heights, from a small hop to a 15 m launch where you fly blind for many seconds.
+SLABS = ((330.0, 3.0, 22.0), (760.0, 8.0, 34.0), (1110.0, 15.0, 55.0), (1450.0, 5.0, 26.0))
+CLIFF = 6.0      # horizontal length of each slab's cliff (m)
 DROP_AT = 540.0  # course distance (m) where a slab ends in a drop-off
 DROP = 4.0       # height of that drop-off (m)
 rng = np.random.default_rng(7)
@@ -141,14 +144,16 @@ def height(X, Z, fine=False):
     band = band * band * (3 - 2 * band)
     floor = noise2(X, Z, 9000, 1) * 60 + noise2(X, Z, 1800, 11) * 12
     h = floor + band * (h - floor)
-    # the course is a stair of ice slabs (cratercamper's idea): each jump is the near edge of a higher
-    # slab, pushed up into a low lip (like a moraine bulldozed by flowing ice), so you land on the slab
-    # behind it after a shorter flight. One slab ends in a drop-off to a lower slab.
+    # the course crosses tilted ice slabs (cratercamper's idea): you drive up the back of each slab and fly
+    # off its top edge. Further on, the course drops off one step to a lower sheet of ice.
     lat = 1 - np.clip((d - BAND) / 40, 0, 1)
     lat = lat * lat * (3 - 2 * lat)
-    for js in JUMPS:
-        g = np.exp(-((s - js) / 11) ** 2)
-        h += np.where(s < js, LIP * g, SLAB + (LIP - SLAB) * g) * lat
+    for top, hh, ramp in SLABS:
+        u = np.clip((s - (top - ramp)) / ramp, 0, 1)
+        rise = u * u * (2 - u)  # eases in at the foot, steepest (slope hh/ramp) at the top edge
+        fall = np.clip((s - top) / CLIFF, 0, 1)
+        fall = fall * fall * (3 - 2 * fall)
+        h += hh * rise * (1 - fall) * lat
     edge = np.clip((s - DROP_AT) / 8, 0, 1)
     h -= DROP * edge * edge * (3 - 2 * edge) * lat
     if fine:

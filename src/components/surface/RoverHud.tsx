@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { RALLY_COLORS, useRally } from '../../state/rally'
+import { RALLY_COLORS, useRally, useRallyTrack } from '../../state/rally'
 import { buildCourse } from './Rally'
 import { TRACKS } from '../../data/rallyTracks'
 import { APOLLO17, APOLLO17_TRAVERSE } from '../../data/apollo17'
@@ -136,6 +136,22 @@ export function RoverHud() {
         </div>
       </div>
       <div className="rover-badge">ORV-7</div>
+      {hud.air && <AirGauge fuel={hud.fuel} />}
+    </div>
+  )
+}
+
+/** 空中だけ、画面のまんなか下に出す噴射剤のメーター（cratercamper さん：あとどれだけ曲がれるか見たい）。
+ * 右の線（AIR_RESERVE、Rover.tsx）から左は ▼ だけに取ってある */
+function AirGauge({ fuel }: { fuel: number }) {
+  const reserve = fuel <= 0.12
+  return (
+    <div className={`rover-airgauge${fuel < 0.42 ? ' low' : ''}${reserve ? ' reserve' : ''}`}>
+      <span>{reserve && fuel > 0 ? ui().roverHud.airReserve : ui().roverHud.rcs}</span>
+      <div className="bar">
+        <i style={{ width: `${Math.round(fuel * 100)}%` }} />
+        <b style={{ left: '12%' }} />
+      </div>
     </div>
   )
 }
@@ -183,10 +199,11 @@ export function RoverMap() {
   // 峡谷レース場：コース・門・ほかのローバー
   const gate = useRally((r) => r.gate)
   const bots = useRally((r) => (r.phase === 'off' ? NO_BOTS : r.bots))
+  const rallyTrack = useRallyTrack(terrain?.def.site)
   const course = useMemo(() => {
-    const tr = terrain?.def.site ? TRACKS[terrain.def.site] : null
+    const tr = rallyTrack ? TRACKS[rallyTrack] : null
     return tr ? buildCourse(tr.line, tr.gates) : null
-  }, [terrain])
+  }, [rallyTrack])
   const pois = wide ? (terrain?.pois ?? []) : []
   // アポロ17号の谷：月面車が走った道と史跡
   const apollo = terrain?.def.site === 'taurus'
