@@ -997,7 +997,12 @@ function Look({ terrain }: { terrain: Terrain }) {
     const canLook = () => useLanding.getState().phase === 'surface'
     const down = (e: PointerEvent) => {
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-      el.setPointerCapture(e.pointerId)
+      // マウスを固定した直後（運転中のクリック）は、つかまえられないことがある
+      try {
+        el.setPointerCapture(e.pointerId)
+      } catch {
+        // つかまえなくても見回せる
+      }
     }
     const move = (e: PointerEvent) => {
       const prev = pointers.get(e.pointerId)

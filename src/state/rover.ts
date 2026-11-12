@@ -251,6 +251,8 @@ export function bindRoverKeys() {
       if (!e.repeat) useRover.setState({ view: useRover.getState().view === 'chase' ? 'cam' : 'chase' })
       return
     }
+    // ▼（ブレーキ）で巡航を止める
+    if (e.code === 'KeyS' || e.code === 'ArrowDown') stopCruise()
     keys.add(e.code)
     fromKeys()
   }

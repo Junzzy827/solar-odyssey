@@ -16,7 +16,7 @@ export const roverHudEn: Translation<typeof roverHudJa> = {
   cruise: (kmh: number) => `Cruise ${kmh} km/h`,
   cruiseTip: 'Wheel changes the speed · ▼ stops · C brings it back',
   mouseOff: 'Click the view to drive with the mouse',
-  mouseOn: 'Mouse steers · Wheel sets cruise speed · Right click jumps · Left click samples · C cruise on/off · Esc or wheel click frees the mouse',
+  mouseOn: 'Mouse steers · Wheel cruise speed · Right click jump · Left click sample · Esc frees the mouse',
   showMinimap: 'Show the minimap',
   map: 'Map',
   minimap: 'Minimap',

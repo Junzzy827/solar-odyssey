@@ -13,7 +13,7 @@ export const roverHudJa = {
   cruise: (kmh: number) => `巡航 ${kmh} km/h`,
   cruiseTip: 'ホイールで速さを変える・▼で止める・C でもどす',
   mouseOff: '画面をクリックするとマウスで運転できます',
-  mouseOn: 'マウス：ハンドル・ホイール：巡航の速さ・右クリック：ジャンプ・左クリック：採集・C：巡航の入/切・Esc かホイールのクリック：マウスを離す',
+  mouseOn: 'マウス ハンドル・ホイール 巡航の速さ・右クリック ジャンプ・左クリック 採集・Esc マウスを離す',
   showMinimap: 'ミニマップを出す',
   map: '地図',
   minimap: 'ミニマップ',
