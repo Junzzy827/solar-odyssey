@@ -3815,7 +3815,7 @@ body.touch .surface-time .day-graph { width: 100%; }
 .rover-airgauge {
   position: fixed;
   left: 50%;
-  bottom: 26%;
+  bottom: 36%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
@@ -3859,7 +3859,7 @@ body.touch .surface-time .day-graph { width: 100%; }
   background: rgba(255, 255, 255, 0.7);
 }
 body.touch .rover-airgauge {
-  bottom: 34%;
+  bottom: 42%;
 }
 .rr-air.on {
   color: #1a1206;
@@ -5392,6 +5392,17 @@ button.sample-count {
 }
 .rally-start.compact .rally-title {
   font-size: 14px;
+  white-space: nowrap;
+}
+.rally-start.compact .rally-levels {
+  margin: 0;
+  flex: none;
+}
+.rally-start.compact .rally-levels button {
+  flex: none;
+  white-space: nowrap;
+  padding: 4px 9px;
+  font-size: 12px;
 }
 .rally-title {
   font-weight: 700;
