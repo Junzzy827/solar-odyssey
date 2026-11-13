@@ -10,7 +10,7 @@ import { lowMemory, useLevel } from '../../state/quality'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { useLanding } from '../../state/landing'
 import { isWide, roverRangeFor, wideNow } from './wideGround'
-import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, driveInput, roverCtl, roverFocus, roverInput, roverDebug, roverNow, roverPose, roverQuick, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
+import { DEPLOY_SEC, ROVER_RANGE, ROVER_TOP, driveInput, mouseSink, roverCtl, roverFocus, roverInput, roverDebug, roverNow, roverPose, roverQuick, setRoverPhase, useRover, useSampleLog } from '../../state/rover'
 import { PAINT_PARTS, paintUniforms, withPaint } from './paint'
 import { samplesFor, type RockSample } from '../../data/rockSamples'
 import { rockSpots } from '../../data/rockSpots'
@@ -551,6 +551,75 @@ const ARM_REACH = [0, 30, -62, -86].map((v) => v * D)
 
 const PROPS = { cam: new THREE.Vector3(), look: new THREE.Vector3(), fwd: new THREE.Vector3(), tmp: new THREE.Vector3(), q: new THREE.Quaternion() }
 
+// ---- 噴射剤の残りを、車体の後ろの灯で見せる（cratercamper さん 2026-11-13：画面の計器より自然で、Shift+F12 でも見える） ----
+// 後ろの面の上のほうに、左右対称の細い光の線を 2 本。真ん中から外へ向かって、残りの量だけ伸びる。
+// 青 → 残りが少ないと橙 → ▼ だけの残り（AIR_RESERVE）で赤。空になると赤く点滅。満タンで地面にいるあいだは、ほのかに灯るだけ
+/** 模型の座標（静止の姿勢）での、後ろの面の上の線の位置（模型の Body：x ±0.37、y 0.38〜1.005、後ろの面 z 0.78） */
+const RCS_BAR = { y: 0.93, z: 0.783, inner: 0.07, outer: 0.34, h: 0.04 }
+const RCS_BLUE = new THREE.Color(0.35, 1.6, 2.4)
+const RCS_AMBER = new THREE.Color(2.4, 1.3, 0.25)
+const RCS_RED = new THREE.Color(2.6, 0.3, 0.15)
+
+class RcsLights {
+  group = new THREE.Group()
+  private base: THREE.MeshBasicMaterial
+  private glow: THREE.MeshBasicMaterial
+  private bars: THREE.Mesh[] = []
+  private geo = new THREE.BoxGeometry(1, 1, 1)
+  private dim = 0.25
+  constructor() {
+    this.group.name = 'rcs-lights'
+    this.base = new THREE.MeshBasicMaterial({ color: '#0b0f14' })
+    this.glow = new THREE.MeshBasicMaterial({ color: RCS_BLUE.clone(), toneMapped: false })
+    const len = RCS_BAR.outer - RCS_BAR.inner
+    for (const side of [-1, 1]) {
+      // 消えているところも見えるよう、黒いみぞ
+      const slot = new THREE.Mesh(this.geo, this.base)
+      slot.scale.set(len + 0.02, RCS_BAR.h + 0.02, 0.01)
+      slot.position.set(side * (RCS_BAR.inner + len / 2), RCS_BAR.y, RCS_BAR.z)
+      const bar = new THREE.Mesh(this.geo, this.glow)
+      bar.position.set(0, RCS_BAR.y, RCS_BAR.z + 0.004)
+      bar.userData.side = side
+      for (const m of [slot, bar]) {
+        m.castShadow = false
+        m.receiveShadow = false
+        this.group.add(m)
+      }
+      this.bars.push(bar)
+    }
+  }
+  /** fuel 0..1。air：宙にいる。thrust：いま噴いている（0..1） */
+  update(fuel: number, air: boolean, thrust: number, t: number, dt: number) {
+    const len = RCS_BAR.outer - RCS_BAR.inner
+    const l = Math.max(0.004, len * fuel)
+    for (const b of this.bars) {
+      const side = b.userData.side as number
+      b.scale.set(l, RCS_BAR.h, 0.012)
+      b.position.x = side * (RCS_BAR.inner + l / 2)
+      b.visible = fuel > 0.003
+    }
+    const c = this.glow.color
+    if (fuel <= AIR_RESERVE) c.copy(RCS_RED)
+    else if (fuel < 0.42) c.copy(RCS_AMBER).lerp(RCS_BLUE, smooth01((fuel - 0.3) / 0.12))
+    else c.copy(RCS_BLUE)
+    // 満タンで地面にいるときは控えめに。使っている・減っているときは明るく、噴くとさらに少し明るく
+    const want = air || fuel < 0.99 ? 1 : 0.25
+    this.dim += (want - this.dim) * Math.min(1, dt * 4)
+    let k = this.dim * (1 + 0.35 * thrust)
+    if (fuel <= AIR_RESERVE && air && Math.sin(t * 14) < 0) k *= 0.35
+    c.multiplyScalar(k)
+    if (fuel <= 0.003) {
+      // 空：みぞだけが赤く点滅
+      this.base.color.setRGB(Math.sin(t * 8) > 0 && air ? 0.6 : 0.05, 0.02, 0.02)
+    } else this.base.color.set('#0b0f14')
+  }
+  dispose() {
+    this.geo.dispose()
+    this.base.dispose()
+    this.glow.dispose()
+  }
+}
+
 export function Rover({
   terrain,
   dustColor,
@@ -626,7 +695,14 @@ export function Rover({
       arm: [get('ArmYaw'), get('ArmUpper'), get('ArmFore'), get('ArmHand')],
     }
     for (const w of Object.values(rig.wheels)) w.rotation.order = 'YXZ'
-    return { model, rig, owned, paint }
+    // 噴射剤の灯：車体（Body）に付けて、沈み込み・傾きに一緒に動かす。静止の姿勢での模型の座標から、車体の座標へ
+    const rcs = new RcsLights()
+    model.updateMatrixWorld(true)
+    const toBody = new THREE.Matrix4().copy(rig.body.matrixWorld).invert().multiply(model.matrixWorld)
+    rcs.group.applyMatrix4(toBody)
+    rig.body.add(rcs.group)
+    owned.push(rcs)
+    return { model, rig, owned, paint, rcs }
   }, [scene, prepare])
   useEffect(() => () => built.owned.forEach((m) => m.dispose()), [built])
 
@@ -917,9 +993,11 @@ export function Rover({
         s.speed = Math.sign(s.speed) * Math.sqrt(Math.max(0, vt * vt - s.slip * s.slip))
         if (inp.jump && !busy) {
           // ぴょーん（重力の弱い星ほど高く、長く飛ぶ）
-          const kick = 0.6 + 0.4 * Math.min(1, s.fuel / JUMP_FUEL)
+          // 右ボタンを押した長さで、小さなジャンプから大きなジャンプまで（キーとボタンはいつも 100%）
+          const power = THREE.MathUtils.clamp(inp.jumpPower, 0.3, 1)
+          const kick = (0.6 + 0.4 * Math.min(1, s.fuel / JUMP_FUEL)) * power
           s.vy = (3.2 + Math.abs(s.speed) * 0.08) * kick
-          s.fuel = Math.max(0, s.fuel - JUMP_FUEL)
+          s.fuel = Math.max(0, s.fuel - JUMP_FUEL * power)
           s.grounded = false
           s.squashV = -0.4
         }
@@ -932,7 +1010,8 @@ export function Rover({
         const sideK = smooth01((s.fuel - AIR_RESERVE) / AIR_FADE)
         const downK = smooth01(s.fuel / 0.04)
         const side = busy ? 0 : di.steer * sideK
-        const down = !busy && inp.throttle < 0 ? downK : 0
+        // ▼ のほか、マウスだけでも降りられる（右ボタンを押し続ける・ホイールを手前に。巡航は止めない）
+        const down = busy ? 0 : inp.throttle < 0 ? downK : mouseSink() * downK
         const on = s.fuel > 0 && (Math.abs(side) > 0.02 || down > 0)
         s.thrustSide = on ? side : 0
         s.thrustDown = on ? down : 0
@@ -958,6 +1037,7 @@ export function Rover({
         s.thrustDown = 0
       }
       inp.jump = false
+      inp.jumpPower = 1
       const tanP = Math.tan(s.pitch)
       const tanR = Math.tan(s.roll)
       const prevBase = meshHeight(terrain, s.x, s.z)
@@ -1043,19 +1123,26 @@ export function Rover({
       // 地面の傾き（6 つの車輪の下の高さ。岩に乗っていれば、岩の上の高さ）
       const sideX = -fwd.z
       const sideZ = fwd.x
-      if (s.grounded) {
-        // wheelH は、いま測った rockLift の車輪の下の高さ
+      {
+        // wheelH は、いま測った rockLift の車輪の下の高さ（宙にいても、真下の地面の傾きがわかる）
         const hF = (wheelH[0] + wheelH[1]) / 2
         const hB = (wheelH[4] + wheelH[5]) / 2
         const hR = (wheelH[1] + wheelH[3] + wheelH[5]) / 3
         const hL = (wheelH[0] + wheelH[2] + wheelH[4]) / 3
-        const k = Math.min(1, dt * 14)
-        s.pitch += (Math.atan2(hF - hB, 1.44) - s.pitch) * k
-        s.roll += (Math.atan2(hR - hL, 1.0) - s.roll) * k
-      } else {
-        // 宙では少しずつ水平に
-        s.pitch += (Math.min(0.25, Math.max(-0.35, s.vy * 0.04)) - s.pitch) * Math.min(1, dt * 1.2)
-        s.roll *= 1 - Math.min(1, dt * 1.5)
+        const slopeP = Math.atan2(hF - hB, 1.44)
+        const slopeR = Math.atan2(hR - hL, 1.0)
+        if (s.grounded) {
+          const k = Math.min(1, dt * 14)
+          s.pitch += (slopeP - s.pitch) * k
+          s.roll += (slopeR - s.roll) * k
+        } else {
+          // 宙：地面のすぐ上（斜面を横切るときの小さな浮き）なら斜面の傾きのまま。高く飛んだときだけ、少しずつ水平に
+          // （cratercamper さん 2026-11-13：斜面で一瞬浮くたびに水平へもどろうとして、かくっと揺れていた）
+          const w = THREE.MathUtils.smoothstep(s.y - ground, 0.4, 2.5)
+          const airP = Math.min(0.25, Math.max(-0.35, s.vy * 0.04))
+          s.pitch += (THREE.MathUtils.lerp(slopeP, airP, w) - s.pitch) * Math.min(1, dt * THREE.MathUtils.lerp(8, 1.2, w))
+          s.roll += (slopeR * (1 - w) - s.roll) * Math.min(1, dt * THREE.MathUtils.lerp(8, 1.5, w))
+        }
       }
       // 小さな岩：車輪が乗り上げると、ぴょんと跳ねる（速いほど、岩が高いほど高く。でも飛び上がるほどではない）。かたむきも少し
       // 丘として登る岩（CLIMB_ROCK より高い）は、車輪が触れたときに車体が少し沈んで、ことんと揺れるだけ
@@ -1242,6 +1329,8 @@ export function Rover({
     else s.sway.reset()
 
     applyPose(rig, pose, s.squash, s.sway.pitch, s.sway.roll)
+    built.rcs.group.visible = phase === 'drive'
+    if (phase === 'drive') built.rcs.update(s.fuel, !s.grounded, s.thrust, roverNow(), dt)
     grp.position.set(s.x, s.y, s.z)
     grp.rotation.set(s.pitch, s.heading, s.roll, 'YXZ')
     for (const k of Object.keys(rig.wheels)) {

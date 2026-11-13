@@ -340,4 +340,6 @@ export const evaDebug: {
   place?: (x: number, y: number, z: number, yawDeg?: number) => void
   state?: () => { pos: number[]; vel: number[] }
   cam?: [number, number, number]
+  /** 確認用：エアロックのハッチの開き（0..1）を固定する */
+  hatch?: number
 } = {}
