@@ -52,8 +52,6 @@ export const evaViewJa = {
   slower: '遅く',
   faster: '速く',
   boost: 'ブースト',
-  rangeWarn: '母船の活動範囲の外です。宇宙はどこまでも行けます',
-  rangeNote: (m: number) => `K か「回収して船にもどる」で、いつでも船へもどれます（活動範囲：母船の外形から ${m} m）`,
   backAboard: 'エアロックから船内へもどります',
   freeKeysHint: 'W A S D 移動・スペース/Shift 上下・マウス 向き・Q ブースト・ホイール 速さ・Z/C 横回転・X ブレーキ・V 見方・K 回収',
   clickToLock: '画面をクリックするとマウスで向きを変えられます（Esc で解除）',

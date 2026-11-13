@@ -413,7 +413,6 @@ function EvaPanel() {
   const working = useEva((e) => e.working)
   const swapping = useEva((e) => e.swapping)
   const gas = useEva((e) => e.hud.gas)
-  const range = useEva((e) => e.range)
   const speed = useEva((e) => e.speed)
   useEffect(() => bindEvaKeys(), [])
   const fly = phase === 'fly'
@@ -446,12 +445,6 @@ function EvaPanel() {
               </button>
             )}
           </div>
-          {free && range.warn && (
-            <div className="rover-edge eva-range soft">
-              {ui().evaView.rangeWarn}
-              <small>{ui().evaView.rangeNote(Math.round(shipCol.limit))}</small>
-            </div>
-          )}
           {!free && taut && (
             <div className="rover-edge">
               {ui().evaView.tetherFull}

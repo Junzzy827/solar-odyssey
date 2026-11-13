@@ -53,8 +53,6 @@ export const evaViewEn: Translation<typeof evaViewJa> = {
   slower: 'Slower',
   faster: 'Faster',
   boost: 'BOOST',
-  rangeWarn: 'Outside the mothership’s work area. Space goes on forever',
-  rangeNote: (m: number) => `Press K or “Recall and go back aboard” to return to the ship at any time (work area: ${m} m from the ship’s outline)`,
   backAboard: 'Back in through the airlock',
   freeKeysHint: 'W A S D move · Space/Shift up/down · Mouse look · Q boost · Wheel speed · Z/C roll · X brake · V view · K recall',
   clickToLock: 'Click the view to steer with the mouse (Esc to release)',

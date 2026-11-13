@@ -17,7 +17,7 @@ export const ROVER_TOP = 60 / 3.6
  * （見た目だけ・コメントだけの変更では増やさない）。レースのハイスコア表・ゴースト・ゲームに入っている記録は、
  * 同じ版で走ったものだけを使う（state/rallyHiscore.ts の courseOf）。だから版が同じなら、どのバージョンのゲームでも使える
  */
-export const DRIVE_VERSION = 5
+export const DRIVE_VERSION = 6
 
 type RoverState = {
   phase: RoverPhase
@@ -90,7 +90,7 @@ export function recallRover() {
 export const setRoverPhase = (phase: RoverPhase) => useRover.setState({ phase, since: roverNow() })
 
 /** 運転の入力（キーボードと画面のボタンの両方から書き込む）。-1..1 */
-export const roverInput = { throttle: 0, steer: 0, jump: false, sample: false, reset: false }
+export const roverInput = { throttle: 0, steer: 0, jump: false, sample: false, reset: false, jumpPower: 1 }
 const keys = new Set<string>()
 
 function fromKeys() {
@@ -109,6 +109,10 @@ const DRIVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDow
 // ホイールで巡航の速さ（5 km/h ずつ）を決めると、アクセルを押さなくてもその速さで走る（右手だけで運転できる）。
 // 右クリックでジャンプ、左クリックで採集（E）。Esc かホイールのクリックで固定をはずす。
 // キーボードの ◀▶・▲▼ を押しているあいだは、キーのほうが勝つ。▼（ブレーキ）を押すと巡航は止まり、C でさっきの速さにもどる
+// 2026-11-13（cratercamper さん）：マウスだけで空中から降りられるように。
+//   地上：右クリックで小さなジャンプ、右ボタンを押し続けるほど大きく（1 秒で 100%）。離したときに跳ぶ
+//   空中：右ボタンを押しているあいだ ▼ と同じく下へ噴射。ホイールを手前に回すと少しのあいだ下へ噴射。どちらも巡航は止めない
+//   ホイールで巡航の速さが変わるのは、地上にいるときだけ
 
 /** 巡航の速さの刻み（km/h） */
 export const CRUISE_STEP = 5
@@ -118,7 +122,35 @@ const MOUSE_STEER = 0.0045
 const MOUSE_CENTER = 0.9
 
 /** マウス運転の状態（steer は毎フレーム Rover が読む。cruise は km/h、0 は巡航なし） */
-export const roverMouse = { locked: false, steer: 0, lastMove: 0 }
+export const roverMouse = { locked: false, steer: 0, lastMove: 0, chargeAt: 0, sinkHold: false, sinkUntil: 0 }
+
+/** 右ボタンで跳ぶ力をためきる時間（ms）と、いちばん小さいジャンプの力 */
+const CHARGE_MS = 1000
+const JUMP_MIN = 0.45
+/** 空中でホイールを手前に 1 回まわしたときの、下への噴射の長さ（ms） */
+const SINK_PULSE_MS = 350
+
+/** 右ボタンでためているジャンプの力（0..1）。ためていなければ -1 */
+export function jumpCharge() {
+  const m = roverMouse
+  if (!m.chargeAt) return -1
+  return Math.min(1, (performance.now() - m.chargeAt) / CHARGE_MS)
+}
+
+/**
+ * マウスで空中から降りる強さ（0..1、Rover が空中で毎フレーム読む）。
+ * 地上でジャンプをためたまま宙に出た（崖から落ちた）ときは、そのまま下への噴射に切り替える
+ */
+export function mouseSink() {
+  const m = roverMouse
+  if (!m.locked) return 0
+  if (m.chargeAt) {
+    m.chargeAt = 0
+    m.sinkHold = true
+  }
+  if (m.sinkHold) return 1
+  return performance.now() < m.sinkUntil ? 0.6 : 0
+}
 export const useRoverCruise = create<{ cruise: number; last: number }>(() => ({ cruise: 0, last: 0 }))
 
 const setCruise = (kmh: number) => {
@@ -168,6 +200,8 @@ export function bindRoverMouse(el: HTMLElement) {
   const lockChange = () => {
     roverMouse.locked = document.pointerLockElement === el
     roverMouse.steer = 0
+    roverMouse.chargeAt = 0
+    roverMouse.sinkHold = false
     useRover.setState({ mouse: roverMouse.locked })
   }
   const down = (e: PointerEvent) => {
@@ -179,8 +213,21 @@ export function bindRoverMouse(el: HTMLElement) {
     e.preventDefault()
     e.stopImmediatePropagation()
     if (e.button === 0) roverInput.sample = true
-    else if (e.button === 2) roverInput.jump = true
-    else if (e.button === 1) releaseRoverMouse()
+    else if (e.button === 2) {
+      // 地上ならジャンプをためはじめ、空中なら下へ噴射
+      if (roverPose.grounded) roverMouse.chargeAt = performance.now()
+      else roverMouse.sinkHold = true
+    } else if (e.button === 1) releaseRoverMouse()
+  }
+  const up = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse' || e.button !== 2) return
+    const m = roverMouse
+    if (m.chargeAt && driving()) {
+      roverInput.jumpPower = JUMP_MIN + (1 - JUMP_MIN) * Math.max(0, jumpCharge())
+      roverInput.jump = true
+    }
+    m.chargeAt = 0
+    m.sinkHold = false
   }
   const move = (e: PointerEvent) => {
     if (!roverMouse.locked) return
@@ -192,6 +239,11 @@ export function bindRoverMouse(el: HTMLElement) {
     if (!roverMouse.locked || !driving()) return
     e.preventDefault()
     e.stopImmediatePropagation()
+    if (!roverPose.grounded) {
+      // 空中：手前に回すと少しのあいだ下へ噴射（巡航の速さは変えない）
+      if (e.deltaY > 0) roverMouse.sinkUntil = performance.now() + SINK_PULSE_MS
+      return
+    }
     const { cruise } = useRoverCruise.getState()
     setCruise(cruise + (e.deltaY < 0 ? CRUISE_STEP : -CRUISE_STEP))
   }
@@ -208,6 +260,7 @@ export function bindRoverMouse(el: HTMLElement) {
   document.addEventListener('pointerlockchange', lockChange)
   el.addEventListener('pointerdown', down, true)
   el.addEventListener('pointermove', move, true)
+  el.addEventListener('pointerup', up, true)
   el.addEventListener('wheel', wheel, { capture: true, passive: false })
   el.addEventListener('contextmenu', menu)
   return () => {
@@ -215,6 +268,7 @@ export function bindRoverMouse(el: HTMLElement) {
     document.removeEventListener('pointerlockchange', lockChange)
     el.removeEventListener('pointerdown', down, true)
     el.removeEventListener('pointermove', move, true)
+    el.removeEventListener('pointerup', up, true)
     el.removeEventListener('wheel', wheel, true)
     el.removeEventListener('contextmenu', menu)
     if (document.pointerLockElement === el) document.exitPointerLock()

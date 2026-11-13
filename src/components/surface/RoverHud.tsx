@@ -4,7 +4,7 @@ import { buildCourse } from './Rally'
 import { TRACKS } from '../../data/rallyTracks'
 import { APOLLO17, APOLLO17_TRAVERSE } from '../../data/apollo17'
 import { useHistoric } from '../../state/historic'
-import { roverMouse, useRover, useRoverCruise, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
+import { jumpCharge, roverMouse, useRover, useRoverCruise, ROVER_RANGE, ROVER_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
 import { useLang } from '../../i18n/lang'
@@ -166,20 +166,25 @@ function MouseDrive() {
           <i style={{ left: `${50 + roverMouse.steer * 50}%` }} />
         </span>
       )}
+      {mouse && jumpCharge() >= 0 && (
+        <span className="rm-jump">
+          <i style={{ width: `${Math.round(jumpCharge() * 100)}%` }} />
+        </span>
+      )}
     </div>
   )
 }
 
-/** 空中だけ、画面のまんなか下に出す噴射剤のメーター（cratercamper さん：あとどれだけ曲がれるか見たい）。
- * 右の線（AIR_RESERVE、Rover.tsx）から左は ▼ だけに取ってある */
+/** 空中だけ、画面の右端に出す噴射剤の縦のメーター（cratercamper さん：あとどれだけ曲がれるか見たい。2026-11-13 に真ん中から右端へ）。
+ * 下の線（AIR_RESERVE、Rover.tsx）から下は ▼ だけに取ってある。車体の後ろの灯（RcsLights）も同じ残りを見せる */
 function AirGauge({ fuel }: { fuel: number }) {
   const reserve = fuel <= 0.12
   return (
     <div className={`rover-airgauge${fuel < 0.42 ? ' low' : ''}${reserve ? ' reserve' : ''}`}>
       <span>{reserve && fuel > 0 ? ui().roverHud.airReserve : ui().roverHud.rcs}</span>
       <div className="bar">
-        <i style={{ width: `${Math.round(fuel * 100)}%` }} />
-        <b style={{ left: '12%' }} />
+        <i style={{ height: `${Math.round(fuel * 100)}%` }} />
+        <b style={{ bottom: '12%' }} />
       </div>
     </div>
   )

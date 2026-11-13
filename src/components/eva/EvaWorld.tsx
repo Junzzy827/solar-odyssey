@@ -10,6 +10,7 @@ import { useOptionalTexture } from '../../hooks/useOptionalTexture'
 import { bodies } from '../../state/registry'
 import { proximity } from '../../state/proximity'
 import { ship } from '../../state/flight'
+import { evaDebug } from '../../state/eva'
 import { lowMemory, useQuality } from '../../state/quality'
 import type { ShipSpec } from '../../data/ships'
 import { uiEn } from '../../i18n'
@@ -256,7 +257,7 @@ function Airlock({ spec }: { spec: ShipSpec }) {
   const door = useRef<THREE.Mesh>(null)
   const lamps = useRef<THREE.MeshBasicMaterial>(null)
   useFrame(({ clock }) => {
-    const h = hatchState.get()
+    const h = evaDebug.hatch ?? hatchState.get()
     if (door.current) door.current.position.z = AIRLOCK.z + h * (S + 0.1)
     if (lamps.current) {
       const blink = Math.sin(clock.elapsedTime * 6) > 0
@@ -281,13 +282,15 @@ function Airlock({ spec }: { spec: ShipSpec }) {
         </mesh>
       ))}
       {/* 穴の中：壁と床（中の明かりで照らす） */}
-      <mesh position={[0, -0.7, 0]}>
-        <boxGeometry args={[S, 1.4, S]} />
+      {/* 小屋の内壁（EvaShip の AirlockModule、穴の縁がちょうど S）と同じ面にならないよう、ほんの少し内側に */}
+      <mesh position={[0, -0.71, 0]}>
+        <boxGeometry args={[S - 0.03, 1.4, S - 0.03]} />
         <meshStandardMaterial color="#3a4048" roughness={0.7} metalness={0.3} side={THREE.BackSide} />
       </mesh>
       <pointLight position={[0, -0.9, 0]} intensity={1.6} distance={3} color="#cfe2ff" />
       {/* ハッチ（開くと前へすべる） */}
-      <mesh ref={door} position={[0, 0.03, 0]} castShadow receiveShadow>
+      {/* 下の面を小屋の屋根（y=0）から浮かせる：開いて屋根の上へすべったとき、同じ面でちらつかないように */}
+      <mesh ref={door} position={[0, 0.045, 0]} castShadow receiveShadow>
         <boxGeometry args={[S - 0.02, 0.06, S - 0.02]} />
         <meshStandardMaterial color="#c9ccd2" roughness={0.5} metalness={0.4} />
       </mesh>
@@ -434,7 +437,7 @@ export function EvaWorld({ spec }: { spec: ShipSpec }) {
     <>
       <Distant>
         <group quaternion={out.inv}>
-          <Sky />
+          <Sky follow={false} />
         </group>
         <SunGlow dir={out.sun} />
         {out.planet && <Planet p={out.planet} sun={out.sun} />}
