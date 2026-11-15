@@ -522,6 +522,11 @@ type Drive = {
   /** 最後に乗り上げた岩と、そこからの時間（同じ岩で何度も跳ねないように） */
   bumpRock: number
   bumpT: number
+  /**
+   * 地面から離れるときに、上への速さをそのままにする。いまの上への速さが、ジャンプか小さな岩で跳ねたものか、
+   * すでに一度向きをかえたもののとき。地面が上への速さを決めたとき（ふれて、地面の上がる速さが車体の上への速さ以上）に false にもどる
+   */
+  keepVy: boolean
   /** 岩に乗り上げている高さ（m）。0 は地面の上 */
   onRock: number
   /** 空中の噴射剤（0〜1）。地面にいると回復する */
@@ -874,6 +879,7 @@ export function Rover({
       edgeT: -9,
       bumpRock: -1,
       bumpT: 9,
+      keepVy: false,
       onRock: 0,
       fuel: 1,
       thrust: 0,
@@ -999,6 +1005,7 @@ export function Rover({
           s.vy = (3.2 + Math.abs(s.speed) * 0.08) * kick
           s.fuel = Math.max(0, s.fuel - JUMP_FUEL * power)
           s.grounded = false
+          s.keepVy = true
           s.squashV = -0.4
         }
       }
@@ -1103,6 +1110,9 @@ export function Rover({
       if (s.y <= ground) {
         const impact = Math.max(0, groundVy - s.vy)
         s.y = ground
+        // 地面の上がる速さが車体の上への速さ以上なら、上への速さは地面が決める（岩に乗り上げるぶんは groundVy に入らないので、
+        // ジャンプで上がっていく途中に岩の横にふれただけでは、ジャンプの速さのまま）
+        if (Math.min(groundVy, 9) >= s.vy) s.keepVy = false
         s.vy = Math.max(s.vy, Math.min(groundVy, 9))
         if (wasAir && impact > 1.2) {
           // 着地：脚がぐっと縮んで、車体が沈む（強く落ちるほど深く）
@@ -1116,6 +1126,17 @@ export function Rover({
         s.vy = Math.min(s.vy, 0)
         s.grounded = true
       } else s.grounded = s.y - ground < 0.03
+      // 地面から離れた瞬間：上への速さが地面の決めたものなら（keepVy でない）、速さの向き（上と水平の割合）はそのままで、
+      // 大きさを離れる前の水平の速さ（前への速さと横すべり）にそろえる。坂で上へ動いていたぶんを、宙へ飛び出すときに足さない。
+      // 地面の上を走っているあいだは何も変えない。向きをかえるのは、地面がまた上への速さを決めるまでに一度だけ
+      if (!wasAir && !s.grounded && !s.keepVy && s.vy > 0) {
+        const h = Math.hypot(s.speed, s.slip)
+        const scale = h / Math.hypot(h, s.vy)
+        s.speed *= scale
+        s.slip *= scale
+        s.vy *= scale
+        s.keepVy = true
+      }
       // 岩に登るぶん、少し遅くなる。乗っているあいだも、車輪が空回りして遅くなる
       if (s.grounded && lift > prevLift) s.speed *= 1 - Math.min(0.1, (lift - prevLift) * 0.3)
       s.onRock = s.grounded ? lift : 0
@@ -1167,6 +1188,7 @@ export function Rover({
             if (kick < 0.25) continue
             s.vy = Math.max(s.vy, kick)
             s.grounded = false
+            s.keepVy = true
             s.roll += sd * 2 * Math.min(0.35, r.h * 0.9) * (1 - Math.abs(wf))
             s.pitch += Math.sign(wf) * Math.min(0.3, r.h * 0.7) * Math.sign(s.speed)
             s.squashV = Math.min(s.squashV, -0.3 - r.h)
