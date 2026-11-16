@@ -1,3 +1,4 @@
+import { campaignSample } from '../../state/campaign'
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
@@ -1269,6 +1270,7 @@ export function Rover({
           near = -1
           if (next === s.sampleIdx) next = -1
           useSampleLog.getState().add(def.id, site.kind.id)
+          campaignSample(def.id)
           useRover.setState({ result: site.kind.id })
           s.sampleT = -1
           s.sampleIdx = -1
