@@ -4,6 +4,7 @@ import { beamGaugeJa } from './beamGauge.ja'
 import { blackHoleJa } from './blackHole.ja'
 import { bridgeJa } from './bridge.ja'
 import { bridgePanelJa } from './bridgePanel.ja'
+import { campaignJa } from './campaign.ja'
 import { chargeBeamJa } from './chargeBeam.ja'
 import { cleanScreenJa } from './cleanScreen.ja'
 import { compareModelsJa } from './compareModels.ja'
@@ -157,6 +158,7 @@ export const ja = {
   blackHole: blackHoleJa,
   bridge: bridgeJa,
   bridgePanel: bridgePanelJa,
+  campaign: campaignJa,
   chargeBeam: chargeBeamJa,
   cleanScreen: cleanScreenJa,
   compareModels: compareModelsJa,

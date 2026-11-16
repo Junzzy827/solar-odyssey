@@ -51,6 +51,7 @@ import { ProbePanel } from './ui/ProbePanel'
 import { MissionRunner } from './components/mission/MissionRunner'
 import { MissionPanel } from './ui/MissionPanel'
 import { LanguagePicker } from './ui/LanguagePicker'
+import { Campaign } from './ui/Campaign'
 import { EclipseScene } from './components/EclipseScene'
 import { EclipsePanel } from './ui/EclipsePanel'
 import { ObservePanel } from './ui/ObservePanel'
@@ -157,6 +158,7 @@ export default function App() {
       <EclipsePanel />
       <StampBook />
       <TelescopeView />
+      <Campaign />
       <LanguagePicker />
       <SFBadge />
       <ScaleBadge />
