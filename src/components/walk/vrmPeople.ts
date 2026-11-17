@@ -1,24 +1,35 @@
 import * as THREE from 'three'
 import type { Age, Motion, Person } from './figure'
+import { lowMemory } from '../../state/quality'
 
-// 公園の人を VRoid の VRM で描く。VRoid のプリセットだけで作った 6 人（junji さんの PC の VRoid MCP で作った）と、
-// Mixamo の動き（public/walk/motions.json に、VRM 1.0 の正規化ボーン向けに変換したもの）を使う。
+// 公園の人。MakeHuman（Blender の MPFB 2、素材は CC0）で作ったリアル寄りの 12 人（子ども 4・大人 5・シニア 3）。
+// tools/mobs/mpfb_style.json（年齢ごとの幅、服・髪・肌、顔のパーツの揺れ幅）から mpfb_gen.py で決まった種で作り、
+// finish_mpfb.py で髪の色・肌の色味をそろえ、テクスチャを縮めている（1 人 1.4〜1.9 MB）。
+// 動きは Mixamo（public/walk/motions.json に、VRM 1.0 の正規化ボーン向けに変換したもの）。
 // 同じ人を何人も出すので、VRM は 1 回だけ読み込み、形と材質を共有したまま骨だけを複製する（SkeletonUtils.clone）。
-// そのため正規化ボーンを使わず、動きを人ごとの元の骨（raw bone）の回転に直してから再生する。揺れ物（髪）は動かさない。
+// そのため正規化ボーンを使わず、動きを人ごとの元の骨（raw bone）の回転に直してから再生する。
 
-/** headScale：頭（髪ごと）の大きさ。VRoid の子どもは頭が大きすぎるので、アプリで縮める */
-export type MobModel = { file: string; age: Age; height: number; headScale?: number }
-
-const HEAD_KID = 0.76
+/** headScale：頭（髪ごと）の大きさ。phone：スマホ（メモリの少ない端末）でも読む人（半分にして軽くする） */
+export type MobModel = { file: string; age: Age; height: number; headScale?: number; phone?: boolean }
 
 export const MOB_MODELS: MobModel[] = [
-  { file: 'mob_kid_1', age: 'child', height: 1.21, headScale: HEAD_KID },
-  { file: 'mob_kid_2', age: 'child', height: 1.29, headScale: HEAD_KID },
-  { file: 'mob_adult_1', age: 'adult', height: 1.66 },
-  { file: 'mob_adult_2', age: 'adult', height: 1.61 },
-  { file: 'mob_senior_1', age: 'elder', height: 1.5 },
-  { file: 'mob_senior_2', age: 'elder', height: 1.7 },
+  { file: 'mpfb_child_1', age: 'child', height: 1.278, phone: true },
+  { file: 'mpfb_child_2', age: 'child', height: 1.349, phone: true },
+  { file: 'mpfb_child_3', age: 'child', height: 1.175 },
+  { file: 'mpfb_child_4', age: 'child', height: 1.295 },
+  { file: 'mpfb_adult_1', age: 'adult', height: 1.619, phone: true },
+  { file: 'mpfb_adult_2', age: 'adult', height: 1.897 },
+  { file: 'mpfb_adult_3', age: 'adult', height: 1.494, phone: true },
+  { file: 'mpfb_adult_4', age: 'adult', height: 1.491, phone: true },
+  { file: 'mpfb_adult_5', age: 'adult', height: 1.683 },
+  { file: 'mpfb_elder_1', age: 'elder', height: 1.508, phone: true },
+  { file: 'mpfb_elder_2', age: 'elder', height: 1.537 },
+  { file: 'mpfb_elder_3', age: 'elder', height: 1.446 },
 ]
+
+/** 自分（歩く人）の姿。この人は 1.50 m と小柄なので、自分のときは 1.65 m ほどにする */
+export const PLAYER_MODEL = 'mpfb_adult_4'
+export const PLAYER_SCALE = 1.1
 
 type ClipData = { fps: number; frames: number; loop: boolean; rot: string; pos: string }
 type MotionData = { bones: string[]; clips: Record<string, ClipData> }
@@ -121,7 +132,7 @@ function bakeClips(vrm: import('@pixiv/three-vrm').VRM, data: MotionData) {
 
 let loading: Promise<VrmModel[]> | null = null
 
-/** 6 人の VRM と動きを読み込む（歩く場面に来たとき 1 回だけ） */
+/** 公園の人の VRM と動きを読み込む（歩く場面に来たとき 1 回だけ） */
 export function loadMobModels(): Promise<VrmModel[]> {
   return (loading ??= (async () => {
     const base = import.meta.env.BASE_URL
@@ -133,7 +144,7 @@ export function loadMobModels(): Promise<VrmModel[]> {
     const loader = new GLTFLoader()
     loader.register((parser) => new VRMLoaderPlugin(parser))
     const models = await Promise.all(
-      MOB_MODELS.map(async (info) => {
+      MOB_MODELS.filter((m) => m.phone || !lowMemory()).map(async (info) => {
         const gltf = await loader.loadAsync(`${base}walk/mobs/${info.file}.vrm`)
         const vrm = gltf.userData.vrm as import('@pixiv/three-vrm').VRM
         VRMUtils.removeUnnecessaryVertices(gltf.scene)

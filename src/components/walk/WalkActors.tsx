@@ -6,11 +6,11 @@ import { isTouchDevice } from '../../state/input'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { seeded } from '../sf/batch'
 import { CREW_LOOK, Mannequin, randomLook, type Age, type Motion, type Person } from './figure'
-import { VrmPerson, prepareVrmPeople } from './vrmPeople'
+import { PLAYER_MODEL, PLAYER_SCALE, VrmPerson, prepareVrmPeople } from './vrmPeople'
 import { BOUNDS, G, LOOP, NS_S, PLAY, POND, frameAt, landPoint, loopPoint, parkLayout, pondValue, type Bench } from './park'
 
 // 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
-// 人の形は Person（figure.ts）。今は仮の人形で、あとで VRoid の VRM と Mixamo の動きに差し替える。
+// 人の形は Person（figure.ts）。読み込むまでは仮の人形で、読めたら VRM の人（vrmPeople.ts、MakeHuman 製）と Mixamo の動きに差し替える。
 
 const Y = new THREE.Vector3(0, 1, 0)
 const qf = new THREE.Quaternion()
@@ -85,14 +85,14 @@ function Player() {
     walker.s = START.s
     walker.y = START.y
     walker.h = 0
-    // VRoid の人が読めたら、自分も VRM の人にする（大人 1 番の人）
+    // 公園の人（VRM）が読めたら、自分も VRM の人にする
     let dead = false
     prepareVrmPeople()
       .then((models) => {
         if (dead) return
-        const model = models.find((m) => m.info.file === 'mob_adult_1') ?? models[0]
+        const model = models.find((m) => m.info.file === PLAYER_MODEL) ?? models[0]
         const old = st.me
-        st.me = new VrmPerson(model, seeded(77), 1, true)
+        st.me = new VrmPerson(model, seeded(77), PLAYER_SCALE, true)
         old.dispose()
       })
       .catch(() => {})
@@ -351,7 +351,7 @@ function Mobs() {
     mobDebug.mobs = mobs
     return () => mobs.forEach((m) => m.p.dispose())
   }, [mobs])
-  // VRoid の人（VRM）が読めたら、仮の人形と入れ替える。読めなければ仮の人形のまま
+  // 公園の人（VRM）が読めたら、仮の人形と入れ替える。読めなければ仮の人形のまま
   useEffect(() => {
     let dead = false
     prepareVrmPeople()
