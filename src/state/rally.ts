@@ -131,6 +131,14 @@ function loadColor() {
 
 export const rallyNow = () => performance.now() / 1000
 
+/**
+ * レースの時計（秒）：走り出してから、ゲームが進めた時間の合計。
+ * 1 フレームの歩みは 0.05 s まで（Rally.tsx・Rover.tsx の dt の上限）なので、20 fps を下回るとレースはゆっくり進む。
+ * 時計もそれに合わせて進むので、遅いパソコンでもタイムは走った分だけになる（壁の時計ではない）。
+ * Rally.tsx が毎フレーム進め、ゴールのあとも進み続ける（ゴーストが走りの終わりまで走るため）。
+ */
+export const rallyClock = { t: 0 }
+
 export const useRally = create<RallyState>(() => ({
   phase: 'off',
   since: 0,
