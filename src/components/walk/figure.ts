@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-// 仮の人形（あとで VRoid の VRM に差し替える）。どの人も同じ形のパーツを使い、色と大きさだけ変える。
+// 仮の人形（VRM の人を読み込むまでの代わり。読めない端末ではこのまま）。どの人も同じ形のパーツを使い、色と大きさだけ変える。
 // 動き（pose）は、VRM のときも同じ名前で Mixamo の動きを再生できるようにしておく：
 // idle（立つ）・walk（歩く）・run（走る）・sit（座る）・jump（跳ぶ）・wave（手を振る）
 
@@ -182,7 +182,7 @@ const SHOES = [0x222222, 0xf0f0f0, 0x6a4a30, 0x3b5bb0, 0xc0392b]
 
 export type Age = 'child' | 'adult' | 'elder'
 
-/** 同じ人がいないように、身長・肌・髪・服をくじで決める（あとで VRoid のプリセットのくじに置き換える） */
+/** 同じ人がいないように、身長・肌・髪・服をくじで決める */
 export function randomLook(age: Age, rand: () => number): Look {
   const pick = <T,>(list: T[]) => list[Math.floor(rand() * list.length)]
   const height = age === 'child' ? 1.05 + rand() * 0.35 : age === 'elder' ? 1.52 + rand() * 0.25 : 1.55 + rand() * 0.35
