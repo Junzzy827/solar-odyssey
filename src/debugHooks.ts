@@ -22,7 +22,7 @@ import { evaDebug, evaInput, recallEva, startEva, useEva } from './state/eva'
 import { evaJobsDebug, jobsRt, useEvaJobs } from './state/evaJobs'
 import { evaSite } from './components/eva/hull'
 import { colonyWalk, endWalk, startWalk, useWalk, walkInput } from './state/walk'
-import { walker } from './components/walk/WalkActors'
+import { mobDebug, walker } from './components/walk/WalkActors'
 import { walkDebug } from './components/walk/WalkWorld'
 import { useSkyClock } from './components/surface/skyClock'
 import { wideNow } from './components/surface/wideGround'
@@ -53,6 +53,7 @@ const sv = {
     state: useWalk,
     input: walkInput,
     walker,
+    mobs: mobDebug,
     debug: walkDebug,
     start: (id = 'colony', name = 'Colony') => {
       colonyWalk.inside = { id, name: () => name }
