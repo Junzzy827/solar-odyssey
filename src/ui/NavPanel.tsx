@@ -28,6 +28,7 @@ import { useTouchUI } from '../state/touchUI'
 import { ThrottleMeter } from './Throttle'
 import { toggleObserve, useObserve } from '../state/observe'
 import { startEva, startRepairEva } from '../state/eva'
+import { startWalkDirect } from '../state/walk'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -432,6 +433,11 @@ export function NavPanel() {
       <button className="secondary eva-start repair" onClick={() => (pick(), closeEclipses(), startRepairEva())} disabled={busy || racing || s.mode !== 'flight'}>
         {ui().navPanel.spacewalkRepair}
       </button>
+      {sf && (
+        <button className="secondary walk-start" onClick={() => (pick(), closeEclipses(), startWalkDirect())} disabled={busy || racing || s.mode !== 'flight'}>
+          {ui().navPanel.walkPark}
+        </button>
+      )}
       <button className={`secondary stamp-start${stampsOpen ? ' on' : ''}`} onClick={() => (pick(), openStamps())}>
         {ui().navPanel.stampBook} <span className="muted">{stampCount}/{NATURAL.length}</span>
       </button>

@@ -79,6 +79,7 @@ export const navPanelEn: Translation<typeof navPanelJa> = {
   quizRun: (QUIZ_LENGTH: number) => `Quiz run (${QUIZ_LENGTH} questions)`,
   spacewalk: 'Spacewalk (fly Tsumugi around the mothership)',
   spacewalkRepair: 'Hull repair jobs (Tsumugi)',
+  walkPark: 'Walk in the colony park (by the pond)',
   stampBook: 'Stamp book',
   rockCollection: 'Rock collection',
   probeJourneys: 'Probe journeys (Voyager and more)',
