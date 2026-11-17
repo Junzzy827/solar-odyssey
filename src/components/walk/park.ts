@@ -177,7 +177,13 @@ export function parkLayout(): Park {
     }
   }
   // 道沿いの並木
-  for (let s = AVENUE + 40; s < EW_END - 20; s += 18) for (const side of [-1, 1]) trees.push({ s: s + 9, y: EW_Y + side * 9, h: 9 + rand() * 4, color: colors[1] })
+  for (let s = AVENUE + 40; s < EW_END - 20; s += 18)
+    for (const side of [-1, 1]) {
+      const t = { s: s + 9, y: EW_Y + side * 9, h: 9 + rand() * 4, color: colors[1] }
+      // 広場の石畳と南北の道の上には植えない
+      if (Math.hypot(t.s - PLAZA.s, t.y - PLAZA.y) < PLAZA.r + 3 || Math.abs(t.s - NS_S) < PATH_W / 2 + 2) continue
+      trees.push(t)
+    }
   for (const t of trees) obstacles.push({ s: t.s, y: t.y, r: 0.35 + t.h * 0.015 })
   park = { benches, lamps, trees, obstacles }
   return park

@@ -361,43 +361,167 @@ function crownGeometry() {
   return geo
 }
 
-function Trees() {
+/**
+ * 公園の木。近く（NEAR m 以内）は ez-tree（MIT）で作った枝と葉のある木、遠くは幹＋丸い樹冠の軽い木。
+ * ez-tree は大きい（質感こみで 4 MB）ので、歩く場面に来たときに読み込む。読み終わるまでは全部を軽い木で描く。
+ * 木の種類は、型（カシ・トネリコ・ポプラ）と乱数の種を変えて 6 種類。1 本ごとに向きと大きさも変える
+ */
+/** [ez-tree の型, 種, 出る割合]。Aspen は葉が秋の色なので使わない。松はところどころに */
+const TREE_KINDS: [string, number, number][] = [
+  ['Oak Medium', 11, 3],
+  ['Oak Medium', 23, 3],
+  ['Ash Medium', 37, 2],
+  ['Ash Large', 41, 2],
+  ['Oak Large', 67, 2],
+  ['Pine Medium', 53, 1],
+]
+const KIND_TOTAL = TREE_KINDS.reduce((a, k) => a + k[2], 0)
+function pickKind(r: number) {
+  let x = r * KIND_TOTAL
+  for (let i = 0; i < TREE_KINDS.length; i++) if ((x -= TREE_KINDS[i][2]) < 0) return i
+  return 0
+}
+const nearDistance = () => (lowMemory() || currentLevel() === 'low' ? 70 : currentLevel() === 'medium' ? 110 : 150)
+
+type TreeKind = { branches: THREE.InstancedMesh; leaves: THREE.InstancedMesh; update: (t: number) => void; height: number }
+
+function Trees({ follow }: { follow: { current: THREE.Vector3 } }) {
   const park = parkLayout()
   const data = useMemo(() => {
-    const trunks: THREE.Matrix4[] = []
-    const crowns: THREE.Matrix4[] = []
-    const colors: number[] = []
     const rand = seeded(41)
-    for (const t of park.trees) {
+    const items = park.trees.map((t) => {
       const yaw = rand() * Math.PI * 2
-      trunks.push(standAt(t.s, t.y, t.h * 0.22, yaw, [0.16 + t.h * 0.012, t.h * 0.44, 0.16 + t.h * 0.012], new THREE.Matrix4()))
       const w = t.h * (0.55 + rand() * 0.2)
-      crowns.push(standAt(t.s, t.y, t.h * 0.62, yaw, [w, t.h * 0.62, w], new THREE.Matrix4()))
-      colors.push(t.color)
+      return {
+        t,
+        yaw,
+        kind: pickKind(rand()),
+        trunk: standAt(t.s, t.y, t.h * 0.22, yaw, [0.16 + t.h * 0.012, t.h * 0.44, 0.16 + t.h * 0.012], new THREE.Matrix4()),
+        crown: standAt(t.s, t.y, t.h * 0.62, yaw, [w, t.h * 0.62, w], new THREE.Matrix4()),
+      }
+    })
+    const n = items.length
+    const trunkMat = new THREE.MeshLambertMaterial({ color: '#d8ccbe', map: barkTexture() })
+    const crownMat = new THREE.MeshLambertMaterial({ color: '#ffffff' })
+    const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.42, 0.5, 1, 7), trunkMat, n)
+    const crowns = new THREE.InstancedMesh(crownGeometry(), crownMat, n)
+    const c = new THREE.Color()
+    items.forEach((it, i) => {
+      trunks.setMatrixAt(i, it.trunk)
+      crowns.setMatrixAt(i, it.crown)
+      crowns.setColorAt(i, c.setHex(it.t.color))
+    })
+    for (const m of [trunks, crowns]) {
+      m.castShadow = m.receiveShadow = true
+      m.frustumCulled = false
     }
-    return {
-      trunks,
-      crowns,
-      colors,
-      trunkGeo: new THREE.CylinderGeometry(0.42, 0.5, 1, 7),
-      crownGeo: crownGeometry(),
-      trunkMat: new THREE.MeshLambertMaterial({ color: '#d8ccbe', map: barkTexture() }),
-      crownMat: new THREE.MeshLambertMaterial({ color: '#ffffff' }),
-    }
+    return { items, trunks, crowns, crownMat }
   }, [park])
-  const trunks = useInstanced(data.trunkGeo, data.trunkMat, data.trunks)
-  const crowns = useInstanced(data.crownGeo, data.crownMat, data.crowns, data.colors)
-  useFrame(() => {
-    // 夜は葉を暗く
+  const group = useRef<THREE.Group>(null!)
+  const kinds = useRef<TreeKind[] | null>(null)
+  const st = useRef({ next: 0, near: new Uint8Array(data.items.length) })
+
+  // ez-tree を読み込んで、種類ごとの木を作る
+  useEffect(() => {
+    let dead = false
+    const made: TreeKind[] = []
+    void import('@dgreenheck/ez-tree')
+      .then(({ Tree }) => {
+        if (dead) return
+        for (const [preset, seed] of TREE_KINDS) {
+          const tree = new Tree()
+          tree.loadPreset(preset)
+          tree.options.seed = seed
+          tree.generate()
+          const box = new THREE.Box3().setFromObject(tree)
+          const cap = data.items.length
+          const branches = new THREE.InstancedMesh(tree.branchesMesh.geometry, tree.branchesMesh.material, cap)
+          // ez-tree の葉の材質は、風で揺らすために project_vertex を書き換えていて、instanceMatrix を掛けない。
+          // そのままだと葉がぜんぶ原点に集まって見えないので、書き換えのあとに instanceMatrix を足す
+          const leafMat = tree.leavesMesh.material as THREE.Material
+          const ezCompile = leafMat.onBeforeCompile.bind(leafMat)
+          leafMat.onBeforeCompile = (shader, renderer) => {
+            ezCompile(shader, renderer)
+            shader.vertexShader = shader.vertexShader.replace(
+              'mvPosition = modelViewMatrix * mvPosition;',
+              '#ifdef USE_INSTANCING\n mvPosition = instanceMatrix * mvPosition;\n#endif\n mvPosition = modelViewMatrix * mvPosition;',
+            )
+          }
+          leafMat.customProgramCacheKey = () => 'eztree-leaves-instanced'
+          const leaves = new THREE.InstancedMesh(tree.leavesMesh.geometry, leafMat, cap)
+          for (const m of [branches, leaves]) {
+            m.count = 0
+            m.castShadow = m.receiveShadow = true
+            m.frustumCulled = false
+          }
+          made.push({ branches, leaves, update: (t) => tree.update(t), height: Math.max(1, box.max.y - box.min.y) })
+          group.current?.add(branches, leaves)
+        }
+        kinds.current = made
+        st.current.next = 0
+      })
+      .catch((e) => console.error('[walk] ez-tree failed, keeping simple trees', e))
+    return () => {
+      dead = true
+      for (const k of made) {
+        k.branches.removeFromParent()
+        k.leaves.removeFromParent()
+        k.branches.geometry.dispose()
+        k.leaves.geometry.dispose()
+        ;(k.branches.material as THREE.Material).dispose()
+        ;(k.leaves.material as THREE.Material).dispose()
+      }
+      kinds.current = null
+    }
+  }, [data])
+
+  const m = useMemo(() => new THREE.Matrix4(), [])
+  useFrame(({ clock }) => {
+    // 夜は軽い木の葉を暗く
     data.crownMat.color.setScalar(1 - 0.75 * colonyDay.night)
+    const ks = kinds.current
+    if (ks) for (const k of ks) k.update(clock.elapsedTime)
+    // 近い木・遠い木を、ときどき分け直す
+    const s = st.current
+    if (clock.elapsedTime < s.next) return
+    s.next = clock.elapsedTime + 0.5
+    const near = nearDistance()
+    const p = follow.current
+    let far = 0
+    if (ks) for (const k of ks) k.branches.count = k.leaves.count = 0
+    data.items.forEach((it) => {
+      landPoint(it.t.s, it.t.y, 0, v)
+      const close = !!ks && v.distanceTo(p) < near
+      if (close && ks) {
+        const k = ks[it.kind]
+        const sc = (it.t.h / k.height) * 1.15
+        standAt(it.t.s, it.t.y, -0.2, it.yaw, sc, m)
+        k.branches.setMatrixAt(k.branches.count++, m)
+        k.leaves.setMatrixAt(k.leaves.count++, m)
+        return
+      }
+      data.trunks.setMatrixAt(far, it.trunk)
+      data.crowns.setMatrixAt(far, it.crown)
+      data.crowns.setColorAt(far, c.setHex(it.t.color))
+      far++
+    })
+    data.trunks.count = data.crowns.count = far
+    data.trunks.instanceMatrix.needsUpdate = data.crowns.instanceMatrix.needsUpdate = true
+    if (data.crowns.instanceColor) data.crowns.instanceColor.needsUpdate = true
+    if (ks)
+      for (const k of ks) {
+        k.branches.instanceMatrix.needsUpdate = true
+        k.leaves.instanceMatrix.needsUpdate = true
+      }
   })
   return (
-    <>
-      <primitive object={trunks} />
-      <primitive object={crowns} />
-    </>
+    <group ref={group}>
+      <primitive object={data.trunks} />
+      <primitive object={data.crowns} />
+    </group>
   )
 }
+const c = new THREE.Color()
 
 function benchGeometry() {
   const box = new THREE.BoxGeometry(1, 1, 1)
@@ -656,7 +780,7 @@ export function WalkWorld({ follow }: { follow: { current: THREE.Vector3 } }) {
       <Lights follow={follow} />
       <FarColony />
       <Ground />
-      <Trees />
+      <Trees follow={follow} />
       <Furniture />
       <PlayAndPlaza />
     </>
