@@ -5,7 +5,7 @@ import { ColonyModel } from '../sf/ColonyModel'
 import { AVENUE, M, colonyDay, treeInstancesWhere, sharedInstancedMesh, treeGeometry, treeMaterial } from '../sf/colonyCity'
 import { Batch, place, seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
-import { EW_END, EW_Y, FADE, G, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, frameAt, inBoundsTree, landPoint, parkLayout, upAt } from './park'
+import { EW_END, EW_Y, FADE, G, GROUND_LIFT, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, frameAt, inBoundsTree, landPoint, parkLayout, upAt } from './park'
 
 // コロニーの中を歩く場面の、動かないもの：遠くのコロニー全体（宇宙の場面の形を 1/M 倍）、
 // 公園の地面・池・木・ベンチ・街灯・遊具・噴水、空気のかすみ、昼と夜の光。
@@ -26,10 +26,10 @@ const v = new THREE.Vector3()
 const sc = new THREE.Vector3()
 const m4 = new THREE.Matrix4()
 
-/** 帯の上の (s, y) に、向き yaw で立てる行列 */
+/** 帯の上の (s, y) に、向き yaw で立てる行列（h は地面の板の上からの高さ。人と同じく GROUND_LIFT の上に置く） */
 export function standAt(s: number, y: number, h: number, yaw: number, scale: number | [number, number, number], out = m4) {
   frameAt(s, q).multiply(q2.setFromAxisAngle(Y, yaw))
-  landPoint(s, y, h, v)
+  landPoint(s, y, h + GROUND_LIFT, v)
   if (typeof scale === 'number') sc.setScalar(scale)
   else sc.set(...scale)
   return out.compose(v, q, sc)
@@ -290,7 +290,7 @@ diffuseColor.a *= smoothstep(0.0, 1.0, min(e.x, e.y));`,
     water.setIndex(widx)
     water.computeBoundingSphere()
     return {
-      geo: patchGeometry(96, 110, 0.06),
+      geo: patchGeometry(96, 110, GROUND_LIFT),
       mat,
       water,
       waterMat: new THREE.MeshPhongMaterial({ color: '#2f6378', specular: '#b8cde0', shininess: 90, transparent: true, opacity: 0.93, side: THREE.DoubleSide }),
