@@ -76,6 +76,7 @@ export const navPanelJa = {
   quizRun: (QUIZ_LENGTH: number) => `連続クイズ（${QUIZ_LENGTH}問）`,
   spacewalk: '船外活動（ツムギで母船のまわりを飛ぶ）',
   spacewalkRepair: '船外の修理の仕事（ツムギ）',
+  walkPark: 'コロニーの公園を歩く（池のほとりを散歩）',
   stampBook: '訪問スタンプ帳',
   rockCollection: '岩石コレクション',
   probeJourneys: '探査機の旅（ボイジャーなど）',

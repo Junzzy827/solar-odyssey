@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { useStore } from './store'
 import { raceActive } from './race'
+import { COLONY_ID, colonyName } from '../data/sf'
 
 // コロニーの中を歩く。港から入ったコロニーの中で「降りて歩く」を選ぶと、宇宙の場面を止めて、
 // 地面の公園のまわりを人の大きさで描く場面（components/walk/WalkView）を出す。
@@ -66,7 +67,20 @@ export function walkableColony() {
 
 export function startWalk() {
   const c = walkableColony()
-  if (!c) return
+  if (c) beginWalk(c)
+}
+
+/** 歩く場面へ、どこからでも直接行ける（航法コンピュータのボタン）。SF の世界で、操縦中のときだけ */
+export function canWalkDirect() {
+  const s = useStore.getState()
+  return s.settings.world === 'sf' && s.mode === 'flight' && s.warpPhase === 'idle' && !raceActive() && !walkActive()
+}
+export function startWalkDirect() {
+  if (!canWalkDirect()) return
+  beginWalk(colonyWalk.inside ?? { id: COLONY_ID, name: colonyName })
+}
+
+function beginWalk(c: { id: string; name: () => string }) {
   if (document.pointerLockElement) document.exitPointerLock()
   resetWalkInput()
   useWalk.setState({ colonyId: c.id, colonyName: c.name(), view: 'chase', run: false, sitting: false, benchNear: false })
