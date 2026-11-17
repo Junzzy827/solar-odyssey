@@ -1,0 +1,402 @@
+import { useEffect, useMemo } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import * as THREE from 'three'
+import { GRAVITY, JUMP_SPEED, RUN_SPEED, WALK_SPEED, useWalk, walkInput } from '../../state/walk'
+import { isTouchDevice } from '../../state/input'
+import { currentLevel, lowMemory } from '../../state/quality'
+import { seeded } from '../sf/batch'
+import { CREW_LOOK, Mannequin, randomLook, type Age, type Motion, type Person } from './figure'
+import { BOUNDS, G, NS_S, PLAY, POND, frameAt, landPoint, loopPoint, parkLayout, pondValue, type Bench } from './park'
+
+// 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
+// 人の形は Person（figure.ts）。今は仮の人形で、あとで VRoid の VRM と Mixamo の動きに差し替える。
+
+const Y = new THREE.Vector3(0, 1, 0)
+const qf = new THREE.Quaternion()
+const qy = new THREE.Quaternion()
+const tmp = new THREE.Vector3()
+const up = new THREE.Vector3()
+const euler = new THREE.Euler(0, 0, 0, 'YXZ')
+const qc = new THREE.Quaternion()
+
+/** 人を (s, y) に、地面から h、向き yaw で置く */
+function placePerson(p: Person, s: number, y: number, h: number, yaw: number) {
+  landPoint(s, y, h, p.group.position)
+  frameAt(s, qf)
+  p.group.quaternion.copy(qf).multiply(qy.setFromAxisAngle(Y, yaw))
+}
+
+const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
+const turn = (from: number, to: number, k: number) => from + wrap(to - from) * Math.min(1, k)
+
+/** 降りた所：南北の道の上、遊び場と池を右前に見る */
+const START = { s: NS_S + 2, y: 11285, yaw: -2.2 }
+
+/** 自分の今の位置（影の範囲・まわりの人の判定に使う） */
+export const walker = { s: START.s, y: START.y, h: 0, pos: new THREE.Vector3() }
+
+/* ---------- 自分 ---------- */
+
+/** ぶつかるもの・池・柵から押し出す */
+function collide(p: { s: number; y: number }, r: number) {
+  const park = parkLayout()
+  for (const o of park.obstacles) {
+    const ds = p.s - o.s
+    const dy = p.y - o.y
+    const min = o.r + r
+    if (Math.abs(ds) > min || Math.abs(dy) > min) continue
+    const d = Math.hypot(ds, dy)
+    if (d < min && d > 1e-6) {
+      p.s = o.s + (ds / d) * min
+      p.y = o.y + (dy / d) * min
+    }
+  }
+  // 池には入らない（岸の砂利まで）
+  const k = pondValue(p.s, p.y, 1.5)
+  if (k < 1) {
+    const f = 1 / Math.sqrt(k)
+    p.s = POND.s + (p.s - POND.s) * f
+    p.y = POND.y + (p.y - POND.y) * f
+  }
+  p.s = Math.min(BOUNDS.s1, Math.max(BOUNDS.s0, p.s))
+  p.y = Math.min(BOUNDS.y1, Math.max(BOUNDS.y0, p.y))
+}
+
+function Player() {
+  const { camera } = useThree()
+  const st = useMemo(
+    () => ({
+      me: new Mannequin(CREW_LOOK) as Person,
+      // 体の向き・カメラの向き（左右・上下）・カメラの距離
+      body: START.yaw,
+      yaw: START.yaw,
+      pitch: -0.08,
+      dist: 4.2,
+      vh: 0,
+      phase: 0,
+      speed: 0,
+      bench: null as Bench | null,
+      checkBench: 0,
+    }),
+    [],
+  )
+  useEffect(() => {
+    walker.s = START.s
+    walker.y = START.y
+    walker.h = 0
+    return () => st.me.dispose()
+  }, [st])
+
+  useFrame(({ scene }, rawDt) => {
+    const dt = Math.min(rawDt, 0.05)
+    if (!st.me.group.parent) scene.add(st.me.group)
+    const w = useWalk.getState()
+    const touch = isTouchDevice()
+    // 向き：マウス・なぞり
+    st.yaw -= walkInput.lookX
+    st.pitch = Math.max(-1.25, Math.min(w.view === 'eye' ? 1.45 : 1.15, st.pitch - walkInput.lookY))
+    walkInput.lookX = walkInput.lookY = 0
+    if (walkInput.zoom) {
+      st.dist = Math.max(1.8, Math.min(14, st.dist * (1 + walkInput.zoom * 0.12)))
+      walkInput.zoom = 0
+    }
+    // 入力：キーとスティック
+    const fwd = walkInput.fwd - walkInput.stickY
+    const right = walkInput.right + walkInput.stickX
+    const mag = Math.min(1, Math.hypot(fwd, right))
+    const running = w.run || walkInput.shift
+    const target = mag > 0.05 ? (running ? RUN_SPEED : WALK_SPEED) * (touch ? Math.max(0.35, mag) : 1) : 0
+
+    // 座る・立つ
+    if (walkInput.sit) {
+      walkInput.sit = false
+      if (w.sitting) standUp()
+      else sitDown()
+    }
+    if (useWalk.getState().sitting && mag > 0.3) standUp()
+    function standUp() {
+      if (st.bench) {
+        st.bench.taken = false
+        // ベンチの前へ一歩
+        walker.s += -Math.sin(st.body) * 0.9
+        walker.y += -Math.cos(st.body) * 0.9
+      }
+      st.bench = null
+      useWalk.setState({ sitting: false })
+    }
+    function sitDown() {
+      const b = nearestBench(walker.s, walker.y, 2.4)
+      if (!b) return
+      b.taken = true
+      st.bench = b
+      walker.s = b.s
+      walker.y = b.y
+      st.body = b.yaw
+      st.speed = 0
+      useWalk.setState({ sitting: true })
+    }
+
+    const sitting = useWalk.getState().sitting
+    let motion: Motion = 'idle'
+    if (!sitting) {
+      st.speed += (target - st.speed) * Math.min(1, dt * (target > st.speed ? 6 : 9))
+      if (mag > 0.05) {
+        // カメラから見た前・右を、地面の東・北へ
+        const fs = -Math.sin(st.yaw)
+        const fy = -Math.cos(st.yaw)
+        const rs = Math.cos(st.yaw)
+        const ry = -Math.sin(st.yaw)
+        const ds = (fs * fwd + rs * right) / Math.max(1e-6, Math.hypot(fwd, right))
+        const dy = (fy * fwd + ry * right) / Math.max(1e-6, Math.hypot(fwd, right))
+        st.body = turn(st.body, Math.atan2(-ds, -dy), dt * 10)
+      }
+      walker.s += -Math.sin(st.body) * st.speed * dt
+      walker.y += -Math.cos(st.body) * st.speed * dt
+      collide(walker, 0.3)
+      // ジャンプ（コロニーの地面は回転の遠心力で 1G）
+      if (walkInput.jump && walker.h <= 0.001) st.vh = JUMP_SPEED
+      walkInput.jump = false
+      st.vh -= GRAVITY * dt
+      walker.h = Math.max(0, walker.h + st.vh * dt)
+      if (walker.h === 0) st.vh = Math.max(0, st.vh)
+      st.phase += dt * (st.speed / (st.speed > 2.6 ? 1.0 : 0.62)) * Math.PI
+      motion = walker.h > 0.05 ? 'jump' : st.speed > 2.6 ? 'run' : st.speed > 0.15 ? 'walk' : 'idle'
+    } else {
+      walkInput.jump = false
+      motion = 'sit'
+    }
+    placePerson(st.me, walker.s, walker.y, walker.h, st.body)
+    st.me.pose(motion, st.phase, dt)
+    landPoint(walker.s, walker.y, walker.h, walker.pos)
+
+    // 近くのベンチ（座るボタンを出す）
+    st.checkBench -= dt
+    if (st.checkBench <= 0) {
+      st.checkBench = 0.25
+      const near = !sitting && !!nearestBench(walker.s, walker.y, 2.4)
+      if (near !== w.benchNear) useWalk.setState({ benchNear: near })
+    }
+
+    // カメラ
+    frameAt(walker.s, qf)
+    up.set(0, 1, 0).applyQuaternion(qf)
+    euler.set(st.pitch, st.yaw, 0)
+    qc.copy(qf).multiply(new THREE.Quaternion().setFromEuler(euler))
+    const eye = w.view === 'eye'
+    st.me.group.visible = !eye
+    const headH = (sitting ? 1.15 : 1.62) * (CREW_LOOK.height / 1.7)
+    if (eye) {
+      camera.position.copy(walker.pos).addScaledVector(up, headH)
+    } else {
+      camera.position.copy(walker.pos).addScaledVector(up, headH - 0.15)
+      tmp.set(0.35, 0.15, st.dist).applyQuaternion(qc)
+      camera.position.add(tmp)
+      // 地面より下に入らない
+      const r = Math.hypot(camera.position.x, camera.position.z)
+      const above = G - r
+      if (above < 0.3) camera.position.addScaledVector(up, 0.3 - above)
+    }
+    camera.quaternion.copy(qc)
+    camera.up.copy(up)
+  })
+  return null
+}
+
+function nearestBench(s: number, y: number, max: number) {
+  let best: Bench | null = null
+  let bd = max
+  for (const b of parkLayout().benches) {
+    if (b.taken) continue
+    const d = Math.hypot(b.s - s, b.y - y)
+    if (d < bd) {
+      bd = d
+      best = b
+    }
+  }
+  return best
+}
+
+/* ---------- まわりの人 ---------- */
+
+type Mob = {
+  p: Person
+  kind: 'loop' | 'path' | 'kid' | 'sit' | 'chat'
+  s: number
+  y: number
+  yaw: number
+  speed: number
+  phase: number
+  /** 散歩道の角度・向き */
+  t: number
+  dir: number
+  lane: number
+  /** 子ども：行き先と、止まっている時間 */
+  ts: number
+  ty: number
+  wait: number
+  jump: number
+  motion: Motion
+}
+
+function Mobs() {
+  const mobs = useMemo(() => {
+    const rand = seeded(9001)
+    const lvl = currentLevel()
+    const few = lowMemory() || lvl === 'low' || isTouchDevice()
+    const scale = few ? 0.45 : lvl === 'medium' ? 0.7 : 1
+    const n = (k: number) => Math.max(1, Math.round(k * scale))
+    const park = parkLayout()
+    for (const b of park.benches) b.taken = false
+    const list: Mob[] = []
+    const make = (kind: Mob['kind'], age: Age): Mob => ({
+      p: new Mannequin(randomLook(age, rand)),
+      kind,
+      s: 0,
+      y: 0,
+      yaw: 0,
+      speed: 0,
+      phase: rand() * 6,
+      t: rand() * Math.PI * 2,
+      dir: rand() < 0.5 ? 1 : -1,
+      lane: (rand() - 0.5) * 2.4,
+      ts: PLAY.s,
+      ty: PLAY.y,
+      wait: rand() * 2,
+      jump: 0,
+      motion: 'idle',
+    })
+    // 池のまわりを散歩する人：西の岸（自分の近く）に多めに
+    for (let i = 0; i < n(12); i++) {
+      const m = make('loop', rand() < 0.25 ? 'elder' : rand() < 0.15 ? 'child' : 'adult')
+      m.t = Math.PI * (0.55 + rand() * 0.9)
+      m.speed = m.p instanceof Mannequin ? 1.1 + rand() * 0.5 : 1.3
+      list.push(m)
+    }
+    // 南北の道を行き来する人
+    for (let i = 0; i < n(5); i++) {
+      const m = make('path', rand() < 0.2 ? 'elder' : 'adult')
+      m.y = 11000 + rand() * 1100
+      m.s = NS_S + m.lane * 0.6
+      m.speed = 1.0 + rand() * 0.6
+      list.push(m)
+    }
+    // 遊び場の子どもたち
+    for (let i = 0; i < n(9); i++) {
+      const m = make('kid', 'child')
+      const a = rand() * Math.PI * 2
+      m.s = PLAY.s + Math.cos(a) * PLAY.r * 0.6
+      m.y = PLAY.y + Math.sin(a) * PLAY.r * 0.6
+      list.push(m)
+    }
+    // ベンチに座る人（遊び場の見守り・広場・池）
+    const seats = [...park.benches].sort(() => rand() - 0.5)
+    for (let i = 0; i < n(9) && i < seats.length; i++) {
+      const b = seats[i]
+      b.taken = true
+      const m = make('sit', rand() < 0.45 ? 'elder' : 'adult')
+      m.s = b.s
+      m.y = b.y
+      m.yaw = b.yaw
+      list.push(m)
+    }
+    // 広場で立ち話
+    for (let i = 0; i < n(3); i++) {
+      const m = make('chat', rand() < 0.3 ? 'elder' : 'adult')
+      const a = (i / 3) * Math.PI * 2
+      m.s = NS_S + 26 + Math.cos(a) * 0.8
+      m.y = 11512 + Math.sin(a) * 0.8
+      m.yaw = Math.atan2(Math.cos(a), Math.sin(a))
+      list.push(m)
+    }
+    return list
+  }, [])
+  const { camera } = useThree()
+  useEffect(() => () => mobs.forEach((m) => m.p.dispose()), [mobs])
+
+  useFrame(({ scene, clock }, rawDt) => {
+    const dt = Math.min(rawDt, 0.05)
+    const t = clock.elapsedTime
+    for (const m of mobs) {
+      if (!m.p.group.parent) scene.add(m.p.group)
+      let h = 0
+      if (m.kind === 'loop') {
+        // 楕円の上を一定の速さで（角度の進みを、その場所の周の長さで割る）
+        const a = loopPoint(m.t)
+        const b = loopPoint(m.t + 0.001 * m.dir)
+        const step = Math.hypot(b.s - a.s, b.y - a.y) / 0.001
+        m.t += (m.speed * dt * m.dir) / step
+        const p = loopPoint(m.t)
+        const q = loopPoint(m.t + 0.002 * m.dir)
+        const ds = q.s - p.s
+        const dy = q.y - p.y
+        const l = Math.hypot(ds, dy)
+        // 右側通行ぎみに、道の中で少しずらす
+        m.s = p.s + (dy / l) * m.lane
+        m.y = p.y - (ds / l) * m.lane
+        m.yaw = Math.atan2(-ds, -dy)
+        m.motion = 'walk'
+        m.phase += dt * (m.speed / 0.62) * Math.PI
+      } else if (m.kind === 'path') {
+        m.y += m.dir * m.speed * dt
+        if (m.y > BOUNDS.y1 - 20) m.dir = -1
+        if (m.y < BOUNDS.y0 + 20) m.dir = 1
+        m.s = NS_S + m.dir * 0.9
+        m.yaw = m.dir > 0 ? Math.PI : 0
+        m.motion = 'walk'
+        m.phase += dt * (m.speed / 0.62) * Math.PI
+      } else if (m.kind === 'kid') {
+        // 鬼ごっこ：行き先へ走って、着いたら少し止まる（ときどき跳ねる）
+        const ds = m.ts - m.s
+        const dy = m.ty - m.y
+        const d = Math.hypot(ds, dy)
+        if (m.wait > 0) {
+          m.wait -= dt
+          m.speed = 0
+          m.motion = m.jump > 0 ? 'jump' : 'idle'
+          if (m.jump > 0) {
+            m.jump -= dt
+            h = Math.max(0, Math.sin(Math.max(0, m.jump) * Math.PI * 2.4)) * 0.45
+          }
+          if (m.wait <= 0) {
+            const a = Math.random() * Math.PI * 2
+            const r = Math.sqrt(Math.random()) * PLAY.r * 0.9
+            m.ts = PLAY.s + Math.cos(a) * r
+            m.ty = PLAY.y + Math.sin(a) * r
+          }
+        } else if (d < 0.5) {
+          m.wait = 0.4 + Math.random() * 1.8
+          m.jump = Math.random() < 0.4 ? 0.42 : 0
+        } else {
+          m.speed = 2.6 + (Math.sin(m.phase * 0.1) + 1) * 0.6
+          m.s += (ds / d) * m.speed * dt
+          m.y += (dy / d) * m.speed * dt
+          m.yaw = turn(m.yaw, Math.atan2(-ds, -dy), dt * 8)
+          m.motion = 'run'
+          m.phase += dt * (m.speed / 0.8) * Math.PI
+        }
+      } else if (m.kind === 'sit') {
+        m.motion = 'sit'
+        m.phase += dt
+      } else {
+        m.motion = Math.sin(t * 0.3 + m.lane * 7) > 0.92 ? 'wave' : 'idle'
+        m.phase += dt
+      }
+      placePerson(m.p, m.s, m.y, h, m.yaw)
+      // 遠い人は描かない
+      tmp.copy(m.p.group.position)
+      const far = tmp.distanceTo(camera.position) > 220
+      m.p.group.visible = !far
+      if (!far) m.p.pose(m.motion, m.phase, dt)
+    }
+  })
+  return null
+}
+
+export function WalkActors() {
+  return (
+    <>
+      <Player />
+      <Mobs />
+    </>
+  )
+}

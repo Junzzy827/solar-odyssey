@@ -21,6 +21,9 @@ import { shipCol } from './components/eva/shipCollider'
 import { evaDebug, evaInput, recallEva, startEva, useEva } from './state/eva'
 import { evaJobsDebug, jobsRt, useEvaJobs } from './state/evaJobs'
 import { evaSite } from './components/eva/hull'
+import { colonyWalk, endWalk, startWalk, useWalk, walkInput } from './state/walk'
+import { walker } from './components/walk/WalkActors'
+import { walkDebug } from './components/walk/WalkWorld'
 import { useSkyClock } from './components/surface/skyClock'
 import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
@@ -45,6 +48,19 @@ const sv = {
   surfaceLab: useSurfaceLab,
   wide: wideNow,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus, ctl: roverCtl, pose: roverPose },
+  // コロニーの中を歩く。start('colony') でコロニーの中にいることにして始める（テスト用）
+  walk: {
+    state: useWalk,
+    input: walkInput,
+    walker,
+    debug: walkDebug,
+    start: (id = 'colony', name = 'Colony') => {
+      colonyWalk.inside = { id, name: () => name }
+      startWalk()
+    },
+    end: endWalk,
+    inside: () => colonyWalk.inside?.id ?? null,
+  },
   eva: { site: evaSite, state: useEva, start: startEva, recall: recallEva, input: evaInput, debug: evaDebug, jobs: evaJobsDebug, jobsRt, jobsState: useEvaJobs, col: shipCol },
   historic: useHistoric,
   skyClock: useSkyClock,
