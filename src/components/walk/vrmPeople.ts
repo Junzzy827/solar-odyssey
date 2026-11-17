@@ -6,11 +6,14 @@ import type { Age, Motion, Person } from './figure'
 // 同じ人を何人も出すので、VRM は 1 回だけ読み込み、形と材質を共有したまま骨だけを複製する（SkeletonUtils.clone）。
 // そのため正規化ボーンを使わず、動きを人ごとの元の骨（raw bone）の回転に直してから再生する。揺れ物（髪）は動かさない。
 
-export type MobModel = { file: string; age: Age; height: number }
+/** headScale：頭（髪ごと）の大きさ。VRoid の子どもは頭が大きすぎるので、アプリで縮める */
+export type MobModel = { file: string; age: Age; height: number; headScale?: number }
+
+const HEAD_KID = 0.76
 
 export const MOB_MODELS: MobModel[] = [
-  { file: 'mob_kid_1', age: 'child', height: 1.21 },
-  { file: 'mob_kid_2', age: 'child', height: 1.29 },
+  { file: 'mob_kid_1', age: 'child', height: 1.21, headScale: HEAD_KID },
+  { file: 'mob_kid_2', age: 'child', height: 1.29, headScale: HEAD_KID },
   { file: 'mob_adult_1', age: 'adult', height: 1.66 },
   { file: 'mob_adult_2', age: 'adult', height: 1.61 },
   { file: 'mob_senior_1', age: 'elder', height: 1.5 },
@@ -27,6 +30,8 @@ export type VrmModel = {
   clips: Map<string, THREE.AnimationClip>
   /** 立ったときの腰の高さ m */
   hipsHeight: number
+  /** 頭の骨の名前 */
+  headName: string
 }
 
 const int16 = (b64: string) => {
@@ -136,7 +141,7 @@ export function loadMobModels(): Promise<VrmModel[]> {
         // 揺れ物・視線・表情は使わない（骨を複製するので、元の VRM の仕組みは動かさない）
         const { clips, hipsHeight } = bakeClips(vrm, motions)
         toLambert(vrm.scene)
-        return { info, scene: vrm.scene, clips, hipsHeight }
+        return { info, scene: vrm.scene, clips, hipsHeight, headName: vrm.humanoid.getRawBoneNode('head')?.name ?? '' }
       }),
     )
     return models
@@ -169,6 +174,8 @@ export class VrmPerson implements Person {
     // VRM 1.0 は +z を向いている。この場面の人は -z が前
     body.rotation.y = Math.PI
     body.scale.setScalar(scale)
+    const hs = model.info.headScale ?? 1
+    if (hs !== 1) body.getObjectByName(model.headName)?.scale.setScalar(hs)
     this.group.add(body)
     this.hips = model.hipsHeight * scale
     this.mixer = new THREE.AnimationMixer(body)
