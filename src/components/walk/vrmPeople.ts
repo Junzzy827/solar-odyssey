@@ -18,6 +18,10 @@ export const MOB_MODELS: MobModel[] = [
   { file: 'mob_adult_2', age: 'adult', height: 1.61 },
   { file: 'mob_senior_1', age: 'elder', height: 1.5 },
   { file: 'mob_senior_2', age: 'elder', height: 1.7 },
+  // 試作：MakeHuman（MPFB、CC0）で作ったリアル寄りの人。頭の大きさは実際の体つきのまま
+  { file: 'mpfb_kid', age: 'child', height: 1.21 },
+  { file: 'mpfb_adult', age: 'adult', height: 1.76 },
+  { file: 'mpfb_senior', age: 'elder', height: 1.49 },
 ]
 
 type ClipData = { fps: number; frames: number; loop: boolean; rot: string; pos: string }
