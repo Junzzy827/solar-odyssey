@@ -1,4 +1,5 @@
 import type { ja } from './ja'
+import { walkEn } from './walk.en'
 import type { Translation } from './translation'
 import { listEn } from './list'
 import { approachEn } from './approach.en'
@@ -169,6 +170,7 @@ export const en: Translation<typeof ja> = {
   ephemeris: ephemerisEn,
   eva: evaEn,
   evaView: evaViewEn,
+  walk: walkEn,
   exoplanet: exoplanetEn,
   flight: flightEn,
   galleryPanel: galleryPanelEn,
