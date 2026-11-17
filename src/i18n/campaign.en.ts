@@ -11,8 +11,11 @@ export const campaignEn: Translation<typeof campaignJa> = {
   resume: (n: number, max: number) => `Continue (chapter ${n} of ${max})`,
   cleared: 'Part 1 cleared! Play again',
   restart: 'Start over',
-  free: 'Free exploration',
-  freeNote: 'Go anywhere in the Solar System (the way you played before)',
+  close: 'Close (keep exploring freely)',
+  free: 'Leave the campaign, explore freely',
+  // nav computer button
+  navButton: 'Campaign: The Professor’s Survey Team',
+  navButtonActive: (n: number, max: number) => `Campaign (chapter ${n} of ${max})`,
   goal: (body: string, count: number) => `Collect ${count} rocks on ${theEn(body)}`,
   goalShort: (body: string) => `Rocks on ${theEn(body)}`,
   goalLabel: 'Goal',
