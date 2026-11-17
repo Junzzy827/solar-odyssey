@@ -8,8 +8,11 @@ export const campaignJa = {
   resume: (n: number, max: number) => `つづきから（第${n}章／全${max}章）`,
   cleared: '第1部クリア！もう一度あそぶ',
   restart: 'はじめからやり直す',
-  free: '自由探検',
-  freeNote: '太陽系のどこへでも自由に行けます（今までの遊び方）',
+  close: '閉じる（自由探検のまま）',
+  free: 'キャンペーンをやめて自由探検へ',
+  // 航法コンピュータのボタン
+  navButton: 'キャンペーン「博士の探査隊」',
+  navButtonActive: (n: number, max: number) => `キャンペーン（第${n}章／全${max}章）`,
   // 目標
   goal: (body: string, count: number) => `${body}で岩を${count}つ集めよう`,
   goalShort: (body: string) => `${body}の岩`,

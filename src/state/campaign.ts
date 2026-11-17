@@ -43,9 +43,8 @@ function save() {
   }
 }
 
-/** 確認用・リンクで決める：#campaign ではじめの画面を出す、#free や #debug（#campaign なし）、#sf などでは出さない */
-const hash = location.search + location.hash
-const askAtStart = /[?&#]campaign\b/.test(hash) || !/[?&#](free|debug|sf|real|hangar|terrain-lab)\b/.test(hash)
+/** ふだんは自由探検ではじまる（junji 2026-11-17）。#campaign のリンクのときだけ、はじめにキャンペーンの画面を出す */
+const askAtStart = /[?&#]campaign\b/.test(location.search + location.hash)
 
 export const useCampaign = create<CampaignState>(() => ({ active: false, picking: askAtStart, card: null, ...load() }))
 
@@ -78,6 +77,16 @@ export function startCampaign() {
   const st = currentStage()
   useCampaign.setState({ card: st ? { kind: 'intro', stage: useCampaign.getState().stage } : { kind: 'end', stage: CAMPAIGN_STAGES.length } })
   aimAtGoal()
+}
+
+/** キャンペーンの画面を開く（航法コンピュータのボタンから） */
+export function openCampaign() {
+  useCampaign.setState({ picking: true })
+}
+
+/** キャンペーンの画面を閉じる（遊び方は変えない） */
+export function closeCampaignScreen() {
+  useCampaign.setState({ picking: false })
 }
 
 /** 自由探検（今までどおり、どこへでも行ける） */

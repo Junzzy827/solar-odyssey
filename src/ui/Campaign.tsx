@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ui } from '../i18n'
 import { useLang } from '../i18n/lang'
 import { CAMPAIGN_STAGES } from '../data/campaign'
-import { aimAtGoal, closeCampaignCard, goalLine, resetCampaign, startCampaign, startFree, useCampaign } from '../state/campaign'
+import { aimAtGoal, closeCampaignCard, closeCampaignScreen, goalLine, resetCampaign, startCampaign, startFree, useCampaign } from '../state/campaign'
 import { useStore } from '../state/store'
 import { useLanding } from '../state/landing'
 import { useRally } from '../state/rally'
@@ -38,15 +38,16 @@ export function Campaign() {
   )
 }
 
-/** はじめの画面：キャンペーンがいちばん大きく、自由探検はその下に小さく */
+/** キャンペーンの画面（航法コンピュータのボタンから開く）：はじめる・つづきから。下に閉じる／やめる */
 function StartScreen() {
   const stage = useCampaign((c) => c.stage)
+  const active = useCampaign((c) => c.active)
   const t = ui().campaign
   const max = CAMPAIGN_STAGES.length
   const fresh = stage === 0 && Object.keys(useCampaign.getState().counts).length === 0
   const done = stage >= max
   return (
-    <div className="campaign-start" role="dialog" aria-modal="true" aria-label={t.title}>
+    <div className="campaign-start" role="dialog" aria-modal="true" aria-label={t.title} onClick={(e) => e.target === e.currentTarget && closeCampaignScreen()}>
       <div className="cs-card">
         <div className="cs-kicker">CAMPAIGN</div>
         <h1>{t.title}</h1>
@@ -60,10 +61,9 @@ function StartScreen() {
           </button>
         )}
         <div className="cs-free">
-          <button className="secondary" onClick={startFree}>
-            {t.free}
+          <button className="secondary" onClick={active ? startFree : closeCampaignScreen}>
+            {active ? t.free : t.close}
           </button>
-          <small>{t.freeNote}</small>
         </div>
       </div>
     </div>
