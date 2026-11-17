@@ -35,113 +35,113 @@ export function standAt(s: number, y: number, h: number, yaw: number, scale: num
   return out.compose(v, q, sc)
 }
 
-/* ---------- 地面の絵 ---------- */
+/* ---------- 地面 ---------- */
+
+// 地面は、写真から作った質感（Poly Haven、CC0）をくり返し貼り、どこに何を出すかは「区分けの絵」で決める。
+// 区分けの絵 A：R = 小道（砂利）、G = 石畳（広場・歩道）、B = 砂（遊び場）
+// 区分けの絵 B：R = アスファルト（大通り）、G = 池の岸の砂利、B = 道路の白線
+// 何もないところは芝生。境目は少しぼかして、さらに細かいまだらで崩す。
 
 const PX_PER_M = () => (lowMemory() || currentLevel() === 'low' ? 0.9 : currentLevel() === 'medium' ? 1.3 : 1.7)
 
-function groundCanvas() {
-  const k = PX_PER_M()
-  const W = Math.round((PATCH.s1 - PATCH.s0) * k)
-  const H = Math.round((PATCH.y1 - PATCH.y0) * k)
-  const c = document.createElement('canvas')
-  c.width = W
-  c.height = H
-  const g = c.getContext('2d')!
-  const X = (s: number) => (s - PATCH.s0) * k
-  const Yc = (y: number) => (PATCH.y1 - y) * k
-  const rand = seeded(77)
-  // 芝生：まだらに明るさを変える
-  g.fillStyle = '#58843f'
-  g.fillRect(0, 0, W, H)
-  for (let i = 0; i < 2600; i++) {
-    const x = rand() * W
-    const y = rand() * H
-    const r = (4 + rand() * 26) * k
-    g.fillStyle = rand() < 0.5 ? 'rgba(120,160,80,0.10)' : 'rgba(40,70,30,0.10)'
-    g.beginPath()
-    g.ellipse(x, y, r, r * (0.6 + rand() * 0.6), rand() * 3, 0, Math.PI * 2)
-    g.fill()
+/** 質感 1 枚が何 m 四方か（Poly Haven の実寸に近く） */
+const TILE = { grass: 2.2, path: 3, paving: 2.5, sand: 2.1, shore: 2.5, asphalt: 3 }
+
+const textureLoader = new THREE.TextureLoader()
+const parkTextures = new Map<string, THREE.Texture>()
+/** 公園の質感（public/textures/park/。一度読んだら、また歩くときのために捨てない） */
+export function parkTexture(name: string, color = true) {
+  let tex = parkTextures.get(name)
+  if (!tex) {
+    tex = textureLoader.load(`${import.meta.env.BASE_URL}textures/park/${name}.jpg`)
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+    tex.anisotropy = 8
+    if (color) tex.colorSpace = THREE.SRGBColorSpace
+    parkTextures.set(name, tex)
   }
-  // 大通り（鉄道の高架の下）と歩道
-  g.fillStyle = '#b9b3a5'
-  g.fillRect(X(-AVENUE - 6), 0, (AVENUE + 6) * 2 * k, H)
-  g.fillStyle = '#6d7073'
-  g.fillRect(X(-AVENUE + 2), 0, (AVENUE - 2) * 2 * k, H)
-  g.strokeStyle = 'rgba(255,255,255,0.6)'
-  g.lineWidth = Math.max(1, 0.2 * k)
-  g.setLineDash([3 * k, 4 * k])
-  for (const s of [-AVENUE / 2, AVENUE / 2]) {
-    g.beginPath()
-    g.moveTo(X(s), 0)
-    g.lineTo(X(s), H)
-    g.stroke()
-  }
-  g.setLineDash([])
-  // 池の岸の砂利
-  const pond = (grow: number, color: string) => {
-    g.fillStyle = color
-    g.beginPath()
-    g.ellipse(X(POND.s), Yc(POND.y), (POND.rs + grow) * k, (POND.ry + grow) * k, 0, 0, Math.PI * 2)
-    g.fill()
-  }
-  pond(5, '#a99d7c')
-  pond(0.5, '#3c6470')
-  // 道
-  g.strokeStyle = '#cdbf9c'
-  g.lineCap = 'round'
-  g.lineWidth = PATH_W * k
-  g.beginPath()
-  g.moveTo(X(AVENUE + 6), Yc(EW_Y))
-  g.lineTo(X(EW_END), Yc(EW_Y))
-  g.moveTo(X(NS_S), 0)
-  g.lineTo(X(NS_S), H)
-  g.stroke()
-  g.beginPath()
-  g.ellipse(X(LOOP.s), Yc(LOOP.y), LOOP.rs * k, LOOP.ry * k, 0, 0, Math.PI * 2)
-  g.stroke()
-  // 道の縁（少し暗く）
-  g.strokeStyle = 'rgba(80,70,50,0.25)'
-  g.lineWidth = Math.max(1, 0.35 * k)
-  for (const off of [-PATH_W / 2, PATH_W / 2]) {
-    g.beginPath()
-    g.moveTo(X(AVENUE + 6), Yc(EW_Y + off))
-    g.lineTo(X(EW_END), Yc(EW_Y + off))
-    g.moveTo(X(NS_S + off), 0)
-    g.lineTo(X(NS_S + off), H)
-    g.stroke()
-    g.beginPath()
-    g.ellipse(X(LOOP.s), Yc(LOOP.y), (LOOP.rs + off) * k, (LOOP.ry + off) * k, 0, 0, Math.PI * 2)
-    g.stroke()
-  }
-  // 広場（石畳）と遊び場（砂）
-  g.fillStyle = '#d5ccb6'
-  g.beginPath()
-  g.arc(X(PLAZA.s), Yc(PLAZA.y), PLAZA.r * k, 0, Math.PI * 2)
-  g.fill()
-  g.strokeStyle = 'rgba(120,110,90,0.35)'
-  g.lineWidth = Math.max(1, 0.15 * k)
-  for (let r = 3; r < PLAZA.r; r += 2.2) {
-    g.beginPath()
-    g.arc(X(PLAZA.s), Yc(PLAZA.y), r * k, 0, Math.PI * 2)
-    g.stroke()
-  }
-  g.fillStyle = '#d8c48e'
-  g.beginPath()
-  g.arc(X(PLAY.s), Yc(PLAY.y), PLAY.r * k, 0, Math.PI * 2)
-  g.fill()
-  g.strokeStyle = '#cdbf9c'
-  g.lineWidth = 3 * k
-  g.beginPath()
-  g.moveTo(X(NS_S), Yc(PLAY.y))
-  g.lineTo(X(PLAY.s - PLAY.r), Yc(PLAY.y))
-  g.stroke()
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 8
   return tex
 }
 
-/** 近くで見ても平らに見えないよう、地面に重ねる細かいまだら（6 m ごとにくり返す） */
+function maskCanvases() {
+  const k = PX_PER_M()
+  const W = Math.round((PATCH.s1 - PATCH.s0) * k)
+  const H = Math.round((PATCH.y1 - PATCH.y0) * k)
+  const X = (s: number) => (s - PATCH.s0) * k
+  const Yc = (y: number) => (PATCH.y1 - y) * k
+  const make = () => {
+    const c = document.createElement('canvas')
+    c.width = W
+    c.height = H
+    const g = c.getContext('2d')!
+    g.fillStyle = '#000'
+    g.fillRect(0, 0, W, H)
+    g.globalCompositeOperation = 'lighter'
+    g.lineCap = 'round'
+    return { c, g }
+  }
+  const a = make()
+  const b = make()
+  // 小道（R）
+  a.g.strokeStyle = '#f00'
+  a.g.lineWidth = PATH_W * k
+  a.g.beginPath()
+  a.g.moveTo(X(AVENUE + 6), Yc(EW_Y))
+  a.g.lineTo(X(EW_END), Yc(EW_Y))
+  a.g.moveTo(X(NS_S), 0)
+  a.g.lineTo(X(NS_S), H)
+  a.g.moveTo(X(NS_S), Yc(PLAY.y))
+  a.g.lineTo(X(PLAY.s - PLAY.r), Yc(PLAY.y))
+  a.g.stroke()
+  a.g.beginPath()
+  a.g.ellipse(X(LOOP.s), Yc(LOOP.y), LOOP.rs * k, LOOP.ry * k, 0, 0, Math.PI * 2)
+  a.g.stroke()
+  // 石畳（G）：広場と大通りの歩道。広場は小道を消して上書き
+  a.g.globalCompositeOperation = 'source-over'
+  a.g.fillStyle = '#0f0'
+  a.g.beginPath()
+  a.g.arc(X(PLAZA.s), Yc(PLAZA.y), PLAZA.r * k, 0, Math.PI * 2)
+  a.g.fill()
+  for (const side of [-1, 1]) a.g.fillRect(X(side > 0 ? AVENUE - 2 : -AVENUE - 6), 0, 8 * k, H)
+  // 砂（B）：遊び場
+  a.g.fillStyle = '#00f'
+  a.g.beginPath()
+  a.g.arc(X(PLAY.s), Yc(PLAY.y), PLAY.r * k, 0, Math.PI * 2)
+  a.g.fill()
+  // アスファルト（R）と白線（B）
+  b.g.fillStyle = '#f00'
+  b.g.fillRect(X(-AVENUE + 2), 0, (AVENUE - 2) * 2 * k, H)
+  b.g.strokeStyle = '#00f'
+  b.g.lineWidth = Math.max(1, 0.18 * k)
+  b.g.setLineDash([3 * k, 4 * k])
+  for (const s of [-AVENUE / 2, AVENUE / 2]) {
+    b.g.beginPath()
+    b.g.moveTo(X(s), 0)
+    b.g.lineTo(X(s), H)
+    b.g.stroke()
+  }
+  b.g.setLineDash([])
+  // 池の岸（G）
+  b.g.fillStyle = '#0f0'
+  b.g.beginPath()
+  b.g.ellipse(X(POND.s), Yc(POND.y), (POND.rs + 5) * k, (POND.ry + 5) * k, 0, 0, Math.PI * 2)
+  b.g.fill()
+  // 境目をぼかす（0.6 m ほど）
+  const soft = (src: HTMLCanvasElement) => {
+    const c = document.createElement('canvas')
+    c.width = W
+    c.height = H
+    const g = c.getContext('2d')!
+    g.filter = `blur(${Math.max(0.5, 0.6 * k)}px)`
+    g.drawImage(src, 0, 0)
+    const tex = new THREE.CanvasTexture(c)
+    tex.colorSpace = THREE.NoColorSpace
+    tex.anisotropy = 8
+    return tex
+  }
+  return { a: soft(a.c), b: soft(b.c) }
+}
+
+/** 境目を崩す・くり返しを目立たなくする細かいまだら（6 m ごとにくり返す） */
 function detailTexture() {
   const N = 256
   const c = document.createElement('canvas')
@@ -155,8 +155,7 @@ function detailTexture() {
     img.data[i * 4 + 3] = 255
   }
   g.putImageData(img, 0, 0)
-  // 少しぼかして、草の房くらいの大きさに
-  g.filter = 'blur(1px)'
+  g.filter = 'blur(2px)'
   g.drawImage(c, 0, 0)
   const tex = new THREE.CanvasTexture(c)
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping
@@ -191,13 +190,23 @@ function patchGeometry(segS: number, segY: number, lift: number) {
 
 function Ground() {
   const parts = useMemo(() => {
-    const map = groundCanvas()
+    const masks = maskCanvases()
     const detail = detailTexture()
-    const mat = new THREE.MeshLambertMaterial({ map, transparent: true })
+    const mat = new THREE.MeshLambertMaterial({ map: masks.a, transparent: true })
+    const size = new THREE.Vector2(PATCH.s1 - PATCH.s0, PATCH.y1 - PATCH.y0)
     const uniforms = {
+      uMaskB: { value: masks.b },
       uDetail: { value: detail },
-      uRep: { value: new THREE.Vector2((PATCH.s1 - PATCH.s0) / 6, (PATCH.y1 - PATCH.y0) / 6) },
-      uFade: { value: new THREE.Vector2(FADE / (PATCH.s1 - PATCH.s0), FADE / (PATCH.y1 - PATCH.y0)) },
+      uGrass: { value: parkTexture('grass') },
+      uPath: { value: parkTexture('path') },
+      uPaving: { value: parkTexture('paving') },
+      uSand: { value: parkTexture('sand') },
+      uShore: { value: parkTexture('shore') },
+      uAsphalt: { value: parkTexture('asphalt') },
+      uSize: { value: size },
+      // 芝生を刈りそろえた緑に寄せる色（線形）
+      uLawn: { value: new THREE.Color('#4f8a38').convertSRGBToLinear() },
+      uFade: { value: new THREE.Vector2(FADE / size.x, FADE / size.y) },
     }
     mat.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms)
@@ -205,20 +214,51 @@ function Ground() {
         .replace(
           '#include <common>',
           `#include <common>
+uniform sampler2D uMaskB;
 uniform sampler2D uDetail;
-uniform vec2 uRep;
+uniform sampler2D uGrass;
+uniform sampler2D uPath;
+uniform sampler2D uPaving;
+uniform sampler2D uSand;
+uniform sampler2D uShore;
+uniform sampler2D uAsphalt;
+uniform vec2 uSize;
+uniform vec3 uLawn;
 uniform vec2 uFade;`,
         )
         .replace(
           '#include <map_fragment>',
-          `#include <map_fragment>
-float dt = texture2D(uDetail, vMapUv * uRep).r * texture2D(uDetail, vMapUv * uRep * 0.173 + 0.31).r;
-diffuseColor.rgb *= 0.55 + dt * 1.25;
+          `vec2 wp = vMapUv * uSize;
+vec4 mA = texture2D(map, vMapUv);
+vec4 mB = texture2D(uMaskB, vMapUv);
+float n1 = texture2D(uDetail, wp / 6.0).r;
+float n2 = texture2D(uDetail, wp / 41.0 + 0.37).r;
+// 芝生：2 つの大きさで重ね、色を刈りそろえた緑へ寄せる
+vec3 g1 = texture2D(uGrass, wp / ${TILE.grass.toFixed(1)}).rgb;
+vec3 g2 = texture2D(uGrass, wp / ${(TILE.grass * 3.7).toFixed(1)} + 0.21).rgb;
+vec3 gr = mix(g1, g2, 0.35);
+float lum = dot(gr, vec3(0.3, 0.59, 0.11));
+vec3 col = mix(gr, uLawn * lum / 0.265, 0.75) * (0.75 + n2 * 0.55);
+// 境目をまだらで崩す
+float edge = (n1 - 0.67) * 0.9;
+float wPath = clamp(mA.r + edge * mA.r * (1.0 - mA.r) * 4.0, 0.0, 1.0);
+float wPave = smoothstep(0.35, 0.65, mA.g);
+float wSand = clamp(mA.b + edge * mA.b * (1.0 - mA.b) * 4.0, 0.0, 1.0);
+float wAsph = smoothstep(0.3, 0.7, mB.r);
+float wShore = clamp(mB.g + edge * mB.g * (1.0 - mB.g) * 4.0, 0.0, 1.0);
+col = mix(col, texture2D(uShore, wp / ${TILE.shore.toFixed(1)}).rgb, wShore);
+col = mix(col, texture2D(uPath, wp / ${TILE.path.toFixed(1)}).rgb * 1.05, wPath);
+col = mix(col, texture2D(uSand, wp / ${TILE.sand.toFixed(1)}).rgb * 1.35, wSand);
+col = mix(col, texture2D(uPaving, wp / ${TILE.paving.toFixed(1)}).rgb * 1.6, wPave);
+col = mix(col, texture2D(uAsphalt, wp / ${TILE.asphalt.toFixed(1)}).rgb, wAsph);
+col = mix(col, vec3(0.75), smoothstep(0.3, 0.7, mB.b) * wAsph);
+diffuseColor.rgb *= col;
 vec2 e = min(vMapUv, 1.0 - vMapUv) / uFade;
 diffuseColor.a *= smoothstep(0.0, 1.0, min(e.x, e.y));`,
         )
     }
-    mat.customProgramCacheKey = () => 'walk-ground'
+    mat.customProgramCacheKey = () => 'walk-ground-2'
+    mat.userData.maskB = masks.b
     // 池の水：楕円の網（中心から外へ）
     const ring = 40
     const segA = 96
@@ -260,6 +300,7 @@ diffuseColor.a *= smoothstep(0.0, 1.0, min(e.x, e.y));`,
     () => () => {
       parts.geo.dispose()
       parts.mat.map?.dispose()
+      ;(parts.mat.userData.maskB as THREE.Texture | undefined)?.dispose()
       parts.mat.dispose()
       parts.water.dispose()
       parts.waterMat.dispose()
@@ -289,6 +330,13 @@ function useInstanced(geo: THREE.BufferGeometry, mat: THREE.Material, list: THRE
     mesh.computeBoundingSphere()
     return mesh
   }, [geo, mat, list, colors])
+}
+
+/** 木の幹の皮（ケヤキ）。幹の円柱に、周りに 2 回・高さに 3 回くり返す */
+function barkTexture() {
+  const t = parkTexture('bark')
+  t.repeat.set(2, 3)
+  return t
 }
 
 /** 幹のある木（近くの木）。樹冠は 2 つの丸を重ねて、上が明るい */
@@ -333,7 +381,7 @@ function Trees() {
       colors,
       trunkGeo: new THREE.CylinderGeometry(0.42, 0.5, 1, 7),
       crownGeo: crownGeometry(),
-      trunkMat: new THREE.MeshLambertMaterial({ color: '#5a4434' }),
+      trunkMat: new THREE.MeshLambertMaterial({ color: '#d8ccbe', map: barkTexture() }),
       crownMat: new THREE.MeshLambertMaterial({ color: '#ffffff' }),
     }
   }, [park])
@@ -402,7 +450,7 @@ function Furniture() {
       lamp,
       benches,
       lamps,
-      woodMat: new THREE.MeshLambertMaterial({ color: '#9a6b42' }),
+      woodMat: new THREE.MeshLambertMaterial({ color: '#e0b98a', map: parkTexture('planks') }),
       ironMat: new THREE.MeshLambertMaterial({ color: '#2f3336' }),
       headMat: new THREE.MeshBasicMaterial({ color: LAMP_DAY.clone(), toneMapped: false }),
       // 夜、街灯の下の地面を照らす光の輪（加算で重ねる）
