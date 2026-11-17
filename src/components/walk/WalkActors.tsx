@@ -7,7 +7,7 @@ import { currentLevel, lowMemory } from '../../state/quality'
 import { seeded } from '../sf/batch'
 import { CREW_LOOK, Mannequin, randomLook, type Age, type Motion, type Person } from './figure'
 import { PLAYER_MODEL, PLAYER_SCALE, VrmPerson, prepareVrmPeople } from './vrmPeople'
-import { BOUNDS, G, LOOP, NS_S, PLAY, POND, frameAt, landPoint, loopPoint, parkLayout, pondValue, type Bench } from './park'
+import { BOUNDS, G, GROUND_LIFT, LOOP, NS_S, PLAY, POND, frameAt, landPoint, loopPoint, parkLayout, pondValue, type Bench } from './park'
 
 // 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
 // 人の形は Person（figure.ts）。読み込むまでは仮の人形で、読めたら VRM の人（vrmPeople.ts、MakeHuman 製）と Mixamo の動きに差し替える。
@@ -20,9 +20,10 @@ const up = new THREE.Vector3()
 const euler = new THREE.Euler(0, 0, 0, 'YXZ')
 const qc = new THREE.Quaternion()
 
-/** 人を (s, y) に、地面から h、向き yaw で置く */
+/** 人を (s, y) に、地面から h、向き yaw で置く（地面の板は GROUND_LIFT だけ浮いているので、足元もそこにそろえる。
+ * そろえないと、MakeHuman の人の低い靴のつま先が芝に埋まって見えなくなる） */
 function placePerson(p: Person, s: number, y: number, h: number, yaw: number) {
-  landPoint(s, y, h, p.group.position)
+  landPoint(s, y, h + GROUND_LIFT, p.group.position)
   frameAt(s, qf)
   p.group.quaternion.copy(qf).multiply(qy.setFromAxisAngle(Y, yaw))
 }

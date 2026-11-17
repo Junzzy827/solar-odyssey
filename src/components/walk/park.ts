@@ -13,6 +13,8 @@ import { seeded } from '../sf/batch'
  * 板のまん中が円より 1 m ほど軸の側へ出ているので、それより少し上にする
  */
 export const G = (COLONY_RADIUS / M) * 0.999 - 1.05
+/** 公園の地面の板を G からどれだけ浮かせているか m（宇宙の場面の大地と重ならないように）。人の足元もこの高さに置く */
+export const GROUND_LIFT = 0.06
 /** コロニーの長さの半分 m */
 export const HALF_L = COLONY_LENGTH / M / 2
 
