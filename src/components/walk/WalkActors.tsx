@@ -6,7 +6,8 @@ import { isTouchDevice } from '../../state/input'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { seeded } from '../sf/batch'
 import { CREW_LOOK, Mannequin, randomLook, type Age, type Motion, type Person } from './figure'
-import { BOUNDS, G, NS_S, PLAY, POND, frameAt, landPoint, loopPoint, parkLayout, pondValue, type Bench } from './park'
+import { VrmPerson, prepareVrmPeople } from './vrmPeople'
+import { BOUNDS, G, LOOP, NS_S, PLAY, POND, frameAt, landPoint, loopPoint, parkLayout, pondValue, type Bench } from './park'
 
 // 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
 // 人の形は Person（figure.ts）。今は仮の人形で、あとで VRoid の VRM と Mixamo の動きに差し替える。
@@ -33,7 +34,7 @@ const turn = (from: number, to: number, k: number) => from + wrap(to - from) * M
 const START = { s: NS_S + 2, y: 11285, yaw: -2.2 }
 
 /** 自分の今の位置（影の範囲・まわりの人の判定に使う） */
-export const walker = { s: START.s, y: START.y, h: 0, pos: new THREE.Vector3() }
+export const walker = { s: START.s, y: START.y, h: 0, pos: new THREE.Vector3(), /** テスト用：向きをこの角度にする */ turnTo: null as number | null }
 
 /* ---------- 自分 ---------- */
 
@@ -84,7 +85,21 @@ function Player() {
     walker.s = START.s
     walker.y = START.y
     walker.h = 0
-    return () => st.me.dispose()
+    // VRoid の人が読めたら、自分も VRM の人にする（大人 1 番の人）
+    let dead = false
+    prepareVrmPeople()
+      .then((models) => {
+        if (dead) return
+        const model = models.find((m) => m.info.file === 'mob_adult_1') ?? models[0]
+        const old = st.me
+        st.me = new VrmPerson(model, seeded(77), 1, true)
+        old.dispose()
+      })
+      .catch(() => {})
+    return () => {
+      dead = true
+      st.me.dispose()
+    }
   }, [st])
 
   useFrame(({ scene }, rawDt) => {
@@ -94,6 +109,10 @@ function Player() {
     const touch = isTouchDevice()
     // 向き：マウス・なぞり
     st.yaw -= walkInput.lookX
+    if (walker.turnTo !== null) {
+      st.yaw = st.body = walker.turnTo
+      walker.turnTo = null
+    }
     st.pitch = Math.max(-1.25, Math.min(w.view === 'eye' ? 1.45 : 1.15, st.pitch - walkInput.lookY))
     walkInput.lookX = walkInput.lookY = 0
     if (walkInput.zoom) {
@@ -166,7 +185,7 @@ function Player() {
       motion = 'sit'
     }
     placePerson(st.me, walker.s, walker.y, walker.h, st.body)
-    st.me.pose(motion, st.phase, dt)
+    st.me.pose(motion, st.phase, dt, st.speed)
     landPoint(walker.s, walker.y, walker.h, walker.pos)
 
     // 近くのベンチ（座るボタンを出す）
@@ -220,7 +239,8 @@ function nearestBench(s: number, y: number, max: number) {
 
 type Mob = {
   p: Person
-  kind: 'loop' | 'path' | 'kid' | 'sit' | 'chat'
+  kind: 'loop' | 'path' | 'kid' | 'sit' | 'chat' | 'lawn'
+  age: Age
   s: number
   y: number
   yaw: number
@@ -238,6 +258,9 @@ type Mob = {
   motion: Motion
 }
 
+/** テスト用：まわりの人の一覧 */
+export const mobDebug = { mobs: [] as { kind: string; s: number; y: number; p: Person }[] }
+
 function Mobs() {
   const mobs = useMemo(() => {
     const rand = seeded(9001)
@@ -251,6 +274,7 @@ function Mobs() {
     const make = (kind: Mob['kind'], age: Age): Mob => ({
       p: new Mannequin(randomLook(age, rand)),
       kind,
+      age,
       s: 0,
       y: 0,
       yaw: 0,
@@ -308,10 +332,47 @@ function Mobs() {
       m.yaw = Math.atan2(Math.cos(a), Math.sin(a))
       list.push(m)
     }
+    // 池のほとりの芝生に座る人（VRM の人が読めてから出す）
+    for (let i = 0; i < n(5); i++) {
+      const m = make('lawn', rand() < 0.3 ? 'child' : rand() < 0.4 ? 'elder' : 'adult')
+      const t = Math.PI * (0.62 + i * 0.17 + rand() * 0.05)
+      const ox = Math.cos(t)
+      const oy = Math.sin(t)
+      // 散歩道の外側の芝生（道の中心から 7〜9 m）。池を向く
+      m.s = LOOP.s + ox * (LOOP.rs + 7 + rand() * 2)
+      m.y = LOOP.y + oy * (LOOP.ry + 7 + rand() * 2)
+      m.yaw = Math.atan2(ox, oy)
+      list.push(m)
+    }
     return list
   }, [])
   const { camera } = useThree()
-  useEffect(() => () => mobs.forEach((m) => m.p.dispose()), [mobs])
+  useEffect(() => {
+    mobDebug.mobs = mobs
+    return () => mobs.forEach((m) => m.p.dispose())
+  }, [mobs])
+  // VRoid の人（VRM）が読めたら、仮の人形と入れ替える。読めなければ仮の人形のまま
+  useEffect(() => {
+    let dead = false
+    prepareVrmPeople()
+      .then((models) => {
+        if (dead) return
+        const rand = seeded(4242)
+        // 年齢ごとに順番に配って、同じ人が隣り合わないようにする
+        const next: Record<string, number> = { child: 0, adult: 1, elder: 0 }
+        for (const m of mobs) {
+          const list = models.filter((md) => md.info.age === m.age)
+          const model = list[next[m.age]++ % list.length]
+          const old = m.p
+          m.p = new VrmPerson(model, rand, 0.96 + rand() * 0.08)
+          old.dispose()
+        }
+      })
+      .catch((e) => console.error('[walk] VRM people failed, keeping placeholder figures', e))
+    return () => {
+      dead = true
+    }
+  }, [mobs])
 
   useFrame(({ scene, clock }, rawDt) => {
     const dt = Math.min(rawDt, 0.05)
@@ -374,6 +435,8 @@ function Mobs() {
           m.motion = 'run'
           m.phase += dt * (m.speed / 0.8) * Math.PI
         }
+      } else if (m.kind === 'lawn') {
+        m.motion = 'ground'
       } else if (m.kind === 'sit') {
         m.motion = 'sit'
         m.phase += dt
@@ -381,12 +444,15 @@ function Mobs() {
         m.motion = Math.sin(t * 0.3 + m.lane * 7) > 0.92 ? 'wave' : 'idle'
         m.phase += dt
       }
+      // VRM の人は、跳ぶ高さも座る高さも動きの中に入っている
+      const vrm = m.p instanceof VrmPerson
+      if (vrm) h = 0
       placePerson(m.p, m.s, m.y, h, m.yaw)
-      // 遠い人は描かない
+      // 遠い人は描かない。芝生に座る人は VRM の人だけ
       tmp.copy(m.p.group.position)
-      const far = tmp.distanceTo(camera.position) > 220
+      const far = tmp.distanceTo(camera.position) > 220 || (m.kind === 'lawn' && !vrm)
       m.p.group.visible = !far
-      if (!far) m.p.pose(m.motion, m.phase, dt)
+      if (!far) m.p.pose(m.motion, m.phase, dt, m.speed)
     }
   })
   return null

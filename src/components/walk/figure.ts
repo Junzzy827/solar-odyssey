@@ -4,7 +4,8 @@ import * as THREE from 'three'
 // 動き（pose）は、VRM のときも同じ名前で Mixamo の動きを再生できるようにしておく：
 // idle（立つ）・walk（歩く）・run（走る）・sit（座る）・jump（跳ぶ）・wave（手を振る）
 
-export type Motion = 'idle' | 'walk' | 'run' | 'sit' | 'jump' | 'wave'
+/** ground：地面（芝生）に座る */
+export type Motion = 'idle' | 'walk' | 'run' | 'sit' | 'jump' | 'wave' | 'ground'
 
 export type Look = {
   /** 身長 m */
@@ -21,7 +22,8 @@ export type Look = {
 /** 歩く場面の人（自分も、まわりの人も）。group を場面に置き、毎フレーム pose を呼ぶ */
 export interface Person {
   readonly group: THREE.Group
-  pose(motion: Motion, phase: number, dt: number): void
+  /** speed：進む速さ m/s（足の運びを合わせるのに使う人もいる） */
+  pose(motion: Motion, phase: number, dt: number, speed?: number): void
   dispose(): void
 }
 
@@ -121,6 +123,7 @@ export class Mannequin implements Person {
 
   /** phase：歩く・走る足の運びの位相（ラジアン）。dt：座る・立つの移り変わり用 */
   pose(motion: Motion, phase: number, dt: number) {
+    if (motion === 'ground') motion = 'sit'
     const sit = motion === 'sit' ? 1 : 0
     this.sitBlend += (sit - this.sitBlend) * Math.min(1, dt * 5)
     const sb = this.sitBlend
