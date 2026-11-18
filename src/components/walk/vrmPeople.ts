@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Age, Motion, Person } from './figure'
 import { lowMemory } from '../../state/quality'
+import { MOB_STYLE, addOutlines, semiMaterial } from './semiReal'
 
 // 公園の人。MakeHuman（Blender の MPFB 2、素材は CC0）で作ったリアル寄りの 12 人（子ども 4・大人 5・シニア 3）。
 // tools/mobs/mpfb_style.json（年齢ごとの幅、服・髪・肌、顔のパーツの揺れ幅）から mpfb_gen.py で決まった種で作り、
@@ -65,7 +66,14 @@ function toLambert(root: THREE.Object3D) {
     if (src.isOutline) r = hidden
     else if (m.name.endsWith('.eyes'))
       // 目はツヤを出す（光が映り込まないと「死んだ目」に見える）
-      r = new THREE.MeshPhongMaterial({ map: src.map ?? null, shininess: 140, specular: 0x8a8a8a })
+      r = new THREE.MeshPhongMaterial({
+        map: src.map ?? null,
+        shininess: 140,
+        specular: 0x8a8a8a,
+        // セミリアルでは白目が影で灰色に沈まないよう、少しだけ自分で光らせる
+        ...(MOB_STYLE === 'semi' ? { emissiveMap: src.map ?? null, emissive: 0x3a3a3a } : {}),
+      })
+    else if (MOB_STYLE === 'semi') r = semiMaterial(src)
     else
       r = new THREE.MeshLambertMaterial({
         map: src.map ?? null,
@@ -86,6 +94,7 @@ function toLambert(root: THREE.Object3D) {
     mesh.receiveShadow = true
     mesh.frustumCulled = false
   })
+  if (MOB_STYLE === 'semi') addOutlines(root)
 }
 
 /** 正規化ボーン向けの動きを、この VRM の元の骨の回転に直す（three-vrm の VRMHumanoidRig.update と同じ式） */
