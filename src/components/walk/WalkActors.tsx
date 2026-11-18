@@ -130,9 +130,11 @@ function Player() {
     prepareVrmPeople()
       .then((models) => {
         if (dead) return
-        const model = models.find((m) => m.info.file === PLAYER_MODEL) ?? models[0]
+        // MakeHuman の人のときは決めた人を少し大きく。Rocketbox などは最初の人をそのまま
+        const mh = models.find((m) => m.info.file === PLAYER_MODEL)
+        const model = mh ?? models[0]
         const old = st.me
-        st.me = new VrmPerson(model, seeded(77), PLAYER_SCALE, true)
+        st.me = new VrmPerson(model, seeded(77), mh ? PLAYER_SCALE : 1, true)
         old.dispose()
       })
       .catch(() => {})
