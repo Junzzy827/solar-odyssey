@@ -47,6 +47,8 @@ export type VrmModel = {
   headName: string
   /** 首の骨の名前 */
   neckName: string
+  /** 左右の腕の骨の名前（上腕・前腕・手）。ホバースクーターのハンドルを握るのに使う */
+  arms: [string, string, string][]
 }
 
 const int16 = (b64: string) => {
@@ -174,7 +176,9 @@ export function loadMobModels(): Promise<VrmModel[]> {
         const { clips, hipsHeight } = bakeClips(vrm, motions)
         toLambert(vrm.scene)
         if (MOB_STYLE === 'paint') await applyPaintTextures(vrm.scene, base)
-        return { info, scene: vrm.scene, clips, hipsHeight, headName: vrm.humanoid.getRawBoneNode('head')?.name ?? '', neckName: vrm.humanoid.getRawBoneNode('neck')?.name ?? '' }
+        const raw = (b: string) => vrm.humanoid.getRawBoneNode(b as never)?.name ?? ''
+        const arms = (['left', 'right'] as const).map((side) => [raw(`${side}UpperArm`), raw(`${side}LowerArm`), raw(`${side}Hand`)] as [string, string, string])
+        return { info, scene: vrm.scene, clips, hipsHeight, headName: raw('head'), neckName: raw('neck'), arms }
       }),
     )
     return models
@@ -223,6 +227,43 @@ export class VrmPerson implements Person {
     }
     this.mixer.timeScale = 0.92 + rand() * 0.16
     this.offset = rand() * 10
+    this.arms = model.arms.map((names) => names.map((n) => (n ? (body.getObjectByName(n) ?? null) : null)) as ArmBones)
+  }
+  private arms: ArmBones[]
+  /** 手を置く先（世界の位置、左・右）。null なら動きのまま */
+  private grips: [THREE.Vector3, THREE.Vector3] | null = null
+
+  /** 両手を世界のこの位置へ伸ばす（ホバースクーターのハンドル）。null で動きのままにもどす */
+  grip(left: THREE.Vector3 | null, right: THREE.Vector3 | null) {
+    this.grips = left && right ? [left, right] : null
+  }
+
+  /** 2 本の骨の腕を、手が目標に届くように曲げる。肘は外・下・後ろへ逃がす */
+  private applyGrip() {
+    if (!this.grips) return
+    this.group.updateMatrixWorld(true)
+    this.group.getWorldQuaternion(gq)
+    this.arms.forEach(([upper, lower, hand], i) => {
+      if (!upper || !lower || !hand || !upper.parent) return
+      const target = this.grips![i]
+      upper.getWorldPosition(ikS)
+      lower.getWorldPosition(ikE)
+      hand.getWorldPosition(ikH)
+      const a = ikS.distanceTo(ikE)
+      const b = ikE.distanceTo(ikH)
+      ikU.subVectors(target, ikS)
+      const d = THREE.MathUtils.clamp(ikU.length(), Math.abs(a - b) + 1e-3, a + b - 1e-3)
+      ikU.normalize()
+      // 肘の逃がし先：人の向きで、外（左腕は左）・下・後ろ
+      ikP.set(i === 0 ? 0.55 : -0.55, -0.7, 0.45).applyQuaternion(gq)
+      ikP.addScaledVector(ikU, -ikP.dot(ikU)).normalize()
+      const cosA = (a * a + d * d - b * b) / (2 * a * d)
+      const elbow = ikT.copy(ikS).addScaledVector(ikU, a * cosA).addScaledVector(ikP, a * Math.sqrt(Math.max(0, 1 - cosA * cosA)))
+      swing(upper, ikE.sub(ikS).normalize(), ikD.subVectors(elbow, ikS).normalize())
+      lower.getWorldPosition(ikE)
+      hand.getWorldPosition(ikH)
+      swing(lower, ikH.sub(ikE).normalize(), ikD.subVectors(target, ikE).normalize())
+    })
   }
   private offset: number
   /** 見る先（世界の位置）。null なら見ない */
@@ -314,9 +355,11 @@ export class VrmPerson implements Person {
     } else if (motion === 'sit') this.play(this.choice.sit, 0.5)
     else if (motion === 'ground') this.play(this.choice.ground, 0.5)
     else if (motion === 'wave') this.play(this.choice.wave)
+    else if (motion === 'ride') this.play('idleNeutral', 0.25)
     else this.play(this.choice.idle)
     this.mixer.update(dt)
     this.applyLook(dt)
+    if (motion === 'ride') this.applyGrip()
   }
 
   dispose() {
@@ -336,6 +379,26 @@ const bq = new THREE.Quaternion()
 const pq = new THREE.Quaternion()
 const AX_X = new THREE.Vector3(1, 0, 0)
 const AX_Y = new THREE.Vector3(0, 1, 0)
+
+type ArmBones = [THREE.Object3D | null, THREE.Object3D | null, THREE.Object3D | null]
+const ikS = new THREE.Vector3()
+const ikE = new THREE.Vector3()
+const ikH = new THREE.Vector3()
+const ikU = new THREE.Vector3()
+const ikP = new THREE.Vector3()
+const ikT = new THREE.Vector3()
+const ikD = new THREE.Vector3()
+const ikQ = new THREE.Quaternion()
+
+/** 骨を世界の中で回して、子の骨へ向かう向き from を to にする */
+function swing(bone: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3) {
+  ikQ.setFromUnitVectors(from, to)
+  bone.getWorldQuaternion(bq)
+  bq.premultiply(ikQ)
+  bone.parent!.getWorldQuaternion(pq)
+  bone.quaternion.copy(pq.invert().multiply(bq))
+  bone.updateMatrixWorld(true)
+}
 
 let skeletonUtils: typeof import('three/examples/jsm/utils/SkeletonUtils.js') | null = null
 /** VrmPerson を作る前に呼ぶ */
