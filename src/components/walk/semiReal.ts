@@ -13,10 +13,11 @@ import * as THREE from 'three'
 // ?mobstyle=paint は、この陰影に加えてテクスチャも絵に寄せた版（tools/mobs/paint_textures.py で作った
 // public/walk/mobs/paint/ の肌・服・目に差しかえる）。写真の肌に絵の陰影をのせると、1 つの顔の中で
 // リアルさがばらばらになり「仮面人形」に見えるため（Chattopadhyay & MacDorman 2016）、全部を同じ絵の度合いにそろえる。
-export type MobStyle = 'real' | 'semi' | 'paint'
+// ?mobstyle=rich は写真のテクスチャのまま、肌のテカリ・血色・影のふちの赤みを足した版（richSkin.ts）。
+export type MobStyle = 'real' | 'semi' | 'paint' | 'rich'
 
 export const MOB_STYLE: MobStyle = ((): MobStyle => {
-  const m = /[?&#]mobstyle=(semi|paint)\b/.exec(location.search + location.hash)
+  const m = /[?&#]mobstyle=(semi|paint|rich)\b/.exec(location.search + location.hash)
   return (m?.[1] as MobStyle | undefined) ?? 'real'
 })()
 

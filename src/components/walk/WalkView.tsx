@@ -127,7 +127,8 @@ function WalkPanel() {
       <div className="walk-hint">{ui().walk.keysHint}</div>
       <Stick />
       <div className="walk-pad" onPointerDown={stop}>
-        <button className={run ? 'on' : ''} onClick={() => useWalk.setState({ run: !run })}>
+        {/* iPhone はスティックを押さえたままの 2 本目の指だと click が来ないので、押した瞬間に切り替える */}
+        <button className={run ? 'on' : ''} onPointerDown={() => useWalk.setState({ run: !useWalk.getState().run })}>
           {ui().walk.run}
         </button>
         <button onPointerDown={() => (walkInput.jump = true)}>{ui().walk.jump}</button>

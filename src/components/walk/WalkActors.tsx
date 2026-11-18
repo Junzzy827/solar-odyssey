@@ -129,7 +129,8 @@ function Player() {
     const right = walkInput.right + walkInput.stickX
     const mag = Math.min(1, Math.hypot(fwd, right))
     const running = w.run || walkInput.shift
-    const target = mag > 0.05 ? (running ? RUN_SPEED : WALK_SPEED) * (touch ? Math.max(0.35, mag) : 1) : 0
+    // スマホ：歩きはスティックの倒し具合で速さが変わる。走るボタンが入っていれば、少し倒すだけでも走る
+    const target = mag > 0.05 ? (running ? RUN_SPEED * (touch ? Math.max(0.75, mag) : 1) : WALK_SPEED * (touch ? Math.max(0.35, mag) : 1)) : 0
 
     // 座る・立つ
     if (walkInput.sit) {
