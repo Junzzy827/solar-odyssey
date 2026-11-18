@@ -171,8 +171,8 @@ let loading: Promise<VrmModel[]> | null = null
 export function loadMobModels(): Promise<VrmModel[]> {
   return (loading ??= (async () => {
     const base = import.meta.env.BASE_URL
-    // 比べるための別の素材（?mobset=rocketbox / quaternius）
-    if (MOB_SET) {
+    // ふだんは Rocketbox の人（trialPeople.ts）。前の MakeHuman の人は ?mobset=makehuman
+    if (MOB_SET !== 'makehuman') {
       const motions = (await fetch(`${base}walk/motions.json`).then((r) => r.json())) as MotionData
       return (await import('./trialPeople')).loadTrialModels(base, motions)
     }
