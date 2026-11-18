@@ -3,6 +3,7 @@ import type { Age, Motion, Person } from './figure'
 import { lowMemory } from '../../state/quality'
 import { MOB_STYLE, addOutlines, applyPaintTextures, semiMaterial } from './semiReal'
 import { richMaterial } from './richSkin'
+import { MOB_SET } from './trialSet'
 
 // 公園の人。MakeHuman（Blender の MPFB 2、素材は CC0）で作ったリアル寄りの 12 人（子ども 4・大人 5・シニア 3）。
 // tools/mobs/mpfb_style.json（年齢ごとの幅、服・髪・肌、顔のパーツの揺れ幅）から mpfb_gen.py で決まった種で作り、
@@ -34,7 +35,7 @@ export const PLAYER_MODEL = 'mpfb_adult_4'
 export const PLAYER_SCALE = 1.1
 
 type ClipData = { fps: number; frames: number; loop: boolean; rot: string; pos: string }
-type MotionData = { bones: string[]; clips: Record<string, ClipData> }
+export type MotionData = { bones: string[]; clips: Record<string, ClipData> }
 
 /** 1 人ぶんの型（共有する形と、その人の骨に合わせた動き） */
 export type VrmModel = {
@@ -106,17 +107,28 @@ function toLambert(root: THREE.Object3D) {
   if (MOB_STYLE === 'semi' || MOB_STYLE === 'paint') addOutlines(root)
 }
 
-/** 正規化ボーン向けの動きを、この VRM の元の骨の回転に直す（three-vrm の VRMHumanoidRig.update と同じ式） */
-function bakeClips(vrm: import('@pixiv/three-vrm').VRM, data: MotionData) {
-  const scene = vrm.scene
+/**
+ * 正規化ボーン向けの動きを、この人の元の骨の回転に直す（three-vrm の VRMHumanoidRig.update と同じ式）。
+ * raw：VRM の骨の名前（hips など）から、この人の骨を引く。
+ * tpose：元の形が T ポーズでない人（Rocketbox など）は、T ポーズにしたときの骨の向き（ローカル）を渡す
+ */
+export function bakeClips(scene: THREE.Object3D, raw: (name: string) => THREE.Object3D | null | undefined, data: MotionData, tpose?: Map<THREE.Object3D, THREE.Quaternion>) {
+  const saved = new Map<THREE.Object3D, THREE.Quaternion>()
+  if (tpose)
+    for (const [b, q] of tpose) {
+      saved.set(b, b.quaternion.clone())
+      b.quaternion.copy(q)
+    }
   scene.updateMatrixWorld(true)
   const bones = data.bones.map((name) => {
-    const node = vrm.humanoid.getRawBoneNode(name as never)
+    const node = raw(name)
     if (!node || !node.parent) return null
     const pw = node.parent.getWorldQuaternion(new THREE.Quaternion())
     return { node, pw, pwInv: pw.clone().invert(), rest: node.quaternion.clone() }
   })
-  const hipsNode = vrm.humanoid.getRawBoneNode('hips')!
+  for (const [b, q] of saved) b.quaternion.copy(q)
+  scene.updateMatrixWorld(true)
+  const hipsNode = raw('hips')!
   const hipsWorld = hipsNode.getWorldPosition(new THREE.Vector3())
   const hipsParentInv = hipsNode.parent!.matrixWorld.clone().invert()
   const H = hipsWorld.y
@@ -159,6 +171,11 @@ let loading: Promise<VrmModel[]> | null = null
 export function loadMobModels(): Promise<VrmModel[]> {
   return (loading ??= (async () => {
     const base = import.meta.env.BASE_URL
+    // 比べるための別の素材（?mobset=rocketbox / quaternius）
+    if (MOB_SET) {
+      const motions = (await fetch(`${base}walk/motions.json`).then((r) => r.json())) as MotionData
+      return (await import('./trialPeople')).loadTrialModels(base, motions)
+    }
     const [{ GLTFLoader }, { VRMLoaderPlugin, VRMUtils }, motions] = await Promise.all([
       import('three/examples/jsm/loaders/GLTFLoader.js'),
       import('@pixiv/three-vrm'),
@@ -173,7 +190,7 @@ export function loadMobModels(): Promise<VrmModel[]> {
         VRMUtils.removeUnnecessaryVertices(gltf.scene)
         VRMUtils.combineSkeletons(gltf.scene)
         // 揺れ物・視線・表情は使わない（骨を複製するので、元の VRM の仕組みは動かさない）
-        const { clips, hipsHeight } = bakeClips(vrm, motions)
+        const { clips, hipsHeight } = bakeClips(vrm.scene, (b) => vrm.humanoid.getRawBoneNode(b as never), motions)
         toLambert(vrm.scene)
         if (MOB_STYLE === 'paint') await applyPaintTextures(vrm.scene, base)
         const raw = (b: string) => vrm.humanoid.getRawBoneNode(b as never)?.name ?? ''
@@ -228,6 +245,38 @@ export class VrmPerson implements Person {
     this.mixer.timeScale = 0.92 + rand() * 0.16
     this.offset = rand() * 10
     this.arms = model.arms.map((names) => names.map((n) => (n ? (body.getObjectByName(n) ?? null) : null)) as ArmBones)
+    // まばたきの形を持つ人（Rocketbox）
+    body.traverse((o) => {
+      const m = o as THREE.Mesh
+      const d = m.morphTargetDictionary
+      if (!m.isMesh || !d || !m.morphTargetInfluences) return
+      const idx = Object.keys(d)
+        .filter((k) => /EyeBlink(Left|Right)$/.test(k))
+        .map((k) => d[k])
+      if (idx.length) this.blinks.push({ m, idx })
+    })
+    this.nextBlink = 1 + rand() * 4
+  }
+  private blinks: { m: THREE.Mesh; idx: number[] }[] = []
+  private nextBlink = 0
+  private blinkT = -1
+
+  /** まばたき：1 分に 10 回ほど。閉じる 0.1 秒、開ける 0.2 秒 */
+  private blink(dt: number) {
+    if (!this.blinks.length) return
+    if (this.blinkT < 0) {
+      this.nextBlink -= dt
+      if (this.nextBlink <= 0) this.blinkT = 0
+      return
+    }
+    this.blinkT += dt
+    const t = this.blinkT
+    const w = t < 0.1 ? t / 0.1 : t < 0.14 ? 1 : Math.max(0, 1 - (t - 0.14) / 0.2)
+    for (const b of this.blinks) for (const i of b.idx) b.m.morphTargetInfluences![i] = w
+    if (t > 0.34) {
+      this.blinkT = -1
+      this.nextBlink = 2 + Math.random() * 6 + (Math.random() < 0.15 ? -1.8 : 0)
+    }
   }
   private arms: ArmBones[]
   /** 手を置く先（世界の位置、左・右）。null なら動きのまま */
@@ -359,6 +408,7 @@ export class VrmPerson implements Person {
     else this.play(this.choice.idle)
     this.mixer.update(dt)
     this.applyLook(dt)
+    this.blink(dt)
     if (motion === 'ride') this.applyGrip()
   }
 
