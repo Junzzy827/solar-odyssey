@@ -22,3 +22,19 @@ How the colony park people in `public/walk/mobs/` are made. Everything is reprod
 
 `mpfb_style.json` is the place to change the look: age ranges, race mix, clothes and hair lists,
 hair colours, shirt palette, how much the face parts may vary, the triangle budget.
+
+## Look trials (2026-11-18)
+
+The app has two opt-in looks for comparison (default is the plain look):
+
+- `?mobstyle=semi` — soft two-step toon shading with tinted shadows, thin reddish/violet outlines
+  (`src/components/walk/semiReal.ts`).
+- `?mobstyle=paint` — the same shading plus painted textures from `public/walk/mobs/paint/`
+  (flat skin that keeps lips and eyelid lines, clothes without fabric grain and fine creases,
+  simple clear eyes). Rebuild them after regenerating people:
+  ```
+  pip install opencv-python-headless
+  python3 -I tools/mobs/paint_textures.py public/walk/mobs public/walk/mobs/paint
+  ```
+  Why: photo textures under toon shading mix two levels of realism in one face, which reads as a
+  mask (Chattopadhyay & MacDorman 2016); the paint pass puts the whole person at one level.
