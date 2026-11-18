@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { Age, Motion, Person } from './figure'
 import { lowMemory } from '../../state/quality'
 import { MOB_STYLE, addOutlines, applyPaintTextures, semiMaterial } from './semiReal'
+import { richMaterial } from './richSkin'
 
 // 公園の人。MakeHuman（Blender の MPFB 2、素材は CC0）で作ったリアル寄りの 12 人（子ども 4・大人 5・シニア 3）。
 // tools/mobs/mpfb_style.json（年齢ごとの幅、服・髪・肌、顔のパーツの揺れ幅）から mpfb_gen.py で決まった種で作り、
@@ -71,18 +72,21 @@ function toLambert(root: THREE.Object3D) {
         shininess: 140,
         specular: 0x8a8a8a,
         // セミリアルでは白目が影で灰色に沈まないよう、少しだけ自分で光らせる
-        ...(MOB_STYLE !== 'real' ? { emissiveMap: src.map ?? null, emissive: 0x5a5a5a } : {}),
+        ...(MOB_STYLE !== 'real' ? { emissiveMap: src.map ?? null, emissive: MOB_STYLE === 'rich' ? 0x303030 : 0x5a5a5a } : {}),
       })
-    else if (MOB_STYLE !== 'real') r = semiMaterial(src)
+    else if (MOB_STYLE === 'semi' || MOB_STYLE === 'paint') r = semiMaterial(src)
     else
-      r = new THREE.MeshLambertMaterial({
-        map: src.map ?? null,
-        color: src.color ? src.color.clone() : 0xffffff,
-        transparent: m.transparent,
-        alphaTest: m.alphaTest,
-        side: m.side,
-        depthWrite: m.depthWrite,
-      })
+      // ?mobstyle=rich では肌・髪・服を質感つきに（それ以外は Lambert）
+      r =
+        (MOB_STYLE === 'rich' ? richMaterial(src) : null) ??
+        new THREE.MeshLambertMaterial({
+          map: src.map ?? null,
+          color: src.color ? src.color.clone() : 0xffffff,
+          transparent: m.transparent,
+          alphaTest: m.alphaTest,
+          side: m.side,
+          depthWrite: m.depthWrite,
+        })
     conv.set(m, r)
     return r
   }
@@ -97,7 +101,7 @@ function toLambert(root: THREE.Object3D) {
     if (eyes && MOB_STYLE !== 'real') mesh.castShadow = false
     mesh.frustumCulled = false
   })
-  if (MOB_STYLE !== 'real') addOutlines(root)
+  if (MOB_STYLE === 'semi' || MOB_STYLE === 'paint') addOutlines(root)
 }
 
 /** 正規化ボーン向けの動きを、この VRM の元の骨の回転に直す（three-vrm の VRMHumanoidRig.update と同じ式） */
