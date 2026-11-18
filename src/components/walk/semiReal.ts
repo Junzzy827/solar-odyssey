@@ -10,9 +10,15 @@ import * as THREE from 'three'
 //  - 輪郭線は黒でなく、肌は暗い赤茶・服は紫黒の細い線（裏面ふくらませ）
 //  - さらに、肌・服のテクスチャを粗い段（ミップマップ）で読み、写実的な細かい凹凸やしわをぼかす
 
-export type MobStyle = 'real' | 'semi'
+// ?mobstyle=paint は、この陰影に加えてテクスチャも絵に寄せた版（tools/mobs/paint_textures.py で作った
+// public/walk/mobs/paint/ の肌・服・目に差しかえる）。写真の肌に絵の陰影をのせると、1 つの顔の中で
+// リアルさがばらばらになり「仮面人形」に見えるため（Chattopadhyay & MacDorman 2016）、全部を同じ絵の度合いにそろえる。
+export type MobStyle = 'real' | 'semi' | 'paint'
 
-export const MOB_STYLE: MobStyle = /[?&#]mobstyle=semi\b/.test(location.search + location.hash) ? 'semi' : 'real'
+export const MOB_STYLE: MobStyle = ((): MobStyle => {
+  const m = /[?&#]mobstyle=(semi|paint)\b/.exec(location.search + location.hash)
+  return (m?.[1] as MobStyle | undefined) ?? 'real'
+})()
 
 type Role = 'skin' | 'hair' | 'brows' | 'lashes' | 'cloth' | 'other'
 
@@ -46,8 +52,8 @@ type Look = {
 
 const LOOK: Record<Role, Look> = {
   skin: { blur: 0.3, shade: [0.93, 0.76, 0.8], shift: 0.25, neutral: 0.75, exp: 0.9, lift: 0.3, grade: [1, 0.97, 0.95, 1], rim: 0.06 },
-  hair: { blur: 0.5, shade: [0.66, 0.62, 0.86], shift: 0, neutral: 0, exp: 1, lift: 0.1, grade: [1.05, 1, 0.97, 1.1], rim: 0.06 },
-  brows: { blur: 0, shade: [0.8, 0.75, 0.85], shift: 0.3, neutral: 0, exp: 1, lift: 0, grade: [0.7, 0.66, 0.66, 1], rim: 0 },
+  hair: { blur: 0.5, shade: [0.66, 0.62, 0.86], shift: 0, neutral: 0, exp: 1, lift: 0, grade: [1.02, 1, 0.98, 1], rim: 0.06 },
+  brows: { blur: 0, shade: [0.8, 0.75, 0.85], shift: 0.3, neutral: 0, exp: 1, lift: 0, grade: [0.85, 0.8, 0.8, 1], rim: 0 },
   lashes: { blur: 0, shade: [0.8, 0.75, 0.85], shift: 0.3, neutral: 0, exp: 1, lift: 0, grade: [1, 1, 1, 1], rim: 0 },
   cloth: { blur: 1.1, shade: [0.62, 0.6, 0.82], shift: 0, neutral: 0, exp: 0.95, lift: 0.06, grade: [1, 1, 1, 0.9], rim: 0.04 },
   other: { blur: 0.5, shade: [0.6, 0.58, 0.78], shift: 0, neutral: 0, exp: 1, lift: 0, grade: [1, 1, 1, 1], rim: 0.08 },
@@ -58,7 +64,8 @@ const v3 = (a: [number, number, number]) => new THREE.Vector3(...a)
 /** 元の材質から、セミリアルの材質を作る */
 export function semiMaterial(src: THREE.Material & { map?: THREE.Texture | null; color?: THREE.Color }) {
   const role = roleOf(src.name)
-  const look = LOOK[role]
+  // 絵に寄せたテクスチャは、もうぼかさない
+  const look = MOB_STYLE === 'paint' && (role === 'skin' || role === 'cloth') ? { ...LOOK[role], blur: 0 } : LOOK[role]
   const m = new THREE.MeshToonMaterial({
     map: src.map ?? null,
     color: src.color ? src.color.clone() : 0xffffff,
@@ -78,6 +85,8 @@ export function semiMaterial(src: THREE.Material & { map?: THREE.Texture | null;
     uGrade: { value: new THREE.Vector4(...look.grade) },
     uRim: { value: look.rim },
     uBrow: { value: role === 'brows' ? 1 : 0 },
+    // まつげは MakeHuman だと濃く太く、目の白い所をほとんど隠して「黒い穴」に見えるので薄くする
+    uAlphaMul: { value: role === 'lashes' ? 0.3 : 1 },
   }
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms)
@@ -94,6 +103,7 @@ uniform float uLift;
 uniform vec4 uGrade;
 uniform float uRim;
 uniform float uBrow;
+uniform float uAlphaMul;
 // やわらかい 2 段の陰影。明るい側は 1、影の側は影の色
 vec3 getGradientIrradiance( vec3 normal, vec3 lightDirection ) {
   float d = dot( normal, lightDirection ) + uShift;
@@ -117,7 +127,8 @@ vec3 getGradientIrradiance( vec3 normal, vec3 lightDirection ) {
   sampledDiffuseColor.rgb *= 1.0 + uLift * ( 1.0 - smoothstep( 0.05, 0.45, lum0 ) );
   diffuseColor *= sampledDiffuseColor;
 #endif
-  if ( uBrow > 0.5 ) diffuseColor.a = smoothstep( 0.1, 0.38, diffuseColor.a );`,
+  if ( uBrow > 0.5 ) diffuseColor.a = smoothstep( 0.1, 0.38, diffuseColor.a );
+  diffuseColor.a *= uAlphaMul;`,
       )
       .replace(
         '#include <opaque_fragment>',
@@ -137,7 +148,7 @@ vec3 getGradientIrradiance( vec3 normal, vec3 lightDirection ) {
 #include <opaque_fragment>`,
       )
   }
-  m.customProgramCacheKey = () => 'semi-real-2'
+  m.customProgramCacheKey = () => 'semi-real-3'
   return m
 }
 
@@ -192,4 +203,38 @@ export function addOutlines(root: THREE.Object3D) {
     add.push([mesh.parent!, line])
   })
   for (const [parent, line] of add) parent.add(line)
+}
+
+/** ?mobstyle=paint：肌・服（靴以外）・目のテクスチャを、絵に寄せた版に差しかえる */
+export async function applyPaintTextures(root: THREE.Object3D, base: string) {
+  const loader = new THREE.TextureLoader()
+  const jobs: Promise<void>[] = []
+  const done = new Set<THREE.Material>()
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh
+    if (!mesh.isMesh || Array.isArray(mesh.material)) return
+    const mat = mesh.material as THREE.Material & { map?: THREE.Texture | null; emissiveMap?: THREE.Texture | null }
+    if (done.has(mat) || !mat.map) return
+    const name = mat.name
+    const ext = name.endsWith('.eyes') ? 'png' : name.endsWith('.skin') || (name.includes('.cloth.') && !name.includes('.shoes')) ? 'jpg' : ''
+    if (!ext) return
+    done.add(mat)
+    const old = mat.map
+    jobs.push(
+      loader
+        .loadAsync(`${base}walk/mobs/paint/${name}.${ext}`)
+        .then((t) => {
+          t.flipY = false
+          t.colorSpace = THREE.SRGBColorSpace
+          t.wrapS = old.wrapS
+          t.wrapT = old.wrapT
+          t.anisotropy = old.anisotropy
+          mat.map = t
+          if (mat.emissiveMap) mat.emissiveMap = t
+          mat.needsUpdate = true
+        })
+        .catch(() => undefined),
+    )
+  })
+  await Promise.all(jobs)
 }
