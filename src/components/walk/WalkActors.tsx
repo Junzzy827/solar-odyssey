@@ -7,7 +7,7 @@ import { currentLevel, lowMemory } from '../../state/quality'
 import { seeded } from '../sf/batch'
 import { CREW_LOOK, Mannequin, randomLook, type Age, type Motion, type Person } from './figure'
 import { PLAYER_MODEL, PLAYER_SCALE, VrmPerson, prepareVrmPeople } from './vrmPeople'
-import { BOUNDS, G, GROUND_LIFT, LOOP, NS_S, PLAY, POND, frameAt, landPoint, loopPoint, parkLayout, pondValue, type Bench } from './park'
+import { BOUNDS, G, GROUND_LIFT, LOOP, NS_S, PLAY, POND, frameAt, landPoint, loopPoint, parkLayout, pondValue, upAt, type Bench } from './park'
 
 // 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
 // 人の形は Person（figure.ts）。読み込むまでは仮の人形で、読めたら VRM の人（vrmPeople.ts、MakeHuman 製）と Mixamo の動きに差し替える。
@@ -33,6 +33,10 @@ const turn = (from: number, to: number, k: number) => from + wrap(to - from) * M
 
 /** 降りた所：南北の道の上、遊び場と池を右前に見る */
 const START = { s: NS_S + 2, y: 11285, yaw: -2.2 }
+
+/** この距離 m より近い人は、こちらの顔を見る */
+const LOOK_DIST = 4.5
+const lookPt = new THREE.Vector3()
 
 /** 自分の今の位置（影の範囲・まわりの人の判定に使う） */
 export const walker = { s: START.s, y: START.y, h: 0, pos: new THREE.Vector3(), /** テスト用：向きをこの角度にする */ turnTo: null as number | null }
@@ -378,6 +382,8 @@ function Mobs() {
   useFrame(({ scene, clock }, rawDt) => {
     const dt = Math.min(rawDt, 0.05)
     const t = clock.elapsedTime
+    // 自分の顔の高さ（まわりの人が見る先）
+    upAt(walker.s, lookPt).multiplyScalar(1.5 * PLAYER_SCALE).add(walker.pos)
     for (const m of mobs) {
       if (!m.p.group.parent) scene.add(m.p.group)
       let h = 0
@@ -453,7 +459,14 @@ function Mobs() {
       tmp.copy(m.p.group.position)
       const far = tmp.distanceTo(camera.position) > 220 || (m.kind === 'lawn' && !vrm)
       m.p.group.visible = !far
-      if (!far) m.p.pose(m.motion, m.phase, dt, m.speed)
+      if (!far) {
+        // 近くに来たら、こちらの顔を見る（走っている子は前を見たまま）
+        if (vrm) {
+          const near = m.motion !== 'run' && tmp.distanceTo(walker.pos) < LOOK_DIST
+          ;(m.p as VrmPerson).look(near ? lookPt : null)
+        }
+        m.p.pose(m.motion, m.phase, dt, m.speed)
+      }
     }
   })
   return null

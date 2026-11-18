@@ -43,6 +43,8 @@ export type VrmModel = {
   hipsHeight: number
   /** 頭の骨の名前 */
   headName: string
+  /** 首の骨の名前 */
+  neckName: string
 }
 
 const int16 = (b64: string) => {
@@ -61,6 +63,9 @@ function toLambert(root: THREE.Object3D) {
     if (r) return r
     const src = m as THREE.Material & { map?: THREE.Texture | null; color?: THREE.Color; isOutline?: boolean }
     if (src.isOutline) r = hidden
+    else if (m.name.endsWith('.eyes'))
+      // 目はツヤを出す（光が映り込まないと「死んだ目」に見える）
+      r = new THREE.MeshPhongMaterial({ map: src.map ?? null, shininess: 140, specular: 0x8a8a8a })
     else
       r = new THREE.MeshLambertMaterial({
         map: src.map ?? null,
@@ -152,7 +157,7 @@ export function loadMobModels(): Promise<VrmModel[]> {
         // 揺れ物・視線・表情は使わない（骨を複製するので、元の VRM の仕組みは動かさない）
         const { clips, hipsHeight } = bakeClips(vrm, motions)
         toLambert(vrm.scene)
-        return { info, scene: vrm.scene, clips, hipsHeight, headName: vrm.humanoid.getRawBoneNode('head')?.name ?? '' }
+        return { info, scene: vrm.scene, clips, hipsHeight, headName: vrm.humanoid.getRawBoneNode('head')?.name ?? '', neckName: vrm.humanoid.getRawBoneNode('neck')?.name ?? '' }
       }),
     )
     return models
@@ -186,7 +191,9 @@ export class VrmPerson implements Person {
     body.rotation.y = Math.PI
     body.scale.setScalar(scale)
     const hs = model.info.headScale ?? 1
-    if (hs !== 1) body.getObjectByName(model.headName)?.scale.setScalar(hs)
+    this.head = body.getObjectByName(model.headName) ?? null
+    this.neck = model.neckName ? (body.getObjectByName(model.neckName) ?? null) : null
+    if (hs !== 1) this.head?.scale.setScalar(hs)
     this.group.add(body)
     this.hips = model.hipsHeight * scale
     this.mixer = new THREE.AnimationMixer(body)
@@ -201,6 +208,54 @@ export class VrmPerson implements Person {
     this.offset = rand() * 10
   }
   private offset: number
+  /** 見る先（世界の位置）。null なら見ない */
+  private lookTarget: THREE.Vector3 | null = null
+  private lookW = 0
+  private head: THREE.Object3D | null = null
+  private neck: THREE.Object3D | null = null
+
+  /** 近くの人の顔を見る（首 4 割・頭 6 割で向ける）。null で前に戻す */
+  look(target: THREE.Vector3 | null) {
+    this.lookTarget = target
+  }
+
+  private applyLook(dt: number) {
+    const t = this.lookTarget
+    let want = 0
+    let yaw = 0
+    let pitch = 0
+    if (t && this.head) {
+      const g = this.group
+      g.updateMatrixWorld(true)
+      this.head.getWorldPosition(lv)
+      g.worldToLocal(lv)
+      ld.copy(t)
+      g.worldToLocal(ld).sub(lv)
+      yaw = Math.atan2(-ld.x, -ld.z)
+      pitch = Math.atan2(ld.y, Math.hypot(ld.x, ld.z))
+      // 真後ろの人は見ない（首が回りすぎる）
+      if (Math.abs(yaw) < 1.9) want = 1
+      this.lastYaw = THREE.MathUtils.clamp(yaw, -1.25, 1.25)
+      this.lastPitch = THREE.MathUtils.clamp(pitch, -0.45, 0.35)
+    }
+    this.lookW += (want - this.lookW) * Math.min(1, dt * 2.5)
+    if (this.lookW < 0.01 || !this.head) return
+    lq.setFromAxisAngle(AX_Y, this.lastYaw * this.lookW).multiply(lq2.setFromAxisAngle(AX_X, this.lastPitch * this.lookW))
+    // 人の向きの中での回し方を、世界の回し方に直す
+    this.group.getWorldQuaternion(gq)
+    wq.copy(gq).multiply(lq).multiply(gq.invert())
+    for (const [bone, k] of [[this.neck, 0.4], [this.head, 0.6]] as const) {
+      if (!bone || !bone.parent) continue
+      part.identity().slerp(wq, this.neck ? k : 1)
+      bone.getWorldQuaternion(bq)
+      bq.premultiply(part)
+      bone.parent.getWorldQuaternion(pq)
+      bone.quaternion.copy(pq.invert().multiply(bq))
+      bone.updateMatrixWorld(true)
+    }
+  }
+  private lastYaw = 0
+  private lastPitch = 0
 
   private action(name: string) {
     let a = this.actions.get(name)
@@ -244,6 +299,7 @@ export class VrmPerson implements Person {
     else if (motion === 'wave') this.play(this.choice.wave)
     else this.play(this.choice.idle)
     this.mixer.update(dt)
+    this.applyLook(dt)
   }
 
   dispose() {
@@ -251,6 +307,18 @@ export class VrmPerson implements Person {
     this.group.removeFromParent()
   }
 }
+
+const lv = new THREE.Vector3()
+const ld = new THREE.Vector3()
+const lq = new THREE.Quaternion()
+const lq2 = new THREE.Quaternion()
+const gq = new THREE.Quaternion()
+const wq = new THREE.Quaternion()
+const part = new THREE.Quaternion()
+const bq = new THREE.Quaternion()
+const pq = new THREE.Quaternion()
+const AX_X = new THREE.Vector3(1, 0, 0)
+const AX_Y = new THREE.Vector3(0, 1, 0)
 
 let skeletonUtils: typeof import('three/examples/jsm/utils/SkeletonUtils.js') | null = null
 /** VrmPerson を作る前に呼ぶ */
