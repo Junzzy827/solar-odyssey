@@ -121,7 +121,7 @@ function Player() {
     st.pitch = Math.max(-1.25, Math.min(w.view === 'eye' ? 1.45 : 1.15, st.pitch - walkInput.lookY))
     walkInput.lookX = walkInput.lookY = 0
     if (walkInput.zoom) {
-      st.dist = Math.max(1.8, Math.min(14, st.dist * (1 + walkInput.zoom * 0.12)))
+      st.dist = Math.max(0.9, Math.min(14, st.dist * (1 + walkInput.zoom * 0.12)))
       walkInput.zoom = 0
     }
     // 入力：キーとスティック
