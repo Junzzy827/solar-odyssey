@@ -6478,6 +6478,30 @@ body.touch .campaign-card {
   display: none;
 }
 
+.walk-speed {
+  position: absolute;
+  right: 20px;
+  bottom: 58px;
+  padding: 4px 14px;
+  border-radius: 12px;
+  background: rgba(8, 12, 20, 0.55);
+  border: 1px solid rgba(110, 220, 255, 0.45);
+  color: #bdf1ff;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+body.touch .walk-speed {
+  right: 14px;
+  bottom: calc(env(safe-area-inset-bottom) + 96px);
+}
+
+body.touch .walk-pad button.walk-ride {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
 body.touch .walk-hint {
   display: none;
 }

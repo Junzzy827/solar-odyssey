@@ -88,6 +88,8 @@ function WalkPanel() {
   const sitting = useWalk((w) => w.sitting)
   const benchNear = useWalk((w) => w.benchNear)
   const run = useWalk((w) => w.run)
+  const riding = useWalk((w) => w.riding)
+  const waterNote = useWalk((w) => w.waterNote)
   const day = useDayWord()
   useEffect(() => bindWalkKeys(), [])
   // 降りたときのお知らせ（しばらくして消す）
@@ -112,11 +114,17 @@ function WalkPanel() {
           {ui().walk.view}: {view === 'chase' ? ui().walk.viewChase : ui().walk.viewEye}
           <kbd>V</kbd>
         </button>
+        <button className={riding ? 'on' : ''} onClick={() => (walkInput.ride = true)}>
+          {riding ? ui().walk.rideOff : ui().walk.ride}
+          <kbd>F</kbd>
+        </button>
         <button onClick={endWalk}>
           {ui().walk.backToShip}
           <kbd>J</kbd>
         </button>
       </div>
+      {riding && <Speedometer />}
+      {waterNote > 0 && walkNow() - waterNote < 3.5 && <WaterNote at={waterNote} />}
       {(benchNear || sitting) && (
         <button className="walk-sit" onPointerDown={stop} onClick={() => (walkInput.sit = true)}>
           {sitting ? ui().walk.stand : ui().walk.sit}
@@ -124,17 +132,41 @@ function WalkPanel() {
         </button>
       )}
       {note && <div className="walk-note">{ui().walk.arrived(name)}</div>}
-      <div className="walk-hint">{ui().walk.keysHint}</div>
+      <div className="walk-hint">{riding ? ui().walk.rideHint : ui().walk.keysHint}</div>
       <Stick />
       <div className="walk-pad" onPointerDown={stop}>
         {/* iPhone はスティックを押さえたままの 2 本目の指だと click が来ないので、押した瞬間に切り替える */}
-        <button className={run ? 'on' : ''} onPointerDown={() => useWalk.setState({ run: !useWalk.getState().run })}>
-          {ui().walk.run}
+        <button className={riding ? 'walk-ride on' : 'walk-ride'} onPointerDown={() => (walkInput.ride = true)}>
+          {riding ? ui().walk.rideOff : ui().walk.ride}
         </button>
-        <button onPointerDown={() => (walkInput.jump = true)}>{ui().walk.jump}</button>
+        <button className={run ? 'on' : ''} onPointerDown={() => useWalk.setState({ run: !useWalk.getState().run })}>
+          {riding ? ui().walk.boost : ui().walk.run}
+        </button>
+        <button onPointerDown={() => (walkInput.jump = true)}>{riding ? ui().walk.hop : ui().walk.jump}</button>
       </div>
     </div>
   )
+}
+
+/** ホバースクーターの速度計 */
+function Speedometer() {
+  const [v, setV] = useState(0)
+  useEffect(() => {
+    const iv = window.setInterval(() => setV(Math.round(walker.speed * 3.6)), 120)
+    return () => window.clearInterval(iv)
+  }, [])
+  return <div className="walk-speed">{ui().walk.kmh(v)}</div>
+}
+
+/** 水の上で降りようとしたときのお知らせ（少しして消える） */
+function WaterNote({ at }: { at: number }) {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const t = window.setTimeout(() => setTick((n) => n + 1), Math.max(0, (at + 3.6 - walkNow()) * 1000))
+    return () => window.clearTimeout(t)
+  }, [at])
+  if (walkNow() - at > 3.5) return null
+  return <div className="walk-note">{ui().walk.waterNote}</div>
 }
 
 /** 画面をなぞって見回す。PC はクリックでマウスを固定して、動かすだけで見回す */

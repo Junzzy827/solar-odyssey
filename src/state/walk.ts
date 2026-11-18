@@ -18,6 +18,9 @@ export const RUN_SPEED = 4.2
 /** ジャンプの初速（m/s）。コロニーの地面では重力が 1G なので、地球と同じ高さまで跳べる */
 export const JUMP_SPEED = 3.6
 export const GRAVITY = 9.8
+/** ホバースクーターの速さ（m/s）：ふつう・ブースト（Shift／スマホの「ブースト」）。公園は 1 km ほどあるので、ブーストなら 1 分で端から端まで */
+export const HOVER_SPEED = 9
+export const HOVER_BOOST = 16
 
 type WalkState = {
   phase: WalkPhase
@@ -32,6 +35,10 @@ type WalkState = {
   sitting: boolean
   /** 近くに座れるベンチがある */
   benchNear: boolean
+  /** ホバースクーターに乗っている */
+  riding: boolean
+  /** 水の上で降りようとした時刻（お知らせを少し出す） */
+  waterNote: number
 }
 
 export const walkNow = () => performance.now() / 1000
@@ -45,6 +52,8 @@ export const useWalk = create<WalkState>(() => ({
   run: false,
   sitting: false,
   benchNear: false,
+  riding: false,
+  waterNote: 0,
 }))
 
 /** 歩く場面を出している（宇宙の場面は止める） */
@@ -83,7 +92,7 @@ export function startWalkDirect() {
 function beginWalk(c: { id: string; name: () => string }) {
   if (document.pointerLockElement) document.exitPointerLock()
   resetWalkInput()
-  useWalk.setState({ colonyId: c.id, colonyName: c.name(), view: 'chase', run: false, sitting: false, benchNear: false })
+  useWalk.setState({ colonyId: c.id, colonyName: c.name(), view: 'chase', run: false, sitting: false, benchNear: false, riding: false, waterNote: 0 })
   setPhase('fadeIn')
   window.setTimeout(() => {
     if (useWalk.getState().phase === 'fadeIn') setPhase('walk')
@@ -117,6 +126,8 @@ export const walkInput = {
   jump: false,
   /** 座る・立つ（読んだら false にもどす） */
   sit: false,
+  /** ホバースクーターに乗る・降りる（読んだら false にもどす） */
+  ride: false,
   /** カメラの距離を変えたぶん（ホイール。+ で遠く） */
   zoom: 0,
   /** スマホのスティック（-1..1） */
@@ -126,7 +137,7 @@ export const walkInput = {
 }
 
 export function resetWalkInput() {
-  Object.assign(walkInput, { fwd: 0, right: 0, lookX: 0, lookY: 0, jump: false, sit: false, zoom: 0, stickX: 0, stickY: 0, shift: false })
+  Object.assign(walkInput, { fwd: 0, right: 0, lookX: 0, lookY: 0, jump: false, sit: false, ride: false, zoom: 0, stickX: 0, stickY: 0, shift: false })
   keys.clear()
 }
 
@@ -143,7 +154,7 @@ const HOLD_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown
 
 export const toggleWalkView = () => useWalk.setState({ view: useWalk.getState().view === 'chase' ? 'eye' : 'chase' })
 
-/** キーボード：WASD/矢印 歩く・Shift 走る・スペース ジャンプ・E 座る/立つ・V 見方・J/Esc 船へもどる・マウス 向き・ホイール 距離 */
+/** キーボード：WASD/矢印 歩く・Shift 走る・スペース ジャンプ・E 座る/立つ・F ホバースクーター・V 見方・J/Esc 船へもどる・マウス 向き・ホイール 距離 */
 export function bindWalkKeys() {
   const down = (e: KeyboardEvent) => {
     if (useWalk.getState().phase !== 'walk') return
@@ -158,6 +169,11 @@ export function bindWalkKeys() {
     if (e.code === 'KeyE') {
       e.stopPropagation()
       if (!e.repeat) walkInput.sit = true
+      return
+    }
+    if (e.code === 'KeyF') {
+      e.stopPropagation()
+      if (!e.repeat) walkInput.ride = true
       return
     }
     if (e.code === 'KeyV') {

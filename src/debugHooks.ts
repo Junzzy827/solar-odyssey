@@ -2,6 +2,7 @@ import { useHistoric } from './state/historic'
 import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
+import { POND } from './components/walk/park'
 import { flightControl, ship, thrustFx, warpFx } from './state/flight'
 import { bodies, markerOverride, beamTargets, ports, sim } from './state/registry'
 import { useRace } from './state/race'
@@ -55,6 +56,7 @@ const sv = {
     walker,
     mobs: mobDebug,
     debug: walkDebug,
+    pond: POND,
     start: (id = 'colony', name = 'Colony') => {
       colonyWalk.inside = { id, name: () => name }
       startWalk()
