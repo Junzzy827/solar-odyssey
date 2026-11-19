@@ -102,6 +102,11 @@ for (const name of wanted.length ? wanted : Object.keys(SCENARIOS)) {
   const page = await ctx.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))
+  // 起動しなかったときの手がかり（コンソールのエラーと警告）
+  const consoleLines = []
+  page.on('console', (m) => {
+    if ((m.type() === 'error' || m.type() === 'warning') && consoleLines.length < 12) consoleLines.push(`${m.type()}: ${m.text().slice(0, 200)}`)
+  })
   try {
     await page.goto(`http://localhost:${port}/${sc.hash}`)
     await page.waitForFunction(() => !document.getElementById('boot'), null, { timeout: 240000, polling: 500 })
@@ -114,6 +119,16 @@ for (const name of wanted.length ? wanted : Object.keys(SCENARIOS)) {
   } catch (e) {
     failures.push(name)
     console.log(`FAIL ${name}: ${e.message.split('\n')[0]}`)
+    const state = await page
+      .evaluate(() => {
+        const c = document.createElement('canvas')
+        const gl = c.getContext('webgl2')
+        const info = gl?.getExtension('WEBGL_debug_renderer_info')
+        return { boot: document.querySelector('.boot-text')?.textContent ?? '(boot screen gone)', webgl2: !!gl, renderer: gl ? String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : null }
+      })
+      .catch((err) => ({ evalFailed: String(err).slice(0, 200) }))
+    console.log(`     state: ${JSON.stringify(state)}`)
+    for (const l of consoleLines) console.log(`     ${l}`)
     await page.screenshot({ path: join(outDir, `${name}${useFirefox ? '-firefox' : ''}-fail.png`) }).catch(() => {})
   }
   await ctx.close()
