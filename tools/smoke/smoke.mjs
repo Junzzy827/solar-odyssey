@@ -87,7 +87,8 @@ await mkdir(outDir, { recursive: true })
 const server = await serve(DIST)
 const port = server.address().port
 const browser = useFirefox
-  ? await firefox.launch({ firefoxUserPrefs: { 'webgl.force-enabled': true, 'webgl.disabled': false } })
+  ? // ヘッドレスの Firefox は GL を作れないので、CI では仮想画面（xvfb-run）で窓を出して Mesa のソフト描画を使う
+    await firefox.launch({ headless: !process.env.DISPLAY, firefoxUserPrefs: { 'webgl.force-enabled': true, 'webgl.disabled': false } })
   : await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] })
 const failures = []
 for (const name of wanted.length ? wanted : Object.keys(SCENARIOS)) {
