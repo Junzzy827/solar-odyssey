@@ -305,7 +305,8 @@ function Player() {
       }
       if (st.wantOff && Math.abs(st.spd) < 2) dismount()
       // ホップ（スペース・ジャンプのボタン）
-      if (walkInput.jump && st.onDeck && st.hop <= 0.001) st.hopV = 3.2
+      // 初速 4.5 m/s で、高さ約 1 m（v² / 2g）
+      if (walkInput.jump && st.onDeck && st.hop <= 0.001) st.hopV = 4.5
       walkInput.jump = false
       st.hopV -= GRAVITY * dt
       st.hop = Math.max(0, st.hop + st.hopV * dt)
