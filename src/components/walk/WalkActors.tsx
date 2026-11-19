@@ -8,7 +8,8 @@ import { seeded } from '../sf/batch'
 import { CREW_LOOK, Mannequin, randomLook, type Age, type Motion, type Person } from './figure'
 import { PLAYER_MODEL, PLAYER_SCALE, VrmPerson, prepareVrmPeople } from './vrmPeople'
 import { DECK_TOP, HoverScooter, RIDER_Z } from './hoverScooter'
-import { BOUNDS, G, GROUND_LIFT, LOOP, NS_S, PLAY, POND, STREETS, STREET_W, WALK_W, frameAt, landPoint, loopPoint, parkLayout, pondValue, pushOutOfBoxes, upAt, type Bench } from './park'
+import { JUNGLE, inJungle } from './jungle'
+import { BOUNDS, G, GROUND_LIFT, LOOP, NS_S, PLAY, POND, STREETS, STREET_W, WALK_W, frameAt, landPoint, loopPoint, parkLayout, pondValue, pushOutOfBoxes, clampWalk, inTown, upAt, type Bench } from './park'
 
 // 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
 // 人の形は Person（figure.ts）。読み込むまでは仮の人形で、読めたら VRM の人（vrmPeople.ts、MakeHuman 製）と Mixamo の動きに差し替える。
@@ -82,8 +83,7 @@ function collide(p: { s: number; y: number }, r: number, pond = true) {
     p.s = POND.s + (p.s - POND.s) * f
     p.y = POND.y + (p.y - POND.y) * f
   }
-  p.s = Math.min(BOUNDS.s1, Math.max(BOUNDS.s0, p.s))
-  p.y = Math.min(BOUNDS.y1, Math.max(BOUNDS.y0, p.y))
+  clampWalk(p)
 }
 
 function Player() {
@@ -415,6 +415,9 @@ function Player() {
     if (!deckPlaced) placePerson(st.me, walker.s, walker.y, walker.h, st.body)
     st.me.pose(motion, st.phase, dt, st.speed)
     landPoint(walker.s, walker.y, walker.h, walker.pos)
+    // 左上の場所の名前
+    const area = inJungle(walker.s, walker.y) ? 'jungle' : inTown(walker.s, walker.y) ? 'town' : 'park'
+    if (area !== useWalk.getState().area) useWalk.setState({ area })
     walker.speed = riding ? Math.abs(st.spd) : st.speed
 
     // 近くのベンチ（座るボタンを出す）
@@ -556,7 +559,7 @@ function Mobs() {
     // 南北の道を行き来する人（公園の中）
     for (let i = 0; i < n(4); i++) {
       const m = make('path', rand() < 0.2 ? 'elder' : 'adult')
-      Object.assign(m, { ax: 'y', c: NS_S, a0: 11280, a1: BOUNDS.y1 - 15 })
+      Object.assign(m, { ax: 'y', c: NS_S, a0: 11280, a1: JUNGLE.y1 - 12 })
       m.y = m.a0 + rand() * (m.a1 - m.a0)
       m.speed = 1.0 + rand() * 0.6
       list.push(m)

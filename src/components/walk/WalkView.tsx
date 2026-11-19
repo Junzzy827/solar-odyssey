@@ -90,6 +90,7 @@ function WalkPanel() {
   const run = useWalk((w) => w.run)
   const riding = useWalk((w) => w.riding)
   const waterNote = useWalk((w) => w.waterNote)
+  const area = useWalk((w) => w.area)
   const day = useDayWord()
   useEffect(() => bindWalkKeys(), [])
   // 降りたときのお知らせ（しばらくして消す）
@@ -103,7 +104,7 @@ function WalkPanel() {
     <div className="walk-ui">
       <div className="walk-badge">
         <b>{name}</b>
-        {ui().walk.park}
+        {ui().walk[area]}
         <br />
         <small>
           {ui().walk.gravity} · {ui().walk[day]}

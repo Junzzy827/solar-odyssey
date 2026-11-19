@@ -7,6 +7,8 @@ import { Batch, place, seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { EW_END, EW_Y, FADE, G, GROUND_LIFT, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, STREETS, STREET_W, frameAt, inBoundsTree, landPoint, parkLayout, streetRect, upAt } from './park'
 import { WalkTown } from './WalkTown'
+import { WalkJungle } from './WalkJungle'
+import { JUNGLE, TRAIL_W, jungleLayout } from './jungle'
 
 // コロニーの中を歩く場面の、動かないもの：遠くのコロニー全体（宇宙の場面の形を 1/M 倍）、
 // 公園の地面・池・木・ベンチ・街灯・遊具・噴水、空気のかすみ、昼と夜の光。
@@ -95,6 +97,13 @@ function maskCanvases() {
   a.g.stroke()
   a.g.beginPath()
   a.g.ellipse(X(LOOP.s), Yc(LOOP.y), LOOP.rs * k, LOOP.ry * k, 0, 0, Math.PI * 2)
+  a.g.stroke()
+  // ジャングルの中の小道（輪）
+  a.g.lineWidth = TRAIL_W * k
+  a.g.lineJoin = 'round'
+  a.g.beginPath()
+  jungleLayout().trail.forEach((p, i) => (i ? a.g.lineTo(X(p.s), Yc(p.y)) : a.g.moveTo(X(p.s), Yc(p.y))))
+  a.g.closePath()
   a.g.stroke()
   // 石畳（G）：広場と大通りの歩道。広場は小道を消して上書き
   a.g.globalCompositeOperation = 'source-over'
@@ -214,6 +223,8 @@ function Ground() {
       // 芝生を刈りそろえた緑に寄せる色（線形）
       uLawn: { value: new THREE.Color('#4f8a38').convertSRGBToLinear() },
       uFade: { value: new THREE.Vector2(FADE / size.x, FADE / size.y) },
+      // ジャングルの範囲（地面の板の上の m）。中は落ち葉と苔の、暗い土の床にする
+      uJungle: { value: new THREE.Vector4(JUNGLE.s0 - PATCH.s0, JUNGLE.y0 - PATCH.y0, JUNGLE.s1 - PATCH.s0, JUNGLE.y1 - PATCH.y0) },
     }
     mat.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms)
@@ -231,7 +242,8 @@ uniform sampler2D uShore;
 uniform sampler2D uAsphalt;
 uniform vec2 uSize;
 uniform vec3 uLawn;
-uniform vec2 uFade;`,
+uniform vec2 uFade;
+uniform vec4 uJungle;`,
         )
         .replace(
           '#include <map_fragment>',
@@ -246,6 +258,12 @@ vec3 g2 = texture2D(uGrass, wp / ${(TILE.grass * 3.7).toFixed(1)} + 0.21).rgb;
 vec3 gr = mix(g1, g2, 0.35);
 float lum = dot(gr, vec3(0.3, 0.59, 0.11));
 vec3 col = mix(gr, uLawn * lum / 0.265, 0.75) * (0.75 + n2 * 0.55);
+// ジャングルの床：暗い土に、苔のまだら（ふちは少しはみ出してぼかす）
+float jd = min(min(wp.x - uJungle.x, uJungle.z - wp.x), min(wp.y - uJungle.y, uJungle.w - wp.y));
+float wJ = smoothstep(-4.0, 5.0, jd + (n2 - 0.6) * 10.0);
+vec3 soil = texture2D(uPath, wp / 2.2).rgb * vec3(0.42, 0.34, 0.26);
+vec3 moss = col * vec3(0.5, 0.68, 0.42);
+col = mix(col, mix(soil, moss, smoothstep(0.45, 0.85, n1 * 0.7 + n2 * 0.45)), wJ);
 // 境目をまだらで崩す
 float edge = (n1 - 0.67) * 0.9;
 float wPath = clamp(mA.r + edge * mA.r * (1.0 - mA.r) * 4.0, 0.0, 1.0);
@@ -254,7 +272,7 @@ float wSand = clamp(mA.b + edge * mA.b * (1.0 - mA.b) * 4.0, 0.0, 1.0);
 float wAsph = smoothstep(0.3, 0.7, mB.r);
 float wShore = clamp(mB.g + edge * mB.g * (1.0 - mB.g) * 4.0, 0.0, 1.0);
 col = mix(col, texture2D(uShore, wp / ${TILE.shore.toFixed(1)}).rgb, wShore);
-col = mix(col, texture2D(uPath, wp / ${TILE.path.toFixed(1)}).rgb * 1.05, wPath);
+col = mix(col, texture2D(uPath, wp / ${TILE.path.toFixed(1)}).rgb * mix(1.05, 0.7, wJ), wPath);
 col = mix(col, texture2D(uSand, wp / ${TILE.sand.toFixed(1)}).rgb * 1.35, wSand);
 col = mix(col, texture2D(uPaving, wp / ${TILE.paving.toFixed(1)}).rgb * 1.6, wPave);
 col = mix(col, texture2D(uAsphalt, wp / ${TILE.asphalt.toFixed(1)}).rgb, wAsph);
@@ -264,7 +282,7 @@ vec2 e = min(vMapUv, 1.0 - vMapUv) / uFade;
 diffuseColor.a *= smoothstep(0.0, 1.0, min(e.x, e.y));`,
         )
     }
-    mat.customProgramCacheKey = () => 'walk-ground-2'
+    mat.customProgramCacheKey = () => 'walk-ground-3'
     mat.userData.maskB = masks.b
     // 池の水：楕円の網（中心から外へ）
     const ring = 40
@@ -791,6 +809,7 @@ export function WalkWorld({ follow }: { follow: { current: THREE.Vector3 } }) {
       <Furniture />
       <PlayAndPlaza />
       <WalkTown />
+      <WalkJungle />
     </>
   )
 }
