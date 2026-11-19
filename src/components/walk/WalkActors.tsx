@@ -8,7 +8,7 @@ import { seeded } from '../sf/batch'
 import { CREW_LOOK, Mannequin, randomLook, type Age, type Motion, type Person } from './figure'
 import { PLAYER_MODEL, PLAYER_SCALE, VrmPerson, prepareVrmPeople } from './vrmPeople'
 import { DECK_TOP, HoverScooter, RIDER_Z } from './hoverScooter'
-import { BOUNDS, G, GROUND_LIFT, LOOP, NS_S, PLAY, POND, frameAt, landPoint, loopPoint, parkLayout, pondValue, upAt, type Bench } from './park'
+import { BOUNDS, G, GROUND_LIFT, LOOP, NS_S, PLAY, POND, STREETS, STREET_W, WALK_W, frameAt, landPoint, loopPoint, parkLayout, pondValue, pushOutOfBoxes, upAt, type Bench } from './park'
 
 // 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
 // 人の形は Person（figure.ts）。読み込むまでは仮の人形で、読めたら VRM の人（vrmPeople.ts、MakeHuman 製）と Mixamo の動きに差し替える。
@@ -34,6 +34,10 @@ const turn = (from: number, to: number, k: number) => from + wrap(to - from) * M
 
 /** 降りた所：南北の道の上、遊び場と池を右前に見る */
 const START = { s: NS_S + 2, y: 11285, yaw: -2.2 }
+
+/** 池の散歩道のうち、公園の中にある所（西の岸）の角度。この間を行き来する */
+const LOOP_T0 = Math.PI + Math.asin((LOOP.y - BOUNDS.y1 + 12) / LOOP.ry)
+const LOOP_T1 = Math.PI + Math.asin((LOOP.y - 11285) / LOOP.ry)
 
 /** この距離 m より近い人は、こちらの顔を見る */
 const LOOK_DIST = 4.5
@@ -69,6 +73,8 @@ function collide(p: { s: number; y: number }, r: number, pond = true) {
       p.y = o.y + (dy / d) * min
     }
   }
+  // 家・塀・生け垣
+  pushOutOfBoxes(p, r)
   // 池には入らない（岸の砂利まで）
   const k = pond ? pondValue(p.s, p.y, 1.5) : 2
   if (k < 1) {
@@ -489,6 +495,12 @@ type Mob = {
   t: number
   dir: number
   lane: number
+  /** 道を行き来する人：ax の向きに、a0〜a1 の間を歩く（ax = 'y' なら s = c + off の上） */
+  ax: 's' | 'y'
+  c: number
+  off: number
+  a0: number
+  a1: number
   /** 子ども：行き先と、止まっている時間 */
   ts: number
   ty: number
@@ -522,25 +534,42 @@ function Mobs() {
       t: rand() * Math.PI * 2,
       dir: rand() < 0.5 ? 1 : -1,
       lane: (rand() - 0.5) * 2.4,
+      ax: 'y',
+      c: NS_S,
+      off: 0,
+      a0: 0,
+      a1: 0,
       ts: PLAY.s,
       ty: PLAY.y,
       wait: rand() * 2,
       jump: 0,
       motion: 'idle',
     })
-    // 池のまわりを散歩する人：西の岸（自分の近く）に多めに
-    for (let i = 0; i < n(12); i++) {
+    // 池のまわりを散歩する人：公園の中の西の岸（LOOP_T0〜LOOP_T1）を行き来する
+    for (let i = 0; i < n(9); i++) {
       const m = make('loop', rand() < 0.25 ? 'elder' : rand() < 0.15 ? 'child' : 'adult')
-      m.t = Math.PI * (0.55 + rand() * 0.9)
+      m.t = LOOP_T0 + rand() * (LOOP_T1 - LOOP_T0)
       m.speed = m.p instanceof Mannequin ? 1.1 + rand() * 0.5 : 1.3
       list.push(m)
     }
-    // 南北の道を行き来する人
-    for (let i = 0; i < n(5); i++) {
+    // 南北の道を行き来する人（公園の中）
+    for (let i = 0; i < n(4); i++) {
       const m = make('path', rand() < 0.2 ? 'elder' : 'adult')
-      m.y = 11000 + rand() * 1100
-      m.s = NS_S + m.lane * 0.6
+      Object.assign(m, { ax: 'y', c: NS_S, a0: 11280, a1: BOUNDS.y1 - 15 })
+      m.y = m.a0 + rand() * (m.a1 - m.a0)
       m.speed = 1.0 + rand() * 0.6
+      list.push(m)
+    }
+    // 住宅街の歩道を行き来する人（自分の側の歩道のまま、端で引き返す）
+    const walkable = STREETS.filter((st) => st.a1 - st.a0 > 150)
+    for (let i = 0; i < n(7); i++) {
+      const st = walkable[i % walkable.length]
+      const m = make('path', rand() < 0.25 ? 'elder' : rand() < 0.15 ? 'child' : 'adult')
+      Object.assign(m, { ax: st.ax, c: st.c, off: (rand() < 0.5 ? -1 : 1) * (STREET_W / 2 + WALK_W * 0.3), a0: st.a0 + 8, a1: st.a1 - 8 })
+      const a = m.a0 + rand() * (m.a1 - m.a0)
+      if (m.ax === 'y') m.y = a
+      else m.s = a
+      m.speed = 1.0 + rand() * 0.5
       list.push(m)
     }
     // 遊び場の子どもたち
@@ -571,10 +600,24 @@ function Mobs() {
       m.yaw = Math.atan2(Math.cos(a), Math.sin(a))
       list.push(m)
     }
+    // 住宅街で、門の前の立ち話
+    const town = park.town
+    for (let g = 0; g < n(2); g++) {
+      const gate = town.gates[Math.floor(rand() * town.gates.length)]
+      for (const k of [-1, 1]) {
+        const m = make('chat', rand() < 0.4 ? 'elder' : 'adult')
+        // 道に沿って向かい合う
+        const along = gate.ax === 'y' ? { s: 0, y: 1 } : { s: 1, y: 0 }
+        m.s = gate.s + along.s * k * 0.45
+        m.y = gate.y + along.y * k * 0.45
+        m.yaw = Math.atan2(along.s * k, along.y * k)
+        list.push(m)
+      }
+    }
     // 池のほとりの芝生に座る人（VRM の人が読めてから出す）
     for (let i = 0; i < n(5); i++) {
       const m = make('lawn', rand() < 0.3 ? 'child' : rand() < 0.4 ? 'elder' : 'adult')
-      const t = Math.PI * (0.62 + i * 0.17 + rand() * 0.05)
+      const t = LOOP_T0 + (LOOP_T1 - LOOP_T0) * ((i + 0.3 + rand() * 0.4) / 5)
       const ox = Math.cos(t)
       const oy = Math.sin(t)
       // 散歩道の外側の芝生（道の中心から 7〜9 m）。池を向く
@@ -627,6 +670,9 @@ function Mobs() {
         const b = loopPoint(m.t + 0.001 * m.dir)
         const step = Math.hypot(b.s - a.s, b.y - a.y) / 0.001
         m.t += (m.speed * dt * m.dir) / step
+        // 公園の端（生け垣）で引き返す
+        if (m.t > LOOP_T1) m.dir = -1
+        if (m.t < LOOP_T0) m.dir = 1
         const p = loopPoint(m.t)
         const q = loopPoint(m.t + 0.002 * m.dir)
         const ds = q.s - p.s
@@ -639,11 +685,21 @@ function Mobs() {
         m.motion = 'walk'
         m.phase += dt * (m.speed / 0.62) * Math.PI
       } else if (m.kind === 'path') {
-        m.y += m.dir * m.speed * dt
-        if (m.y > BOUNDS.y1 - 20) m.dir = -1
-        if (m.y < BOUNDS.y0 + 20) m.dir = 1
-        m.s = NS_S + m.dir * 0.9
-        m.yaw = m.dir > 0 ? Math.PI : 0
+        // ax の向きに進む。公園の小道は右側を、住宅街は決めた側の歩道を歩く
+        const off = m.off || m.dir * 0.9
+        if (m.ax === 'y') {
+          m.y += m.dir * m.speed * dt
+          if (m.y > m.a1) m.dir = -1
+          if (m.y < m.a0) m.dir = 1
+          m.s = m.c + off
+          m.yaw = m.dir > 0 ? Math.PI : 0
+        } else {
+          m.s += m.dir * m.speed * dt
+          if (m.s > m.a1) m.dir = -1
+          if (m.s < m.a0) m.dir = 1
+          m.y = m.c - off
+          m.yaw = m.dir > 0 ? -Math.PI / 2 : Math.PI / 2
+        }
         m.motion = 'walk'
         m.phase += dt * (m.speed / 0.62) * Math.PI
       } else if (m.kind === 'kid') {
