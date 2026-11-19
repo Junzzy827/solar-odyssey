@@ -18,7 +18,7 @@ const PREPARE_LIMIT = 10
 const SETTLE = 3
 
 /** 後処理（PostFx）を通して描く画質か。通すときは、場面を画面ではなく描画先（テクスチャ）に描くので、材質のシェーダーも別物になる */
-function drawsThroughPostFx(level: Level) {
+export function drawsThroughPostFx(level: Level) {
   const fx = useStore.getState().settings.fx
   return QUALITY[level].bloom && (fx.bloom || fx.ao || fx.film)
 }
