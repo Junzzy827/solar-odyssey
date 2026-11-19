@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { PLANETS } from './data/bodies'
@@ -19,7 +20,6 @@ import { TargetMarker } from './components/TargetMarker'
 import { Phaser } from './components/Phaser'
 import { ChargeBeam } from './components/ChargeBeam'
 import { BeamGauge } from './ui/BeamGauge'
-import { SFWorld } from './components/sf/SFWorld'
 import { SFBoundary } from './components/sf/SFBoundary'
 import { useSF } from './data/sf'
 import { SFBadge } from './ui/SFBadge'
@@ -35,7 +35,7 @@ import { NavPanel } from './ui/NavPanel'
 import { LogPanel } from './ui/LogPanel'
 import { TelescopeView } from './ui/TelescopeView'
 import { useLayout } from './state/useLayout'
-import { dprFor, useLevel } from './state/quality'
+import { useDpr } from './state/quality'
 import { QualityGovernor } from './components/QualityGovernor'
 import { GalleryCamera } from './components/ship/GalleryCamera'
 import { GalleryPanel } from './ui/GalleryPanel'
@@ -60,16 +60,17 @@ import { StampBook } from './ui/StampBook'
 import { RockBook } from './ui/RockBook'
 import { HistoricBook } from './ui/HistoricBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
-import { SurfaceView } from './components/surface/SurfaceView'
 import { SurfaceMemory } from './components/SurfaceMemory'
 import { useLanding } from './state/landing'
 import { BridgePanel } from './ui/BridgePanel'
 import { BridgeLabels } from './ui/BridgeLabels'
 import { PhotoNote } from './ui/PhotoNote'
-import { EvaView } from './components/eva/EvaView'
 import { evaScene, useEva } from './state/eva'
-import { WalkView } from './components/walk/WalkView'
+import { LazyScenes } from './ui/LazyScenes'
 import { useWalk, walkScene } from './state/walk'
+
+// SF の世界の船や構造物は、SF モードにしたときに読み込む（現実の世界だけで遊ぶときは読まない）
+const SFWorld = lazy(() => import('./components/sf/SFWorld').then((m) => ({ default: m.SFWorld })))
 
 /** 全体マップの視点。距離のスライダーで太陽系を広げたら、そのぶん遠くまで引ける */
 function MapControls() {
@@ -86,7 +87,7 @@ export default function App() {
   const eclipseView = useEclipse((e) => e.open && e.eclipseId !== null)
   useGlobalKeys()
   useThrottleWheel()
-  const level = useLevel()
+  const dpr = useDpr()
   // 地表にいるあいだは、宇宙の場面を止める（暗転している最中は動かしておく）
   const onLand = useLanding((l) => l.phase === 'descent' || l.phase === 'surface' || l.phase === 'ascent')
   // 船外活動のあいだも同じく止める
@@ -100,7 +101,7 @@ export default function App() {
   // 下に残った宇宙の絵が透けて「チラッ」と映ってしまうため。
   return (
     <>
-      <Canvas frameloop={onSurface ? 'never' : 'always'} style={{ visibility: onSurface ? 'hidden' : 'visible' }} shadows="percentage" dpr={dprFor(level)} camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
+      <Canvas frameloop={onSurface ? 'never' : 'always'} style={{ visibility: onSurface ? 'hidden' : 'visible' }} shadows="percentage" dpr={dpr} camera={{ position: [0, 120, 220], fov: 50, near: 0.01, far: 200_000 }} gl={{ logarithmicDepthBuffer: true }}>
         <SimClock />
         <QualityGovernor />
         <SpaceLighting />
@@ -115,7 +116,9 @@ export default function App() {
         {sf && (
           <SFBoundary>
             <StructureLook>
-              <SFWorld />
+              <Suspense fallback={null}>
+                <SFWorld />
+              </Suspense>
             </StructureLook>
           </SFBoundary>
         )}
@@ -168,9 +171,7 @@ export default function App() {
       <ScaleBadge />
       <PhotoNote />
       <ContextLost />
-      <SurfaceView />
-      <EvaView />
-      <WalkView />
+      <LazyScenes />
       <RockBook />
       <HistoricBook />
       <LabelDeclutter />

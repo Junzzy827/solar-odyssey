@@ -8,7 +8,7 @@ import { textureUrl } from '../../data/textures'
 import { PLANETS } from '../../data/bodies'
 import { useOptionalTexture } from '../../hooks/useOptionalTexture'
 import { haloTexture } from '../ship/ShipModel'
-import { currentLevel, dprFor, lowMemory, useLevel } from '../../state/quality'
+import { currentLevel, lowMemory, useDpr, useLevel } from '../../state/quality'
 import { ASCENT, DESCENT, FADE, goToSite, landingNow, skipDescent, startTakeoff, surfaceReady, useLanding } from '../../state/landing'
 import { goToRally, trackAt, useRally, useRallyTrack } from '../../state/rally'
 import { trackForBody } from '../../data/rallyTracks'
@@ -1709,12 +1709,12 @@ function WhenReady() {
  * 影は PCF（three.js にはもう PCFSoft がなく、指定すると毎回 PCF に置き換えて作り直す）
  */
 const SurfaceCanvas = memo(function SurfaceCanvas({ def }: { def: SurfaceDef }) {
-  const level = useLevel()
+  const dpr = useDpr(1.75)
   return (
     // 画面の細かさは画質の設定にあわせる（スマホは「標準」なので 1.25 倍まで）
     // 背景を不透明で塗る（alpha: false）。透明のままだと、描けなかったフレームから後ろが透けて見える。
     // three.js は alpha: false でも透明にできる画面を作るので、後ろは .surface-view.solid の黒でも塞いでいる
-    <Canvas shadows="percentage" dpr={Math.min(dprFor(level), 1.75)} gl={{ alpha: false }} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
+    <Canvas shadows="percentage" dpr={dpr} gl={{ alpha: false }} camera={{ fov: 60, near: 0.3, far: SKY_R * 1.2, position: [0, EYE, 0] }}>
       <Scene def={def} />
       <QualityGovernor />
       <SurfacePost bodyId={def.id} />

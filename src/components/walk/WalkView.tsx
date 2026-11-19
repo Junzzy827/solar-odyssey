@@ -1,6 +1,6 @@
 import { Suspense, memo, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { dprFor, useLevel } from '../../state/quality'
+import { useDpr } from '../../state/quality'
 import { QualityGovernor } from '../QualityGovernor'
 import { useLang } from '../../i18n/lang'
 import { ui } from '../../i18n'
@@ -13,9 +13,9 @@ import { WalkActors, walker } from './WalkActors'
 // コロニーの中を歩く場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 
 const WalkCanvas = memo(function WalkCanvas() {
-  const level = useLevel()
+  const dpr = useDpr(1.75)
   return (
-    <Canvas shadows="percentage" dpr={Math.min(dprFor(level), 1.75)} gl={{ alpha: false, logarithmicDepthBuffer: true }} camera={{ fov: 62, near: 0.08, far: 60000 }}>
+    <Canvas shadows="percentage" dpr={dpr} gl={{ alpha: false, logarithmicDepthBuffer: true }} camera={{ fov: 62, near: 0.08, far: 60000 }}>
       <Suspense fallback={null}>
         <WalkWorld follow={{ current: walker.pos }} />
         <WalkActors />

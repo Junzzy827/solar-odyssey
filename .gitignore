@@ -4,3 +4,5 @@ dist
 .venv
 __pycache__/
 tools/mobs/.rocketbox_stage/
+smoke-shots
+smoke-shots-firefox

@@ -92,7 +92,7 @@ button:disabled {
 
 .mode-button {
   position: fixed;
-  left: 50%;
+  left: var(--dock-center);
   bottom: 24px;
   transform: translateX(-50%);
   padding: 10px 24px;
@@ -1013,8 +1013,8 @@ button:disabled {
 
 .scope-prompt {
   position: fixed;
-  left: 50%;
-  bottom: 74px;
+  left: var(--dock-center);
+  bottom: 120px;
   transform: translateX(-50%);
   padding: 8px 20px;
   border: 1px solid rgba(242, 166, 90, 0.7);
@@ -1255,7 +1255,7 @@ button:disabled {
 /* 鑑賞モード */
 .gallery-button {
   position: fixed;
-  left: calc(50% + 96px);
+  left: calc(var(--dock-center) + 96px);
   bottom: 24px;
   padding: 10px 18px;
   border: 1px solid rgba(242, 166, 90, 0.7);
@@ -1266,7 +1266,7 @@ button:disabled {
 
 .bridge-button {
   position: fixed;
-  right: calc(50% + 96px);
+  right: calc(100% - var(--dock-center) + 96px);
   bottom: 24px;
   padding: 10px 18px;
   border: 1px solid rgba(95, 211, 230, 0.7);
@@ -1289,7 +1289,7 @@ button:disabled {
 /* 船外活動（ブリッジのボタンの上）：ボタン一つでツムギを出す */
 .eva-button {
   position: fixed;
-  right: calc(50% + 96px);
+  right: calc(100% - var(--dock-center) + 96px);
   bottom: 72px;
   padding: 10px 18px;
   border: 1px solid rgba(120, 220, 200, 0.75);
@@ -1305,7 +1305,7 @@ button:disabled {
 /* アルカディアの「着陸船を発進」（船を眺めるボタンの上） */
 .launch-button {
   position: fixed;
-  left: calc(50% + 96px);
+  left: calc(var(--dock-center) + 96px);
   bottom: 72px;
   padding: 10px 18px;
   border: 1px solid rgba(110, 170, 255, 0.75);
@@ -2625,6 +2625,16 @@ canvas {
 /* SF モード：差し色を紫にして、画面の縁と右上の札で、本物の太陽系のモードと見分けられるようにする */
 :root {
   --accent: #f2a65a;
+  /* 画面下の操作ボタン（マップ・ブリッジ・発進など）の並びのまん中 */
+  --dock-center: 50%;
+}
+
+/* 幅が狭めのパソコン（960px ほど）では、右の航法パネル（幅 230px＋余白）にボタンが隠れるので、
+   ボタンの並びをパネルの左の空いた所のまん中に寄せる */
+@media (min-width: 721px) and (max-width: 1180px) {
+  :root {
+    --dock-center: calc((100% - 262px) / 2);
+  }
 }
 
 body.sf {
@@ -3334,7 +3344,7 @@ body.sf .nav-panel {
 /* ---- 惑星への着陸 ---- */
 .land-prompt {
   position: fixed;
-  left: 50%;
+  left: var(--dock-center);
   bottom: 118px;
   transform: translateX(-50%);
   padding: 8px 20px;
