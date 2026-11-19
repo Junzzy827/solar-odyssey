@@ -1538,4 +1538,3 @@ export function Rover({
   )
 }
 
-useGLTF.preload(url('rover-orv7.glb'))
