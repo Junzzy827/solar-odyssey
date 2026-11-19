@@ -4,6 +4,8 @@ import type { Translation } from './translation'
 
 export const walkEn: Translation<typeof walkJa> = {
   park: 'Park by the pond',
+  town: 'Houses by the park',
+  jungle: 'Lab jungle (trial)',
   gravity: '1 g from the spin',
   day: 'Day',
   dusk: 'Dusk',

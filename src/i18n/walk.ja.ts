@@ -2,6 +2,8 @@
 
 export const walkJa = {
   park: '池のほとりの公園',
+  town: '公園のそばの住宅街',
+  jungle: 'ラボの森（お試しのジャングル）',
   gravity: '回転の遠心力で 1G',
   day: '昼',
   dusk: '夕方',

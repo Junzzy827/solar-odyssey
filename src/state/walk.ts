@@ -39,6 +39,8 @@ type WalkState = {
   riding: boolean
   /** 水の上で降りようとした時刻（お知らせを少し出す） */
   waterNote: number
+  /** 今いる所（左上の名前） */
+  area: 'park' | 'town' | 'jungle'
 }
 
 export const walkNow = () => performance.now() / 1000
@@ -54,6 +56,7 @@ export const useWalk = create<WalkState>(() => ({
   benchNear: false,
   riding: false,
   waterNote: 0,
+  area: 'park',
 }))
 
 /** 歩く場面を出している（宇宙の場面は止める） */

@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { COLONY_LENGTH, COLONY_RADIUS } from '../../data/sf'
 import { AVENUE, M, cityPlan, type Tree } from '../sf/colonyCity'
 import { seeded } from '../sf/batch'
+import { JUNGLE, inJungle, jungleLayout } from './jungle'
 
 // コロニーの中を歩く場面の公園（1 本目の大地の帯の、公園の区画の池のそば）。
 // 座標はメートル。コロニーの軸は +Y（太陽向き）で、宇宙の場面のコロニーの形（ColonyModel）を 1/M 倍して重ねる。
@@ -172,9 +173,10 @@ export function parkLayout(): Park {
     Math.hypot(s - PLAZA.s, y - PLAZA.y) > PLAZA.r + r + 2 &&
     Math.hypot(s - PLAY.s, y - PLAY.y) > PLAY.r + r + 4 &&
     Math.abs(s) > AVENUE - 10 &&
-    !inTown(s, y, r + 2)
+    !inTown(s, y, r + 2) &&
+    !inJungle(s, y, r + 4)
   const trees: Tree[] = []
-  for (const t of plan.trees) if (inBoundsTree(t) && (Math.abs(t.s) > AVENUE - 10 ? free(t.s, t.y, 2) : !inTown(t.s, t.y, 2))) trees.push(t)
+  for (const t of plan.trees) if (inBoundsTree(t) && !inJungle(t.s, t.y, 4) && (Math.abs(t.s) > AVENUE - 10 ? free(t.s, t.y, 2) : !inTown(t.s, t.y, 2))) trees.push(t)
   const colors = [0x3f6a36, 0x4a7a3c, 0x365d30, 0x55803f, 0x2f5530, 0x5b7f34, 0x6a8a3a]
   // 木立のかたまり：公園の中に多め（芝生が広く空きすぎないように）と、生け垣の外の見える所
   const PARK_RECT = { s0: 201, s1: BOUNDS.s1, y0: 11267, y1: BOUNDS.y1 }
@@ -206,6 +208,8 @@ export function parkLayout(): Park {
     obstacles.push({ s: l.s, y: l.y, r: 0.25 })
   }
   for (const t of trees) obstacles.push({ s: t.s, y: t.y, r: 0.35 + t.h * 0.015 })
+  // ジャングルの太い幹・キノコの柄など
+  obstacles.push(...jungleLayout().obstacles)
   park = { benches, lamps, trees, obstacles, town }
   return park
 }
@@ -421,7 +425,9 @@ export function townLayout(): Town {
   const north = BOUNDS.y1 + 0.6
   const east = BOUNDS.s1 + 0.6
   hedgeAlongY(BOUNDS.s0 - 0.5, BOUNDS.y0 - 1, BOUNDS.y1 + 1)
-  hedgeAlongS(north, BOUNDS.s0 - 0.9, shoreS(north))
+  // 北の生け垣は、ジャングルへ続く所をあける
+  hedgeAlongS(north, BOUNDS.s0 - 0.9, JUNGLE.s0 - 0.4)
+  hedgeAlongS(north, JUNGLE.s1 + 0.4, shoreS(north))
   hedgeAlongS(BOUNDS.y0 - 0.6, BOUNDS.s0 - 0.9, east + 0.4)
   hedgeAlongY(east, BOUNDS.y0 - 1, shoreY(east))
   // 池の上の端は、ブイを並べる
@@ -482,3 +488,20 @@ export function pushOutOfBoxes(p: Pt, r: number) {
     }
 }
 const seen = new Set<Rect>()
+
+/** 歩ける所（公園と住宅街の範囲、北のジャングル）の中へ戻す */
+export function clampWalk(p: Pt) {
+  if (inside(p, BOUNDS) || inside(p, JUNGLE)) return
+  let best: Pt | null = null
+  let bd = Infinity
+  for (const r of [BOUNDS, JUNGLE]) {
+    const q = { s: Math.min(r.s1, Math.max(r.s0, p.s)), y: Math.min(r.y1, Math.max(r.y0, p.y)) }
+    const d = Math.hypot(q.s - p.s, q.y - p.y)
+    if (d < bd) {
+      bd = d
+      best = q
+    }
+  }
+  p.s = best!.s
+  p.y = best!.y
+}
