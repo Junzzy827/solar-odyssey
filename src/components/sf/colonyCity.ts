@@ -421,10 +421,20 @@ export function buildingGeometry() {
   return (boxGeo ??= new THREE.BoxGeometry(1, 1, 1))
 }
 
+let treeLiteGeo: THREE.BufferGeometry | null = null
+
 /** 樹冠：少しつぶれた丸。上が明るく、下が暗い（頂点の色） */
 export function treeGeometry() {
-  if (treeGeo) return treeGeo
-  const g = new THREE.IcosahedronGeometry(0.5, 1)
+  return (treeGeo ??= crownGeometry(1))
+}
+
+/** 樹冠の粗い版（三角形 20 枚。細かい版の 4 分の 1）。コロニーの外から窓ごしに見るとき用 */
+export function treeLiteGeometry() {
+  return (treeLiteGeo ??= crownGeometry(0))
+}
+
+function crownGeometry(detail: number) {
+  const g = new THREE.IcosahedronGeometry(0.5, detail)
   g.translate(0, 0.1, 0)
   const p = g.attributes.position
   const c = new Float32Array(p.count * 3)
@@ -433,7 +443,7 @@ export function treeGeometry() {
     c[i * 3] = c[i * 3 + 1] = c[i * 3 + 2] = Math.min(1.1, v)
   }
   g.setAttribute('color', new THREE.BufferAttribute(c, 3))
-  return (treeGeo = g)
+  return g
 }
 
 /** 共有の配置（行列と色）を使う InstancedMesh。コロニーごとに 1 つ作るが、中身は共有 */

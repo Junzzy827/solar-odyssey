@@ -1,9 +1,9 @@
 import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { COLONY_LENGTH as L, COLONY_RADIUS as R } from '../../data/sf'
 import { WorkMech } from './WorkMech'
+import { roomEnvironment } from '../telescope/parts'
 
 // 建設中の2号基：骨組みだけの円筒に、作業機が外板を1枚ずつ取りつけている。
 // オニールの構想では、コロニーは2本1組で逆向きに回して、回転のくせ（こまのように向きを保とうとする力）を打ち消す。
@@ -20,9 +20,7 @@ export function ConstructionSite() {
   const { gl } = useThree()
   const parts = useMemo(() => {
     // 横から光が当たらなくても形がわかるよう、映り込みの環境を入れる
-    const pmrem = new THREE.PMREMGenerator(gl)
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-    pmrem.dispose()
+    const env = roomEnvironment(gl)
     return {
       ring: new THREE.TorusGeometry(R, 0.0016, 6, 96),
       girder: new THREE.BoxGeometry(0.0026, L, 0.0026),

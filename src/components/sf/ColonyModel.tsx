@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { COLONY_LENGTH as L, COLONY_PORT as PORT, COLONY_RADIUS as R } from '../../data/sf'
 import { cloudTexture, hullTexture, landTexture, lightsTexture } from './colonyTextures'
 import { colonyDetail } from './colonyDetail'
 import { ColonyInterior } from './ColonyInterior'
 import { colonyDay } from './colonyCity'
+import { roomEnvironment } from '../telescope/parts'
 
 // 回転円筒型のスペースコロニー（オニールの「島3号」の構想をもとにした、オリジナルのデザイン）。
 // 回転軸は +Y で、+Y の端を太陽へ向ける。円周を6つに分け、大地の帯3本と窓の帯3本が交互に並ぶ。
@@ -38,12 +38,8 @@ const HAZE_NIGHT = new THREE.Color('#0a0f1c')
 const CLOUD_NIGHT = new THREE.Color('#3a4250')
 const WHITE = new THREE.Color('#ffffff')
 
-function envMapFor(gl: THREE.WebGLRenderer) {
-  const pmrem = new THREE.PMREMGenerator(gl)
-  const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-  pmrem.dispose()
-  return env
-}
+/** 映り込み用の環境マップ（ほかの構造物と共有。dispose しない） */
+const envMapFor = (gl: THREE.WebGLRenderer) => roomEnvironment(gl)
 
 /** 円筒の一部（角度は CylinderGeometry と同じく +Z から +X へ） */
 const sector = (radius: number, center: number, width: number, segments = 24) =>
@@ -125,7 +121,7 @@ export function ColonyModel({ interior = true, cityTrees = true }: { interior?: 
     () => () => {
       for (const value of Object.values(parts)) {
         const list = Array.isArray(value) ? value.flatMap((v) => (v instanceof THREE.BufferGeometry ? [v] : [v.geometry, v.material])) : [value]
-        for (const v of list) if (v instanceof THREE.BufferGeometry || v instanceof THREE.Material || v instanceof THREE.Texture) v.dispose()
+        for (const v of list) if (v !== parts.env && (v instanceof THREE.BufferGeometry || v instanceof THREE.Material || v instanceof THREE.Texture)) v.dispose()
       }
       parts.cloud.map?.dispose()
     },

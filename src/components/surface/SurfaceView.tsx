@@ -1770,4 +1770,3 @@ export function SurfaceView() {
 }
 
 // 宇宙の場面の外に置くので、glb は前もって読み込んでおく
-useGLTF.preload(url('ship-lander.glb'))
