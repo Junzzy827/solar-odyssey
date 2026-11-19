@@ -5,7 +5,8 @@ import { ColonyModel } from '../sf/ColonyModel'
 import { AVENUE, M, colonyDay, treeInstancesWhere, sharedInstancedMesh, treeGeometry, treeMaterial } from '../sf/colonyCity'
 import { Batch, place, seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
-import { EW_END, EW_Y, FADE, G, GROUND_LIFT, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, frameAt, inBoundsTree, landPoint, parkLayout, upAt } from './park'
+import { EW_END, EW_Y, FADE, G, GROUND_LIFT, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, STREETS, STREET_W, frameAt, inBoundsTree, landPoint, parkLayout, streetRect, upAt } from './park'
+import { WalkTown } from './WalkTown'
 
 // コロニーの中を歩く場面の、動かないもの：遠くのコロニー全体（宇宙の場面の形を 1/M 倍）、
 // 公園の地面・池・木・ベンチ・街灯・遊具・噴水、空気のかすみ、昼と夜の光。
@@ -102,6 +103,10 @@ function maskCanvases() {
   a.g.arc(X(PLAZA.s), Yc(PLAZA.y), PLAZA.r * k, 0, Math.PI * 2)
   a.g.fill()
   for (const side of [-1, 1]) a.g.fillRect(X(side > 0 ? AVENUE - 2 : -AVENUE - 6), 0, 8 * k, H)
+  // 住宅街：道の歩道（車道は下のアスファルト）と、門から玄関までの敷石
+  const rect = (g: CanvasRenderingContext2D, r: { s0: number; s1: number; y0: number; y1: number }) => g.fillRect(X(r.s0), Yc(r.y1), (r.s1 - r.s0) * k, (r.y1 - r.y0) * k)
+  for (const st of STREETS) rect(a.g, streetRect(st))
+  for (const w of parkLayout().town.walks) rect(a.g, w)
   // 砂（B）：遊び場
   a.g.fillStyle = '#00f'
   a.g.beginPath()
@@ -120,6 +125,8 @@ function maskCanvases() {
     b.g.stroke()
   }
   b.g.setLineDash([])
+  b.g.fillStyle = '#f00'
+  for (const st of STREETS) rect(b.g, streetRect(st, STREET_W / 2))
   // 池の岸（G）
   b.g.fillStyle = '#0f0'
   b.g.beginPath()
@@ -783,6 +790,7 @@ export function WalkWorld({ follow }: { follow: { current: THREE.Vector3 } }) {
       <Trees follow={follow} />
       <Furniture />
       <PlayAndPlaza />
+      <WalkTown />
     </>
   )
 }
