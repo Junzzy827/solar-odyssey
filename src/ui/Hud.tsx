@@ -95,9 +95,11 @@ function LandPrompt() {
     const top = bar.getBoundingClientRect().top
     setLift(Math.round(window.innerHeight - top + 10))
   })
+  // 望遠鏡の「のぞく」が出ているときは、同じ場所に重なるので出さない（J キーはそのまま使える）
+  const scopeShown = useStore((s) => s.mode === 'flight' && !!s.scopeNear && !s.scope && s.warpPhase === 'idle')
   const id = landableBody()
   const colony = walkableColony()
-  if (!id && !colony) return null
+  if (scopeShown || (!id && !colony)) return null
   if (missionPhase === 'chapters' || missionPhase === 'list' || missionPhase === 'briefing' || missionPhase === 'debrief') return null
   // コロニーの中では「降りて歩く」
   if (colony)

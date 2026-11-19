@@ -57,8 +57,10 @@ export const thrustFx = { throttle: 0, move: new THREE.Vector3(), turn: new THRE
 export const CHARGE_SECONDS = 1.8
 export const EXIT_SECONDS = 0.9
 
+/** これより小さい目標（ハッブルなど、船より小さい物）は、少し離れて止まる。近すぎると、後ろから見たときに船と重なって見える */
+const SMALL_TARGET = 0.2
 /** 到着点（目標の手前で止まる距離） */
-export const standoff = (radius: number) => radius * 3 + 0.6
+export const standoff = (radius: number) => radius * 3 + (radius < SMALL_TARGET ? 1 : 0.6)
 
 /** ワープ速度が上がるほど短時間で着く */
 export const warpSeconds = (distance: number, factor: number) => THREE.MathUtils.clamp(distance / (factor * factor * 2), 1.5, 8)

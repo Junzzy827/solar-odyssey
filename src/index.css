@@ -1014,7 +1014,7 @@ button:disabled {
 .scope-prompt {
   position: fixed;
   left: var(--dock-center);
-  bottom: 74px;
+  bottom: 120px;
   transform: translateX(-50%);
   padding: 8px 20px;
   border: 1px solid rgba(242, 166, 90, 0.7);
