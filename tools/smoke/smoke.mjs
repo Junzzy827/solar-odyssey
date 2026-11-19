@@ -25,7 +25,7 @@ const phone = useFirefox ? { viewport: { width: 390, height: 664 }, hasTouch: tr
 async function check3d(page, name, min = { std: 4, lit: 0.002 }) {
   await page.evaluate(() => document.documentElement.classList.add('clean-screen'))
   await sleep(600)
-  const shot = await page.screenshot()
+  const shot = await page.screenshot({ timeout: 120000 })
   await page.evaluate(() => document.documentElement.classList.remove('clean-screen'))
   const s = imageStats(decodePng(shot))
   if (s.std < min.std || s.lit < min.lit) throw new Error(`${name}: 3D looks blank (mean ${s.mean.toFixed(1)}, std ${s.std.toFixed(1)}, lit ${(s.lit * 100).toFixed(2)}%)`)
@@ -74,6 +74,8 @@ const SCENARIOS = {
     ctx: desktop,
     hash: '#debug&sf',
     run: async (page) => {
+      // CI の機械（2 コア・GPU なし）では、公園を「標準」で描くと 1 コマに 30 秒以上かかるので「軽量」で
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
       await page.evaluate(() => window.__sv.walk.start())
       await page.waitForFunction(() => window.__sv.walk.debug.scene, null, { timeout: 120000 })
       await sleep(6000)
@@ -106,7 +108,7 @@ for (const name of wanted.length ? wanted : Object.keys(SCENARIOS)) {
     await sleep(sc.settle ?? 3000)
     if (sc.run) await sc.run(page)
     const s = await check3d(page, name)
-    await page.screenshot({ path: join(outDir, `${name}${useFirefox ? '-firefox' : ''}.png`) })
+    await page.screenshot({ path: join(outDir, `${name}${useFirefox ? '-firefox' : ''}.png`), timeout: 120000 })
     if (errors.length) throw new Error(`page errors: ${errors.join(' | ')}`)
     console.log(`ok   ${name} (${((Date.now() - t0) / 1000).toFixed(0)} s, std ${s.std.toFixed(1)})`)
   } catch (e) {
