@@ -128,7 +128,9 @@ const SCENARIOS = {
       // ジャングルの入口の先へ
       await page.evaluate(() => {
         const w = window.__sv.walk.walker
-        w.pos.set(0, w.pos.y, -420)
+        // ジャングルの中の小道のあたり（components/walk/jungle.ts の JUNGLE）
+        w.s = 300
+        w.y = 11800
       })
       await sleep(8000)
     },

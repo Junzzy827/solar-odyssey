@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { ColonyModel } from '../sf/ColonyModel'
-import { AVENUE, M, colonyDay, treeInstancesWhere, sharedInstancedMesh, treeGeometry, treeMaterial } from '../sf/colonyCity'
+import { AVENUE, M, colonyDay, treeInstancesWhere, sharedInstancedMesh, treeLiteGeometry, treeMaterial } from '../sf/colonyCity'
 import { Batch, place, seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { EW_END, EW_Y, FADE, G, GROUND_LIFT, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, STREETS, STREET_W, frameAt, inBoundsTree, landPoint, parkLayout, streetRect, upAt } from './park'
@@ -366,7 +366,8 @@ function barkTexture() {
 
 /** 幹のある木（近くの木）。樹冠は 2 つの丸を重ねて、上が明るい */
 function crownGeometry() {
-  const a = new THREE.IcosahedronGeometry(0.5, 2)
+  // スマホや「軽量」では、大きい丸を一段粗く（三角形 320 → 80 枚）。公園の木は 600 本あるので、ここが効く
+  const a = new THREE.IcosahedronGeometry(0.5, lowMemory() || currentLevel() === 'low' ? 1 : 2)
   const b = new THREE.IcosahedronGeometry(0.36, 1).translate(0.18, 0.28, 0.08)
   const c = new THREE.IcosahedronGeometry(0.32, 1).translate(-0.2, 0.18, -0.12)
   const batch = new Batch()
@@ -450,6 +451,8 @@ function Trees({ follow }: { follow: { current: THREE.Vector3 } }) {
   useEffect(() => {
     let dead = false
     const made: TreeKind[] = []
+    // スマホでは読まない（質感こみで 3 MB を読み、木を 6 種類作るあいだ止まり、メモリも使う）。軽い木だけで描く
+    if (lowMemory()) return
     void import('@dgreenheck/ez-tree')
       .then(({ Tree }) => {
         if (dead) return
@@ -710,7 +713,8 @@ function PlayAndPlaza() {
 /* ---------- 遠くのコロニー ---------- */
 
 function FarColony() {
-  const trees = useMemo(() => sharedInstancedMesh(treeGeometry(), treeMaterial, treeInstancesWhere((k, t) => !(k === 0 && inBoundsTree(t)))), [])
+  // 向こう側の街の木は数 km 先で、1 本が数ピクセル。粗い形（三角形 20 枚）で十分（細かい形だと 2 万本で 150 万枚になっていた）
+  const trees = useMemo(() => sharedInstancedMesh(treeLiteGeometry(), treeMaterial, treeInstancesWhere((k, t) => !(k === 0 && inBoundsTree(t)))), [])
   useEffect(() => () => trees.dispose(), [trees])
   return (
     <group scale={1 / M}>
