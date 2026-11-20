@@ -445,6 +445,34 @@ const SCENARIOS = {
       if (await page.$('.pioneer-hud')) throw new Error('pioneer: still shown after quitting')
     },
   },
+  // 月ミッション（アポロ17号の追体験）：夜の発射台 → 打ち上げ → 地球を回る → 月へ向けて点火 → 終わりのカード
+  moonMission: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.moonMission.start())
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'pad', null, { timeout: 60000 })
+      await page.waitForSelector('.mm-count', { timeout: 120000 })
+      await sleep(4000)
+      await check3d(page, 'moonMission pad')
+      await page.evaluate(() => window.__sv.moonMission.skip(90))
+      await sleep(3000)
+      await check3d(page, 'moonMission ascent')
+      await page.evaluate(() => window.__sv.moonMission.skip(3150))
+      await page.waitForSelector('.mm-tli button', { timeout: 30000 })
+      await page.evaluate(() => window.__sv.moonMission.go())
+      await page.evaluate(() => window.__sv.moonMission.skip(window.__sv.moonMission.sim.a.t + 3000))
+      const phase = await page.evaluate(() => window.__sv.moonMission.state.getState().phase)
+      if (phase !== 'outbound') throw new Error(`moonMission: phase ${phase}, expected outbound`)
+      await page.waitForSelector('.mm-end', { timeout: 60000 })
+      await visibleButton(page, '.mm-end-buttons button')
+    },
+    after: async (page) => {
+      await page.click('.mm-quit')
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'none', null, { timeout: 30000 })
+    },
+  },
   walk: {
     ctx: desktop,
     hash: '#debug&sf',
@@ -497,6 +525,9 @@ const SCENARIOS = {
       // 回転の軸の駅（エレベーターの上）へ。重さがほぼ 0 になる
       await page.evaluate(() => Object.assign(window.__sv.walk.walker, { s: 0, y: 130, h: 3970, turnTo: 3.14 }))
       await page.waitForFunction(() => window.__sv.walk.state.getState().gee < 0.02, null, { timeout: 60000, polling: 500 })
+      // 翼をつける（軸の駅でだけつけられる）
+      await page.evaluate(() => (window.__sv.walk.input.wings = true))
+      await page.waitForFunction(() => window.__sv.walk.state.getState().wings, null, { timeout: 30000, polling: 500 })
       await sleep(4000)
     },
   },

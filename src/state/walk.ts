@@ -61,6 +61,10 @@ type WalkState = {
   axisNote: number
   /** 次に歩く場面を始めるとき、軸へのエレベーターの前から始める */
   startAtTower: boolean
+  /** 翼をつけている */
+  wings: boolean
+  /** 翼をつけられる所（軸の駅）にいる */
+  wingsHere: boolean
 }
 
 /** 今いる所の種類：公園・住宅街・ジャングル（お試しの場所）と、街の計画の区画、窓の帯の橋 */
@@ -88,6 +92,8 @@ export const useWalk = create<WalkState>(() => ({
   inElev: false,
   axisNote: 0,
   startAtTower: false,
+  wings: false,
+  wingsHere: false,
 }))
 
 /** 歩く場面を出している（宇宙の場面は止める） */
@@ -133,7 +139,7 @@ export function startWalkAtTower() {
 function beginWalk(c: { id: string; name: () => string }) {
   if (document.pointerLockElement) document.exitPointerLock()
   resetWalkInput()
-  useWalk.setState({ colonyId: c.id, colonyName: c.name(), view: 'chase', run: false, sitting: false, benchNear: false, riding: false, flying: false, waterNote: 0, skyNote: 0, gee: 1, elevNear: null, inElev: false, axisNote: 0 })
+  useWalk.setState({ colonyId: c.id, colonyName: c.name(), view: 'chase', run: false, sitting: false, benchNear: false, riding: false, flying: false, waterNote: 0, skyNote: 0, gee: 1, elevNear: null, inElev: false, axisNote: 0, wings: false, wingsHere: false })
   setPhase('fadeIn')
   window.setTimeout(() => {
     if (useWalk.getState().phase === 'fadeIn') setPhase('walk')
@@ -167,6 +173,8 @@ export const walkInput = {
   jump: false,
   /** 座る・立つ（読んだら false にもどす） */
   sit: false,
+  /** 翼をつける・はずす（読んだら false にもどす） */
+  wings: false,
   /** ホバースクーターに乗る・降りる（読んだら false にもどす） */
   ride: false,
   /** 空を飛ぶ・地面へ降りる（スクーターに乗っているとき。読んだら false にもどす） */
@@ -180,7 +188,7 @@ export const walkInput = {
 }
 
 export function resetWalkInput() {
-  Object.assign(walkInput, { fwd: 0, right: 0, lookX: 0, lookY: 0, jump: false, sit: false, ride: false, sky: false, zoom: 0, stickX: 0, stickY: 0, shift: false })
+  Object.assign(walkInput, { fwd: 0, right: 0, lookX: 0, lookY: 0, jump: false, sit: false, wings: false, ride: false, sky: false, zoom: 0, stickX: 0, stickY: 0, shift: false })
   keys.clear()
 }
 
@@ -222,6 +230,11 @@ export function bindWalkKeys() {
     if (e.code === 'KeyG') {
       e.stopPropagation()
       if (!e.repeat) walkInput.sky = true
+      return
+    }
+    if (e.code === 'KeyR') {
+      e.stopPropagation()
+      if (!e.repeat) walkInput.wings = true
       return
     }
     if (e.code === 'KeyV') {

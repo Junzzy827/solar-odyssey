@@ -1,5 +1,6 @@
 import type { Framing } from '../state/mission'
 import { walkJa } from './walk.ja'
+import { moonMissionJa } from './moonMission.ja'
 import { approachJa } from './approach.ja'
 import { beamGaugeJa } from './beamGauge.ja'
 import { blackHoleJa } from './blackHole.ja'
@@ -183,6 +184,7 @@ export const ja = {
   eva: evaJa,
   evaView: evaViewJa,
   walk: walkJa,
+  moonMission: moonMissionJa,
   exoplanet: exoplanetJa,
   flight: flightJa,
   galleryPanel: galleryPanelJa,
