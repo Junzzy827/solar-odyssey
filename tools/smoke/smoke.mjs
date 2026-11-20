@@ -259,7 +259,8 @@ const SCENARIOS = {
       await visibleButton(page, '.pio-quit')
       // 端末の 4 つのタブ：それぞれの図が出る（納品 1 回ぶんの記録と流れがある）
       for (const [tab, sel] of [['route', '.pio-map .pio-map-ship'], ['flow', '.pio-sankey .pio-band'], ['log', '.pio-bars .pio-tbar'], ['status', '.pio-donut']]) {
-        await page.click(`#pio-tab-${tab}`)
+        // 画面が重い（SwiftShader）と page.click の「止まるまで待つ」が 1 回 25 秒ほどかかるので、DOM で押す
+        await page.evaluate((id) => document.getElementById(`pio-tab-${id}`).click(), tab)
         await page.waitForSelector(sel, { timeout: 15000 })
       }
       await page.evaluate(() => {
