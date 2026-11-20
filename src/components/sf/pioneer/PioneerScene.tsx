@@ -6,8 +6,8 @@ import { ship, standoff, thrustFx } from '../../../state/flight'
 import { proximity } from '../../../state/proximity'
 import { useStore } from '../../../state/store'
 import { shipScale } from '../../../state/zoom'
-import { collect, deliver, usePioneer } from '../../../state/pioneer'
-import { FIELD_ID, GAS_BAND, holdCapacity, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, type Resource } from '../../../data/pioneer'
+import { collect, deliver, setNear, usePioneer, type Near } from '../../../state/pioneer'
+import { FIELD_ID, GAS_BAND, holdCapacity, rockResource, goal, RING_COUNT, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, type Resource } from '../../../data/pioneer'
 import { DOCK_ID } from '../../../data/sf'
 import { ui } from '../../../i18n'
 
@@ -32,18 +32,40 @@ const COLORS: Record<Resource, THREE.Color> = {
 
 type Ore = { pos: THREE.Vector3; vel: THREE.Vector3; resource: Resource; amount: number; born: number }
 
+/** この距離より近い岩に輪を付ける（表示単位） */
+const RING_RANGE = 12
+/** 輪を付ける岩を探し直す間隔（秒）。3000 個を毎フレーム調べないように */
+const RING_SEARCH = 0.25
+/** 採掘場の目印からこの距離までを「採掘場にいる」とする */
+const FIELD_NEAR = 10
+/** その場所から出たとするのは、入る距離のこの倍から */
+const LEAVE = 1.3
+
+type Mark = { mesh: THREE.InstancedMesh; index: number; type: 0 | 1 | 2 }
+
 const tmp = new THREE.Vector3()
+const rockPos = new THREE.Vector3()
+const rockScale = new THREE.Vector3()
+const camDir = new THREE.Vector3()
 const earthPos = new THREE.Vector3()
 const dockPos = new THREE.Vector3()
 const m4 = new THREE.Matrix4()
 const q = new THREE.Quaternion()
 const sc = new THREE.Vector3()
 
+/** いま集めたい資源（「いまやること」が採掘のとき）。輪のうち、それ以外を薄くする */
+function goalResource(): Resource | null {
+  const p = usePioneer.getState()
+  const g = goal(p, holdCapacity(useStore.getState().settings.ship))
+  return g.kind === 'mine' ? g.resource : null
+}
+
 export function PioneerScene() {
   const field = useRef<THREE.Group>(null!)
   const ores = useRef<Ore[]>([])
   const mesh = useRef<THREE.InstancedMesh>(null!)
-  const state = useRef({ anchor: null as number | null, gasCarry: 0, gasNotice: false, deepNotice: false, spin: 0 })
+  const state = useRef({ anchor: null as number | null, gasCarry: 0, gasNotice: false, deepNotice: false, spin: 0, ringClock: RING_SEARCH, want: null as Resource | null, found: [] as (Mark & { score: number })[] })
+  const marks = useRef<Mark[]>([])
 
   // 採掘場の目印を天体として登録する（ワープ・自動航行で行ける）
   useEffect(() => {
@@ -87,7 +109,81 @@ export function PioneerScene() {
     [geometry, material],
   )
 
-  useFrame((_, rawDelta) => {
+  /** 砕ける岩に輪を重ねる（DOM の #pio-rings の中の .pio-ring を動かす） */
+  function placeRings(camera: THREE.Camera, size: { width: number; height: number }, dt: number, on: boolean) {
+    const box = document.getElementById('pio-rings')
+    if (!box) return
+    const rings = box.children as HTMLCollectionOf<HTMLElement>
+    const s = state.current
+    if (!on) {
+      if (marks.current.length) marks.current = []
+      for (const el of rings) el.style.display = 'none'
+      return
+    }
+    // ときどき：近くて画面の前にある岩を、近い順に選び直す
+    s.ringClock += dt
+    if (s.ringClock >= RING_SEARCH) {
+      s.ringClock = 0
+      camera.getWorldDirection(camDir)
+      const want = (s.want = goalResource())
+      const far2 = (RING_RANGE * 1.6) ** 2
+      const found = s.found
+      found.length = 0
+      for (const mesh of asteroids.meshes) {
+        const types = asteroids.types.get(mesh)
+        const arr = mesh.instanceMatrix.array as Float32Array
+        for (let i = 0; i < mesh.count; i++) {
+          const o = i * 16
+          // 位置だけ先に見て、遠い岩はすぐとばす（3000 個を分解しない）
+          rockPos.set(arr[o + 12], arr[o + 13], arr[o + 14]).applyMatrix4(mesh.matrixWorld)
+          const d2 = rockPos.distanceToSquared(ship.position)
+          if (d2 > far2) continue
+          if (arr[o] === 0 && arr[o + 1] === 0 && arr[o + 2] === 0) continue // 砕いた岩
+          const d = Math.sqrt(d2)
+          const type = (types?.[i] ?? 0) as 0 | 1 | 2
+          // 集めたい資源の岩は、遠くても先に選ぶ（金属の岩は帯の 4 分の 1 しかない）
+          const wanted = !want || rockResource(type) === want
+          if (!wanted && d > RING_RANGE) continue
+          if (tmp.copy(rockPos).sub(camera.position).dot(camDir) <= 0) continue
+          found.push({ mesh, index: i, type, score: wanted ? d * 0.4 : d })
+        }
+      }
+      found.sort((a, b) => a.score - b.score)
+      marks.current = found.slice(0, RING_COUNT)
+    }
+    // 毎フレーム：選んだ岩の今の位置に輪を置く（帯は回っている）
+    const want = s.want
+    const reach = 30 * Math.min(1, (shipScale() / 0.3) * 4)
+    for (let k = 0; k < rings.length; k++) {
+      const el = rings[k]
+      const mk = marks.current[k]
+      if (!mk) {
+        el.style.display = 'none'
+        continue
+      }
+      mk.mesh.getMatrixAt(mk.index, m4)
+      m4.premultiply(mk.mesh.matrixWorld).decompose(rockPos, q, rockScale)
+      const d = rockPos.distanceTo(ship.position)
+      tmp.copy(rockPos).project(camera)
+      if (rockScale.x < 1e-4 || tmp.z > 1 || Math.abs(tmp.x) > 1.1 || Math.abs(tmp.y) > 1.1) {
+        el.style.display = 'none'
+        continue
+      }
+      const res = rockResource(mk.type)
+      // 見かけの大きさ（岩の大きさ ÷ 距離）から輪の直径。小さすぎ・大きすぎないように
+      const px = THREE.MathUtils.clamp((rockScale.x / Math.max(d, 0.01)) * size.height * 1.6, 22, 72)
+      el.style.display = 'block'
+      el.style.width = el.style.height = `${px}px`
+      el.style.transform = `translate(${((tmp.x + 1) / 2) * size.width - px / 2}px, ${((1 - tmp.y) / 2) * size.height - px / 2}px)`
+      el.dataset.res = res
+      el.dataset.rich = mk.type === 2 ? '1' : '0'
+      el.dataset.reach = d < reach ? '1' : '0'
+      el.dataset.want = !want || want === res ? '1' : '0'
+      el.dataset.first = k === 0 ? '1' : '0'
+    }
+  }
+
+  useFrame(({ camera, size: view }, rawDelta) => {
     const dt = Math.min(rawDelta, 0.1)
     const st = useStore.getState()
     const s = state.current
@@ -164,6 +260,24 @@ export function PioneerScene() {
     if (im.instanceColor) im.instanceColor.needsUpdate = true
     im.visible = w > 0 && st.mode !== 'map'
 
+    // いまいる場所（「いまやること」の言い方を変える）
+    const dock = bodies.get(DOCK_ID)
+    // 入るときより出るときを少し遠くにして、境目でカードがちらつかないように
+    const was = usePioneer.getState().near
+    const keep = (z: Near) => (was === z ? LEAVE : 1)
+    let near: Near = null
+    if (st.mode === 'flight' || st.mode === 'map') {
+      if (ship.position.distanceTo(field.current.position) < FIELD_NEAR * keep('field')) near = 'field'
+      else if (proximity.id === 'jupiter' && proximity.radius > 0 && proximity.altitude / proximity.radius < 0.5 * keep('jupiter')) near = 'jupiter'
+      else if (dock) {
+        dock.object.getWorldPosition(dockPos)
+        if (ship.position.distanceTo(dockPos) < standoff(dock.radius) * 3 * keep('dock')) near = 'dock'
+      }
+    }
+    setNear(near)
+
+    placeRings(camera, view, dt, near === 'field' && !full && st.mode === 'flight' && st.warpPhase === 'idle')
+
     if (st.mode !== 'flight' || st.warpPhase !== 'idle') return
 
     // 木星の雲のすぐ上：速く飛んでいるあいだ、ガスがたまる
@@ -195,7 +309,6 @@ export function PioneerScene() {
     }
 
     // 天の湊に着いたら（ワープで着く距離か、それより近く＝入港・係留）、積み荷を納める
-    const dock = bodies.get(DOCK_ID)
     if (dock && total(usePioneer.getState().hold) > 0) {
       dock.object.getWorldPosition(dockPos)
       if (ship.position.distanceTo(dockPos) < standoff(dock.radius) * 1.25) deliver()

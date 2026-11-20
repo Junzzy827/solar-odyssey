@@ -6,6 +6,7 @@ import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
 import { POND } from './components/walk/park'
 import { flightControl, ship, thrustFx, warpFx } from './state/flight'
+import { proximity } from './state/proximity'
 import { asteroids, bodies, markerOverride, beamTargets, ports, rockBreaks, sim } from './state/registry'
 import { useRace } from './state/race'
 import { useMission } from './state/mission'
@@ -99,6 +100,7 @@ const sv = {
   markerOverride,
   beamTargets,
   asteroids,
+  proximity,
   sim,
   camera: null as CameraFn | null,
   setCamera: null as unknown as (fn: CameraFn | null) => void,

@@ -107,3 +107,35 @@ export function checkSave(v: unknown): v is PioneerSave {
 
 /** コロニーの名前の長さの上限（銘板に入る長さ） */
 export const NAME_MAX = 24
+
+/** いまやること（画面の「いまやること」カードに出す 1 つ） */
+export type Goal =
+  | { kind: 'name' }
+  | { kind: 'done' }
+  | { kind: 'build' }
+  | { kind: 'deliver'; full: boolean }
+  | { kind: 'mine'; resource: 'metal' | 'ice' }
+  | { kind: 'gas' }
+
+/**
+ * 進み具合から、次にやることを 1 つ決める。
+ * 建てられる → 建てる。積み荷がいっぱい、または積み荷で足りる → 納める。
+ * まだ足りない → いちばん多く足りない資源を集めに行く（ガスは木星、金属と氷は採掘場）
+ */
+export function goal(s: Pick<PioneerSave, 'hold' | 'store' | 'stage' | 'colonyName'>, capacity: number): Goal {
+  const next = STAGES[s.stage]
+  if (!next) return s.colonyName ? { kind: 'done' } : { kind: 'name' }
+  if (canPay(s.store, next.cost)) return { kind: 'build' }
+  if (total(s.hold) >= capacity) return { kind: 'deliver', full: true }
+  const need = shortfall(plus(s.store, s.hold), next.cost)
+  if (total(need) === 0) return { kind: 'deliver', full: false }
+  let pick: Resource = 'metal'
+  for (const r of RESOURCES) if (need[r] > need[pick]) pick = r
+  return pick === 'gas' ? { kind: 'gas' } : { kind: 'mine', resource: pick }
+}
+
+/** 資源ごとの、岩の種類（0 炭素質 1 石質 2 金属）から出るもの。画面の輪の色分けに使う */
+export const rockResource = (type: RockType): Resource => (type === 0 ? 'ice' : 'metal')
+
+/** 砕ける岩に重ねる輪の数（画面の .pio-ring の数） */
+export const RING_COUNT = 8

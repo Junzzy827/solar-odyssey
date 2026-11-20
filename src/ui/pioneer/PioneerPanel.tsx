@@ -2,20 +2,17 @@ import { useState } from 'react'
 import { ui } from '../../i18n'
 import { useLang } from '../../i18n/lang'
 import { useStore } from '../../state/store'
-import { engage } from '../../state/flight'
 import { build, nameColony, resetPioneer, stopPioneer, togglePanel, usePioneer } from '../../state/pioneer'
-import { canPay, FIELD_ID, holdCapacity, NAME_MAX, RESOURCES, shortfall, STAGE_COUNT, STAGES, total, type Amounts } from '../../data/pioneer'
+import { canPay, FIELD_ID, NAME_MAX, RESOURCES, shortfall, STAGE_COUNT, STAGES, type Amounts } from '../../data/pioneer'
 import { COLONY_ID, DOCK_ID } from '../../data/sf'
+import { PioneerHud } from './PioneerHud'
+import { PioneerGuide } from './PioneerGuide'
+import { GasGauge } from './GasGauge'
+import { go } from './go'
 import './pioneer.css'
 
-// 開拓の画面：いつも出る小さな積み荷のゲージと、開いたときの端末（倉庫・次の段階・行き先・建設）
-
-function go(id: string) {
-  const st = useStore.getState()
-  st.setTarget(id)
-  togglePanel(false)
-  engage()
-}
+// 開拓の画面：飛んでいるあいだのカード（PioneerHud）・木星の高さのメーター・遊び方の案内と、
+// 開いたときの端末（倉庫・次の段階・行き先・建設）
 
 const fmt = (a: Amounts) =>
   RESOURCES.filter((r) => a[r] > 0)
@@ -25,13 +22,11 @@ const fmt = (a: Amounts) =>
 export function PioneerPanel() {
   useLang()
   const p = usePioneer()
-  const shipId = useStore((s) => s.settings.ship)
   const world = useStore((s) => s.settings.world)
   const mode = useStore((s) => s.mode)
   const [name, setName] = useState('')
   if (!p.active || world !== 'sf') return null
   const t = ui().pioneer
-  const cap = holdCapacity(shipId)
   const next = STAGES[p.stage] ?? null
   const ready = !!next && canPay(p.store, next.cost)
   const short = next ? shortfall(p.store, next.cost) : null
@@ -40,23 +35,10 @@ export function PioneerPanel() {
 
   return (
     <>
-      {flying && (
-        <div className="pioneer-hud" role="group" aria-label={t.title}>
-          <span className="pio-title">{t.title}</span>
-          <span className="pio-hold" aria-label={`${t.hold} ${total(p.hold)}/${cap}`}>
-            {RESOURCES.map((r) => (
-              <span key={r} className={`pio-bar pio-${r}`} style={{ width: `${(p.hold[r] / cap) * 100}%` }} />
-            ))}
-          </span>
-          <span className="pio-count">
-            {total(p.hold)}/{cap}
-          </span>
-          <button type="button" className="pio-open" onClick={() => togglePanel()} aria-expanded={p.panel}>
-            {t.open}
-          </button>
-        </div>
-      )}
-      {p.panel && !p.naming && (
+      {flying && !p.guide && <PioneerHud />}
+      {flying && <GasGauge />}
+      {p.guide && !p.naming && <PioneerGuide />}
+      {p.panel && !p.naming && !p.guide && (
         <div className="pioneer-panel" role="dialog" aria-label={t.terminal}>
           <header>
             <h2>{t.terminal}</h2>
@@ -65,13 +47,6 @@ export function PioneerPanel() {
               ×
             </button>
           </header>
-          {p.stage === 0 && total(p.store) === 0 && (
-            <ol className="pio-intro">
-              {t.intro.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ol>
-          )}
           <div className="pio-steps" aria-hidden>
             {STAGES.map((s, i) => (
               <span key={s.id} className={i < p.stage ? 'done' : i === p.stage ? 'now' : ''}>

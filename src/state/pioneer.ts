@@ -31,7 +31,13 @@ type PioneerState = PioneerSave & {
   builtAt: number
   /** 完成して名前を付けるところ */
   naming: boolean
+  /** 遊び方の案内（初めて始めたとき・？ボタン）を出しているか */
+  guide: boolean
+  /** いまいる場所（採掘場・木星・天の湊のそば）。「いまやること」の言い方を変える */
+  near: Near
 }
+
+export type Near = 'field' | 'jupiter' | 'dock' | null
 
 const slot = saveSlot<PioneerSave>('pioneer', NEW_SAVE, (v) => (checkSave(v) ? v : null))
 
@@ -40,7 +46,7 @@ const needsName = (s: PioneerSave) => s.stage >= STAGE_COUNT && !s.colonyName
 
 export const usePioneer = create<PioneerState>(() => {
   const saved = slot.load()
-  return { ...saved, active: false, panel: false, builtAt: 0, naming: needsName(saved) }
+  return { ...saved, active: false, panel: false, builtAt: 0, naming: needsName(saved), guide: false, near: null }
 })
 
 function persist() {
@@ -59,21 +65,35 @@ export const finished = () => usePioneer.getState().stage >= STAGE_COUNT
 export function startPioneer() {
   const st = useStore.getState()
   if (st.settings.world !== 'sf') return
-  usePioneer.setState((p) => ({ active: true, panel: true, naming: needsName(p) }))
-  if (!usePioneer.getState().introSeen) {
-    usePioneer.setState({ introSeen: true })
-    persist()
-  }
+  // 初めてなら遊び方の案内。2 回目からは「いまやること」のカードだけ（端末はカードのボタンから）
+  usePioneer.setState((p) => ({ active: true, panel: false, naming: needsName(p), guide: !p.introSeen }))
   st.showToast(t().started)
 }
 
 /** 開拓をやめる（進み具合は残る。建設中のコロニーは元の見た目に戻る） */
 export function stopPioneer() {
-  usePioneer.setState({ active: false, panel: false, naming: false })
+  usePioneer.setState({ active: false, panel: false, naming: false, guide: false, near: null })
   useStore.getState().showToast(t().stopped)
 }
 
-export const togglePanel = (open = !usePioneer.getState().panel) => usePioneer.setState({ panel: open })
+export function togglePanel(open = !usePioneer.getState().panel) {
+  // 案内を開いたまま端末へ行っても、案内は見たことにする（次に始めたとき、また出ないように）
+  if (usePioneer.getState().guide) showGuide(false)
+  usePioneer.setState({ panel: open })
+}
+
+/** 遊び方の案内を開く・閉じる（閉じたら、もう自動では出さない） */
+export function showGuide(open: boolean) {
+  usePioneer.setState({ guide: open, panel: false })
+  if (!open && !usePioneer.getState().introSeen) {
+    usePioneer.setState({ introSeen: true })
+    persist()
+  }
+}
+
+export function setNear(near: Near) {
+  if (usePioneer.getState().near !== near) usePioneer.setState({ near })
+}
 
 /** 積み荷に足す。入らなかったら一度だけ「いっぱい」と知らせる */
 let fullWarned = false
@@ -129,7 +149,7 @@ export function nameColony(name: string) {
 
 /** 最初からやり直す（倉庫・積み荷・段階を消す） */
 export function resetPioneer() {
-  usePioneer.setState({ ...NEW_SAVE, introSeen: true, builtAt: 0, naming: false })
+  usePioneer.setState({ ...NEW_SAVE, introSeen: true, builtAt: 0, naming: false, guide: false })
   fullWarned = false
   persist()
 }

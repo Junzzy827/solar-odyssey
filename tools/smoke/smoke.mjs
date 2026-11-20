@@ -219,7 +219,13 @@ const SCENARIOS = {
     settle: 8000,
     run: async (page) => {
       await page.evaluate(() => window.__sv.pioneer.start())
-      await page.waitForSelector('.pioneer-panel', { timeout: 60000 })
+      // 初めて：遊び方の案内（4 枚）→ 閉じると「いまやること」のカード
+      await page.waitForSelector('.pio-guide', { timeout: 60000 })
+      for (let i = 0; i < 4; i++) await page.click('.pio-guide footer .pio-build')
+      await visibleButton(page, '.pio-goal-go')
+      const goal = await page.textContent('.pio-goal-text b')
+      if (!goal) throw new Error('pioneer: no goal text')
+      await page.click('.pio-open')
       await visibleButton(page, '.pio-quit')
       await page.evaluate(() => {
         const p = window.__sv.pioneer
