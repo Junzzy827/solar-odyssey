@@ -1,6 +1,6 @@
 import { ui } from '../../../i18n'
 import { build, capacity, usePioneer } from '../../../state/pioneer'
-import { canPay, overallProgress, RESOURCES, STAGE_COUNT, STAGES, total } from '../../../data/pioneer'
+import { canPay, dailyFor, overallProgress, RESOURCES, STAGE_COUNT, STAGES, today, total } from '../../../data/pioneer'
 
 // 端末「状況」：コロニー完成までの輪、次の段階に要る資源のメーター（倉庫＝塗り、積み荷＝斜線）、建設ボタン
 
@@ -45,6 +45,8 @@ export function StatusTab() {
           </span>
         </div>
       </div>
+
+      <DailyCard />
 
       {next && (
         <div className="pio-next">
@@ -95,6 +97,42 @@ export function StatusTab() {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+/** 今日の依頼：内容・進み具合・ごほうび */
+function DailyCard() {
+  const p = usePioneer()
+  const t = ui().pioneer
+  const td = t.daily
+  // 端末を開いたまま日付が変わっても、今日の依頼を見せる（進みは 0 から）
+  const day = today()
+  const d = p.daily?.day === day ? p.daily : { day, progress: 0, done: false }
+  const def = dailyFor(day)
+  const k = Math.min(1, d.progress / def.target)
+  return (
+    <div className={`pio-daily${d.done ? ' done' : ''}`}>
+      <div className="pio-daily-head">
+        <small>{td.title}</small>
+        <b>{td.task[def.kind](def.target)}</b>
+      </div>
+      <span className="pio-daily-bar" role="img" aria-label={td.progress(d.progress, def.target)}>
+        <span style={{ width: `${k * 100}%` }} />
+      </span>
+      <div className="pio-daily-foot">
+        <span>{d.done ? td.done : td.progress(d.progress, def.target)}</span>
+        <span className="pio-cost">
+          <small>{td.reward}</small>
+          {RESOURCES.filter((r) => def.reward[r] > 0).map((r) => (
+            <span key={r}>
+              <i className={`pio-dot pio-${r}`} />
+              {t.term.amount(t.resource[r], def.reward[r])}
+            </span>
+          ))}
+        </span>
+        {(p.dailyDone ?? 0) > 0 && <small>{td.total(p.dailyDone ?? 0)}</small>}
+      </div>
     </div>
   )
 }

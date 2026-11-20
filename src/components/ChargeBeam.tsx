@@ -767,7 +767,10 @@ export function ChargeBeam() {
         asteroids.destroyed.push({ mesh: p.mesh, index: p.index, matrix: p.matrix, at: elapsed })
         v.setFromMatrixPosition(p.matrix).applyMatrix4(p.mesh.matrixWorld)
         spawnShards(v, p.size, time, pool.perRock)
-        if (rockBreaks.size) for (const f of rockBreaks) f(asteroids.types.get(p.mesh)?.[p.index] ?? 0, p.size, v)
+        if (rockBreaks.size) {
+          const rock = { shape: asteroids.meshes.indexOf(p.mesh), index: p.index }
+          for (const f of rockBreaks) f(asteroids.types.get(p.mesh)?.[p.index] ?? 0, p.size, v, rock)
+        }
         s.rocks++
         return false
       })

@@ -13,6 +13,7 @@ import { StatusTab } from './terminal/StatusTab'
 import { RouteTab } from './terminal/RouteTab'
 import { FlowTab } from './terminal/FlowTab'
 import { LogTab } from './terminal/LogTab'
+import { ShipTab } from './terminal/ShipTab'
 import './pioneer.css'
 
 // 開拓の画面：飛んでいるあいだのカード（PioneerHud）・木星の高さのメーター・遊び方の案内と、
@@ -92,6 +93,7 @@ export function PioneerPanel() {
             {p.tab === 'route' && <RouteTab />}
             {p.tab === 'flow' && <FlowTab />}
             {p.tab === 'log' && <LogTab />}
+            {p.tab === 'ship' && <ShipTab />}
           </div>
           <footer>
             <button type="button" className="pio-quit" onClick={() => stopPioneer()}>

@@ -1,7 +1,7 @@
 import { useHistoric } from './state/historic'
 import { crashScene } from './ui/SceneBoundary'
 import { constructionSite } from './components/sf/ConstructionSite'
-import { build as pioneerBuild, collect as pioneerCollect, debugGive as pioneerGive, deliver as pioneerDeliver, endCinema, nameColony, startPioneer, stopPioneer, usePioneer } from './state/pioneer'
+import { build as pioneerBuild, collect as pioneerCollect, debugGive as pioneerGive, deliver as pioneerDeliver, buyUpgrade, endCinema, nameColony, rareSalt, rareTakenToday, startPioneer, stopPioneer, usePioneer } from './state/pioneer'
 import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
@@ -36,6 +36,7 @@ import { weatherNow } from './components/surface/weather'
 import { useDiscovery, startScanner, stopScanner, openNote, discoveryDebug } from './state/discovery'
 import { closeToday, openToday, useToday } from './state/today'
 import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
+import { isRare } from './data/pioneer'
 import { jumpDebug, startJump, stopJump, useJump } from './state/jump'
 import { arrivalDebug, closeArrival, showArrival, useArrival } from './state/arrival'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
@@ -59,11 +60,24 @@ const sv = {
   today: { state: useToday, open: openToday, close: closeToday },
   jump: { state: useJump, start: startJump, stop: stopJump, debug: jumpDebug },
   arrival: { state: useArrival, show: showArrival, close: closeArrival, debug: arrivalDebug },
-  pioneer: { state: usePioneer, start: startPioneer, stop: stopPioneer, give: pioneerGive, collect: pioneerCollect, deliver: pioneerDeliver, build: pioneerBuild, skip: endCinema, name: nameColony, site: constructionSite,
+  pioneer: { state: usePioneer, start: startPioneer, stop: stopPioneer, give: pioneerGive, collect: pioneerCollect, deliver: pioneerDeliver, build: pioneerBuild, skip: endCinema, upgrade: buyUpgrade, name: nameColony, site: constructionSite,
     /** 自機の前で岩が砕けたことにする（かけらが船に集まるかの確認） */
     breakRock: (type: 0 | 1 | 2, size: number) => {
       const at = new THREE.Vector3(0, 0, -6).applyQuaternion(ship.quaternion).add(ship.position)
       for (const f of rockBreaks) f(type, size, at)
+    },
+    /** 自機の前で珍しい岩が砕けたことにする（何番目かは珍しい岩の 1 つを探す） */
+    breakRare: () => {
+      const mesh = asteroids.meshes[0]
+      if (!mesh) return false
+      for (let i = 0; i < mesh.count; i++) {
+        if (!isRare(0, i, rareSalt()) || rareTakenToday(`0-${i}`)) continue
+        const at = new THREE.Vector3(0, 0, -6).applyQuaternion(ship.quaternion).add(ship.position)
+        const type = (asteroids.types.get(mesh)?.[i] ?? 0) as 0 | 1 | 2
+        for (const f of rockBreaks) f(type, 0.2, at, { shape: 0, index: i })
+        return true
+      }
+      return false
     },
   },
   discovery: { state: useDiscovery, start: startScanner, stop: stopScanner, note: openNote, asteroids, debug: discoveryDebug },
