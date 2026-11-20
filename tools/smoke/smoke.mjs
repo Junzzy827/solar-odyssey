@@ -330,6 +330,37 @@ const SCENARIOS = {
         return p.state.getState().upgrades.hold
       })
       if (cap !== 1) throw new Error(`pioneer: upgrade level ${cap}, expected 1`)
+      // 配達の仕事：行き先はどれも世界にある。掲示板から引き受け、最初の行き先のそばで止まると積み始める
+      // （SF の構造物は少しずつ置かれるので、そろうまで待つ）
+      await page.waitForFunction(
+        () => ['colony', 'torus', 'rock-port', 'rock-base', 'shipyard', 'spacedock', 'elevator', 'solar-plant', 'sail-launcher', 'moon-city'].every((id) => window.__sv.bodies.get(id)),
+        null,
+        { timeout: 120000, polling: 1000 },
+      )
+      await page.evaluate(() => document.getElementById('pio-tab-jobs').click())
+      await page.waitForSelector('.pio-jobs .pio-job .pio-build', { timeout: 15000 })
+      await page.evaluate(() => document.querySelector('.pio-jobs .pio-job .pio-build').click())
+      // 最初の行き先へは、マップから移るのと同じ動き（その前に着く）
+      const first = await page.evaluate(() => {
+        const sv = window.__sv
+        const job = sv.delivery.state.getState().active
+        if (!job) return null
+        sv.flightControl.jumpTo = job.def.stops[0]
+        return job.def.stops[0]
+      })
+      if (!first) throw new Error('pioneer: job not accepted')
+      await page.waitForFunction(() => window.__sv.delivery.state.getState().handoff > 0 || window.__sv.delivery.state.getState().active?.stop > 0, null, { timeout: 60000 })
+      const job = await page.evaluate(() => {
+        const sv = window.__sv
+        const before = sv.pioneer.state.getState().store.metal + sv.pioneer.state.getState().store.ice + sv.pioneer.state.getState().store.gas
+        const stops = sv.delivery.state.getState().active.def.stops.length
+        while (sv.delivery.state.getState().active) sv.delivery.handoff()
+        const st = sv.pioneer.state.getState().store
+        return { stops, done: sv.delivery.state.getState().done, gain: st.metal + st.ice + st.gas - before }
+      })
+      if (job.done !== 1 || job.gain <= 0) throw new Error(`pioneer: job ${JSON.stringify(job)}`)
+      // 積んだ・降ろしたのカードのあとに出る（行き先へ移った直後は 1 コマが重いので、長めに待つ）
+      await page.waitForSelector('.pio-card-job', { timeout: 90000 })
       await page.evaluate(() => {
         const p = window.__sv.pioneer
         p.give({ metal: 200, gas: 30 })
@@ -348,8 +379,10 @@ const SCENARIOS = {
       await visibleButton(page, '.pio-open')
     },
     after: async (page) => {
-      await page.click('.pio-open')
-      await page.click('.pio-quit')
+      // 重い画面では page.click の待ちが 30 秒を超えるので、DOM で押す
+      await page.evaluate(() => document.querySelector('.pio-open').click())
+      await page.waitForSelector('.pio-quit', { timeout: 30000 })
+      await page.evaluate(() => document.querySelector('.pio-quit').click())
       await sleep(300)
       if (await page.$('.pioneer-hud')) throw new Error('pioneer: still shown after quitting')
     },

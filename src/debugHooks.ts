@@ -37,6 +37,7 @@ import { useDiscovery, startScanner, stopScanner, openNote, discoveryDebug } fro
 import { closeToday, openToday, useToday } from './state/today'
 import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
 import { isRare } from './data/pioneer'
+import { acceptJob, cancelJob, handoffDone, jobBoard, useDelivery } from './state/delivery'
 import { jumpDebug, startJump, stopJump, useJump } from './state/jump'
 import { arrivalDebug, closeArrival, showArrival, useArrival } from './state/arrival'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
@@ -80,6 +81,7 @@ const sv = {
       return false
     },
   },
+  delivery: { state: useDelivery, board: jobBoard, accept: acceptJob, cancel: cancelJob, handoff: handoffDone },
   discovery: { state: useDiscovery, start: startScanner, stop: stopScanner, note: openNote, asteroids, debug: discoveryDebug },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff, site: goToSite },

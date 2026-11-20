@@ -1725,3 +1725,386 @@ html.pio-cinema
 .pio-rares span {
   background: rgba(255, 216, 107, 0.2);
 }
+
+/* 配達の仕事（terminal/JobsTab.tsx・カード・飛んでいるあいだの「いまやること」） */
+.pioneer-panel .pio-tabs button {
+  min-width: 0;
+  padding: 0 4px;
+}
+.pio-tab-jobs .pio-note {
+  margin: 2px 0 8px;
+  font-size: 12px;
+  color: #aab6cc;
+}
+.pio-jobs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.pio-job {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  animation: pio-in 0.3s var(--pio-ease) both;
+}
+.pio-job:nth-child(2) {
+  animation-delay: 0.05s;
+}
+.pio-job:nth-child(3) {
+  animation-delay: 0.1s;
+}
+.pio-job header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pio-job header b {
+  font-size: 14px;
+}
+.pio-job > p {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #c3cbdb;
+}
+.pio-job .pio-build {
+  margin-top: auto;
+}
+.pio-job-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pio-job-route li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.pio-job-route li + li::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -4px;
+  width: 4px;
+  height: 2px;
+  background: #6f7c95;
+}
+.pio-job-route li small {
+  font-size: 10px;
+  color: #aab6cc;
+}
+.pio-job-route li.done {
+  opacity: 0.55;
+}
+.pio-job-route li.done small::after {
+  content: ' ✓';
+}
+.pio-job-route li.now {
+  background: color-mix(in srgb, #ffd27a 22%, transparent);
+  box-shadow: inset 0 0 0 1px #ffd27a;
+}
+.pio-job-rule {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 8px;
+  border-left: 3px solid #ffd27a;
+  border-radius: 4px;
+  background: rgba(255, 210, 122, 0.08);
+  font-size: 12px;
+}
+.pio-job-rule small {
+  font-size: 10.5px;
+  color: #aab6cc;
+}
+.pio-job-reward-label {
+  font-size: 10.5px;
+  color: #aab6cc;
+}
+.pio-jobs-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 4px;
+  font-size: 11px;
+  color: #aab6cc;
+}
+.pio-job-now {
+  margin-bottom: 10px;
+  border-color: color-mix(in srgb, #ffd27a 60%, transparent);
+  background: rgba(255, 210, 122, 0.06);
+}
+.pio-job-now header > span:nth-child(2) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.pio-job-now header small {
+  font-size: 10.5px;
+  color: #ffd27a;
+}
+.pio-job-now .pio-goal-go {
+  min-height: 32px;
+  padding: 0 14px;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  font-weight: 600;
+}
+.pio-job-now .pio-reset {
+  align-self: flex-end;
+}
+.pio-job-clock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pio-job-time {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.pio-job-time i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #7ed18a;
+  transition: width 0.25s linear;
+}
+.pio-job-time i.over {
+  background: #e0566a;
+}
+.pio-job-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.pio-job-checks li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pio-job-checks li::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  flex: none;
+  background: currentColor;
+  clip-path: polygon(50% 0, 62% 35%, 100% 38%, 70% 60%, 80% 100%, 50% 78%, 20% 100%, 30% 60%, 0 38%, 38% 35%);
+}
+.pio-job-checks li.on::before {
+  background: #ffd86b;
+}
+.pio-job-checks li.off {
+  color: #8d97aa;
+}
+.pio-job-checks li em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 11px;
+  color: #7ed18a;
+}
+.pio-job-checks li.off em {
+  color: #e0566a;
+}
+.pio-stars {
+  display: inline-flex;
+  gap: 1px;
+}
+.pio-star path {
+  fill: none;
+  stroke: #6f7c95;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.pio-star.on path {
+  fill: #ffd86b;
+  stroke: #ffd86b;
+}
+.pio-job-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pio-job-stat {
+  display: grid;
+  grid-template-columns: 26px 7em 1fr 3em auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.pio-job-stat .pio-place-icon {
+  width: 26px;
+  height: 26px;
+}
+.pio-job-stat-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.pio-job-stat-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: #ffd27a;
+}
+.pio-job-stat-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* 飛んでいるあいだの「いまやること」：仕事のとき */
+.pio-goal-job {
+  box-shadow: inset 3px 0 0 #ffd27a;
+}
+.pio-goal-job .pio-goal-text small:first-child {
+  color: #ffd27a;
+  opacity: 1;
+}
+.pio-goal-warn .pio-goal-hint {
+  color: #ff9aa8;
+}
+.pio-handoff {
+  display: block;
+  height: 5px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.pio-handoff i {
+  display: block;
+  height: 100%;
+  background: #ffd27a;
+  transition: width 0.12s linear;
+}
+/* カード：積んだ・降ろした（短く）と、配達完了（星が 1 つずつ光る） */
+.pio-card-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top-color: #ffd27a;
+  animation-duration: 1.8s;
+}
+.pio-card-step h3 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+.pio-card-job {
+  border-top-color: #ffd27a;
+  animation-duration: 5.2s;
+}
+.pio-card-job > small:nth-child(2) {
+  color: #ffd27a;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.pio-card-stars {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 2px 0 6px;
+}
+.pio-card-stars > span {
+  display: grid;
+}
+.pio-card-stars > span.on {
+  animation: pio-star-pop 0.45s var(--pio-ease) both;
+}
+.pio-card-stars > span.on .pio-star path {
+  filter: drop-shadow(0 0 6px rgba(255, 216, 107, 0.7));
+}
+@keyframes pio-star-pop {
+  0% {
+    opacity: 0.2;
+    transform: scale(0.4) rotate(-20deg);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.25) rotate(6deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+.pio-card-checks {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 11.5px;
+  color: #8d97aa;
+}
+.pio-card-checks li.on {
+  color: #e8ecf6;
+}
+.pio-card-checks li.on::before {
+  content: '★ ';
+  color: #ffd86b;
+}
+.pio-card-checks li:not(.on)::before {
+  content: '☆ ';
+}
+@media (max-width: 600px) {
+  .pio-jobs {
+    grid-template-columns: 1fr;
+  }
+  .pio-job > p {
+    display: none;
+  }
+  .pio-job-stat {
+    grid-template-columns: 22px 6em 1fr 2.6em auto;
+  }
+  .pioneer-panel .pio-tabs button {
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pio-job,
+  .pio-card-stars > span.on {
+    animation: none;
+  }
+}
+/* 画面には出さず、読み上げだけ */
+.pio-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* 掲示板のカードは幅がせまいので、行き先を縦に並べる */
+.pio-jobs .pio-job-route {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.pio-jobs .pio-job-route li + li::before {
+  top: -4px;
+  left: 14px;
+  width: 2px;
+  height: 4px;
+}
