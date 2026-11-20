@@ -9,6 +9,8 @@ import { WALK_FADE, bindWalkKeys, endWalk, toggleWalkView, useWalk, walkInput, w
 import { colonyDay } from '../sf/colonyCity'
 import { WalkWorld } from './WalkWorld'
 import { WalkActors, walker } from './WalkActors'
+import { WalkErrand } from './WalkErrand'
+import { WalkErrandHud } from './WalkErrandHud'
 
 // コロニーの中を歩く場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 
@@ -19,6 +21,8 @@ const WalkCanvas = memo(function WalkCanvas() {
       <Suspense fallback={null}>
         <WalkWorld follow={{ current: walker.pos }} />
         <WalkActors />
+        {/* 配達の仕事：研究温室へ歩いて届ける（そのときだけ出る） */}
+        <WalkErrand />
       </Suspense>
       <QualityGovernor />
     </Canvas>
@@ -271,6 +275,7 @@ export function WalkView() {
     <div className={scene3d ? 'surface-view solid walk-view' : 'surface-view walk-view'} {...look}>
       {scene3d && <WalkCanvas />}
       {scene3d && <WalkPanel />}
+      {scene3d && <WalkErrandHud />}
       <div className="surface-curtain" style={{ opacity: curtain, pointerEvents: curtain > 0.5 ? 'auto' : 'none' }} />
     </div>
   )

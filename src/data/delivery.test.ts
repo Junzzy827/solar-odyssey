@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addRecord, board, checkDelivery, fastSeconds, HISTORY_MAX, JOB_KINDS, KINDS, kindStats, makeJob, NEW_DELIVERY, rewardFor, starsFor, timeLimit, type ActiveJob } from './delivery'
+import { addRecord, board, checkDelivery, fastSeconds, HISTORY_MAX, JOB_KINDS, KINDS, kindStats, LAB_STOP, legs, makeJob, NEW_DELIVERY, rewardFor, starsFor, timeLimit, walksToLab, type ActiveJob } from './delivery'
 
 const job = (over: Partial<ActiveJob> = {}, kind: (typeof JOB_KINDS)[number] = 'parts'): ActiveJob => {
   const def = Array.from({ length: 50 }, (_, i) => makeJob('2026-11-20', i, 0)).find((d) => d.kind === kind)!
@@ -18,10 +18,14 @@ describe('delivery board', () => {
       expect(new Set(b.map((d) => d.kind)).size).toBe(3)
       for (const d of b) {
         const k = KINDS[d.kind]
+        const fly = d.stops.filter((s) => s !== LAB_STOP)
         expect(k.from).toContain(d.stops[0])
-        expect(d.stops.length).toBe(1 + k.drops)
+        expect(fly.length).toBe(1 + k.drops)
+        expect(legs(d)).toBe(k.drops)
         expect(new Set(d.stops).size).toBe(d.stops.length)
-        for (const s of d.stops.slice(1)) expect(k.to).toContain(s)
+        for (const s of fly.slice(1)) expect(k.to).toContain(s)
+        // 試料と苗をコロニーへ届けるときだけ、最後に研究温室まで歩く
+        expect(walksToLab(d)).toBe((d.kind === 'samples' || d.kind === 'seedlings') && fly[fly.length - 1] === 'colony')
       }
     }
   })
@@ -66,5 +70,10 @@ describe('records and save', () => {
     expect(checkDelivery({ ...NEW_DELIVERY, active: { ...job(), stop: 9 } })).toBe(false)
     expect(checkDelivery({ ...NEW_DELIVERY, history: [{ at: 1, kind: 'pizza', stars: 2 }] })).toBe(false)
     expect(checkDelivery(null)).toBe(false)
+    // 研究温室は、コロニーのすぐあとの最後の行き先だけ
+    const walk = { ...job(), def: { ...job().def, stops: ['spacedock', 'colony', LAB_STOP] }, stop: 2 }
+    expect(checkDelivery({ ...NEW_DELIVERY, active: walk })).toBe(true)
+    expect(checkDelivery({ ...NEW_DELIVERY, active: { ...walk, def: { ...walk.def, stops: ['spacedock', LAB_STOP, 'colony'] } } })).toBe(false)
+    expect(checkDelivery({ ...NEW_DELIVERY, active: { ...walk, def: { ...walk.def, stops: ['spacedock', 'nowhere'] } } })).toBe(false)
   })
 })

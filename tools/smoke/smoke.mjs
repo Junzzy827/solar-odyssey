@@ -306,6 +306,37 @@ const SCENARIOS = {
       await page.waitForFunction(() => window.__sv.rally.state.getState().phase === 'off', null, { timeout: 10000 })
     },
   },
+  // 着陸船で月の空を飛ぶ：月に降りて「空を飛ぶ」、低く飛んでから高く上がると月が丸ごと見える。「着陸地点へ戻る」で地表へ
+  skyflight: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.landing.start('moon'))
+      await sleep(3000)
+      await page.evaluate(() => window.__sv.landing.skip())
+      await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface' && window.__sv.landing.state.getState().ready, null, { timeout: 180000, polling: 500 })
+      await visibleButton(page, '.sky-flight-start')
+      await page.evaluate(() => document.querySelector('.sky-flight-start').click())
+      await page.waitForFunction(() => window.__sv.skyFlight.state.getState().phase === 'fly', null, { timeout: 60000, polling: 500 })
+      await page.waitForSelector('.flight-hud', { timeout: 30000 })
+      await sleep(5000)
+      const low = await page.evaluate(() => window.__sv.skyFlight.state.getState().alt)
+      if (!(low > 0 && low < 2000)) throw new Error(`skyflight: odd altitude ${low}`)
+      await check3d(page, 'skyflight-low')
+      await page.evaluate(() => {
+        const c = window.__flight.ctl
+        c.p.setLength(1737400 + 2_000_000)
+        c.up.copy(c.p).normalize()
+      })
+      await sleep(5000)
+      await check3d(page, 'skyflight-high')
+      await visibleButton(page, '.flight-back')
+      await page.evaluate(() => document.querySelector('.flight-back').click())
+      await page.waitForFunction(() => window.__sv.skyFlight.state.getState().phase === 'off', null, { timeout: 10000 })
+      await page.waitForSelector('.sky-flight-start', { timeout: 60000 })
+    },
+  },
   // コロニーの公園を歩く
   // SF の開拓：端末が開き、建設が 3 段進み、建設中のコロニーのそばで描ける。「開拓をやめる」で抜けられる
   pioneer: {
@@ -420,9 +451,26 @@ const SCENARIOS = {
     run: async (page) => {
       // CI の機械（2 コア・GPU なし）では、公園を「標準」で描くと 1 コマに 30 秒以上かかるので「軽量」で
       await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      // 配達の仕事の最後（苗を研究温室へ歩いて届ける）：コロニーで降ろしたところから
+      await page.evaluate(() => {
+        const sv = window.__sv
+        sv.pioneer.state.setState({ introSeen: true })
+        sv.pioneer.start()
+        const def = { id: 'smoke', kind: 'seedlings', stops: ['spacedock', 'colony', 'colony-lab'], reward: { metal: 10, ice: 0, gas: 0 } }
+        sv.delivery.state.setState({ active: { def, stop: 2, elapsed: 40, warped: false, beamed: false } })
+      })
       await page.evaluate(() => window.__sv.walk.start())
       await page.waitForFunction(() => window.__sv.walk.debug.scene, null, { timeout: 120000 })
+      await page.waitForSelector('.pio-errand', { timeout: 60000 })
       await sleep(6000)
+      // 入口の輪へ歩いて行った（ことにする）と、手渡して仕事が終わる
+      await page.evaluate(() => {
+        const p = window.__sv.delivery.lab()
+        Object.assign(window.__sv.walk.walker, { s: p.doorS, y: p.doorY })
+      })
+      await page.waitForFunction(() => window.__sv.delivery.state.getState().active === null, null, { timeout: 60000 })
+      const done = await page.evaluate(() => window.__sv.delivery.state.getState().done)
+      if (done !== 1) throw new Error(`walk: errand done ${done}`)
     },
   },
   // 公園の外（円筒のほかの所）：歩く人のまわりの区画（地面・家・木）が作られて、細かく描く範囲が切りかわる

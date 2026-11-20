@@ -74,4 +74,12 @@ export const deliveryEn: Translation<typeof deliveryJa> = {
   doneTitle: 'Delivered',
   seconds: (sec: number, fast: number) => `Time ${mmss(sec)} (target ${mmss(fast)})`,
   jobsButton: 'Jobs',
+  lab: 'Colony research greenhouse',
+  walk: 'Walk',
+  goalWalk: (cargo: string) => `Land in the colony and carry the ${cargo.toLowerCase()} to the research greenhouse on foot`,
+  walkHint: 'The pillar of light marks the greenhouse',
+  walkButton: 'Get out and walk',
+  labDistance: (m: number) => `${Math.round(m)} m to the research greenhouse`,
+  labHere: 'Step into the glowing ring at the door to hand it over',
+  arrivedWalk: (place: string) => `Docked at ${theEn(place)}. Get out and walk to the research greenhouse`,
 }

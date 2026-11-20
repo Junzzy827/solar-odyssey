@@ -42,6 +42,10 @@ const ELEVATOR_ID = 'elevator'
 const SOLAR_PLANT_ID = 'solar-plant'
 const SAIL_LAUNCHER_ID = 'sail-launcher'
 const MOON_CITY_ID = 'moon-city'
+/** コロニーの中の研究温室（歩く場面の公園にある。宇宙の場面の行き先ではない）。試料と苗は、ここまで歩いて届ける */
+export const LAB_STOP = 'colony-lab'
+/** 歩いて届ける荷物 */
+const WALK_KINDS: readonly JobKind[] = ['samples', 'seedlings']
 /** 仕事の行き先になる所（smoke で、どれも世界にあるか確かめる） */
 export const JOB_PLACES = [COLONY_ID, TORUS_ID, CROSS_ID, UMBRELLA_ID, YARD_ID, DOCK_ID, ELEVATOR_ID, SOLAR_PLANT_ID, SAIL_LAUNCHER_ID, MOON_CITY_ID] as const
 
@@ -108,8 +112,10 @@ export type DeliverySave = {
 
 export const NEW_DELIVERY: DeliverySave = { v: 1, active: null, done: 0, history: [], skipped: 0 }
 
-/** 区間の数（積む所から最後の降ろす所まで） */
-export const legs = (def: JobDef) => def.stops.length - 1
+/** 船で飛ぶ区間の数（積む所から最後の降ろす所まで。研究温室へ歩く分は数えない。歩いているあいだは時間も止まる） */
+export const legs = (def: JobDef) => def.stops.filter((s) => s !== LAB_STOP).length - 1
+/** 研究温室まで歩いて届ける仕事か */
+export const walksToLab = (def: JobDef) => def.stops[def.stops.length - 1] === LAB_STOP
 export const ruleOf = (kind: JobKind) => KINDS[kind].rule
 /** inTime の制限時間（秒） */
 export const timeLimit = (def: JobDef) => (KINDS[def.kind].limit ?? 0) * legs(def)
@@ -130,7 +136,11 @@ export function makeJob(day: string, round: number, slot: number): JobDef {
     stops.push(pick)
   }
   const n = stops.length - 1
-  return { id: `${day}:${round}:${slot}`, kind, stops, reward: a(k.reward.metal * n, k.reward.ice * n, k.reward.gas * n) }
+  // コロニーへ届ける試料と苗は、最後に降りて歩き、研究温室へ手渡す（その分、報酬も少し多い）
+  const walk = WALK_KINDS.includes(kind) && stops[stops.length - 1] === COLONY_ID
+  if (walk) stops.push(LAB_STOP)
+  const m = walk ? n + 0.5 : n
+  return { id: `${day}:${round}:${slot}`, kind, stops, reward: a(Math.round(k.reward.metal * m), Math.round(k.reward.ice * m), Math.round(k.reward.gas * m)) }
 }
 
 /** 掲示板（BOARD_SIZE 件） */
@@ -173,7 +183,7 @@ export function kindStats(history: readonly JobRecord[]) {
 const isKind = (k: unknown): k is JobKind => typeof k === 'string' && (JOB_KINDS as readonly string[]).includes(k)
 const isDef = (d: unknown): d is JobDef => {
   const x = d as JobDef
-  return !!x && typeof x.id === 'string' && isKind(x.kind) && Array.isArray(x.stops) && x.stops.length >= 2 && x.stops.length <= 3 && x.stops.every((s) => (JOB_PLACES as readonly string[]).includes(s)) && isAmounts(x.reward)
+  return !!x && typeof x.id === 'string' && isKind(x.kind) && Array.isArray(x.stops) && x.stops.length >= 2 && x.stops.length <= 4 && x.stops.every((s, i) => (JOB_PLACES as readonly string[]).includes(s) || (s === LAB_STOP && i === x.stops.length - 1 && x.stops[i - 1] === COLONY_ID)) && isAmounts(x.reward)
 }
 const isActive = (j: unknown): j is ActiveJob => {
   const x = j as ActiveJob
