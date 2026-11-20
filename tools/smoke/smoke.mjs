@@ -247,6 +247,8 @@ const SCENARIOS = {
       await page.evaluate(() => window.__sv.sizeCompare.open('jupiter'))
       await page.waitForFunction(() => document.querySelector('.size-compare .sc-caption'), null, { timeout: 30000 })
       for (const sel of ['.size-compare .sc-chip', '.size-compare .close']) await visibleButton(page, sel)
+      // 名札は 3D の場面の中（Canvas が描き始めてから出る）。遅い端末では少し待つ
+      await page.waitForFunction(() => document.querySelectorAll('.size-compare .sc-label').length >= 3, null, { timeout: 60000 }).catch(() => undefined)
       const n = await page.evaluate(() => document.querySelectorAll('.size-compare .sc-label').length)
       if (n !== 3) throw new Error(`expected 3 things on the shelf, got ${n}`)
       await page.evaluate(() => window.__sv.sizeCompare.focus('earth'))
