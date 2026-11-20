@@ -1,0 +1,1008 @@
+/* 開拓の画面（ui/pioneer/PioneerPanel.tsx） */
+.pioneer-hud button,
+.pioneer-panel button {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #e8ecf6;
+}
+.pioneer-hud button:hover:not(:disabled),
+.pioneer-panel button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+.pioneer-panel .pio-build:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+:root {
+  --pio-metal: #f0a24a;
+  --pio-ice: #7fd3ff;
+  --pio-gas: #d79bf0;
+  --pio-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pioneer-hud {
+  position: fixed;
+  /* PC は右上、航法コンピュータのすぐ左（まん中の船と岩・左の航海日誌と重ならない）。スマホは上のアイコンの下 */
+  right: 286px;
+  top: 92px;
+  z-index: 20;
+  width: min(360px, calc(100vw - 16px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px 10px 8px 12px;
+  border-left: 4px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  background: rgba(16, 14, 26, 0.82);
+  backdrop-filter: blur(4px);
+  font-size: 13px;
+  color: #e8ecf6;
+  transition: box-shadow 0.3s var(--pio-ease);
+}
+.pioneer-hud.pio-hud-ready {
+  box-shadow: 0 0 0 1px #ffd86b88, 0 0 18px #ffd86b44;
+}
+.pio-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.pioneer-hud .pio-title {
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+.pio-pips {
+  display: flex;
+  gap: 3px;
+}
+.pio-pips i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transition: background 0.3s;
+}
+.pio-pips i.done {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.pio-pips i.now {
+  border-color: #ffd86b;
+  box-shadow: 0 0 6px #ffd86b88;
+}
+.pioneer-hud .pio-hold {
+  display: flex;
+  flex: 1;
+  min-width: 60px;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+.pioneer-hud .pio-hold.full {
+  box-shadow: 0 0 0 1px #ffc58a;
+  animation: pio-blink 1.2s ease-in-out infinite;
+}
+.pio-bar {
+  height: 100%;
+  transition: width 0.3s var(--pio-ease);
+}
+.pio-metal {
+  background: var(--pio-metal);
+}
+.pio-ice {
+  background: var(--pio-ice);
+}
+.pio-gas {
+  background: var(--pio-gas);
+}
+.pioneer-hud .pio-count {
+  min-width: 46px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.pioneer-hud .pio-open {
+  min-height: 30px;
+  padding: 0 12px;
+}
+.pioneer-hud .pio-help {
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 50%;
+  font-weight: 700;
+}
+.pio-goal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  animation: pio-in 0.35s var(--pio-ease);
+}
+.pio-goal-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+.pio-goal-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+.pio-goal-text small {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.pio-goal-text b {
+  font-weight: 600;
+}
+.pio-goal-text .pio-goal-hint {
+  color: #9fd0ff;
+  opacity: 1;
+}
+.pioneer-hud .pio-goal-go {
+  flex: none;
+  min-height: 34px;
+  padding: 0 14px;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  font-weight: 600;
+}
+.pio-need {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+.pio-need-label {
+  opacity: 0.75;
+}
+.pio-need-row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
+}
+.pio-meter {
+  display: flex;
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+.pio-meter span {
+  height: 100%;
+  transition: width 0.4s var(--pio-ease);
+}
+/* 積み荷の分（まだ納めていない）は、しま模様で薄く */
+.pio-meter-hold {
+  opacity: 0.55;
+  background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(0, 0, 0, 0.35) 3px 6px);
+}
+.pio-need-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pio-need-num em {
+  font-style: normal;
+  opacity: 0.7;
+}
+.pio-need-row.ok .pio-need-num::after {
+  content: ' ✓';
+  color: #9ff0b0;
+}
+
+/* 砕ける岩の輪（位置は PioneerScene が動かす） */
+#pio-rings {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+}
+.pio-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  border: 2px solid var(--pio-metal);
+  border-radius: 50%;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--pio-metal) 60%, transparent);
+  transition: opacity 0.2s;
+}
+.pio-ring[data-res='ice'] {
+  border-color: var(--pio-ice);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--pio-ice) 60%, transparent);
+}
+.pio-ring[data-rich='1'] {
+  border-width: 3px;
+}
+.pio-ring[data-reach='0'] {
+  border-style: dashed;
+  box-shadow: none;
+}
+.pio-ring[data-want='0'] {
+  opacity: 0.45;
+}
+.pio-ring em {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  display: none;
+  margin-top: 3px;
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(16, 14, 26, 0.75);
+  font-size: 11px;
+  font-style: normal;
+  color: #e8ecf6;
+  white-space: nowrap;
+}
+.pio-ring[data-first='1'][data-reach='1'][data-res='metal'][data-rich='0'] .l-metal,
+.pio-ring[data-first='1'][data-reach='1'][data-res='metal'][data-rich='1'] .l-rich,
+.pio-ring[data-first='1'][data-reach='1'][data-res='ice'] .l-ice,
+.pio-ring[data-first='1'][data-reach='0'] .l-far {
+  display: block;
+}
+
+/* 木星の高さのメーター */
+.pio-gauge {
+  position: fixed;
+  /* 航法コンピュータのすぐ左、開拓のカードの下 */
+  right: 286px;
+  top: 300px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 92px;
+  padding: 8px 6px;
+  border-radius: 12px;
+  background: rgba(16, 14, 26, 0.8);
+  font-size: 11px;
+  color: #e8ecf6;
+  text-align: center;
+  animation: pio-in 0.3s var(--pio-ease);
+}
+.pio-gauge[hidden] {
+  display: none;
+}
+.pio-gauge-track {
+  position: relative;
+  width: 22px;
+  height: 180px;
+  border-radius: 11px;
+  background: linear-gradient(#1c2340, #3a2c40);
+}
+.pio-gauge-band {
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--pio-gas) 55%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--pio-gas) 50%, transparent);
+}
+.pio-gauge-deep {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 0 0 11px 11px;
+  background: repeating-linear-gradient(135deg, #b8463e 0 4px, #7a2b28 4px 8px);
+}
+.pio-gauge-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  text-align: left;
+}
+.pio-gauge-legend span::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-radius: 2px;
+  background: var(--pio-gas);
+}
+.pio-gauge-legend .deep::before {
+  background: #b8463e;
+}
+.pio-gauge-ship {
+  position: absolute;
+  left: 100%;
+  width: 0;
+  height: 0;
+  margin-top: -6px;
+  border: 6px solid transparent;
+  border-right: 10px solid #fff;
+  transition: top 0.15s linear;
+}
+.pio-gauge-speed .slow,
+.pio-gauge[data-fast='1'] .pio-gauge-speed .fast {
+  display: inline;
+}
+.pio-gauge-speed .fast,
+.pio-gauge[data-fast='1'] .pio-gauge-speed .slow {
+  display: none;
+}
+.pio-gauge-speed .slow {
+  color: #ffc58a;
+}
+.pio-gauge-speed .fast {
+  color: #9ff0b0;
+}
+.pio-gauge-on {
+  display: none;
+  color: var(--pio-gas);
+  font-weight: 600;
+}
+.pio-gauge[data-zone='band'][data-fast='1'] .pio-gauge-on {
+  display: block;
+  animation: pio-blink 0.9s ease-in-out infinite;
+}
+.pio-gauge[data-zone='band'][data-fast='1'] .pio-gauge-band {
+  background: color-mix(in srgb, var(--pio-gas) 85%, transparent);
+}
+.pio-gauge[data-zone='deep'] .pio-gauge-ship {
+  border-right-color: #ff7b6b;
+}
+
+/* 遊び方の案内 */
+.pio-guide header {
+  margin-bottom: 4px;
+}
+.pio-guide .pio-skip {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.pio-guide-pic {
+  display: grid;
+  place-items: center;
+  height: 150px;
+  border-radius: 12px;
+  background: radial-gradient(ellipse at 30% 40%, #1d2a4a, #0b0f1a 70%);
+  animation: pio-in 0.35s var(--pio-ease);
+}
+.pio-guide-pic svg {
+  width: 100%;
+  max-width: 320px;
+  height: 140px;
+}
+.pio-guide-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 2px !important;
+  font-size: 16px !important;
+  color: #e8ecf6 !important;
+}
+.pio-guide-step span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  font-size: 13px;
+}
+.pio-guide-text {
+  min-height: 3em;
+}
+.pio-guide-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+.pio-guide-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transition: width 0.3s var(--pio-ease), background 0.3s;
+}
+.pio-guide-dots i.done {
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.pio-guide-dots i.now {
+  width: 22px;
+  border-radius: 4px;
+  background: var(--accent);
+}
+.pio-guide footer .pio-build {
+  min-width: 140px;
+  margin: 0;
+}
+.pio-guide .g-beam {
+  animation: pio-beam 1.6s ease-in-out infinite;
+}
+.pio-guide .g-ring {
+  animation: pio-blink 1.6s ease-in-out infinite;
+}
+.pio-guide .g-shard {
+  animation: pio-shard 1.6s var(--pio-ease) infinite;
+}
+.pio-guide .g-flow {
+  animation: pio-flow 1s linear infinite;
+}
+.pio-guide .g-pulse {
+  animation: pio-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes pio-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes pio-blink {
+  50% {
+    opacity: 0.45;
+  }
+}
+@keyframes pio-beam {
+  0%,
+  20% {
+    opacity: 0;
+  }
+  35%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes pio-shard {
+  from {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-40px, 16px);
+    opacity: 0;
+  }
+}
+@keyframes pio-flow {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pioneer-hud *,
+  .pio-guide *,
+  .pio-gauge,
+  .pio-gauge * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.pioneer-panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 60;
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  padding: 12px 16px 14px;
+  border-top: 5px solid var(--accent);
+  border-radius: 14px;
+  background: rgba(14, 18, 28, 0.97);
+  font-size: 14px;
+  line-height: 1.5;
+  color: #e8ecf6;
+}
+.pioneer-panel header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pioneer-panel h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 1px;
+}
+.pioneer-panel h3 {
+  margin: 0 0 2px;
+  font-size: 13px;
+  color: #c9d6ee;
+}
+.pioneer-panel p {
+  margin: 0 0 4px;
+}
+.pioneer-panel .close {
+  border: none;
+  background: none;
+  font-size: 20px;
+  min-width: 40px;
+  min-height: 40px;
+}
+.pioneer-panel .pio-stage {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.pio-steps {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0;
+}
+.pio-steps span {
+  flex: 1;
+  padding: 4px 2px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  text-align: center;
+  opacity: 0.6;
+}
+.pio-steps span.now {
+  outline: 1px solid var(--accent);
+  opacity: 1;
+}
+.pio-steps span.done {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  opacity: 1;
+}
+.pio-rows {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.pio-rows > div,
+.pio-next {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.pio-next {
+  margin-top: 8px;
+}
+.pio-short {
+  color: #ffc58a;
+}
+.pio-science {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.pio-build {
+  min-height: 40px;
+  min-width: 120px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+.pio-go {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+.pio-go button {
+  min-height: 40px;
+}
+.pioneer-panel footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.pioneer-panel footer button {
+  min-height: 36px;
+}
+.pio-reset {
+  opacity: 0.7;
+}
+.pio-naming {
+  text-align: center;
+}
+.pio-naming input {
+  width: 80%;
+  margin: 6px 0;
+  padding: 8px 10px;
+  font-size: 16px;
+}
+.label.pioneer-plate span {
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: rgba(20, 16, 30, 0.7);
+}
+
+/* スマホ・タブレット（横向きでも）：下は操縦のボタンがあるので、上のアイコンの下へ */
+/* 狭い PC：左上の操作説明と重なるので、左下の操作ボタンの上へ */
+@media (max-width: 1180px) {
+  .pioneer-hud {
+    top: auto;
+    right: auto;
+    left: 16px;
+    bottom: 132px;
+  }
+}
+body.touch .pioneer-hud {
+  top: 92px;
+  bottom: auto;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* スマホ：カードは小さめ。木星のメーターは右の操縦ボタンの上 */
+/* スマホ：右は操縦のボタンなので、左（カードの下、スティックの上） */
+body.touch .pio-gauge {
+  right: auto;
+  left: 8px;
+  top: calc(var(--pio-card-bottom, 230px) + 8px);
+}
+body.touch .pio-gauge-track {
+  height: 120px;
+}
+
+@media (max-width: 600px) {
+  .pioneer-hud {
+    top: 92px;
+    bottom: auto;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    gap: 4px;
+    padding: 5px 6px 6px 8px;
+    font-size: 12px;
+  }
+  .pio-top {
+    gap: 6px;
+  }
+  .pio-pips i {
+    width: 7px;
+    height: 7px;
+  }
+  .pio-goal {
+    gap: 8px;
+    padding: 4px 6px;
+  }
+  .pio-goal-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .pioneer-hud .pio-goal-go {
+    min-height: 32px;
+    padding: 0 10px;
+  }
+  .pio-need-row {
+    min-width: 100px;
+  }
+  .pio-gauge {
+    width: 76px;
+  }
+  .pio-go {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 手応え：拾った数字・納品のカード */
+.pio-pops {
+  position: fixed;
+  inset: 0;
+  z-index: 21;
+  pointer-events: none;
+  overflow: hidden;
+}
+.pio-pop {
+  position: absolute;
+  transform: translate(-50%, 0);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+  animation: pio-pop 1.1s var(--pio-ease) forwards;
+}
+.pio-pop-metal {
+  color: var(--pio-metal);
+}
+.pio-pop-ice {
+  color: var(--pio-ice);
+}
+.pio-pop-gas {
+  color: var(--pio-gas);
+}
+@keyframes pio-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.15);
+  }
+  30% {
+    transform: translate(-50%, -6px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -48px);
+  }
+}
+.pio-delivery {
+  position: fixed;
+  left: 50%;
+  /* 開拓のカードと船のあいだ */
+  top: 41%;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  min-width: 240px;
+  padding: 14px 20px 16px;
+  border-top: 4px solid #ffd86b;
+  border-radius: 14px;
+  background: rgba(14, 18, 28, 0.94);
+  box-shadow: 0 0 30px rgba(255, 216, 107, 0.25);
+  color: #e8ecf6;
+  text-align: center;
+  animation: pio-deliver 3.6s var(--pio-ease) forwards;
+}
+.pio-delivery h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+.pio-delivery-rows {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  font-size: 14px;
+}
+.pio-delivery-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pio-delivery-row b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.pio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.pio-delivery .pio-build {
+  margin-top: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: #e8ecf6;
+}
+@keyframes pio-deliver {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.9);
+  }
+  8% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.03);
+  }
+  14% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pio-delivery {
+    animation: none;
+  }
+  .pio-pop {
+    display: none;
+  }
+}
+
+/* 建設の場面（BuildCinemaUi）：ほかの文字とボタンは隠す（Shift+F12 の画面と同じやり方）。上下に黒い帯 */
+html.pio-cinema
+  body
+  *:not(
+    canvas[data-engine^='three.js'],
+    :has(canvas[data-engine^='three.js']),
+    .pio-cinema-ui,
+    .pio-cinema-ui *,
+    .pioneer-plate,
+    .pioneer-plate *
+  ) {
+  visibility: hidden !important;
+}
+.pio-cinema-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  color: #f1f4fb;
+}
+.pio-bar-top,
+.pio-bar-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9vh;
+  background: #000;
+  animation: pio-bar-in 0.6s var(--pio-ease);
+}
+.pio-bar-top {
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 16px;
+}
+.pio-bar-bottom {
+  bottom: 0;
+  animation-name: pio-bar-in-bottom;
+}
+.pio-cinema-time {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 2px;
+  background: var(--accent);
+}
+.pio-skip-cinema {
+  pointer-events: auto;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8ecf6;
+  font-size: 13px;
+}
+.pio-skip-cinema kbd {
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 0.6;
+}
+.pio-caption {
+  position: absolute;
+  left: 50%;
+  bottom: calc(9vh + 18px);
+  transform: translateX(-50%);
+  width: min(640px, calc(100vw - 32px));
+  text-align: center;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+}
+.pio-caption small {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 2px;
+  opacity: 0.85;
+  animation: pio-in 0.6s var(--pio-ease) 0.4s both;
+}
+.pio-caption h2 {
+  margin: 2px 0 6px;
+  font-size: clamp(26px, 5vw, 40px);
+  letter-spacing: 4px;
+  animation: pio-title 1s var(--pio-ease) 0.6s both;
+}
+.pio-cinema-science {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  opacity: 0.9;
+  animation: pio-in 0.8s var(--pio-ease) 2.2s both;
+}
+.pio-cinema-steps {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pio-cinema-steps i {
+  width: 28px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.pio-cinema-steps i.done {
+  background: var(--accent);
+}
+.pio-cinema-steps i.new {
+  background: linear-gradient(90deg, #ffd86b 50%, rgba(255, 255, 255, 0.25) 50%) right / 200% 100%;
+  animation: pio-fill 1.4s var(--pio-ease) 0.8s forwards;
+}
+.pio-gravity {
+  position: absolute;
+  right: max(24px, 6vw);
+  top: calc(9vh + 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 190px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(10, 12, 20, 0.7);
+  text-align: center;
+  animation: pio-in 0.6s var(--pio-ease) 0.8s both;
+}
+.pio-gravity svg {
+  width: 150px;
+  height: 88px;
+}
+.pio-gravity b {
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.pio-gravity-title {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.pio-gravity small {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  opacity: 0.8;
+}
+@keyframes pio-bar-in {
+  from {
+    transform: translateY(-100%);
+  }
+}
+@keyframes pio-bar-in-bottom {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes pio-title {
+  from {
+    opacity: 0;
+    letter-spacing: 14px;
+  }
+}
+@keyframes pio-fill {
+  to {
+    background-position: left;
+  }
+}
+@media (max-width: 600px) {
+  .pio-gravity {
+    right: 10px;
+    width: 128px;
+    padding: 6px 8px;
+  }
+  .pio-gravity svg {
+    width: 100px;
+    height: 58px;
+  }
+  .pio-gravity b {
+    font-size: 18px;
+  }
+  .pio-gravity small {
+    display: none;
+  }
+  .pio-caption {
+    bottom: calc(9vh + 8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pio-cinema-ui * {
+    animation: none !important;
+  }
+}

@@ -30,6 +30,7 @@ import { observeJa } from './observe.ja'
 import { observePanelJa } from './observePanel.ja'
 import { photoNoteJa } from './photoNote.ja'
 import { saveDataJa } from './saveData.ja'
+import { sceneErrorJa } from './sceneError.ja'
 import { probePanelJa } from './probePanel.ja'
 import { probeSceneJa } from './probeScene.ja'
 import { quizJa } from './quiz.ja'
@@ -40,6 +41,9 @@ import { rallyHiscoreJa } from './rallyHiscore.ja'
 import { rallyPanelJa } from './rallyPanel.ja'
 import { rockBookJa } from './rockBook.ja'
 import { bodyCardsJa } from './bodyCards.ja'
+import { todayJa } from './today.ja'
+import { discoveryJa } from './discovery.ja'
+import { arrivalJa } from './arrival.ja'
 import { roverHudJa } from './roverHud.ja'
 import { scaleToggleJa } from './scaleToggle.ja'
 import { sfJa } from './sf.ja'
@@ -75,6 +79,7 @@ import { compareItemsJa } from './compareItems.ja'
 import { deepSpaceImagesJa } from './deepSpaceImages.ja'
 import { eclipsesJa } from './eclipses.ja'
 import { evaJobsJa } from './evaJobs.ja'
+import { pioneerJa } from './pioneer.ja'
 import { evaSitesJa } from './evaSites.ja'
 import { evaToolsJa } from './evaTools.ja'
 import { phaserFactsJa } from './phaserFacts.ja'
@@ -187,6 +192,7 @@ export const ja = {
   observePanel: observePanelJa,
   photoNote: photoNoteJa,
   saveData: saveDataJa,
+  sceneError: sceneErrorJa,
   probePanel: probePanelJa,
   probeScene: probeSceneJa,
   quiz: quizJa,
@@ -197,6 +203,9 @@ export const ja = {
   rallyPanel: rallyPanelJa,
   rockBook: rockBookJa,
   bodyCards: bodyCardsJa,
+  today: todayJa,
+  discovery: discoveryJa,
+  arrival: arrivalJa,
   roverHud: roverHudJa,
   scaleToggle: scaleToggleJa,
   sf: sfJa,
@@ -230,6 +239,7 @@ export const ja = {
   deepSpaceImages: deepSpaceImagesJa,
   eclipses: eclipsesJa,
   evaJobs: evaJobsJa,
+  pioneer: pioneerJa,
   evaSites: evaSitesJa,
   evaTools: evaToolsJa,
   phaserFacts: phaserFactsJa,
