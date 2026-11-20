@@ -1,5 +1,6 @@
 import type { ja } from './ja'
 import { walkEn } from './walk.en'
+import { moonMissionEn } from './moonMission.en'
 import type { Translation } from './translation'
 import { listEn } from './list'
 import { approachEn } from './approach.en'
@@ -180,6 +181,7 @@ export const en: Translation<typeof ja> = {
   eva: evaEn,
   evaView: evaViewEn,
   walk: walkEn,
+  moonMission: moonMissionEn,
   exoplanet: exoplanetEn,
   flight: flightEn,
   galleryPanel: galleryPanelEn,

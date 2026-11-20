@@ -27,6 +27,7 @@ import { evaDebug, evaInput, recallEva, startEva, useEva } from './state/eva'
 import { evaJobsDebug, jobsRt, useEvaJobs } from './state/evaJobs'
 import { evaSite } from './components/eva/hull'
 import { colonyWalk, endWalk, startWalk, useWalk, walkInput } from './state/walk'
+import { debugSkip as moonSkip, missionInput, pressGo, setAuto, sim as moonSim, startMoonMission, useMoonMission } from './state/moonMission'
 import { mobDebug, walker } from './components/walk/WalkActors'
 import { walkDebug } from './components/walk/WalkWorld'
 import { chunkDebug } from './components/walk/WalkChunks'
@@ -87,6 +88,8 @@ const sv = {
   surfaceLab: useSurfaceLab,
   wide: wideNow,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus, ctl: roverCtl, pose: roverPose },
+  // 月ミッション（アポロ17号の追体験）
+  moonMission: { state: useMoonMission, sim: moonSim, input: missionInput, start: startMoonMission, go: pressGo, auto: setAuto, skip: moonSkip },
   // コロニーの中を歩く。start('colony') でコロニーの中にいることにして始める（テスト用）
   walk: {
     state: useWalk,
