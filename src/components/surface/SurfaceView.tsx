@@ -1,5 +1,3 @@
-import { GravityJump, jumpFocus } from './GravityJump'
-import { JumpButton, JumpCard } from './JumpCard'
 import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
@@ -1102,16 +1100,7 @@ function Look({ terrain }: { terrain: Terrain }) {
       }
       return
     }
-    cam.position.set(0, eyeY + (phase === 'surface' ? jumpFocus.lift : 0), 0)
-    // 重力ジャンプのあいだは、跳ぶ二人の方へ向く（components/surface/GravityJump.tsx）
-    if (jumpFocus.on && phase === 'surface') {
-      const d = target.copy(jumpFocus.point).sub(cam.position).normalize()
-      const k = 1 - Math.exp(-dt * 5)
-      let dy = Math.atan2(d.x, -d.z) - s.yaw
-      dy = Math.atan2(Math.sin(dy), Math.cos(dy))
-      s.yaw += dy * k
-      s.pitch += (THREE.MathUtils.clamp(Math.asin(d.y), -1.3, 1.45) - s.pitch) * k
-    }
+    cam.position.set(0, eyeY, 0)
     look.set(Math.sin(s.yaw) * Math.cos(s.pitch), Math.sin(s.pitch), -Math.cos(s.yaw) * Math.cos(s.pitch)).add(cam.position)
     cam.lookAt(look)
     if (Math.abs(cam.fov - s.fov) > 0.01) {
@@ -1384,7 +1373,6 @@ function Scene({ def }: { def: SurfaceDef }) {
       )}
       {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} />}
       <Look terrain={terrain} />
-      <GravityJump terrain={terrain} />
       <WhenReady />
     </>
   )
@@ -1633,7 +1621,6 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
           ) : (
           <>
           {rallyTrack && <RallyStart track={rallyTrack} />}
-          <JumpCard />
           <div className="surface-hint">
             {view === 'eye'
               ? ui().surfaceView.lookAroundHint
@@ -1649,7 +1636,6 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             <button className="secondary" onClick={() => launchRover()}>
               {ui().surfaceView.deployRover}
             </button>
-            <JumpButton bodyId={def.id} />
             {!def.site && trackForBody(def.id) && (
               <button className="secondary rally-site" onClick={() => goToSite(trackForBody(def.id))}>
                 🏁 {ui().surfaceView.toRaceTrack(ui().rallyTracks[trackAt(trackForBody(def.id)!)].button)}

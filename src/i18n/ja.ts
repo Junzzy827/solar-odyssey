@@ -43,7 +43,6 @@ import { bodyCardsJa } from './bodyCards.ja'
 import { todayJa } from './today.ja'
 import { discoveryJa } from './discovery.ja'
 import { arrivalJa } from './arrival.ja'
-import { jumpJa } from './jump.ja'
 import { roverHudJa } from './roverHud.ja'
 import { scaleToggleJa } from './scaleToggle.ja'
 import { sfJa } from './sf.ja'
@@ -205,7 +204,6 @@ export const ja = {
   today: todayJa,
   discovery: discoveryJa,
   arrival: arrivalJa,
-  jump: jumpJa,
   roverHud: roverHudJa,
   scaleToggle: scaleToggleJa,
   sf: sfJa,
