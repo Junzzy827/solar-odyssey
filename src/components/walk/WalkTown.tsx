@@ -9,7 +9,7 @@ import { parkTexture, standAt } from './WalkWorld'
 // 家は箱 1 つで、窓は箱の面の上の位置（m）から計算するので、どの大きさの家でも窓の大きさがそろう。
 // 夜は、家ごと・窓ごとに決めた窓だけが灯る。
 
-const box = () => new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)
+export const box = () => new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)
 
 /** インスタンスの大きさ（行列の列の長さ）を使って、面の上の位置を m で出す、頂点シェーダーの部品 */
 const LOCAL_SIZE = `
@@ -20,7 +20,7 @@ vec3 ks = vec3(1.0);
 #endif
 vec3 kp = position * ks;`
 
-function houseMaterial(night: { value: number }) {
+export function houseMaterial(night: { value: number }) {
   const mat = new THREE.MeshLambertMaterial({ color: '#ffffff' })
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uNight = night
@@ -115,7 +115,7 @@ totalEmissiveRadiance += vec3(1.0, 0.7, 0.38) * lit * uNight * 1.4;`,
 }
 
 /** 瓦の段（高さ 0.15 m ごと）と、棟の濃い線 */
-function roofMaterial() {
+export function roofMaterial() {
   const mat = new THREE.MeshLambertMaterial({ color: '#ffffff', side: THREE.DoubleSide })
   mat.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
@@ -170,7 +170,7 @@ diffuseColor.rgb *= (1.0 - 0.18 * joint * step(vWP.y, 0.95)) * (1.0 - 0.15 * ste
 }
 
 /** 切妻屋根の 2 枚の斜面（棟は x の向き、高さ 1、奥行き 1） */
-function slopeGeometry() {
+export function slopeGeometry() {
   const p = [
     [-0.5, 0, -0.5, 0.5, 0, -0.5, 0.5, 1, 0, -0.5, 0, -0.5, 0.5, 1, 0, -0.5, 1, 0],
     [-0.5, 0, 0.5, -0.5, 1, 0, 0.5, 1, 0, -0.5, 0, 0.5, 0.5, 1, 0, 0.5, 0, 0.5],
@@ -183,7 +183,7 @@ function slopeGeometry() {
   return g
 }
 /** 妻（屋根の下の三角の壁） */
-function gableGeometry() {
+export function gableGeometry() {
   const p = [-0.5, 0, 0.5, -0.5, 1, 0, -0.5, 0, -0.5, 0.5, 0, -0.5, 0.5, 1, 0, 0.5, 0, 0.5]
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3))
