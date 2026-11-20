@@ -30,6 +30,9 @@ export const asteroids = {
   destroyed: [] as { mesh: THREE.InstancedMesh; index: number; matrix: THREE.Matrix4; at: number }[],
 }
 
+/** 小惑星帯の岩が砕けたとき（開拓の資源集めが聞く）。at は世界座標、size は岩の大きさ */
+export const rockBreaks = new Set<(type: RockType, size: number, at: THREE.Vector3) => void>()
+
 /** 小惑星帯のほかにビームが当たるもの（任務の小惑星など）。当たると onHit を呼ぶ */
 export const beamTargets: { object: THREE.Object3D; onHit: () => void }[] = []
 

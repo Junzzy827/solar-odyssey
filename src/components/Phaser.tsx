@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { asteroids, beamTargets } from '../state/registry'
+import { asteroids, beamTargets, rockBreaks } from '../state/registry'
 import { useStore } from '../state/store'
 import { playBeam, playBlast } from '../audio/sfx'
 import { touchInput } from '../state/input'
@@ -161,6 +161,7 @@ export function Phaser() {
     playBlast()
 
     const type = asteroids.types.get(mesh)?.[hit.instanceId] ?? 0
+    for (const f of rockBreaks) f(type, Math.hypot(tmpM.elements[0], tmpM.elements[1], tmpM.elements[2]), hit.point)
     destroyedCount.current += 1
     useStore.getState().showToast(destroyedCount.current === 1 ? `${ui().phaserFacts[type]}\n${ui().phaserFacts.sparse}` : ui().phaserFacts[type])
   }
