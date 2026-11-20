@@ -696,3 +696,124 @@ body.touch .pio-gauge-track {
     grid-template-columns: 1fr;
   }
 }
+
+/* 手応え：拾った数字・納品のカード */
+.pio-pops {
+  position: fixed;
+  inset: 0;
+  z-index: 21;
+  pointer-events: none;
+  overflow: hidden;
+}
+.pio-pop {
+  position: absolute;
+  transform: translate(-50%, 0);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+  animation: pio-pop 1.1s var(--pio-ease) forwards;
+}
+.pio-pop-metal {
+  color: var(--pio-metal);
+}
+.pio-pop-ice {
+  color: var(--pio-ice);
+}
+.pio-pop-gas {
+  color: var(--pio-gas);
+}
+@keyframes pio-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.15);
+  }
+  30% {
+    transform: translate(-50%, -6px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -48px);
+  }
+}
+.pio-delivery {
+  position: fixed;
+  left: 50%;
+  /* 開拓のカードと船のあいだ */
+  top: 41%;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  min-width: 240px;
+  padding: 14px 20px 16px;
+  border-top: 4px solid #ffd86b;
+  border-radius: 14px;
+  background: rgba(14, 18, 28, 0.94);
+  box-shadow: 0 0 30px rgba(255, 216, 107, 0.25);
+  color: #e8ecf6;
+  text-align: center;
+  animation: pio-deliver 3.6s var(--pio-ease) forwards;
+}
+.pio-delivery h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+.pio-delivery-rows {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  font-size: 14px;
+}
+.pio-delivery-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pio-delivery-row b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.pio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.pio-delivery .pio-build {
+  margin-top: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: #e8ecf6;
+}
+@keyframes pio-deliver {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.9);
+  }
+  8% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.03);
+  }
+  14% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pio-delivery {
+    animation: none;
+  }
+  .pio-pop {
+    display: none;
+  }
+}

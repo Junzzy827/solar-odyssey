@@ -8,6 +8,7 @@ import { COLONY_ID, DOCK_ID } from '../../data/sf'
 import { PioneerHud } from './PioneerHud'
 import { PioneerGuide } from './PioneerGuide'
 import { GasGauge } from './GasGauge'
+import { PioneerFx } from './PioneerFx'
 import { go } from './go'
 import './pioneer.css'
 
@@ -37,6 +38,7 @@ export function PioneerPanel() {
     <>
       {flying && !p.guide && <PioneerHud />}
       {flying && <GasGauge />}
+      <PioneerFx />
       {p.guide && !p.naming && <PioneerGuide />}
       {p.panel && !p.naming && !p.guide && (
         <div className="pioneer-panel" role="dialog" aria-label={t.terminal}>

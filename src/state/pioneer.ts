@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { saveSlot } from './save'
+import { emitPioneerFx } from './pioneerFx'
 import { useStore } from './store'
 import { ui } from '../i18n'
 import {
@@ -105,10 +106,12 @@ export function collect(resource: Resource, amount: number) {
   if (added > 0) {
     usePioneer.setState({ hold })
     persist()
+    emitPioneerFx({ kind: 'pickup', resource, amount: added })
   }
   if (total(hold) >= cap && !fullWarned) {
     fullWarned = true
     useStore.getState().showToast(t().holdFull)
+    emitPioneerFx({ kind: 'full' })
   }
   return added
 }
@@ -123,7 +126,8 @@ export function deliver() {
   persist()
   const next = nextStage()
   const ready = next && canPay(store, next.cost)
-  useStore.getState().showToast(t().delivered(s.hold, !!ready))
+  // 納品は画面の演出（数字が増えていくカード）で見せる。読み上げ用に文も渡す
+  emitPioneerFx({ kind: 'deliver', amounts: s.hold, ready: !!ready })
   return true
 }
 
