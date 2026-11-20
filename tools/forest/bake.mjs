@@ -19,23 +19,23 @@ const UA = 'asset-fetch/1.0'
 /** 部品の一覧。from = Poly Haven の名前、nodes = glTF の中の部品の名前、tris = 減らした後の三角形の数（0 = 減らさない）、mat = 画像の名前 */
 const PARTS = [
   // 下草：オオタニワタリのようなシダ（葉は切り抜き）
-  { name: 'fern_a', from: 'fern_02', nodes: ['fern_02_b'], tris: 1300, mat: 'fern', plant: true },
-  { name: 'fern_b', from: 'fern_02', nodes: ['fern_02_d'], tris: 520, mat: 'fern', plant: true },
+  { name: 'fern_a', from: 'fern_02', nodes: ['fern_02_b'], tris: 900, mat: 'fern', plant: true },
+  { name: 'fern_b', from: 'fern_02', nodes: ['fern_02_d'], tris: 360, mat: 'fern', plant: true },
   // 下草：丸い大きな葉（カラテア）
-  { name: 'calathea_a', from: 'calathea_orbifolia_01', nodes: ['calathea_orbifolia_01_a'], tris: 1000, mat: 'calathea', plant: true },
-  { name: 'calathea_b', from: 'calathea_orbifolia_01', nodes: ['calathea_orbifolia_01_b'], tris: 650, mat: 'calathea', plant: true },
-  { name: 'calathea_c', from: 'calathea_orbifolia_01', nodes: ['calathea_orbifolia_01_e'], tris: 400, mat: 'calathea', plant: true },
+  { name: 'calathea_a', from: 'calathea_orbifolia_01', nodes: ['calathea_orbifolia_01_a'], tris: 700, mat: 'calathea', plant: true },
+  { name: 'calathea_b', from: 'calathea_orbifolia_01', nodes: ['calathea_orbifolia_01_b'], tris: 460, mat: 'calathea', plant: true },
+  { name: 'calathea_c', from: 'calathea_orbifolia_01', nodes: ['calathea_orbifolia_01_e'], tris: 280, mat: 'calathea', plant: true },
   // 下草：つやのある長い葉（アンスリウム）
-  { name: 'anthurium_a', from: 'anthurium_botany_01', nodes: ['anthurium_botany_01_a'], tris: 1000, mat: 'anthurium', plant: true },
-  { name: 'anthurium_b', from: 'anthurium_botany_01', nodes: ['anthurium_botany_01_c'], tris: 700, mat: 'anthurium', plant: true },
-  { name: 'anthurium_c', from: 'anthurium_botany_01', nodes: ['anthurium_botany_06_f'], tris: 450, mat: 'anthurium', plant: true },
+  { name: 'anthurium_a', from: 'anthurium_botany_01', nodes: ['anthurium_botany_01_a'], tris: 700, mat: 'anthurium', plant: true },
+  { name: 'anthurium_b', from: 'anthurium_botany_01', nodes: ['anthurium_botany_01_c'], tris: 480, mat: 'anthurium', plant: true },
+  { name: 'anthurium_c', from: 'anthurium_botany_01', nodes: ['anthurium_botany_06_f'], tris: 300, mat: 'anthurium', plant: true },
   // 中くらいの木（パキラ。幹と葉は別の画像）
   { name: 'pachira_a_bark', from: 'pachira_aquatica_01', nodes: ['pachira_aquatica_01_bark_d'], tris: 900, mat: 'pachira_bark' },
-  { name: 'pachira_a_leaves', from: 'pachira_aquatica_01', nodes: ['pachira_aquatica_01_leaves_d'], tris: 3000, mat: 'pachira_leaves', plant: true },
+  { name: 'pachira_a_leaves', from: 'pachira_aquatica_01', nodes: ['pachira_aquatica_01_leaves_d'], tris: 2000, mat: 'pachira_leaves', plant: true },
   { name: 'pachira_b_bark', from: 'pachira_aquatica_01', nodes: ['pachira_aquatica_01_bark_c'], tris: 700, mat: 'pachira_bark' },
-  { name: 'pachira_b_leaves', from: 'pachira_aquatica_01', nodes: ['pachira_aquatica_01_leaves_c'], tris: 2200, mat: 'pachira_leaves', plant: true },
+  { name: 'pachira_b_leaves', from: 'pachira_aquatica_01', nodes: ['pachira_aquatica_01_leaves_c'], tris: 1500, mat: 'pachira_leaves', plant: true },
   // 地面の小物
-  { name: 'roots', from: 'root_cluster_01', nodes: ['root_cluster_01'], tris: 2400, mat: 'roots' },
+  { name: 'roots', from: 'root_cluster_01', nodes: ['root_cluster_01'], tris: 1400, mat: 'roots' },
   { name: 'stump', from: 'tree_stump_01', nodes: ['tree_stump_01'], tris: 1000, mat: 'stump' },
   { name: 'log', from: 'dead_tree_trunk_02', nodes: ['dead_tree_trunk_02'], tris: 1400, mat: 'log' },
   { name: 'rock_a', from: 'rock_moss_set_01', nodes: ['rock_moss_set_01_rock01'], tris: 450, mat: 'rock' },

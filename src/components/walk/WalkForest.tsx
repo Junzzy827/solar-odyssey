@@ -157,19 +157,17 @@ uniform float uFSway;
 varying vec3 vForest;
 #ifdef FOREST_SWAY_ATTR
 attribute vec2 aSway;
+#endif
+#ifdef FOREST_WIND
+attribute vec4 aWind;
 #endif`
 
-/** 風のゆれ：株ごと・板ごとに位相をずらして、ゆっくり揺らす */
+/** 風のゆれ：株ごと・板ごとに位相をずらして、ゆっくり揺らす。aWind = 株ごとの位相、株の中での高さ m、株のまん中からの距離 m、株の大きさの倍率 */
 const V_WIND = /* glsl */ `
 #ifdef FOREST_WIND
 {
-  float fPh = 0.0;
-  #ifdef USE_INSTANCING
-  fPh = instanceMatrix[3].x * 0.37 + instanceMatrix[3].z * 0.23;
-  #endif
-  float fAmp = uFSway * max(0.0, transformed.y) * (0.4 + length(transformed.xz));
-  transformed.x += sin(uFTime * 1.3 + fPh + transformed.y * 2.0) * fAmp;
-  transformed.z += sin(uFTime * 1.7 + fPh * 1.3 + transformed.x * 2.5) * fAmp * 0.7;
+  float fAmp = uFSway * max(0.0, aWind.y) * (0.4 + aWind.z) * aWind.w;
+  transformed += uFEast * (sin(uFTime * 1.3 + aWind.x + aWind.y * 2.0) * fAmp) + uFNorth * (sin(uFTime * 1.7 + aWind.x * 1.3 + aWind.z * 2.5) * fAmp * 0.7);
 }
 #endif
 #ifdef FOREST_SWAY_ATTR
@@ -181,11 +179,7 @@ transformed.y += sin(uFTime * 1.1 + aSway.x * 2.3) * aSway.y * 0.5;
 /** 見本の一角の中での位置（x = 東、y = 高さ、z = 北。m） */
 const V_MAIN = /* glsl */ `
 {
-  vec4 fW = vec4(transformed, 1.0);
-  #ifdef USE_INSTANCING
-  fW = instanceMatrix * fW;
-  #endif
-  fW = modelMatrix * fW;
+  vec4 fW = modelMatrix * vec4(transformed, 1.0);
   vec3 fR = fW.xyz - uFOrigin;
   vForest = vec3(dot(fR, uFEast), dot(fR, uFUp), dot(fR, uFNorth));
 }`
@@ -325,7 +319,7 @@ async function build(shared: Shared): Promise<Made> {
     return patch(mat, 'leaf', shared, { FOREST_GAIN: '2.4', FOREST_LEAF: '', FOREST_WIND: '', ...(normal ? { FOREST_SPEC: '' } : {}) }, sway)
   }
   const solid = (m: THREE.Texture, kind: Kind = 'prop', defines: Record<string, string> = {}, more: THREE.MeshLambertMaterialParameters = {}) => {
-    const mat = new THREE.MeshLambertMaterial({ map: m, side: THREE.DoubleSide, ...more })
+    const mat = new THREE.MeshLambertMaterial({ map: m, side: THREE.DoubleSide, vertexColors: true, ...more })
     materials.push(mat)
     return patch(mat, kind, shared, defines)
   }
@@ -342,51 +336,114 @@ async function build(shared: Shared): Promise<Made> {
   }
 
   const objects: THREE.Object3D[] = []
+  const merged: THREE.BufferGeometry[] = []
   const m4 = new THREE.Matrix4()
-  const col = new THREE.Color()
-  /** 部品を、置き場所の数だけ並べる */
-  const stand = (geoName: string, mat: THREE.Material, spots: Spot[], lift: number, cast: boolean, tint: boolean) => {
-    const geo = geos.get(geoName)
-    if (!geo || !spots.length) return
-    const mesh = new THREE.InstancedMesh(geo, mat, spots.length)
-    spots.forEach((p, i) => {
-      mesh.setMatrixAt(i, standAt(p.s, p.y, lift * p.k + (p.h ?? 0), p.yaw, p.k, m4))
-      // 株ごとに、色を少しずつ変える
-      const b = tint ? 0.86 + p.v * 0.26 : 0.9 + p.v * 0.16
-      mesh.setColorAt(i, tint ? col.setRGB(b * (0.9 + ((p.v * 7) % 1) * 0.16), b, b * (0.84 + ((p.v * 13) % 1) * 0.2)) : col.setRGB(b, b, b))
-    })
-    mesh.castShadow = cast && shadows
+  const n3 = new THREE.Matrix3()
+  const v = new THREE.Vector3()
+  /**
+   * 同じ材質の部品を、置き場所の数だけ並べて 1 つの形にまとめる（描画 1 回で済むように）。
+   * 株ごとの色のちがいと、風のゆれに使う数（aWind）は、頂点に書きこむ。
+   */
+  const plant = (name: string, mat: THREE.Material, parts: [geo: string, spots: Spot[], lift: number][], opts: { cast?: boolean; tint?: boolean; wind?: boolean } = {}) => {
+    let nv = 0
+    let ni = 0
+    for (const [g, spots] of parts) {
+      const geo = geos.get(g)
+      if (!geo) continue
+      nv += geo.attributes.position.count * spots.length
+      ni += geo.index!.count * spots.length
+    }
+    if (!nv) return
+    const pos = new Float32Array(nv * 3)
+    const nor = new Float32Array(nv * 3)
+    const uv = new Float32Array(nv * 2)
+    const col = new Float32Array(nv * 3)
+    const wind = opts.wind ? new Float32Array(nv * 4) : null
+    const idx = new Uint32Array(ni)
+    let o = 0
+    let io = 0
+    for (const [g, spots, lift] of parts) {
+      const geo = geos.get(g)
+      if (!geo) continue
+      const gp = geo.attributes.position as THREE.BufferAttribute
+      const gn = geo.attributes.normal as THREE.BufferAttribute
+      const gu = geo.attributes.uv as THREE.BufferAttribute
+      const gc = geo.attributes.color as THREE.BufferAttribute | undefined
+      const gi = geo.index!
+      for (const p of spots) {
+        standAt(p.s, p.y, lift * p.k + (p.h ?? 0), p.yaw, p.k, m4)
+        n3.setFromMatrix4(m4)
+        // 株ごとに、色を少しずつ変える
+        const b = opts.tint ? 0.86 + p.v * 0.26 : 0.9 + p.v * 0.16
+        const tr = opts.tint ? b * (0.9 + ((p.v * 7) % 1) * 0.16) : b
+        const tb = opts.tint ? b * (0.84 + ((p.v * 13) % 1) * 0.2) : b
+        const phase = p.s * 0.37 + p.y * 0.23
+        for (let i = 0; i < gp.count; i++) {
+          const k = o + i
+          const x = gp.getX(i)
+          const y = gp.getY(i)
+          const z = gp.getZ(i)
+          v.set(x, y, z).applyMatrix4(m4)
+          pos[k * 3] = v.x
+          pos[k * 3 + 1] = v.y
+          pos[k * 3 + 2] = v.z
+          v.set(gn.getX(i), gn.getY(i), gn.getZ(i)).applyMatrix3(n3).normalize()
+          nor[k * 3] = v.x
+          nor[k * 3 + 1] = v.y
+          nor[k * 3 + 2] = v.z
+          uv[k * 2] = gu.getX(i)
+          uv[k * 2 + 1] = gu.getY(i)
+          const ao = gc ? gc.getX(i) : 1
+          col[k * 3] = ao * tr
+          col[k * 3 + 1] = (gc ? gc.getY(i) : 1) * b
+          col[k * 3 + 2] = (gc ? gc.getZ(i) : 1) * tb
+          if (wind) {
+            wind[k * 4] = phase
+            wind[k * 4 + 1] = y
+            wind[k * 4 + 2] = Math.hypot(x, z)
+            wind[k * 4 + 3] = p.k
+          }
+        }
+        for (let i = 0; i < gi.count; i++) idx[io + i] = gi.getX(i) + o
+        o += gp.count
+        io += gi.count
+      }
+    }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+    geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3))
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
+    if (wind) geo.setAttribute('aWind', new THREE.BufferAttribute(wind, 4))
+    geo.setIndex(new THREE.BufferAttribute(idx, 1))
+    geo.computeBoundingSphere()
+    merged.push(geo)
+    const mesh = new THREE.Mesh(geo, mat)
+    mesh.castShadow = !!opts.cast && shadows
     mesh.receiveShadow = true
-    mesh.name = `forest-${geoName}`
-    mesh.computeBoundingSphere()
+    mesh.name = `forest-${name}`
     objects.push(mesh)
   }
   const K = F.kit
-  const plants: [KitName, THREE.Material][] = [
-    ['fern_a', mats.fern],
-    ['fern_b', mats.fern],
-    ['calathea_a', mats.calathea],
-    ['calathea_b', mats.calathea],
-    ['calathea_c', mats.calathea],
-    ['anthurium_a', mats.anthurium],
-    ['anthurium_b', mats.anthurium],
-    ['anthurium_c', mats.anthurium],
-  ]
-  for (const [n, mat] of plants) stand(n, mat, K[n], kitLift(n), false, true)
-  for (const n of ['pachira_a', 'pachira_b'] as const) {
-    stand(`${n}_bark`, mats.pachiraBark, K[n], kitLift(n), true, false)
-    stand(`${n}_leaves`, mats.pachiraLeaves, K[n], kitLift(n), false, true)
-  }
-  stand('roots', mats.roots, K.roots, kitLift('roots'), false, false)
-  stand('stump', mats.stump, K.stump, kitLift('stump'), true, false)
-  stand('log', mats.log, K.log, kitLift('log'), true, false)
-  stand('rock_a', mats.rock, K.rock_a, kitLift('rock_a'), true, false)
-  stand('rock_b', mats.rock, K.rock_b, kitLift('rock_b'), true, false)
+  const kit = (...names: KitName[]) => names.map((n) => [n, K[n], kitLift(n)] as [string, Spot[], number])
+  const leafy = { tint: true, wind: true }
+  plant('fern', mats.fern, kit('fern_a', 'fern_b'), leafy)
+  plant('calathea', mats.calathea, kit('calathea_a', 'calathea_b', 'calathea_c'), leafy)
+  plant('anthurium', mats.anthurium, kit('anthurium_a', 'anthurium_b', 'anthurium_c'), leafy)
+  const pachira = (part: string) => (['pachira_a', 'pachira_b'] as const).map((n) => [`${n}_${part}`, K[n], kitLift(n)] as [string, Spot[], number])
+  plant('pachira-bark', mats.pachiraBark, pachira('bark'), { cast: true })
+  plant('pachira-leaves', mats.pachiraLeaves, pachira('leaves'), leafy)
+  // 地面の小物の影は、床に描いた根元の暗がりで足りる（影の計算には入れない）
+  plant('roots', mats.roots, kit('roots'))
+  plant('stump', mats.stump, kit('stump'))
+  plant('log', mats.log, kit('log'), { cast: true })
+  plant('rock', mats.rock, kit('rock_a', 'rock_b'))
+  for (const g of geos.values()) g.dispose()
 
   // 高い木と若木：幹・枝・つる（1 つの形）と、葉の房（1 つの形）
   const trees = forestTrees(F.tall, F.poles, SAMPLE_CENTER)
   const frame = standAt(SAMPLE_CENTER.s, SAMPLE_CENTER.y, 0, 0, 1, new THREE.Matrix4())
-  const barkMat = solid(bark, 'bark', { FOREST_GAIN: '2.0', FOREST_MOSS: '' }, { vertexColors: true, side: THREE.FrontSide, ...(normals ? { normalMap: normals[4], normalScale: FLIP } : {}) })
+  const barkMat = solid(bark, 'bark', { FOREST_GAIN: '2.0', FOREST_MOSS: '' }, { side: THREE.FrontSide, ...(normals ? { normalMap: normals[4], normalScale: FLIP } : {}) })
   const canopyMat = new THREE.MeshLambertMaterial({ map: map.canopy, alphaTest: 0.3, side: THREE.DoubleSide, vertexColors: true, alphaToCoverage: fine, color: new THREE.Color(0.78, 1, 0.66) })
   materials.push(canopyMat)
   patch(canopyMat, 'canopy', shared, { FOREST_GAIN: '2.1', FOREST_LEAF: '', FOREST_SWAY_ATTR: '' })
@@ -473,11 +530,7 @@ diffuseColor.a *= smoothstep(-2.2, 1.2, min(fE.x, fE.y) + (n1 - 0.45) * 3.5 + (n
   return {
     objects,
     dispose: () => {
-      for (const o of objects) {
-        const m = o as THREE.Mesh
-        if (m instanceof THREE.InstancedMesh) m.dispose()
-      }
-      for (const g of geos.values()) g.dispose()
+      for (const g of merged) g.dispose()
       trees.wood.dispose()
       trees.leaves.dispose()
       fg.dispose()
