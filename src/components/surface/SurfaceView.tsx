@@ -21,6 +21,8 @@ import { AirParams, ApUniforms, SkyLut, airFor, airUniforms, apUniforms, autoExp
 import { SurfacePost } from './SurfacePost'
 import { SurfaceLab } from './SurfaceLab'
 import { SurfaceStars } from './SurfaceStars'
+import { canFly, startFlight, useSkyFlight } from '../../state/skyFlight'
+import { FlightView } from '../flight/FlightView'
 import { TimeBar } from './TimeBar'
 import { groundMaterial, withRockDetail } from './groundMaterial'
 import { marsSun } from './marsGround'
@@ -1665,6 +1667,11 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
                 {ui().rallyTracks[rallyTrack].home}
               </button>
             )}
+            {canFly(def.id) && (
+              <button className="secondary sky-flight-start" onClick={startFlight} title={ui().skyFlight.startTip}>
+                {ui().skyFlight.start}
+              </button>
+            )}
             <button className="primary" onClick={startTakeoff}>
               {ui().surfaceView.takeOff}
             </button>
@@ -1770,13 +1777,16 @@ export function SurfaceView() {
   const def = bodyId ? siteDef(bodyId, site) : null
   const scene3d = phase === 'descent' || phase === 'surface' || phase === 'ascent'
   const lab = labEnabled() ? <SurfaceLab /> : null
+  const flying = useSkyFlight((f) => f.phase) !== 'off' && phase === 'surface'
   if (phase === 'idle' || !def) return lab
   return (
     <div className={scene3d ? 'surface-view solid' : 'surface-view'}>
-      {scene3d && (
+      {/* 月の空を飛んでいるあいだは、地表の場面の代わりに月を丸ごと描く */}
+      {flying && <FlightView />}
+      {scene3d && !flying && (
         <SurfaceCanvas key={def.site ?? def.id} def={def} />
       )}
-      <SurfacePanel def={def} />
+      {!flying && <SurfacePanel def={def} />}
       <Curtain phase={phase} since={since} ready={ready} />
       {lab}
     </div>
