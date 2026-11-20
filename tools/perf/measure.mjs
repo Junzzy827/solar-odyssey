@@ -111,6 +111,15 @@ const SCENARIOS = {
   real: { hash: '#debug' },
   sf: { hash: '#debug&sf' },
   map: { hash: '#debug', after: async (page) => page.evaluate(() => window.__sv.store.getState().setMode('map')) },
+  // 艦橋の中（宇宙は窓から見える所だけ描く）。bridgeLight は後処理なしの「軽量」
+  bridge: { hash: '#debug', after: async (page) => page.evaluate(() => window.__sv.store.getState().setCameraMode('bridge')) },
+  bridgeLight: {
+    hash: '#debug',
+    after: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.store.getState().setCameraMode('bridge'))
+    },
+  },
   walk: {
     hash: '#debug&sf',
     after: async (page) => {

@@ -58,6 +58,7 @@ import { ObservePanel } from './ui/ObservePanel'
 import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
 import { RockBook } from './ui/RockBook'
+import { BodyCards } from './ui/BodyCards'
 import { HistoricBook } from './ui/HistoricBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
 import { SurfaceMemory } from './components/SurfaceMemory'
@@ -139,7 +140,8 @@ export default function App() {
         <Phaser />
         <ChargeBeam />
         {mode === 'map' && !eclipseView && <MapControls />}
-        <PostFx />
+        {/* 地表・船外活動・コロニーの中にいるあいだは、宇宙の後処理（画面いっぱいの絵を何枚も持つ）を外してメモリを空ける */}
+        {!onSurface && <PostFx />}
         {bridge && <BridgeInterior />}
         <BootFrames />
         <SurfaceMemory />
@@ -173,6 +175,7 @@ export default function App() {
       <ContextLost />
       <LazyScenes />
       <RockBook />
+      <BodyCards />
       <HistoricBook />
       <LabelDeclutter />
       <CleanScreenButton />

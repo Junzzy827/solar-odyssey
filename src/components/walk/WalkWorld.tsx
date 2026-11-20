@@ -391,10 +391,11 @@ export function crownGeometry() {
 
 /**
  * 公園の木。近く（NEAR m 以内）は ez-tree（MIT）で作った枝と葉のある木、遠くは幹＋丸い樹冠の軽い木。
- * ez-tree は大きい（質感こみで 4 MB）ので、歩く場面に来たときに読み込む。読み終わるまでは全部を軽い木で描く。
+ * 枝と葉のある木は、前もって tools/trees/bake.mjs で glb に書き出してある（ez-tree の 4 MB の JS は読まない）。
+ * 歩く場面に来たときに読み込み、読み終わるまでは全部を軽い木で描く。
  * 木の種類は、型（カシ・トネリコ・ポプラ）と乱数の種を変えて 6 種類。1 本ごとに向きと大きさも変える
  */
-/** [ez-tree の型, 種, 出る割合]。Aspen は葉が秋の色なので使わない。松はところどころに */
+/** [ez-tree の型, 種, 出る割合]（tools/trees/bake.mjs と同じ順）。Aspen は葉が秋の色なので使わない。松はところどころに */
 const TREE_KINDS: [string, number, number][] = [
   ['Oak Medium', 11, 3],
   ['Oak Medium', 23, 3],
@@ -403,6 +404,8 @@ const TREE_KINDS: [string, number, number][] = [
   ['Oak Large', 67, 2],
   ['Pine Medium', 53, 1],
 ]
+/** 葉の揺れの時刻（秒） */
+const wind = { value: 0 }
 const KIND_TOTAL = TREE_KINDS.reduce((a, k) => a + k[2], 0)
 function pickKind(r: number) {
   let x = r * KIND_TOTAL
@@ -449,48 +452,81 @@ function Trees({ follow }: { follow: { current: THREE.Vector3 } }) {
   const kinds = useRef<TreeKind[] | null>(null)
   const st = useRef({ next: 0, near: new Uint8Array(data.items.length) })
 
-  // ez-tree を読み込んで、種類ごとの木を作る
+  // 枝と葉のある木の形（public/models/park-trees.glb。ez-tree で作って書き出したもの）を読み込んで、種類ごとの木を作る
   useEffect(() => {
     let dead = false
     const made: TreeKind[] = []
-    // スマホでは読まない（質感こみで 3 MB を読み、木を 6 種類作るあいだ止まり、メモリも使う）。軽い木だけで描く
+    // メモリの少ない端末（スマホ）では読まない。軽い木だけで描く
     if (lowMemory()) return
-    void import('@dgreenheck/ez-tree')
-      .then(({ Tree }) => {
+    void Promise.all([import('three/examples/jsm/loaders/GLTFLoader.js'), import('three/examples/jsm/libs/meshopt_decoder.module.js')])
+      .then(async ([{ GLTFLoader }, { MeshoptDecoder }]) => {
+        const loader = new GLTFLoader()
+        loader.setMeshoptDecoder(MeshoptDecoder)
+        const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}models/park-trees.glb`)
         if (dead) return
-        for (const [preset, seed] of TREE_KINDS) {
-          const tree = new Tree()
-          tree.loadPreset(preset)
-          tree.options.seed = seed
-          tree.generate()
-          const box = new THREE.Box3().setFromObject(tree)
-          const cap = data.items.length
-          const branches = new THREE.InstancedMesh(tree.branchesMesh.geometry, tree.branchesMesh.material, cap)
-          // ez-tree の葉の材質は、風で揺らすために project_vertex を書き換えていて、instanceMatrix を掛けない。
-          // そのままだと葉がぜんぶ原点に集まって見えないので、書き換えのあとに instanceMatrix を足す
-          const leafMat = tree.leavesMesh.material as THREE.Material
-          const ezCompile = leafMat.onBeforeCompile.bind(leafMat)
-          leafMat.onBeforeCompile = (shader, renderer) => {
-            ezCompile(shader, renderer)
-            shader.vertexShader = shader.vertexShader.replace(
-              'mvPosition = modelViewMatrix * mvPosition;',
-              '#ifdef USE_INSTANCING\n mvPosition = instanceMatrix * mvPosition;\n#endif\n mvPosition = modelViewMatrix * mvPosition;',
-            )
+        const cap = data.items.length
+        const mats = new Map<THREE.Material, THREE.Material>()
+        // glb の材質を、軽い Lambert に置きかえる（同じ画像の材質は 1 つにまとめる）
+        const lambert = (src: THREE.Material, leaves: boolean) => {
+          let m = mats.get(src)
+          if (m) return m
+          const s = src as THREE.MeshStandardMaterial
+          const mat = new THREE.MeshLambertMaterial({ color: s.color, map: s.map, side: leaves ? THREE.DoubleSide : THREE.FrontSide, alphaTest: leaves ? 0.5 : 0 })
+          if (leaves) {
+            // 葉を風で少し揺らす（高い所ほど大きく、木ごとに位相をずらす）
+            mat.onBeforeCompile = (shader) => {
+              shader.uniforms.uWind = wind
+              shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float uWind;').replace(
+                '#include <begin_vertex>',
+                `#include <begin_vertex>
+float ph = 0.0;
+#ifdef USE_INSTANCING
+ph = instanceMatrix[3].x * 0.37 + instanceMatrix[3].y * 0.11;
+#endif
+float sw = max(0.0, position.y) * 0.012;
+transformed.x += sin(uWind * 1.3 + ph + position.y * 0.6) * sw;
+transformed.z += sin(uWind * 1.7 + ph * 1.3 + position.x * 0.8) * sw * 0.7;`,
+              )
+            }
+            mat.customProgramCacheKey = () => 'park-tree-leaves-1'
           }
-          leafMat.customProgramCacheKey = () => 'eztree-leaves-instanced'
-          const leaves = new THREE.InstancedMesh(tree.leavesMesh.geometry, leafMat, cap)
+          mats.set(src, mat)
+          return mat
+        }
+        gltf.scene.children.forEach((g, i) => {
+          if (i >= TREE_KINDS.length) return
+          const [bm, lm] = g.children as THREE.Mesh[]
+          g.updateMatrixWorld(true)
+          const box = new THREE.Box3().setFromObject(g)
+          // 量子化した形は、部品の拡大・移動で元の大きさに戻すので、それを形に焼きこむ（木の根元が原点）
+          const bake = (m: THREE.Mesh) => {
+            const geo = new THREE.BufferGeometry()
+            for (const [name, attr] of Object.entries(m.geometry.attributes)) {
+              const a = attr as THREE.BufferAttribute
+              const arr = new Float32Array(a.count * a.itemSize)
+              const get = [a.getX, a.getY, a.getZ, a.getW].map((f) => f.bind(a))
+              for (let i = 0; i < a.count; i++) for (let c = 0; c < a.itemSize; c++) arr[i * a.itemSize + c] = get[c](i)
+              geo.setAttribute(name, new THREE.BufferAttribute(arr, a.itemSize))
+            }
+            geo.setIndex(m.geometry.index)
+            geo.applyMatrix4(m.matrixWorld)
+            m.geometry.dispose()
+            return geo
+          }
+          const branches = new THREE.InstancedMesh(bake(bm), lambert(bm.material as THREE.Material, false), cap)
+          const leaves = new THREE.InstancedMesh(bake(lm), lambert(lm.material as THREE.Material, true), cap)
           for (const m of [branches, leaves]) {
             m.count = 0
             m.castShadow = m.receiveShadow = true
             m.frustumCulled = false
           }
-          made.push({ branches, leaves, update: (t) => tree.update(t), height: Math.max(1, box.max.y - box.min.y) })
+          made.push({ branches, leaves, update: (t) => (wind.value = t), height: Math.max(1, box.max.y - box.min.y) })
           group.current?.add(branches, leaves)
-        }
+        })
         kinds.current = made
         st.current.next = 0
       })
-      .catch((e) => console.error('[walk] ez-tree failed, keeping simple trees', e))
+      .catch((e) => console.error('[walk] park trees failed, keeping simple trees', e))
     return () => {
       dead = true
       for (const k of made) {
@@ -500,6 +536,8 @@ function Trees({ follow }: { follow: { current: THREE.Vector3 } }) {
         k.leaves.geometry.dispose()
         ;(k.branches.material as THREE.Material).dispose()
         ;(k.leaves.material as THREE.Material).dispose()
+        ;(k.branches.material as THREE.MeshLambertMaterial).map?.dispose()
+        ;(k.leaves.material as THREE.MeshLambertMaterial).map?.dispose()
       }
       kinds.current = null
     }
