@@ -25,3 +25,6 @@ export const shipOnScreen = { x: 0, y: 0, visible: false }
 
 /** ガスを集めているところか（PioneerScene が書き、音とメーターが読む） */
 export const gasFx = { collecting: false }
+
+/** 建設の場面の時計（秒）。カメラ（BuildCinema）が進め、形の伸び・字幕・重力のメーターが読む。1 つにそろえて、ずれないように */
+export const cinemaClock = { t: 0 }

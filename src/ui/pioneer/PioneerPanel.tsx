@@ -9,6 +9,7 @@ import { PioneerHud } from './PioneerHud'
 import { PioneerGuide } from './PioneerGuide'
 import { GasGauge } from './GasGauge'
 import { PioneerFx } from './PioneerFx'
+import { BuildCinemaUi } from './BuildCinemaUi'
 import { go } from './go'
 import './pioneer.css'
 
@@ -36,8 +37,9 @@ export function PioneerPanel() {
 
   return (
     <>
-      {flying && !p.guide && <PioneerHud />}
-      {flying && <GasGauge />}
+      {flying && !p.guide && !p.cinema && <PioneerHud />}
+      {flying && !p.cinema && <GasGauge />}
+      <BuildCinemaUi />
       <PioneerFx />
       {p.guide && !p.naming && <PioneerGuide />}
       {p.panel && !p.naming && !p.guide && (
@@ -109,7 +111,7 @@ export function PioneerPanel() {
           </footer>
         </div>
       )}
-      {p.naming && (
+      {p.naming && !p.cinema && (
         <form
           className="pioneer-panel pio-naming"
           role="dialog"

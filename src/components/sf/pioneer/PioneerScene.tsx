@@ -8,6 +8,7 @@ import { useStore } from '../../../state/store'
 import { shipScale } from '../../../state/zoom'
 import { collect, deliver, setNear, usePioneer, type Near } from '../../../state/pioneer'
 import { gasFx, shipOnScreen } from '../../../state/pioneerFx'
+import { BuildCinema } from './BuildCinema'
 import { FIELD_ID, GAS_BAND, holdCapacity, rockResource, goal, RING_COUNT, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, type Resource } from '../../../data/pioneer'
 import { DOCK_ID } from '../../../data/sf'
 import { ui } from '../../../i18n'
@@ -63,6 +64,7 @@ function goalResource(): Resource | null {
 }
 
 export function PioneerScene() {
+  const cinema = usePioneer((p) => p.cinema)
   const field = useRef<THREE.Group>(null!)
   const ores = useRef<Ore[]>([])
   const mesh = useRef<THREE.InstancedMesh>(null!)
@@ -330,6 +332,7 @@ export function PioneerScene() {
       <group ref={field} />
       <instancedMesh ref={mesh} args={[geometry, material, MAX_ORE]} frustumCulled={false} />
       <GasStream />
+      {cinema && <BuildCinema />}
     </>
   )
 }

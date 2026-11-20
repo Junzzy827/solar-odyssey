@@ -78,13 +78,21 @@ export function playGoal() {
 }
 
 /** ガスの風の音（集めているあいだ）。stop で止める */
+/** 風の音のもとになる雑音。一度作れば使い回す */
+let noise: AudioBuffer | null = null
+function noiseBuffer(c: AudioContext) {
+  if (noise && noise.sampleRate === c.sampleRate) return noise
+  noise = c.createBuffer(1, c.sampleRate * 2, c.sampleRate)
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  return noise
+}
+
 export function startGasWind() {
   const c = audio()
   if (!c) return null
   const now = c.currentTime
-  const buffer = c.createBuffer(1, c.sampleRate * 2, c.sampleRate)
-  const data = buffer.getChannelData(0)
-  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const buffer = noiseBuffer(c)
   const src = c.createBufferSource()
   src.buffer = buffer
   src.loop = true
@@ -106,4 +114,36 @@ export function startGasWind() {
       src.stop(t + 0.45)
     },
   }
+}
+
+/** 建設：金属を打つ音が数回、そのあと明るい和音 */
+export function playBuild() {
+  const c = audio()
+  if (!c) return
+  const now = c.currentTime
+  ;[0, 0.28, 0.5, 0.9].forEach((at, i) => {
+    tone(c, 180 + i * 20, now + at, 0.12, 0.08, 'square')
+    tone(c, 1200 + i * 90, now + at, 0.05, 0.03)
+  })
+  ;[392, 493.88, 587.33].forEach((f) => tone(c, f, now + 1.3, 1.6, 0.06, 'triangle'))
+}
+
+/** 完成：ファンファーレ（5 音のあと、長い和音） */
+export function playFanfare() {
+  const c = audio()
+  if (!c) return
+  const now = c.currentTime
+  const notes: [number, number, number][] = [
+    [523.25, 0, 0.18],
+    [523.25, 0.2, 0.18],
+    [523.25, 0.4, 0.18],
+    [659.25, 0.6, 0.5],
+    [587.33, 1.1, 0.2],
+    [659.25, 1.32, 0.2],
+  ]
+  for (const [f, at, len] of notes) {
+    tone(c, f, now + at, len + 0.1, 0.08, 'sawtooth')
+    tone(c, f * 2, now + at, len, 0.02)
+  }
+  ;[523.25, 659.25, 783.99, 1046.5].forEach((f) => tone(c, f, now + 1.6, 2.4, 0.06, 'triangle'))
 }

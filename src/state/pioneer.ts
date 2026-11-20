@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { saveSlot } from './save'
-import { emitPioneerFx } from './pioneerFx'
+import { cinemaClock, emitPioneerFx } from './pioneerFx'
 import { useStore } from './store'
 import { ui } from '../i18n'
 import {
@@ -32,6 +32,8 @@ type PioneerState = PioneerSave & {
   builtAt: number
   /** 完成して名前を付けるところ */
   naming: boolean
+  /** 建設の場面（カメラが建設中のコロニーを回る）を見せているところ */
+  cinema: boolean
   /** 遊び方の案内（初めて始めたとき・？ボタン）を出しているか */
   guide: boolean
   /** いまいる場所（採掘場・木星・天の湊のそば）。「いまやること」の言い方を変える */
@@ -47,7 +49,7 @@ const needsName = (s: PioneerSave) => s.stage >= STAGE_COUNT && !s.colonyName
 
 export const usePioneer = create<PioneerState>(() => {
   const saved = slot.load()
-  return { ...saved, active: false, panel: false, builtAt: 0, naming: needsName(saved), guide: false, near: null }
+  return { ...saved, active: false, panel: false, builtAt: 0, naming: needsName(saved), guide: false, near: null, cinema: false }
 })
 
 function persist() {
@@ -73,7 +75,7 @@ export function startPioneer() {
 
 /** 開拓をやめる（進み具合は残る。建設中のコロニーは元の見た目に戻る） */
 export function stopPioneer() {
-  usePioneer.setState({ active: false, panel: false, naming: false, guide: false, near: null })
+  usePioneer.setState({ active: false, panel: false, naming: false, guide: false, near: null, cinema: false })
   useStore.getState().showToast(t().stopped)
 }
 
@@ -136,11 +138,21 @@ export function build() {
   const s = usePioneer.getState()
   const next = STAGES[s.stage]
   if (!s.active || !next || !canPay(s.store, next.cost)) return false
+  // ワープの途中は建てない（建設の場面とワープが、船の位置を取り合う）
+  if (useStore.getState().warpPhase !== 'idle') return false
   const stage = s.stage + 1
-  usePioneer.setState({ store: pay(s.store, next.cost), stage, builtAt: Date.now(), naming: stage >= STAGE_COUNT })
+  // 建設の場面へ（終わったら、完成なら名前を聞く）。文は場面の字幕で見せる
+  cinemaClock.t = 0
+  usePioneer.setState({ store: pay(s.store, next.cost), stage, builtAt: Date.now(), naming: false, panel: false, cinema: true })
   persist()
-  useStore.getState().showToast(t().built(next.id))
   return true
+}
+
+/** 建設の場面を終える（最後まで見た・とばした）。とばしたときは、形も伸びきった姿にする */
+export function endCinema(skipped = false) {
+  const p = usePioneer.getState()
+  if (!p.cinema) return
+  usePioneer.setState({ cinema: false, naming: needsName(p), ...(skipped ? { builtAt: 0 } : {}) })
 }
 
 /** 完成したコロニーの名前を決める（空なら「開拓地 1号」） */
@@ -153,7 +165,7 @@ export function nameColony(name: string) {
 
 /** 最初からやり直す（倉庫・積み荷・段階を消す） */
 export function resetPioneer() {
-  usePioneer.setState({ ...NEW_SAVE, introSeen: true, builtAt: 0, naming: false, guide: false })
+  usePioneer.setState({ ...NEW_SAVE, introSeen: true, builtAt: 0, naming: false, guide: false, cinema: false })
   fullWarned = false
   persist()
 }
