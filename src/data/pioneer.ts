@@ -224,7 +224,7 @@ const isTrip = (t: unknown): t is Trip => {
   return !!x && Number.isFinite(x.at) && isAmounts(x.a) && (x.built === undefined || (Array.isArray(x.built) && x.built.every((b) => STAGE_IDS.has(b))))
 }
 
-const isAmounts = (a: unknown): a is Amounts =>
+export const isAmounts = (a: unknown): a is Amounts =>
   !!a && typeof a === 'object' && RESOURCES.every((r) => Number.isFinite((a as Amounts)[r]) && (a as Amounts)[r] >= 0)
 
 /** 読んだセーブが正しい形か */
