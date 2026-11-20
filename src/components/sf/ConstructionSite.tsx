@@ -7,6 +7,8 @@ import { WorkMech } from './WorkMech'
 import { roomEnvironment } from '../telescope/parts'
 import { LABEL_Z } from '../labels'
 import { usePioneer } from '../../state/pioneer'
+import { GROW_SECONDS } from '../../data/pioneer'
+import { cinemaClock } from '../../state/pioneerFx'
 
 // 建設中の2号基：骨組みだけの円筒に、作業機が外板を1枚ずつ取りつけている。
 // オニールの構想では、コロニーは2本1組で逆向きに回して、回転のくせ（こまのように向きを保とうとする力）を打ち消す。
@@ -20,25 +22,35 @@ const BUILT = 0.35
 
 const H = L / 2
 
-/** 開拓の段階ごとの見た目：輪の数、梁の長さ（割合）、外板（割合） */
+/** 開拓の段階ごとの見た目：梁の長さ（割合。輪はその長さまで付く）、外板（割合） */
 function stageLook(active: boolean, stage: number) {
-  if (!active) return { rings: 15, girder: 1, plating: BUILT }
-  if (stage === 0) return { rings: 6, girder: 0.4, plating: 0 }
-  if (stage === 1) return { rings: 15, girder: 1, plating: 0.08 }
-  return { rings: 15, girder: 1, plating: 1 }
+  if (!active) return { girder: 1, plating: BUILT }
+  if (stage === 0) return { girder: 0.4, plating: 0 }
+  if (stage === 1) return { girder: 1, plating: 0.08 }
+  return { girder: 1, plating: 1 }
 }
 /** 建設中のコロニー（録画・自動テストでカメラを向けるため） */
 export const constructionSite = { object: null as THREE.Object3D | null }
 
 /** 回転を始めたあとの 1 周の秒数（見た目。本物の 1g なら約 2 分） */
 const SPIN_SECONDS = 127
+/** 鏡を開いたときの角度 */
+const MIRROR_OPEN = 0.55
+
+/** 建てた直後の伸び具合（0 → 1）。建設の場面の時計に合わせる。場面の外では伸びきった形 */
+function growth(cinema: boolean) {
+  return cinema ? THREE.MathUtils.smoothstep(cinemaClock.t, 0, GROW_SECONDS) : 1
+}
 
 export function ConstructionSite() {
   const { gl } = useThree()
   const active = usePioneer((p) => p.active)
   const stage = usePioneer((p) => (p.active ? p.stage : 0))
   const name = usePioneer((p) => p.colonyName)
+  const cinema = usePioneer((p) => p.active && p.cinema)
   const look = stageLook(active, stage)
+  // 建てた直後は、ひとつ前の段階の形から伸ばす
+  const prev = stageLook(active, Math.max(0, stage - 1))
   const done = active && stage >= 5
   const parts = useMemo(() => {
     // 横から光が当たらなくても形がわかるよう、映り込みの環境を入れる
@@ -66,13 +78,38 @@ export function ConstructionSite() {
   const plating = useRef<THREE.Mesh>(null!)
   const shown = useRef(look.plating)
   const plate = useRef<HTMLSpanElement>(null)
+  const ringGroup = useRef<THREE.Group>(null!)
+  const girderGroup = useRef<THREE.Group>(null!)
+  const mirrorGroup = useRef<THREE.Group>(null!)
   useFrame(({ clock }, dt) => {
+    const g = growth(cinema)
+    // 梁が伸び、輪が 1 本ずつ付いていく（骨組みの段階）
+    const girder = THREE.MathUtils.lerp(prev.girder, look.girder, g)
+    const rs = ringGroup.current.children
+    for (let k = 0; k < rs.length; k++) rs[k].visible = k / 14 <= girder + 0.01
+    for (const m of girderGroup.current.children) {
+      m.scale.y = girder
+      m.position.y = -H + (L * girder) / 2
+    }
+    // 鏡がゆっくり開く（窓と鏡の段階）
+    const open = stage === 3 ? g : 1
+    for (const holder of mirrorGroup.current.children) {
+      const m = holder.children[0]
+      if (!m) continue
+      m.rotation.y = MIRROR_OPEN * open
+      m.scale.set(0.3 + 0.7 * open, 1, 1)
+    }
+    // 中の灯りがともる（空気と水の段階）
+    parts.windowMat.emissiveIntensity = done ? 0.9 * (stage === 5 ? g : 1) : 0
     // 工事の場所を知らせる、ゆっくり点滅する橙色の灯
     const k = Math.sin(clock.getElapsedTime() * 3) > 0 ? 1 : 0.12
     warn.current.color.setRGB(2.6 * k, 0.9 * k, 0.2 * k)
-    // 外板は、張った分まで数秒かけて伸びる（建てた直後の演出）
-    shown.current += (look.plating - shown.current) * Math.min(1, dt * 0.4)
-    if (Math.abs(look.plating - shown.current) < 0.002) shown.current = look.plating
+    // 外板は、張った分まで伸びる（建てた直後は建設の場面に合わせて。ほかの変化は数秒かけてなめらかに）
+    if (g < 1) shown.current = THREE.MathUtils.lerp(prev.plating, look.plating, g)
+    else {
+      shown.current += (look.plating - shown.current) * Math.min(1, dt * 0.4)
+      if (Math.abs(look.plating - shown.current) < 0.002) shown.current = look.plating
+    }
     const f = Math.max(shown.current, 1e-4)
     plating.current.scale.set(1, f, 1)
     plating.current.position.y = -H + (L * f) / 2
@@ -87,16 +124,17 @@ export function ConstructionSite() {
       }
       plate.current.style.display = seen ? '' : 'none'
     }
-    if (active && stage >= 4) spin.current.rotation.y += (Math.min(dt, 0.1) * Math.PI * 2) / SPIN_SECONDS
+    // 回り始めはゆっくり（回転の段階で、だんだん速く）
+    if (active && stage >= 4) spin.current.rotation.y += ((Math.min(dt, 0.1) * Math.PI * 2) / SPIN_SECONDS) * (stage === 4 ? g : 1)
     else spin.current.rotation.y = 0
   })
 
-  const rings = Array.from({ length: look.rings }, (_, k) => -H + (k / 14) * L)
+  // 輪はいつも 15 本作り、梁の伸びた所までだけ見せる（毎コマ useFrame で）
+  const rings = Array.from({ length: 15 }, (_, k) => -H + (k / 14) * L)
   const girders = Array.from({ length: 12 }, (_, k) => (k / 12) * Math.PI * 2)
   const at = (a: number, r: number, y: number) => [Math.sin(a) * r, y, Math.cos(a) * r] as [number, number, number]
   const glassAngles = [0, (Math.PI * 2) / 3, (Math.PI * 4) / 3]
   parts.windowMat.emissive.set(done ? '#ffd9a0' : '#000000')
-  parts.windowMat.emissiveIntensity = done ? 0.9 : 0
 
   // 作業機の場所：外板の端（外板を張り終えたら、窓と鏡の取りつけで、なかほど）
   const edge = look.plating > 0.02 && look.plating < 1 ? look.plating : stage === 0 && active ? look.girder : 0.5
@@ -111,24 +149,31 @@ export function ConstructionSite() {
         constructionSite.object = g
       }}
     >
-      {rings.map((y) => (
-        <mesh key={`r${y}`} geometry={parts.ring} material={parts.frameMat} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} />
-      ))}
-      {girders.map((a) => (
-        <mesh key={`g${a}`} geometry={parts.girder} material={parts.frameMat} position={at(a, R, -H + (L * look.girder) / 2)} scale={[1, look.girder, 1]} />
-      ))}
+      <group ref={ringGroup}>
+        {rings.map((y) => (
+          <mesh key={`r${y}`} geometry={parts.ring} material={parts.frameMat} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} />
+        ))}
+      </group>
+      <group ref={girderGroup}>
+        {girders.map((a) => (
+          <mesh key={`g${a}`} geometry={parts.girder} material={parts.frameMat} position={at(a, R, -H + (L * look.girder) / 2)} scale={[1, look.girder, 1]} />
+        ))}
+      </group>
       <mesh ref={plating} geometry={parts.plating} material={parts.plateMat} />
       <mesh geometry={parts.endCap} material={parts.plateMat} position={[0, -H, 0]} rotation={[Math.PI / 2, 0, 0]} />
-      {active && stage >= 3 &&
-        glassAngles.map((a) => (
-          <group key={`m${a}`}>
-            <mesh geometry={parts.window} material={parts.windowMat} rotation={[0, a, 0]} />
-            {/* 窓の帯の横で、外へ斜めに開いた鏡（太陽の光を窓から中へ返す） */}
-            <group rotation={[0, a + 0.28, 0]}>
-              <mesh geometry={parts.mirror} material={parts.mirrorMat} position={[R * 0.28, 0, R * 1.3]} rotation={[0, 0.55, 0]} />
+      <group ref={mirrorGroup}>
+        {active &&
+          stage >= 3 &&
+          glassAngles.map((a) => (
+            // 窓の帯の横で、外へ斜めに開いた鏡（太陽の光を窓から中へ返す）。開く角度は useFrame で
+            <group key={`m${a}`} rotation={[0, a + 0.28, 0]}>
+              <mesh geometry={parts.mirror} material={parts.mirrorMat} position={[R * 0.28, 0, R * 1.3]} rotation={[0, MIRROR_OPEN, 0]} />
             </group>
-          </group>
-        ))}
+          ))}
+      </group>
+      {active &&
+        stage >= 3 &&
+        glassAngles.map((a) => <mesh key={`w${a}`} geometry={parts.window} material={parts.windowMat} rotation={[0, a, 0]} />)}
       {/* 作業灯：外板の端の輪と、その先の輪の上 */}
       {working &&
         girders.map((a) => (

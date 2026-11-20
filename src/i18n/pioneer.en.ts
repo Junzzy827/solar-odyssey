@@ -110,6 +110,13 @@ export const pioneerEn: Translation<typeof pioneerJa> = {
   holdFull: 'Cargo is full. Head back to Amano-Minato to unload',
   deliveredTitle: 'Unloaded at Amano-Minato',
   readyToBuild: 'Next stage ready (open terminal)',
+  cinema: {
+    stage: (n: number, all: number) => `Stage ${n}/${all} complete`,
+    finale: 'Colony complete!',
+    skip: 'Skip',
+    gravity: 'Gravity from spin',
+    gravityNote: 'A colony 3 km in radius turning once in about 2 minutes gives 1g, the same as on the ground',
+  },
   delivered: (a: Amounts, ready: boolean) => `Unloaded to the storehouse: ${list(a)}${ready ? '. The next stage can be built (from the terminal)' : ''}`,
   built: (id: StageId) => `Construction advanced: ${stageName[id]}`,
   named: (name: string) => `Your colony is named "${name}". A nameplate is now on the port`,

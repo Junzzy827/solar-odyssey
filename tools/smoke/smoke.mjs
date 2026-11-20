@@ -207,13 +207,12 @@ const SCENARIOS = {
       })
       const stage = await page.evaluate(() => window.__sv.pioneer.state.getState().stage)
       if (stage !== 3) throw new Error(`pioneer: stage ${stage}, expected 3`)
-      await page.evaluate(() => {
-        const st = window.__sv.store.getState()
-        st.setTarget('colony')
-        window.__sv.flightControl.jumpTo = 'colony'
-      })
-      await sleep(6000)
-      await page.click('.pioneer-panel .close')
+      // 建てると建設の場面（とばせる）
+      await page.waitForSelector('.pio-cinema-ui', { timeout: 30000 })
+      await page.evaluate(() => window.__sv.pioneer.skip(true))
+      await page.waitForSelector('.pio-cinema-ui', { state: 'detached', timeout: 30000 })
+      // 場面のあとは建設中のコロニーのそばにいて、カードに戻る
+      await sleep(3000)
       await visibleButton(page, '.pio-open')
     },
     after: async (page) => {
