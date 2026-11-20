@@ -6,19 +6,8 @@ import { bodyInfo, engage, travelFacts, useWarpPrep } from '../state/flight'
 import { SF_OBJECTS, setWorld } from '../data/sf'
 import { HUBBLE_ID, scopeName, WEBB_ID } from '../data/telescopes'
 import { useRace } from '../state/race'
-import { QUIZ_LENGTH, startQuiz, useQuiz } from '../state/quiz'
-import { openProbes, useProbes } from '../state/probes'
 import { sim } from '../state/registry'
 import { formatDate, simDate, SIM_SECONDS_PER_HOUR } from '../data/ephemeris'
-import { closeMissions, openMissions, useMission } from '../state/mission'
-import { openCampaign, useCampaign } from '../state/campaign'
-import { CAMPAIGN_STAGES } from '../data/campaign'
-import { closeEclipses, openEclipses, useEclipse } from '../state/eclipse'
-import { openStamps, useStamps } from '../state/stamps'
-import { openRocks, useRockBook } from '../state/rockBook'
-import { ROCK_TOTAL, rockCount } from '../data/rockCollection'
-import { useSampleLog } from '../state/rover'
-import { NATURAL } from '../data/stamps'
 import { ui } from '../i18n'
 import { ShipSection } from './ShipPicker'
 import { scaleFacts, scalePatch, stepName, stepOf } from './ScaleToggle'
@@ -29,9 +18,12 @@ import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
 import { ThrottleMeter } from './Throttle'
 import { toggleObserve, useObserve } from '../state/observe'
-import { startEva, startRepairEva } from '../state/eva'
-import { startWalkDirect } from '../state/walk'
 import { SaveDataPanel } from './SaveDataPanel'
+import { NAV_TABS, navEntries } from './nav/registry'
+import { NavEntryButton } from './nav/NavEntryButton'
+
+// 入口の登録（ui/nav/entries/*.ts）をまとめて読み込む
+import.meta.glob('./nav/entries/*.ts', { eager: true })
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -305,22 +297,10 @@ export function NavPanel() {
   const info = s.targetId ? bodyInfo(s.targetId) : null
   const facts = info && info.au > 0 ? travelFacts(info.au) : null
   const racePhase = useRace((r) => r.phase)
-  const startRace = useRace((r) => r.start)
   const racing = racePhase === 'countdown' || racePhase === 'running'
   const busy = s.warpPhase !== 'idle' || racing
   const pendingWarp = useWarpPrep((w) => w.pending)
   const observing = useObserve((o) => o.id !== null)
-  const quizOpen = useQuiz((q) => q.open)
-  const probesOpen = useProbes((p) => p.open)
-  const eclipsesOpen = useEclipse((e) => e.open)
-  const stampsOpen = useStamps((b) => b.open)
-  const rocksOpen = useRockBook((r) => r.open)
-  const rocksGot = useSampleLog((l) => rockCount(l.log))
-  const stampCount = useStamps((b) => NATURAL.filter((id) => id in b.stamps).length)
-  const missionPhase = useMission((m) => m.phase)
-  const onMission = missionPhase === 'active'
-  const campaignOn = useCampaign((c) => c.active)
-  const campaignStage = useCampaign((c) => c.stage)
   const lang = useLang()
   if (s.mode === 'gallery') return null
   const sf = s.settings.world === 'sf'
@@ -423,41 +403,10 @@ export function NavPanel() {
       <button className={`secondary nav-observe${observing ? ' on' : ''}`} onClick={toggleObserve} disabled={!s.targetId || busy || racing}>
         {observing ? ui().navPanel.stopObserving : ui().navPanel.observe} <kbd>O</kbd>
       </button>
-      <button className={`secondary mission-start${missionPhase !== 'closed' ? ' on' : ''}`} onClick={() => (pick(), missionPhase !== 'active' && closeEclipses(), openMissions())} disabled={racing}>
-        {ui().missionsButton}
-      </button>
-      <button className={`secondary campaign-open mission-start${campaignOn ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), openCampaign())} disabled={racing || onMission}>
-        {campaignOn && campaignStage < CAMPAIGN_STAGES.length ? ui().campaign.navButtonActive(campaignStage + 1, CAMPAIGN_STAGES.length) : ui().campaign.navButton}
-      </button>
-      <button className="secondary race-start" onClick={startRace} disabled={busy || onMission}>
-        {ui().navPanel.race}
-      </button>
-      <button className={`secondary quiz-start${quizOpen ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), startQuiz())} disabled={racing}>
-        {ui().navPanel.quizRun(QUIZ_LENGTH)}
-      </button>
-      <button className="secondary eva-start" onClick={() => (pick(), closeEclipses(), startEva())} disabled={busy || racing || s.mode !== 'flight'}>
-        {ui().navPanel.spacewalk} <kbd>K</kbd>
-      </button>
-      <button className="secondary eva-start repair" onClick={() => (pick(), closeEclipses(), startRepairEva())} disabled={busy || racing || s.mode !== 'flight'}>
-        {ui().navPanel.spacewalkRepair}
-      </button>
-      {sf && (
-        <button className="secondary walk-start" onClick={() => (pick(), closeEclipses(), startWalkDirect())} disabled={busy || racing || s.mode !== 'flight'}>
-          {ui().navPanel.walkPark}
-        </button>
-      )}
-      <button className={`secondary stamp-start${stampsOpen ? ' on' : ''}`} onClick={() => (pick(), openStamps())}>
-        {ui().navPanel.stampBook} <span className="muted">{stampCount}/{NATURAL.length}</span>
-      </button>
-      <button className={`secondary rock-start${rocksOpen ? ' on' : ''}`} onClick={() => (pick(), openRocks())}>
-        {ui().navPanel.rockCollection} <span className="muted">{rocksGot}/{ROCK_TOTAL}</span>
-      </button>
-      <button className={`secondary probe-start${probesOpen ? ' on' : ''}`} onClick={() => (pick(), closeEclipses(), openProbes())} disabled={busy}>
-        {ui().navPanel.probeJourneys}
-      </button>
-      <button className={`secondary eclipse-start${eclipsesOpen ? ' on' : ''}`} onClick={() => (pick(), closeMissions(), openEclipses())} disabled={busy || onMission}>
-        {ui().navPanel.eclipsesFromSpace}
-      </button>
+      {/* 遊び・学びの入口（ui/nav/entries/ の登録表から） */}
+      {NAV_TABS.flatMap((tab) => navEntries(tab, sf ? 'sf' : 'real')).map((e) => (
+        <NavEntryButton key={e.id} entry={e} onPick={pick} />
+      ))}
       {/* 1秒にどれだけ時間が進むか */}
       <div className="nav-time">
         <span className="nav-time-label">{ui().navPanel.timeSpeed}</span>
