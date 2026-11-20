@@ -119,6 +119,19 @@ const SCENARIOS = {
       await sleep(2000)
     },
   },
+  // 航法コンピュータのタブ：遊ぶ・学ぶ を開くと、登録した入口が出る
+  'nav-tabs': {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.click('.nav-tab[data-tab="play"]')
+      await visibleButton(page, '.nav-entry.race-start')
+      await page.click('.nav-tab[data-tab="learn"]')
+      await visibleButton(page, '.nav-entry.quiz-start')
+      await page.click('.nav-tab[data-tab="go"]')
+      await visibleButton(page, '.engage')
+    },
+  },
   // スマホ
   phone: { ctx: phone, hash: '#debug' },
   // 天体カード（PC とスマホ）：開いて、めくるボタンと閉じるボタンが隠れていない
