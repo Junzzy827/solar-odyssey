@@ -3,6 +3,7 @@ import { useLanding } from '../state/landing'
 import { labEnabled } from '../state/surfaceLab'
 import { useEva } from '../state/eva'
 import { useWalk } from '../state/walk'
+import { useMoonMission } from '../state/moonMission'
 import { SceneBoundary } from './SceneBoundary'
 import { recallRover } from '../state/rover'
 
@@ -13,10 +14,12 @@ import { recallRover } from '../state/rover'
 const loadSurface = () => import('../components/surface/SurfaceView')
 const loadEva = () => import('../components/eva/EvaView')
 const loadWalk = () => import('../components/walk/WalkView')
+const loadMoonMission = () => import('../components/moonMission/MoonMissionView')
 
 const SurfaceView = lazy(() => loadSurface().then((m) => ({ default: m.SurfaceView })))
 const EvaView = lazy(() => loadEva().then((m) => ({ default: m.EvaView })))
 const WalkView = lazy(() => loadWalk().then((m) => ({ default: m.WalkView })))
+const MoonMissionView = lazy(() => loadMoonMission().then((m) => ({ default: m.MoonMissionView })))
 
 /** 起動してからこの秒数たったら、場面のプログラムを先読みする（起動の読み込みと重ならないように） */
 const PREFETCH_AFTER = 12
@@ -48,6 +51,7 @@ export function LazyScenes() {
   const landing = useLanding((l) => l.phase !== 'idle') || labEnabled()
   const eva = useEva((e) => e.phase !== 'none')
   const walk = useWalk((w) => w.phase !== 'none')
+  const moon = useMoonMission((m) => m.phase !== 'none')
   return (
     <>
       {/* 場面が失敗したら「問題が起きました。もどる」：その場面を閉じて、宇宙の自由探索へ */}
@@ -59,6 +63,9 @@ export function LazyScenes() {
       </SceneBoundary>
       <SceneBoundary name="walk" onBack={() => useWalk.setState({ phase: 'none' })}>
         <Suspense fallback={null}>{walk && <WalkView />}</Suspense>
+      </SceneBoundary>
+      <SceneBoundary name="moonMission" onBack={() => useMoonMission.setState({ phase: 'none' })}>
+        <Suspense fallback={null}>{moon && <MoonMissionView />}</Suspense>
       </SceneBoundary>
     </>
   )

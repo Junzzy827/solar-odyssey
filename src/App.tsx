@@ -77,6 +77,7 @@ import { FirstThree } from './ui/FirstThree'
 import { evaScene, useEva } from './state/eva'
 import { LazyScenes } from './ui/LazyScenes'
 import { useWalk, walkScene } from './state/walk'
+import { missionScene, useMoonMission } from './state/moonMission'
 
 import { PioneerUi, PioneerWorld } from './components/sf/pioneer/Pioneer'
 
@@ -105,7 +106,9 @@ export default function App() {
   const onEva = useEva((e) => evaScene(e.phase))
   // コロニーの中を歩くあいだも
   const onWalk = useWalk((w) => walkScene(w.phase))
-  const onSurface = onLand || onEva || onWalk
+  // 月ミッション（アポロ17号の追体験）のあいだも
+  const onMoonMission = useMoonMission((m) => missionScene(m.phase))
+  const onSurface = onLand || onEva || onWalk || onMoonMission
 
   // 地表にいるあいだは、止めた宇宙の場面の最後の1枚を見えなくしておく。
   // 地表の Canvas が一瞬描けなかったフレーム（画面サイズの変化・画質の切り替え・GPU の都合）に、
