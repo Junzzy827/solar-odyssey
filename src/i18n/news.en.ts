@@ -12,4 +12,5 @@ export const newsEn: Translation<typeof newsJa> = {
   raceMedals: '🥇 News: rover races now have medals, and you can pick how tough your rivals are (Easy, Normal, Tough). A gold medal adds a reward rock to your rock collection. On phones the rover can drive with auto throttle.',
   today: '🌙 New: “Today in space”. Open it from Learn in the nav panel to see tonight’s Moon, the planets in tonight’s sky and where the probes are now.',
   discovery: '📡 New: discovery scan. Turn the scanner on from Learn in the nav panel, fly close to a rock in the asteroid belt and scan it to discover a new asteroid. You can name it, too.',
+  arrival: '🪐 News: when you arrive at a world, it now shows its size next to the Earth. At Jupiter, 11 Earths line up across it.',
 }

@@ -44,6 +44,7 @@ import { rockBookEn } from './rockBook.en'
 import { bodyCardsEn } from './bodyCards.en'
 import { todayEn } from './today.en'
 import { discoveryEn } from './discovery.en'
+import { arrivalEn } from './arrival.en'
 import { roverHudEn } from './roverHud.en'
 import { scaleToggleEn } from './scaleToggle.en'
 import { sfEn } from './sf.en'
@@ -200,6 +201,7 @@ export const en: Translation<typeof ja> = {
   bodyCards: bodyCardsEn,
   today: todayEn,
   discovery: discoveryEn,
+  arrival: arrivalEn,
   roverHud: roverHudEn,
   scaleToggle: scaleToggleEn,
   sf: sfEn,
