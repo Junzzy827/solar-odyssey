@@ -279,6 +279,37 @@ const SCENARIOS = {
       await page.waitForFunction(() => window.__sv.rally.state.getState().phase === 'off', null, { timeout: 10000 })
     },
   },
+  // 着陸船で月の空を飛ぶ：月に降りて「空を飛ぶ」、低く飛んでから高く上がると月が丸ごと見える。「着陸地点へ戻る」で地表へ
+  skyflight: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.landing.start('moon'))
+      await sleep(3000)
+      await page.evaluate(() => window.__sv.landing.skip())
+      await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface' && window.__sv.landing.state.getState().ready, null, { timeout: 180000, polling: 500 })
+      await visibleButton(page, '.sky-flight-start')
+      await page.evaluate(() => document.querySelector('.sky-flight-start').click())
+      await page.waitForFunction(() => window.__sv.skyFlight.state.getState().phase === 'fly', null, { timeout: 60000, polling: 500 })
+      await page.waitForSelector('.flight-hud', { timeout: 30000 })
+      await sleep(5000)
+      const low = await page.evaluate(() => window.__sv.skyFlight.state.getState().alt)
+      if (!(low > 0 && low < 2000)) throw new Error(`skyflight: odd altitude ${low}`)
+      await check3d(page, 'skyflight-low')
+      await page.evaluate(() => {
+        const c = window.__flight.ctl
+        c.p.setLength(1737400 + 2_000_000)
+        c.up.copy(c.p).normalize()
+      })
+      await sleep(5000)
+      await check3d(page, 'skyflight-high')
+      await visibleButton(page, '.flight-back')
+      await page.evaluate(() => document.querySelector('.flight-back').click())
+      await page.waitForFunction(() => window.__sv.skyFlight.state.getState().phase === 'off', null, { timeout: 10000 })
+      await page.waitForSelector('.sky-flight-start', { timeout: 60000 })
+    },
+  },
   // コロニーの公園を歩く
   // SF の開拓：端末が開き、建設が 3 段進み、建設中のコロニーのそばで描ける。「開拓をやめる」で抜けられる
   pioneer: {
