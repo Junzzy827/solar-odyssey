@@ -6,7 +6,7 @@ import { ship } from '../state/flight'
 import { useStore } from '../state/store'
 import { useLayout } from '../state/useLayout'
 import { BELT_AU } from '../data/layout'
-import { SCAN_RANGE, SCAN_SECONDS, finishScan, useDiscovery, type ScanCandidate } from '../state/discovery'
+import { SCAN_RANGE, SCAN_SECONDS, discoveryDebug, finishScan, useDiscovery, type ScanCandidate } from '../state/discovery'
 import type { RockKind } from '../data/discovery'
 
 const m = new THREE.Matrix4()
@@ -14,6 +14,8 @@ const p = new THREE.Vector3()
 const s = new THREE.Vector3()
 const q = new THREE.Quaternion()
 const best = new THREE.Vector3()
+const fwd = new THREE.Vector3()
+const to = new THREE.Vector3()
 const MARGIN = 40
 /** 近くの岩を探し直す間隔（秒）。3000 個を毎フレーム調べないように */
 const SEARCH_EVERY = 0.2
@@ -41,7 +43,9 @@ export function ScanTracker() {
       const away = Math.max(0, belt(BELT_AU.inner) - r, r - belt(BELT_AU.outer), Math.abs(ship.position.y) - 2)
       cand = null as ScanCandidate | null
       if (away < SCAN_RANGE) {
-        let bestD = SCAN_RANGE
+        // 船の前にある岩を選びやすくする（岩の表面までの距離で、真後ろの岩は 2.2 倍遠いものとして比べる）
+        fwd.set(0, 0, -1).applyQuaternion(ship.quaternion)
+        let bestScore = Infinity
         for (let shape = 0; shape < asteroids.meshes.length; shape++) {
           const mesh = asteroids.meshes[shape]
           const types = asteroids.types.get(mesh)
@@ -50,8 +54,10 @@ export function ScanTracker() {
             m.premultiply(mesh.matrixWorld).decompose(p, q, s)
             if (s.x < 1e-4) continue // ビームで壊した岩
             const d = p.distanceTo(ship.position)
-            if (d < bestD) {
-              bestD = d
+            if (d >= SCAN_RANGE) continue
+            const score = Math.max(0, d - s.x) * (1 + 0.6 * (1 - to.copy(p).sub(ship.position).normalize().dot(fwd)))
+            if (score < bestScore) {
+              bestScore = score
               best.copy(p)
               cand = { key: `${shape}-${i}`, kind: (types?.[i] ?? 0) as RockKind, size: s.x, distance: d }
             }
@@ -65,7 +71,9 @@ export function ScanTracker() {
     // スキャン中：岩が離れすぎたら取りやめ、時間がたてば発見
     if (st.progress !== null) {
       if (!cand || ship.position.distanceTo(best) > SCAN_RANGE * 1.2) useDiscovery.setState({ progress: null })
-      else if (st.progress + dt / SCAN_SECONDS >= 1) finishScan(cand)
+      else if (discoveryDebug.hold) {
+        // 動作確認用：進みを止めておく
+      } else if (st.progress + dt / SCAN_SECONDS >= 1) finishScan(cand)
       else useDiscovery.setState({ progress: st.progress + dt / SCAN_SECONDS })
     }
     if (!el) return
