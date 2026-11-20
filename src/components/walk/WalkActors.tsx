@@ -290,14 +290,22 @@ function Player() {
     if (riding) {
       // ---- ホバースクーター：前後で加速・ブレーキ、左右で曲がる。浮いているので少し横すべりする ----
       const steer = Math.max(-1, Math.min(1, right))
-      const flying = useWalk.getState().flying
+      let flying = useWalk.getState().flying
+      // 降りている途中で窓の上（橋の外）へ出たら、また上がる
+      if (!flying && st.alt > 0.3 && !standable(walker.s, walker.y)) {
+        useWalk.setState({ flying: true, skyNote: walkNow() })
+        flying = true
+        st.wantOff = false
+      }
       // 高さ：飛ぶときは上がり、降りるときは下がる
       st.alt = flying ? Math.min(SKY_HEIGHT, st.alt + dt * 8) : Math.max(0, st.alt - dt * 7)
       const high = st.alt > 3
       const throttle = st.wantOff && st.alt < 0.3 ? -1 : Math.max(-1, Math.min(1, fwd))
-      const top = high ? (running ? SKY_BOOST : SKY_SPEED) : running ? HOVER_BOOST : HOVER_SPEED
+      // 降りるときは、地面のスクーターの速さまで強く減速する（遠くへ流されない）
+      const landing = !flying && st.alt > 0.3
+      const top = landing ? HOVER_BOOST : high ? (running ? SKY_BOOST : SKY_SPEED) : running ? HOVER_BOOST : HOVER_SPEED
       const tgt = throttle > 0.05 ? throttle * top : throttle < -0.05 ? (st.wantOff ? 0 : throttle * 3) : 0
-      const acc = high ? (tgt > st.spd ? 14 : 12) : tgt > st.spd ? (st.spd < 0 ? 8 : running ? 6 : 4.5) : throttle < -0.05 && st.spd > 0 ? 10 : st.spd > HOVER_BOOST ? 12 : 2.4
+      const acc = landing && st.spd > tgt ? 30 : high ? (tgt > st.spd ? 14 : 12) : tgt > st.spd ? (st.spd < 0 ? 8 : running ? 6 : 4.5) : throttle < -0.05 && st.spd > 0 ? 10 : st.spd > HOVER_BOOST ? 12 : 2.4
       if (walker.rideSpeed !== null) {
         st.spd = walker.rideSpeed
         st.vs = -Math.sin(st.body) * st.spd
@@ -459,6 +467,7 @@ function Player() {
       walker.s = wrapS(walker.s)
       st.scS += walker.s - before
       st.mountFrom.s += walker.s - before
+      st.sc0.s += walker.s - before
     }
     // 左上の場所の名前
     const at = areaAt(walker.s, walker.y)

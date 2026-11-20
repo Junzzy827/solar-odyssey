@@ -216,7 +216,11 @@ export function pushWorld(p: { s: number; y: number }, r: number, o: { water?: b
   if (o.water !== false && fly <= 0 && waterAt(k, ps, y, r)) {
     const plan = cityPlan(k)
     const rv = plan.river(y)
-    if (Math.abs(ps - rv) < RIVER_W / 2 - 3 + r) ps = rv + Math.sign(ps - rv || 1) * (RIVER_W / 2 - 3 + r + 0.01)
+    const fb = nearestOf(FOOTBRIDGE_Y, y)
+    const onDeck = Math.abs(ps - plan.river(fb)) < FOOTBRIDGE_REACH && Math.abs(y - fb) < FOOTBRIDGE_HALF + r + 1
+    // 歩道橋から横へ出かけたら、橋の上へ戻す（岸まで飛ばさない）
+    if (onDeck) y = fb + Math.sign(y - fb || 1) * (FOOTBRIDGE_HALF - 0.45)
+    else if (Math.abs(ps - rv) < RIVER_W / 2 - 3 + r) ps = rv + Math.sign(ps - rv || 1) * (RIVER_W / 2 - 3 + r + 0.01)
     for (const l of plan.lakes) {
       if (k === 0 && l === POND) continue
       const v = ((ps - l.s) / (l.rs + r)) ** 2 + ((y - l.y) / (l.ry + r)) ** 2

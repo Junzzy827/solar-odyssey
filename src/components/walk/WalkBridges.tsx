@@ -95,17 +95,24 @@ const glassProfile = (side: number): Profile => [
   [side * (W - 0.15), TOP + 1.1],
   [side * (W - 0.15), TOP],
 ]
-const railProfile = (side: number): Profile => [
-  [side * (W - 0.22), TOP + 1.1],
-  [side * (W - 0.08), TOP + 1.1],
-  [side * (W - 0.08), TOP + 1.18],
-  [side * (W - 0.22), TOP + 1.18],
-]
+// 面の向き（外向き・上向き）がそろうよう、片側は点の順を逆にする
+const railProfile = (side: number): Profile => {
+  const p: Profile = [
+    [side * (W - 0.22), TOP + 1.1],
+    [side * (W - 0.08), TOP + 1.1],
+    [side * (W - 0.08), TOP + 1.18],
+    [side * (W - 0.22), TOP + 1.18],
+  ]
+  return side < 0 ? p.reverse() : p
+}
 /** 床のふちの光の線 */
-const glowProfile = (side: number): Profile => [
-  [side * (W - 0.55), TOP + 0.012],
-  [side * (W - 0.35), TOP + 0.012],
-]
+const glowProfile = (side: number): Profile => {
+  const p: Profile = [
+    [side * (W - 0.55), TOP + 0.012],
+    [side * (W - 0.35), TOP + 0.012],
+  ]
+  return side > 0 ? p.reverse() : p
+}
 
 const DAY_LINE = new THREE.Color(0.55, 0.62, 0.7)
 const NIGHT_LINE = new THREE.Color(0.6, 1.6, 2.2)
