@@ -45,6 +45,7 @@ import { bodyCardsEn } from './bodyCards.en'
 import { todayEn } from './today.en'
 import { discoveryEn } from './discovery.en'
 import { arrivalEn } from './arrival.en'
+import { jumpEn } from './jump.en'
 import { roverHudEn } from './roverHud.en'
 import { scaleToggleEn } from './scaleToggle.en'
 import { sfEn } from './sf.en'
@@ -203,6 +204,7 @@ export const en: Translation<typeof ja> = {
   today: todayEn,
   discovery: discoveryEn,
   arrival: arrivalEn,
+  jump: jumpEn,
   roverHud: roverHudEn,
   scaleToggle: scaleToggleEn,
   sf: sfEn,

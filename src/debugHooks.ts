@@ -35,6 +35,7 @@ import { weatherNow } from './components/surface/weather'
 import { useDiscovery, startScanner, stopScanner, openNote } from './state/discovery'
 import { closeToday, openToday, useToday } from './state/today'
 import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
+import { jumpDebug, startJump, stopJump, useJump } from './state/jump'
 import { arrivalDebug, closeArrival, showArrival, useArrival } from './state/arrival'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
@@ -53,6 +54,7 @@ const sv = {
   probes: { state: useProbes, clock: probeClock },
   bodyCards: { state: useBodyCards, open: openBodyCard, close: closeBodyCard, step: stepBodyCard },
   today: { state: useToday, open: openToday, close: closeToday },
+  jump: { state: useJump, start: startJump, stop: stopJump, debug: jumpDebug },
   arrival: { state: useArrival, show: showArrival, close: closeArrival, debug: arrivalDebug },
   pioneer: { state: usePioneer, start: startPioneer, stop: stopPioneer, give: pioneerGive, collect: pioneerCollect, deliver: pioneerDeliver, build: pioneerBuild, name: nameColony, site: constructionSite,
     /** 自機の前で岩が砕けたことにする（かけらが船に集まるかの確認） */
