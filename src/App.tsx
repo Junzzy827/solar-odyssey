@@ -60,6 +60,9 @@ import { StampBook } from './ui/StampBook'
 import { RockBook } from './ui/RockBook'
 import { BodyCards } from './ui/BodyCards'
 import { TodayPanel } from './ui/TodayPanel'
+import { ScannerHud } from './ui/ScannerHud'
+import { DiscoveryNote } from './ui/DiscoveryNote'
+import { ScanTracker } from './components/ScanTracker'
 import { HistoricBook } from './ui/HistoricBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
 import { SurfaceMemory } from './components/SurfaceMemory'
@@ -139,6 +142,7 @@ export default function App() {
         <SizeCompare />
         <WarpStreaks />
         <TargetMarker />
+        <ScanTracker />
         <ProbeScene />
         <EclipseScene />
         <Phaser />
@@ -182,6 +186,8 @@ export default function App() {
       <BodyCards />
       <TodayPanel />
       <PioneerUi />
+      <ScannerHud />
+      <DiscoveryNote />
       <HistoricBook />
       <LabelDeclutter />
       <CleanScreenButton />

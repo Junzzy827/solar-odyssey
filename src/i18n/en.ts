@@ -43,6 +43,7 @@ import { rallyPanelEn } from './rallyPanel.en'
 import { rockBookEn } from './rockBook.en'
 import { bodyCardsEn } from './bodyCards.en'
 import { todayEn } from './today.en'
+import { discoveryEn } from './discovery.en'
 import { roverHudEn } from './roverHud.en'
 import { scaleToggleEn } from './scaleToggle.en'
 import { sfEn } from './sf.en'
@@ -199,6 +200,7 @@ export const en: Translation<typeof ja> = {
   rockBook: rockBookEn,
   bodyCards: bodyCardsEn,
   today: todayEn,
+  discovery: discoveryEn,
   roverHud: roverHudEn,
   scaleToggle: scaleToggleEn,
   sf: sfEn,

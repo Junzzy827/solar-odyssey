@@ -100,6 +100,43 @@ const SCENARIOS = {
       await visibleButton(page, '.today-panel .close')
     },
   },
+  // 発見スキャン：小惑星帯の岩のそばでスキャンすると、発見のカードが出る
+  scan: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(async () => {
+        const sv = window.__sv
+        sv.discovery.start()
+        // 出発点では船が地球に合わせて動くので、それを外してから帯の岩のそばへ
+        sv.flightControl.releaseHold = true
+        await new Promise((r) => setTimeout(r, 300))
+        const mesh = sv.discovery.asteroids.meshes[0]
+        const m = new sv.THREE.Matrix4()
+        mesh.getMatrixAt(0, m)
+        const p = new sv.THREE.Vector3().setFromMatrixPosition(m.premultiply(mesh.matrixWorld))
+        sv.ship.position.copy(p).add(new sv.THREE.Vector3(2, 0.5, 2))
+        sv.ship.velocity.set(0, 0, 0)
+      })
+      await page.waitForFunction(() => window.__sv.discovery.state.getState().candidate, null, { timeout: 30000 })
+      await page.evaluate(() => window.__sv.discovery.state.setState({ progress: 0.95 }))
+      await page.waitForFunction(() => window.__sv.discovery.state.getState().fresh, null, { timeout: 30000 })
+      await visibleButton(page, '.scan-fresh button')
+    },
+  },
+  // 発見スキャン（スマホ）：スキャナーの表示と発見ノートが画面に収まる
+  'scan-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.discovery.start())
+      await sleep(800)
+      await visibleButton(page, '.scanner-hud .scan-stop')
+      await page.evaluate(() => window.__sv.discovery.note())
+      await sleep(500)
+      await visibleButton(page, '.discovery-note .close')
+    },
+  },
   'cards-phone': {
     ctx: phone,
     hash: '#debug',
