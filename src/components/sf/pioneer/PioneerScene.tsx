@@ -7,7 +7,7 @@ import { proximity } from '../../../state/proximity'
 import { useStore } from '../../../state/store'
 import { shipScale } from '../../../state/zoom'
 import { collect, deliver, usePioneer } from '../../../state/pioneer'
-import { FIELD_ID, GAS_BAND, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, type Resource } from '../../../data/pioneer'
+import { FIELD_ID, GAS_BAND, holdCapacity, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, type Resource } from '../../../data/pioneer'
 import { DOCK_ID } from '../../../data/sf'
 import { ui } from '../../../i18n'
 
@@ -19,7 +19,7 @@ import { ui } from '../../../i18n'
 
 const FIELD_RADIUS = 0.2
 /** かけらの数の上限（古いものから消える） */
-const MAX_ORE = 96
+const MAX_ORE = 160
 /** この距離（表示単位）より近いかけらは船へ吸い寄せる。チャージビームが岩を砕ける距離（約 30）より少し広い */
 const ATTRACT = 40
 /** かけらが残る秒数 */
@@ -43,7 +43,7 @@ export function PioneerScene() {
   const field = useRef<THREE.Group>(null!)
   const ores = useRef<Ore[]>([])
   const mesh = useRef<THREE.InstancedMesh>(null!)
-  const state = useRef({ anchor: null as THREE.Vector3 | null, gasCarry: 0, gasNotice: false, deepNotice: false, spin: 0 })
+  const state = useRef({ anchor: null as number | null, gasCarry: 0, gasNotice: false, deepNotice: false, spin: 0 })
 
   // 採掘場の目印を天体として登録する（ワープ・自動航行で行ける）
   useEffect(() => {
@@ -79,38 +79,54 @@ export function PioneerScene() {
 
   const geometry = useMemo(() => new THREE.OctahedronGeometry(1, 0), [])
   const material = useMemo(() => new THREE.MeshBasicMaterial({ toneMapped: false }), [])
+  useEffect(
+    () => () => {
+      geometry.dispose()
+      material.dispose()
+    },
+    [geometry, material],
+  )
 
   useFrame((_, rawDelta) => {
     const dt = Math.min(rawDelta, 0.1)
     const st = useStore.getState()
     const s = state.current
 
-    // 目印の場所：小惑星帯の岩の 1 つ（帯と一緒に回る）。地球にいちばん近い向きの岩を、はじめに 1 回選ぶ
+    // 目印の場所：小惑星帯の岩の 1 つ（帯と一緒に回る）。地球にいちばん近い向きの岩を選び、毎フレームその岩の位置を読む
+    // （帯の広さを変えると岩が並び直すので、位置ではなく「どの岩か」を覚える。砕けて消えているあいだは前の位置のまま）
     const belt = asteroids.meshes[0]
     if (belt) {
-      if (!s.anchor) {
+      if (s.anchor === null || s.anchor >= belt.count) {
         const e = bodies.get('earth')
         e?.object.getWorldPosition(earthPos)
+        earthPos.setY(0).normalize()
         let best = -Infinity
         for (let i = 0; i < belt.count; i++) {
           belt.getMatrixAt(i, m4)
           tmp.setFromMatrixPosition(m4)
           if (tmp.lengthSq() === 0) continue
+          const y = Math.abs(tmp.y)
+          tmp.applyMatrix4(belt.matrixWorld).setY(0).normalize()
           // 地球の向きに近く、帯の上下のまん中に近い岩
-          const score = (e ? tmp.clone().applyMatrix4(belt.matrixWorld).setY(0).normalize().dot(earthPos.clone().setY(0).normalize()) : 0) - Math.abs(tmp.y) * 0.2
+          const score = (e ? tmp.dot(earthPos) : 0) - y * 0.2
           if (score > best) {
             best = score
-            s.anchor = tmp.clone()
+            s.anchor = i
           }
         }
       }
-      if (s.anchor) field.current.position.copy(s.anchor).applyMatrix4(belt.matrixWorld)
+      if (s.anchor !== null) {
+        belt.getMatrixAt(s.anchor, m4)
+        tmp.setFromMatrixPosition(m4)
+        if (tmp.lengthSq() > 0) field.current.position.copy(tmp.applyMatrix4(belt.matrixWorld))
+      }
     }
 
     // かけら：漂い、近ければ船へ吸い寄せられる
     const now = performance.now() / 1000
     const unit = shipScale()
     const list = ores.current
+    const full = total(usePioneer.getState().hold) >= holdCapacity(st.settings.ship)
     s.spin += dt * 2
     let w = 0
     for (let i = 0; i < list.length; i++) {
@@ -118,11 +134,14 @@ export function PioneerScene() {
       if (now - o.born > ORE_LIFE) continue
       tmp.copy(ship.position).sub(o.pos)
       const d = tmp.length()
-      if (d < Math.max(unit * 1.5, 0.15) && st.warpPhase === 'idle') {
-        collect(o.resource, o.amount)
-        continue
+      // 積み荷がいっぱいのあいだは吸い寄せない（かけらはその場に残り、納めたあとで拾える）
+      const room = full ? 0 : 1
+      if (room && d < Math.max(unit * 1.5, 0.15) && st.warpPhase === 'idle') {
+        const got = collect(o.resource, o.amount)
+        o.amount -= got
+        if (o.amount <= 0) continue
       }
-      if (d < ATTRACT && st.warpPhase === 'idle' && now - o.born > 0.6) {
+      if (room && d < ATTRACT && st.warpPhase === 'idle' && now - o.born > 0.6) {
         // 近いほど速く（遠くからでも数秒で届く）
         const pull = 4 + (ATTRACT - d) * 0.9
         o.vel.lerp(tmp.multiplyScalar(pull / d), Math.min(1, dt * 3))

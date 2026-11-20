@@ -35,7 +35,13 @@ type PioneerState = PioneerSave & {
 
 const slot = saveSlot<PioneerSave>('pioneer', NEW_SAVE, (v) => (checkSave(v) ? v : null))
 
-export const usePioneer = create<PioneerState>(() => ({ ...slot.load(), active: false, panel: false, builtAt: 0, naming: false }))
+/** 完成したのに名前がまだ（名前を付ける前に閉じた・読み込み直した）なら、また名前を聞く */
+const needsName = (s: PioneerSave) => s.stage >= STAGE_COUNT && !s.colonyName
+
+export const usePioneer = create<PioneerState>(() => {
+  const saved = slot.load()
+  return { ...saved, active: false, panel: false, builtAt: 0, naming: needsName(saved) }
+})
 
 function persist() {
   const { v, hold, store, stage, colonyName, introSeen } = usePioneer.getState()
@@ -53,7 +59,7 @@ export const finished = () => usePioneer.getState().stage >= STAGE_COUNT
 export function startPioneer() {
   const st = useStore.getState()
   if (st.settings.world !== 'sf') return
-  usePioneer.setState({ active: true, panel: true })
+  usePioneer.setState((p) => ({ active: true, panel: true, naming: needsName(p) }))
   if (!usePioneer.getState().introSeen) {
     usePioneer.setState({ introSeen: true })
     persist()

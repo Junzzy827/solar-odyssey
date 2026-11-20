@@ -4,7 +4,7 @@ import { useLang } from '../../i18n/lang'
 import { useStore } from '../../state/store'
 import { engage } from '../../state/flight'
 import { build, nameColony, resetPioneer, stopPioneer, togglePanel, usePioneer } from '../../state/pioneer'
-import { canPay, FIELD_ID, holdCapacity, RESOURCES, shortfall, STAGE_COUNT, STAGES, total, type Amounts } from '../../data/pioneer'
+import { canPay, FIELD_ID, holdCapacity, NAME_MAX, RESOURCES, shortfall, STAGE_COUNT, STAGES, total, type Amounts } from '../../data/pioneer'
 import { COLONY_ID, DOCK_ID } from '../../data/sf'
 import './pioneer.css'
 
@@ -144,7 +144,7 @@ export function PioneerPanel() {
         >
           <h2>{t.complete}</h2>
           <p>{t.completeText}</p>
-          <input value={name} maxLength={24} placeholder={t.namePlaceholder} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.stopPropagation()} autoFocus />
+          <input value={name} maxLength={NAME_MAX} placeholder={t.namePlaceholder} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.stopPropagation()} autoFocus />
           <button type="submit" className="pio-build">
             {t.nameOk}
           </button>

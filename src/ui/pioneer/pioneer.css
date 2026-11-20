@@ -204,6 +204,12 @@
   background: rgba(20, 16, 30, 0.7);
 }
 
+/* スマホ・タブレット（横向きでも）：下は操縦のボタンがあるので、上のアイコンの下へ */
+body.touch .pioneer-hud {
+  top: 92px;
+  bottom: auto;
+}
+
 @media (max-width: 600px) {
   .pioneer-hud {
     top: 92px;

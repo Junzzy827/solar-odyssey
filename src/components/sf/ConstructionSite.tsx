@@ -65,6 +65,7 @@ export function ConstructionSite() {
   const spin = useRef<THREE.Group>(null!)
   const plating = useRef<THREE.Mesh>(null!)
   const shown = useRef(look.plating)
+  const plate = useRef<HTMLSpanElement>(null)
   useFrame(({ clock }, dt) => {
     // 工事の場所を知らせる、ゆっくり点滅する橙色の灯
     const k = Math.sin(clock.getElapsedTime() * 3) > 0 ? 1 : 0.12
@@ -76,6 +77,16 @@ export function ConstructionSite() {
     plating.current.scale.set(1, f, 1)
     plating.current.position.y = -H + (L * f) / 2
     plating.current.visible = shown.current > 0.002
+    // 銘板（HTML）は親の visible に従わないので、建設中のコロニーが隠れているあいだ（遠いとき）は自分で隠す
+    if (plate.current) {
+      let o: THREE.Object3D | null = spin.current
+      let seen = true
+      while (o) {
+        if (!o.visible) seen = false
+        o = o.parent
+      }
+      plate.current.style.display = seen ? '' : 'none'
+    }
     if (active && stage >= 4) spin.current.rotation.y += (Math.min(dt, 0.1) * Math.PI * 2) / SPIN_SECONDS
     else spin.current.rotation.y = 0
   })
@@ -149,7 +160,7 @@ export function ConstructionSite() {
         ))}
       {done && (
         <Html position={[0, -H - R * 0.6, 0]} center className="label pioneer-plate" zIndexRange={LABEL_Z}>
-          <span>{name}</span>
+          <span ref={plate}>{name}</span>
         </Html>
       )}
     </group>
