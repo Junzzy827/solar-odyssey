@@ -30,6 +30,7 @@ import { observeJa } from './observe.ja'
 import { observePanelJa } from './observePanel.ja'
 import { photoNoteJa } from './photoNote.ja'
 import { saveDataJa } from './saveData.ja'
+import { sceneErrorJa } from './sceneError.ja'
 import { probePanelJa } from './probePanel.ja'
 import { probeSceneJa } from './probeScene.ja'
 import { quizJa } from './quiz.ja'
@@ -187,6 +188,7 @@ export const ja = {
   observePanel: observePanelJa,
   photoNote: photoNoteJa,
   saveData: saveDataJa,
+  sceneError: sceneErrorJa,
   probePanel: probePanelJa,
   probeScene: probeSceneJa,
   quiz: quizJa,

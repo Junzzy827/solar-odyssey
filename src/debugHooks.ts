@@ -1,4 +1,5 @@
 import { useHistoric } from './state/historic'
+import { crashScene } from './ui/SceneBoundary'
 import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
@@ -38,6 +39,8 @@ import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, s
 type CameraFn = (camera: THREE.PerspectiveCamera, dt: number) => void
 const sv = {
   THREE,
+  /** その場面の受け皿の中でわざと失敗させる（'surface' | 'eva' | 'walk' | 'app'） */
+  crashScene,
   store: useStore,
   race: useRace,
   mission: useMission,
