@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkDiscoveries, cleanName, countInHalfMonth, provisionalCode, type Discovery } from './discovery'
+import { checkDiscoveries, cleanName, countInHalfMonth, provisionalCode, type Discovery, PHOTO_KEEP, trimPhotos } from './discovery'
 
 describe('provisionalCode', () => {
   it('follows the real half-month letters', () => {
@@ -32,5 +32,17 @@ describe('names and save data', () => {
   it('drops broken records', () => {
     expect(checkDiscoveries('nope')).toBeNull()
     expect(checkDiscoveries([{ key: 'a', code: '2026 WA', name: '', kind: 1, sizeKm: 3, at: 1 }, { key: 1 }])).toHaveLength(1)
+  })
+  it('keeps photos that are images, drops anything else', () => {
+    const rec = { key: 'a', code: '2026 WA', name: '', kind: 0, sizeKm: 3, at: 1 }
+    expect(checkDiscoveries([{ ...rec, photo: 'data:image/jpeg;base64,xx' }])![0].photo).toBe('data:image/jpeg;base64,xx')
+    expect(checkDiscoveries([{ ...rec, photo: 'javascript:alert(1)' }])![0].photo).toBeUndefined()
+  })
+  it('keeps only the newest photos', () => {
+    const many = Array.from({ length: PHOTO_KEEP + 5 }, (_, i) => ({ key: `k${i}`, code: '2026 WA', name: '', kind: 0 as const, sizeKm: 3, at: i, photo: 'data:image/jpeg;base64,x' }))
+    const out = trimPhotos(many)
+    expect(out.filter((d) => d.photo)).toHaveLength(PHOTO_KEEP)
+    expect(out[0].photo).toBeUndefined()
+    expect(out[out.length - 1].photo).toBeDefined()
   })
 })

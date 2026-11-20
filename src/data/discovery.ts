@@ -15,7 +15,14 @@ export type Discovery = {
   sizeKm: number
   /** 見つけた日時（ミリ秒） */
   at: number
+  /** 発見したときに撮った写真（JPEG の data URL。古いものは消して容量をおさえる） */
+  photo?: string
 }
+
+/** 写真を残しておく数（新しいものから） */
+export const PHOTO_KEEP = 60
+/** エベレストの高さ（km）。大きさをくらべるもの */
+export const EVEREST_KM = 8.8
 
 const HALF_MONTH = 'ABCDEFGHJKLMNOPQRSTUVWXY'
 const ORDER = 'ABCDEFGHJKLMNOPQRSTUVWXYZ'
@@ -45,8 +52,21 @@ export const cleanName = (s: string) => s.replace(/\s+/g, ' ').trim().slice(0, N
 /** セーブから読んだものを確かめる */
 export function checkDiscoveries(v: unknown): Discovery[] | null {
   if (!Array.isArray(v)) return null
-  return v.filter(
-    (d): d is Discovery =>
-      !!d && typeof d.key === 'string' && typeof d.code === 'string' && typeof d.name === 'string' && [0, 1, 2].includes(d.kind) && typeof d.sizeKm === 'number' && typeof d.at === 'number',
-  )
+  return v
+    .filter(
+      (d): d is Discovery =>
+        !!d && typeof d.key === 'string' && typeof d.code === 'string' && typeof d.name === 'string' && [0, 1, 2].includes(d.kind) && typeof d.sizeKm === 'number' && typeof d.at === 'number',
+    )
+    .map((d) => (d.photo === undefined || (typeof d.photo === 'string' && d.photo.startsWith('data:image/')) ? d : { ...d, photo: undefined }))
+}
+
+/** 写真は新しいほうから PHOTO_KEEP 個だけ残す */
+export function trimPhotos(found: Discovery[]): Discovery[] {
+  let kept = 0
+  const out = [...found]
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (!out[i].photo) continue
+    if (++kept > PHOTO_KEEP) out[i] = { ...out[i], photo: undefined }
+  }
+  return out
 }

@@ -3,9 +3,10 @@ import { closeNote, nameDiscovery, useDiscovery } from '../state/discovery'
 import { NAME_MAX } from '../data/discovery'
 import { useLang } from '../i18n/lang'
 import { ui } from '../i18n'
+import { RockPhoto } from './ScannerHud'
 import './discovery.css'
 
-/** 発見ノート：発見スキャンで見つけた小惑星の一覧。名前はあとから変えられる */
+/** 発見ノート：見つけた小惑星の写真帳（発見したときの写真・名前・種類・大きさ）。名前はあとから変えられる */
 export function DiscoveryNote() {
   const open = useDiscovery((s) => s.noteOpen)
   const found = useDiscovery((s) => s.found)
@@ -39,9 +40,10 @@ export function DiscoveryNote() {
       {found.length === 0 ? (
         <p className="muted">{t.noteEmpty}</p>
       ) : (
-        <ul>
+        <ul className="photo-book">
           {[...found].reverse().map((d) => (
             <li key={d.key} className={`kind-${d.kind}`}>
+              <RockPhoto photo={d.photo} kind={d.kind} />
               {editing === d.key ? (
                 <span className="scan-name inline">
                   <input
@@ -61,9 +63,7 @@ export function DiscoveryNote() {
                 <b>{t.label(d.name, d.code)}</b>
               )}
               <span className="small">
-                {t.kind[d.kind]}
-                {ui().gap}
-                {t.size(d.sizeKm)}
+                <span className={`kind-chip kind-${d.kind}`}>{t.kind[d.kind]}</span> {t.size(d.sizeKm)}
               </span>
               <span className="muted small">{t.foundOn(new Date(d.at))}</span>
               {editing !== d.key && (

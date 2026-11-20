@@ -3,6 +3,7 @@
 // 1 回の往復は約 3 分。積める量 60 の船で約 8 往復、25 分ほどで 1 基目が完成する（設計メモ 2026-11-20）。
 
 import type { RockType } from '../state/registry'
+import type { ShipId } from './ships'
 
 /** 小惑星帯の採掘場の目印（ワープの行き先として天体に登録する） */
 export const FIELD_ID = 'pioneer-field'
@@ -24,10 +25,123 @@ export const STAGES: readonly { id: StageId; cost: Amounts }[] = [
 ]
 export const STAGE_COUNT = STAGES.length
 
-/** 船ごとの積める量（全部の資源の合計）。輸送船ハコブネと母艦アルカディアは多く積める */
-const HOLD_BY_SHIP: Record<string, number> = { hakobune: 150, arcadia: 150 }
+/** 船の得意（どの船でも遊べるが、船ごとに 1 つ得意なことがある） */
+export type Strength = 'hold' | 'magnet' | 'scoop' | 'yield' | 'scan'
+export type ShipTrait = { strength: Strength; hold: number; magnet: number; scoop: number; yield: number; scan: number }
 export const DEFAULT_HOLD = 60
-export const holdCapacity = (shipId: string) => HOLD_BY_SHIP[shipId] ?? DEFAULT_HOLD
+const BASE: Omit<ShipTrait, 'strength'> = { hold: DEFAULT_HOLD, magnet: 1, scoop: 1, yield: 1, scan: 1 }
+/** 輸送船ハコブネと母艦アルカディアは多く積める。調査船は岩を遠くから見分け、光帆の船は軽くてガスを速く集める…… */
+const TRAITS: Record<ShipId, Partial<ShipTrait> & { strength: Strength }> = {
+  sv01: { strength: 'scan', scan: 1.6 },
+  heron: { strength: 'magnet', magnet: 1.6 },
+  sorakaze: { strength: 'scoop', scoop: 1.6 },
+  hakobune: { strength: 'hold', hold: 150 },
+  meguri: { strength: 'yield', yield: 1.3 },
+  amatsu: { strength: 'hold', hold: 90 },
+  arcadia: { strength: 'hold', hold: 150 },
+}
+export const shipTrait = (shipId: string): ShipTrait => ({ ...BASE, ...(TRAITS[shipId as ShipId] ?? { strength: 'hold' }) })
+export const TRAIT_SHIPS = Object.keys(TRAITS) as ShipId[]
+
+/** 珍しい岩：帯の岩のおよそ RARE_EVERY 個に 1 個。種類は岩の種類で決まる。砕くとたくさん取れて、記録に残る */
+export type RareId = 'crystal' | 'olivine' | 'platinum'
+export const RARE_IDS: readonly RareId[] = ['crystal', 'olivine', 'platinum']
+export const RARE_BY_TYPE: Record<RockType, RareId> = { 0: 'crystal', 1: 'olivine', 2: 'platinum' }
+export const RARE_BONUS: Record<RareId, { resource: Resource; amount: number }> = {
+  crystal: { resource: 'ice', amount: 40 },
+  olivine: { resource: 'metal', amount: 30 },
+  platinum: { resource: 'metal', amount: 50 },
+}
+export const RARE_EVERY = 40
+export const NO_RARE: Record<RareId, number> = { crystal: 0, olivine: 0, platinum: 0 }
+
+/** 決まった数から、ばらけた数を作る（同じ岩はいつも同じ答え） */
+function mix(n: number) {
+  let x = n | 0
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b)
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b)
+  return (x ^ (x >>> 16)) >>> 0
+}
+/** 文字から数を作る（日付で珍しい岩の場所を変えるため） */
+export function hashText(text: string) {
+  let h = 0
+  for (let i = 0; i < text.length; i++) h = Math.imul(h, 31) + text.charCodeAt(i)
+  return mix(h)
+}
+/** その岩（何番目の形の何番目）は珍しいか。salt（日付から作る数）で、日ごとに珍しい岩が入れ替わる */
+export const isRare = (shape: number, index: number, salt = 0) => mix((shape * 7919 + index + 1) ^ salt) % RARE_EVERY === 0
+
+/** 今日の依頼：日付で決まる（同じ日なら誰でも同じ依頼）。果たすと倉庫にごほうび */
+export type DailyKind = 'metal' | 'ice' | 'gas' | 'bigTrip' | 'trips' | 'rare'
+export type DailyDef = { kind: DailyKind; target: number; reward: Amounts }
+export type DailyState = { day: string; progress: number; done: boolean }
+const DAILIES: readonly DailyDef[] = [
+  { kind: 'metal', target: 80, reward: { metal: 0, ice: 20, gas: 20 } },
+  { kind: 'ice', target: 50, reward: { metal: 30, ice: 0, gas: 10 } },
+  { kind: 'gas', target: 40, reward: { metal: 30, ice: 10, gas: 0 } },
+  { kind: 'bigTrip', target: 50, reward: { metal: 20, ice: 20, gas: 10 } },
+  { kind: 'trips', target: 3, reward: { metal: 25, ice: 15, gas: 15 } },
+  { kind: 'rare', target: 1, reward: { metal: 30, ice: 20, gas: 20 } },
+]
+/** その日の依頼（日付の文字 YYYY-MM-DD から） */
+export function dailyFor(day: string): DailyDef {
+  return DAILIES[hashText(day) % DAILIES.length]
+}
+/** 遊んでいる人の、その土地の今日 */
+export function today(d = new Date()) {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+/** 依頼の進み：納品・珍しい岩のたびに足す（bigTrip だけは 1 回の量のいちばん大きいもの） */
+export function dailyProgress(def: DailyDef, progress: number, e: { delivered?: Amounts; rare?: boolean }): number {
+  if (def.kind === 'rare') return progress + (e.rare ? 1 : 0)
+  if (!e.delivered) return progress
+  if (def.kind === 'trips') return progress + 1
+  if (def.kind === 'bigTrip') return Math.max(progress, total(e.delivered))
+  return progress + e.delivered[def.kind]
+}
+
+/** 船の改造（天の湊の倉庫の資源で買う。3 段まで） */
+export type UpgradeId = 'hold' | 'magnet' | 'scoop'
+export const UPGRADE_IDS: readonly UpgradeId[] = ['hold', 'magnet', 'scoop']
+export const MAX_LEVEL = 3
+export type Upgrades = Record<UpgradeId, number>
+export const NO_UPGRADES: Upgrades = { hold: 0, magnet: 0, scoop: 0 }
+export const UPGRADE_COST: Record<UpgradeId, readonly Amounts[]> = {
+  hold: [
+    { metal: 30, ice: 0, gas: 0 },
+    { metal: 60, ice: 0, gas: 0 },
+    { metal: 90, ice: 20, gas: 0 },
+  ],
+  magnet: [
+    { metal: 20, ice: 10, gas: 0 },
+    { metal: 40, ice: 20, gas: 0 },
+    { metal: 60, ice: 30, gas: 10 },
+  ],
+  scoop: [
+    { metal: 20, ice: 0, gas: 10 },
+    { metal: 40, ice: 0, gas: 20 },
+    { metal: 60, ice: 10, gas: 30 },
+  ],
+}
+/** 次の段の値段（もう最後の段なら null） */
+export const upgradeCost = (id: UpgradeId, level: number) => UPGRADE_COST[id][level] ?? null
+
+/** 積める量：船の量に、改造 1 段ごとに 3 分の 1 ずつ足す */
+export const holdCapacity = (shipId: string, level = 0) => {
+  const base = shipTrait(shipId).hold
+  return base + Math.round(base / 3) * level
+}
+/** かけらを吸い寄せる距離の倍率 */
+export const magnetFactor = (shipId: string, level = 0) => shipTrait(shipId).magnet * (1 + 0.4 * level)
+/** ガスのたまる速さの倍率 */
+export const scoopFactor = (shipId: string, level = 0) => shipTrait(shipId).scoop * (1 + 0.3 * level)
+/** 改造の効き目（画面の「60 → 80」に使う） */
+export function upgradeValue(id: UpgradeId, shipId: string, level: number): number {
+  if (id === 'hold') return holdCapacity(shipId, level)
+  if (id === 'magnet') return magnetFactor(shipId, level)
+  return scoopFactor(shipId, level)
+}
 
 /**
  * 砕いた岩 1 個から出る資源。size は岩の大きさ（表示単位、0.04〜0.44）。
@@ -86,13 +200,23 @@ export type PioneerSave = {
   log?: Trip[]
   /** これまでに納めた回数（log より古い分も数える） */
   trips?: number
+  /** 船の改造の段（0〜MAX_LEVEL）。古いセーブには無い */
+  upgrades?: Upgrades
+  /** 見つけた珍しい岩の数 */
+  rare?: Record<RareId, number>
+  /** その日に砕いた珍しい岩（「形-番号」）。読み込み直しても同じ岩で二度取れないように */
+  rareTaken?: { day: string; keys: string[] }
+  /** 今日の依頼の進み具合 */
+  daily?: DailyState
+  /** これまでに果たした依頼の数 */
+  dailyDone?: number
 }
 
 /** 1 回の納品。built は、この納品のあとに建てた段階 */
 export type Trip = { at: number; a: Amounts; built?: StageId[] }
 export const LOG_MAX = 30
 
-export const NEW_SAVE: PioneerSave = { v: 1, hold: { ...NONE }, store: { ...NONE }, stage: 0, colonyName: '', introSeen: false, log: [], trips: 0 }
+export const NEW_SAVE: PioneerSave = { v: 1, hold: { ...NONE }, store: { ...NONE }, stage: 0, colonyName: '', introSeen: false, log: [], trips: 0, upgrades: { ...NO_UPGRADES } }
 
 const STAGE_IDS = new Set<string>(['frame', 'hull', 'mirror', 'spin', 'air'])
 const isTrip = (t: unknown): t is Trip => {
@@ -117,7 +241,15 @@ export function checkSave(v: unknown): v is PioneerSave {
     typeof s.colonyName === 'string' &&
     typeof s.introSeen === 'boolean' &&
     (s.log === undefined || (Array.isArray(s.log) && s.log.every(isTrip))) &&
-    (s.trips === undefined || (Number.isInteger(s.trips) && s.trips >= 0))
+    (s.trips === undefined || (Number.isInteger(s.trips) && s.trips >= 0)) &&
+    (s.rare === undefined || (!!s.rare && RARE_IDS.every((id) => Number.isInteger(s.rare![id]) && s.rare![id] >= 0))) &&
+    (s.daily === undefined ||
+      (!!s.daily && typeof s.daily.day === 'string' && Number.isFinite(s.daily.progress) && s.daily.progress >= 0 && typeof s.daily.done === 'boolean')) &&
+    (s.rareTaken === undefined ||
+      (!!s.rareTaken && typeof s.rareTaken.day === 'string' && Array.isArray(s.rareTaken.keys) && s.rareTaken.keys.every((k) => typeof k === 'string'))) &&
+    (s.dailyDone === undefined || (Number.isInteger(s.dailyDone) && s.dailyDone >= 0)) &&
+    (s.upgrades === undefined ||
+      (!!s.upgrades && UPGRADE_IDS.every((id) => Number.isInteger(s.upgrades![id]) && s.upgrades![id] >= 0 && s.upgrades![id] <= MAX_LEVEL)))
   )
 }
 

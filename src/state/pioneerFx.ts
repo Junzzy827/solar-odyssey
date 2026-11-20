@@ -1,4 +1,4 @@
-import type { Amounts, Resource } from '../data/pioneer'
+import type { Amounts, RareId, Resource, UpgradeId } from '../data/pioneer'
 
 // 開拓の手応えの合図（音・光・数字の演出が聞く）。ゲームの決まりとは別にしておく
 
@@ -6,6 +6,9 @@ export type PioneerFx =
   | { kind: 'pickup'; resource: Resource; amount: number }
   | { kind: 'full' }
   | { kind: 'deliver'; amounts: Amounts; ready: boolean }
+  | { kind: 'upgrade'; id: UpgradeId; level: number }
+  | { kind: 'rare'; id: RareId; amount: number }
+  | { kind: 'daily'; reward: Amounts }
 
 const listeners = new Set<(e: PioneerFx) => void>()
 
