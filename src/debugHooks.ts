@@ -1,10 +1,14 @@
 import { useHistoric } from './state/historic'
+import { crashScene } from './ui/SceneBoundary'
+import { constructionSite } from './components/sf/ConstructionSite'
+import { build as pioneerBuild, collect as pioneerCollect, debugGive as pioneerGive, deliver as pioneerDeliver, endCinema, nameColony, startPioneer, stopPioneer, usePioneer } from './state/pioneer'
 import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
 import { POND } from './components/walk/park'
 import { flightControl, ship, thrustFx, warpFx } from './state/flight'
-import { bodies, markerOverride, beamTargets, ports, sim } from './state/registry'
+import { proximity } from './state/proximity'
+import { asteroids, bodies, markerOverride, beamTargets, ports, rockBreaks, sim } from './state/registry'
 import { useRace } from './state/race'
 import { useMission } from './state/mission'
 import { MISSIONS } from './data/missions'
@@ -30,7 +34,10 @@ import { useSkyClock } from './components/surface/skyClock'
 import { rabbitDebug, useMoonRabbit } from './state/moonRabbit'
 import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
+import { useDiscovery, startScanner, stopScanner, openNote } from './state/discovery'
+import { closeToday, openToday, useToday } from './state/today'
 import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
+import { arrivalDebug, closeArrival, showArrival, useArrival } from './state/arrival'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
 // 録画・動作確認用（#debug のときだけ読み込む）：アプリの中身をブラウザのコンソールや録画スクリプトから動かせるようにする。
@@ -39,6 +46,8 @@ import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, s
 type CameraFn = (camera: THREE.PerspectiveCamera, dt: number) => void
 const sv = {
   THREE,
+  /** その場面の受け皿の中でわざと失敗させる（'surface' | 'eva' | 'walk' | 'app'） */
+  crashScene,
   store: useStore,
   race: useRace,
   mission: useMission,
@@ -47,6 +56,16 @@ const sv = {
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
   probes: { state: useProbes, clock: probeClock },
   bodyCards: { state: useBodyCards, open: openBodyCard, close: closeBodyCard, step: stepBodyCard },
+  today: { state: useToday, open: openToday, close: closeToday },
+  arrival: { state: useArrival, show: showArrival, close: closeArrival, debug: arrivalDebug },
+  pioneer: { state: usePioneer, start: startPioneer, stop: stopPioneer, give: pioneerGive, collect: pioneerCollect, deliver: pioneerDeliver, build: pioneerBuild, skip: endCinema, name: nameColony, site: constructionSite,
+    /** 自機の前で岩が砕けたことにする（かけらが船に集まるかの確認） */
+    breakRock: (type: 0 | 1 | 2, size: number) => {
+      const at = new THREE.Vector3(0, 0, -6).applyQuaternion(ship.quaternion).add(ship.position)
+      for (const f of rockBreaks) f(type, size, at)
+    },
+  },
+  discovery: { state: useDiscovery, start: startScanner, stop: stopScanner, note: openNote, asteroids },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff, site: goToSite },
   rally: { state: useRally, start: startRally, quit: quitRally },
@@ -86,6 +105,8 @@ const sv = {
   ports,
   markerOverride,
   beamTargets,
+  asteroids,
+  proximity,
   sim,
   camera: null as CameraFn | null,
   setCamera: null as unknown as (fn: CameraFn | null) => void,
