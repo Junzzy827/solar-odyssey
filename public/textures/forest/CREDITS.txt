@@ -1,0 +1,21 @@
+Forest sample corner (?forest=sample) — sources
+
+All of the following are from Poly Haven (https://polyhaven.com), licensed CC0 1.0.
+They were simplified, re-packed and resized for this app by tools/forest/bake.mjs.
+
+Models (public/models/forest-kit.glb and the textures here)
+  fern_02                 -> fern_a, fern_b, fern.webp
+  calathea_orbifolia_01   -> calathea_a..c, calathea.webp
+  anthurium_botany_01     -> anthurium_a..c, anthurium.webp
+  pachira_aquatica_01     -> pachira_a, pachira_b, pachira_bark.webp, pachira_leaves.webp
+  root_cluster_01         -> roots, roots.webp
+  tree_stump_01           -> stump, stump.webp
+  dead_tree_trunk_02      -> log, log.webp
+  rock_moss_set_01        -> rock_a, rock_b, rock.webp
+  island_tree_02          -> canopy.webp (leaf clusters rendered by tools/forest/canopy.mjs)
+
+Textures
+  chinese_hackberry_bark  -> bark.webp, bark_n.webp
+  forest_leaves_04        -> floor_leaves.webp
+  forrest_ground_01       -> floor_moss.webp
+  mud_forest              -> floor_mud.webp

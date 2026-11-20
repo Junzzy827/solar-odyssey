@@ -1,6 +1,7 @@
 import { seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { isTouchDevice } from '../../state/input'
+import { FOREST_SAMPLE_ON, forestSample, inSample } from './forestSample'
 
 // 公園の北の生け垣の外の、お試しのジャングル（コロニーの生き物の研究所が育てている森、という見立て）。
 // 植物はみな読み込みなしでその場で作る形（WalkJungle.tsx）。ここは置き場所だけを決める。
@@ -115,5 +116,21 @@ export function jungleLayout(): Jungle {
   // 入口のアーチの柱
   for (const ds of [-3.6, 3.6]) obstacles.push({ s: JUNGLE_GATE.s + ds, y: JUNGLE_GATE.y, r: 0.35 })
   jungle = { trail, giants, ferns, ears, bulbs, spirals, mushrooms, grass, obstacles }
+  if (FOREST_SAMPLE_ON) {
+    // 「本格的な森」の見本の一角（forestSample.ts）の中は、今までの植物をどけて、見本の植物に入れかえる。
+    // 置いたあとでどけるので、見本の外の森は、切りかえの前と 1 本も変わらない
+    const out = <T extends { s: number; y: number }>(a: T[], pad: number) => a.filter((p) => !inSample(p.s, p.y, pad))
+    jungle = {
+      trail,
+      giants: out(giants, 7),
+      ferns: out(ferns, 1.2),
+      ears: out(ears, 0.8),
+      bulbs: out(bulbs, 0.5),
+      spirals: out(spirals, 1),
+      mushrooms: out(mushrooms, 1.5),
+      grass: out(grass, 0.3),
+      obstacles: [...obstacles.filter((p) => !inSample(p.s, p.y, 1) || Math.abs(p.y - JUNGLE_GATE.y) < 0.1), ...forestSample().obstacles],
+    }
+  }
   return jungle
 }
