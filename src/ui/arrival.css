@@ -218,14 +218,14 @@
 }
 
 /* 地球より大きい星は 3D でならべるので、絵はなし */
-/* スマホ・タブレット：上の「地表に降りる」の下（画面の下は操作ボタンでいっぱい） */
+/* スマホ・タブレット：画面の上（下と右は操作ボタンでいっぱい） */
 @media (max-width: 720px), (pointer: coarse) {
   .arrival {
     left: 8px;
     right: 8px;
-    top: 166px;
-    /* 操作ボタン（あとに並ぶ）が上に出るように */
-    z-index: auto;
+    /* 上のアイコンの列のすぐ下。右の推進の −/＋ やワープのボタン（画面のまん中より下）にかからない高さ */
+    top: calc(56px + env(safe-area-inset-top));
+    z-index: 6;
     width: auto;
     min-width: 0;
     gap: 12px;
