@@ -96,7 +96,7 @@ export function LaunchWorld() {
     const geo = plumeGeometry()
     const f1 = plumeMaterial({ core: '#fff4d0', edge: '#ff7a1c', soft: 0.9 })
     const big = plumeMaterial({ core: '#ffd890', edge: '#ff5a10', soft: 1.4 })
-    const j2 = plumeMaterial({ core: '#cfd8ff', edge: '#5868ff', soft: 1.6 })
+    const j2 = plumeMaterial({ core: '#b8c4ff', edge: '#3a48d8', soft: 1.8 })
     const les = plumeMaterial({ core: '#fff0c0', edge: '#ff8a30', soft: 1.0 })
     return { geo, f1, big, j2, les }
   }, [])
@@ -192,6 +192,8 @@ export function LaunchWorld() {
   const j3 = useRef<THREE.Mesh>(null)
   const lesFlame = useRef<THREE.Mesh>(null)
   const flameLight = useRef<THREE.PointLight>(null)
+  const fill = useRef<THREE.DirectionalLight>(null)
+  const camLight = useRef<THREE.PointLight>(null)
   const spots = useRef<THREE.Group>(null)
   const debrisG = useRef<THREE.Group>(null)
   const debris = useRef<Debris[]>([])
@@ -284,6 +286,7 @@ export function LaunchWorld() {
       atmoM.current.position.copy(earthM.current.position)
       earthMat.uniforms.uSun.value.copy(SUN)
       earthMat.uniforms.uNear.value = THREE.MathUtils.clamp(1 - h / 60_000, 0, 1)
+      earthMat.uniforms.uNear2.value = THREE.MathUtils.clamp(1 - h / 2_000_000, 0, 1)
       earthMat.uniforms.uLights.value = THREE.MathUtils.smoothstep(h, 60_000, 900_000) * 0.85 + 0.15
       atmoMat.uniforms.uSun.value.copy(SUN)
     }
@@ -337,7 +340,7 @@ export function LaunchWorld() {
       j3.current.scale.set(1.0, 16 + 40 * expand, 1.0)
     }
     plumes.j2.uniforms.uTime.value = t
-    plumes.j2.uniforms.uPower.value = 0.9
+    plumes.j2.uniforms.uPower.value = 0.45
     plumes.j2.uniforms.uExpand.value = expand * 2.5
     if (lesFlame.current) {
       const les = debris.current.find((d) => d.name === 'LES')
@@ -355,6 +358,16 @@ export function LaunchWorld() {
       flameLight.current.position.set(0, -25, 0)
     }
     if (spots.current) spots.current.visible = h < 20_000
+    if (fill.current) {
+      // 南の上から（three の z が南）。地球の向こうから照らさないよう、いつも局所の上寄り
+      fill.current.position.copy(up).multiplyScalar(0.8).add(_v.set(0, 0, 0.6)).multiplyScalar(1000)
+      fill.current.intensity = s.phase === 'pad' ? 0.15 : 0.9
+    }
+    if (camLight.current) {
+      // 機体カメラの見る先（切り離した段）を、少しだけ照らす
+      camLight.current.intensity = s.cam === 'onboard' ? 4e4 : 0
+      camLight.current.position.copy(nose).multiplyScalar(30).add(_v.set(0, 0, 14))
+    }
 
     // ---- 煙 ----
     const flameGround = _v
@@ -393,7 +406,7 @@ export function LaunchWorld() {
     const want = _v
     const look = _v2
     let fov = 50
-    const south = new THREE.Vector3().crossVectors(east, up).negate()
+    const south = new THREE.Vector3().crossVectors(east, up)
     if (s.cam === 'pad' && ground.current) {
       // 1.2 km 先の見物の場所から、望遠で追いかける
       ground.current.localToWorld(want.set(-700, GROUND_Y + 30, 1050))
@@ -404,12 +417,12 @@ export function LaunchWorld() {
       fov = THREE.MathUtils.clamp((2 * Math.atan(half / dist) * 180) / Math.PI, 0.5, 32)
       cs.up.copy(up)
     } else if (s.cam === 'onboard') {
-      // 第2段（切り離しの後は第3段）の横に付けたカメラで、後ろを見下ろす
+      // 第2段（切り離しの後は第3段）の横に付けたカメラで、後ろを見下ろす（本物の分離の映像の向き）
       const mount = a.stage === 0 ? 58 : 80
-      want.copy(nose).multiplyScalar(mount).addScaledVector(south, a.stage < 2 ? 5.9 : 4.0)
-      look.copy(nose).multiplyScalar(-60).addScaledVector(south, 12)
-      fov = 75
-      cs.up.copy(south)
+      want.copy(nose).multiplyScalar(mount).addScaledVector(south, 9)
+      look.copy(nose).multiplyScalar(-90).addScaledVector(south, 16)
+      fov = 62
+      cs.up.copy(east)
     } else {
       // 横から：軌道では少し離れて、地球が下に見えるように
       const far = s.phase === 'ascent' ? 190 : s.phase === 'outbound' ? 260 : 230
@@ -446,7 +459,9 @@ export function LaunchWorld() {
   return (
     <>
       {/* 月の無い夜：ロケットの形がかすかに分かるくらいの、空からの光 */}
-      <hemisphereLight args={['#3a4660', '#0a0806', 0.35]} />
+      <hemisphereLight args={['#5a6a8a', '#120c08', 1.1]} />
+      {/* 夜でも機体の形が読めるように、南の上から弱い青白い光（星明かり代わり） */}
+      <directionalLight ref={fill} intensity={0.9} color="#9fb6e8" />
       <directionalLight position={SUN.clone().multiplyScalar(1000)} intensity={sunlit ? 2.2 : 0} />
       {/* 星 */}
       <mesh ref={starsM} renderOrder={-10}>
@@ -527,6 +542,7 @@ export function LaunchWorld() {
       </group>
       <mesh ref={lesFlame} geometry={plumes.geo} material={plumes.les} visible={false} />
       <group ref={debrisG} />
+      <pointLight ref={camLight} color="#cfdcff" intensity={0} distance={0} decay={2} />
     </>
   )
 }

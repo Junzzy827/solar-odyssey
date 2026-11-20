@@ -28,6 +28,7 @@ const frag = /* glsl */ `
   uniform vec3 uSun;
   uniform float uNear;
   uniform float uLights;
+  uniform float uNear2;
   varying vec2 vUv;
   varying vec3 vNw;
   varying vec3 vPw;
@@ -39,7 +40,7 @@ const frag = /* glsl */ `
     float day = smoothstep(-0.08, 0.12, l);
     vec3 dayCol = texture2D(uDay, vUv).rgb;
     float cl = texture2D(uClouds, vUv).r;
-    dayCol = mix(dayCol, vec3(1.0), cl * 0.85);
+    dayCol = mix(dayCol, vec3(0.95), smoothstep(0.15, 0.9, cl) * 0.9);
     dayCol *= max(0.0, l) * 1.25;
     // 夜の街の明かり（雲がかかると少し隠れる）
     vec3 night = texture2D(uNight, vUv).rgb * (1.0 - cl * 0.6);
@@ -50,7 +51,8 @@ const frag = /* glsl */ `
     float dusk = exp(-pow((l - 0.02) / 0.07, 2.0));
     col += vec3(0.6, 0.25, 0.08) * dusk * 0.35;
     // 大気：ふちほど青く光る（昼の側）
-    float rim = pow(1.0 - max(0.0, dot(n, v)), 3.0);
+    // 低い軌道からは見える地面のほとんどが斜めなので、ふちの光は地平線のすぐ近くだけ
+    float rim = pow(1.0 - max(0.0, dot(n, v)), mix(3.0, 9.0, uNear2));
     col += vec3(0.25, 0.5, 1.0) * rim * smoothstep(-0.2, 0.3, l) * 0.9;
     // 近いときは粗い地図が目立つので、少し暗く沈める
     col *= mix(1.0, 0.55, uNear);
@@ -69,6 +71,7 @@ export function earthMaterial(day: THREE.Texture, night: THREE.Texture, clouds: 
       uSun: { value: new THREE.Vector3(0, -1, 0) },
       uNear: { value: 0 },
       uLights: { value: 1 },
+      uNear2: { value: 0 },
     },
   })
 }
