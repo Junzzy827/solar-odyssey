@@ -24,6 +24,7 @@ const texts = {
   colonist: { name: 'コロニー訪問者', how: () => 'L5スペースコロニーを訪れる' },
   'race-debut': { name: 'ローバーレーサー', how: () => 'どこかのローバーレースでメダルを1つ取る' },
   'race-champion': { name: '太陽系ローバー王者', how: (count: number) => `ローバーレースの${count}コースぜんぶで金メダルを取る` },
+  'moon-rabbit-friend': { name: '月のうさぎの友だち', how: () => '月の夕暮れに現れる、光るウサギについていく' },
   scholar: { name: '博士の卵', how: (count: number) => `航海日誌のクイズに${count}問正解する` },
   professor: { name: '太陽系博士', how: (count: number) => `航海日誌のクイズに、太陽・惑星・衛星ぜんぶ（${count}）正解する` },
 } satisfies Record<string, TitleText>

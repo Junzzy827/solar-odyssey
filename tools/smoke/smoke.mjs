@@ -123,6 +123,32 @@ const SCENARIOS = {
       await page.waitForFunction(() => window.__sv.rally.state.getState().phase === 'off', null, { timeout: 10000 })
     },
   },
+  // 月の光るウサギ：夕暮れを待つ → 現れる → ついていく → 庭でお話 → 「やめる」で自由走行に戻る
+  rabbit: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.landing.start('moon'))
+      await sleep(3000)
+      await page.evaluate(() => window.__sv.landing.skip())
+      await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface' && window.__sv.landing.state.getState().ready, null, { timeout: 180000, polling: 500 })
+      await page.waitForSelector('.moon-rabbit-hint button', { timeout: 60000 })
+      await page.click('.moon-rabbit-hint button')
+      await page.waitForFunction(() => window.__sv.moonRabbit.getState().phase === 'appear', null, { timeout: 60000, polling: 300 })
+      await page.click('.moon-rabbit-card button.primary')
+      await page.waitForFunction(() => window.__sv.rover.state.getState().phase === 'drive', null, { timeout: 120000, polling: 300 })
+      await page.evaluate(() => {
+        const g = window.__sv.moonRabbit.getState().garden
+        window.__sv.rover.debug.place(g.x + 14, g.z, 0)
+        window.__sv.rabbitDebug.arrive = true
+      })
+      await page.waitForFunction(() => window.__sv.moonRabbit.getState().phase === 'tale', null, { timeout: 60000, polling: 300 })
+      await visibleButton(page, '.moon-rabbit-card button.primary')
+      await page.click('.moon-rabbit-card button.secondary')
+      await page.waitForFunction(() => window.__sv.moonRabbit.getState().phase === 'off', null, { timeout: 10000 })
+    },
+  },
   // コロニーの公園を歩く
   walk: {
     ctx: desktop,

@@ -88,6 +88,7 @@ import { rockSamplesEn } from './rockSamples.en'
 import { shipsEn } from './ships.en'
 import { surfaceNotesEn } from './surfaceNotes.en'
 import { surfaceSitesEn } from './surfaceSites.en'
+import { moonRabbitEn } from './moonRabbit.en'
 import { surfaceSkyNotesEn } from './surfaceSkyNotes.en'
 
 // UI strings (English). Same keys as ja.ts; a key left out is shown in Japanese
@@ -194,6 +195,7 @@ export const en: Translation<typeof ja> = {
   racePanel: racePanelEn,
   rallyHiscore: rallyHiscoreEn,
   rallyPanel: rallyPanelEn,
+  moonRabbit: moonRabbitEn,
   rockBook: rockBookEn,
   bodyCards: bodyCardsEn,
   roverHud: roverHudEn,

@@ -117,3 +117,9 @@ useRallyMedals.subscribe((s, prev) => {
   const lines = newTitles(useStamps.getState().stamps)
   if (lines.length) announce(lines)
 })
+
+/** ほかの記録（おとぎ話の出来事など）が増えたときに呼ぶ：新しくそろった称号を知らせる */
+export function checkTitles() {
+  const lines = newTitles(useStamps.getState().stamps)
+  if (lines.length) announce(lines)
+}

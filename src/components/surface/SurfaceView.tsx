@@ -27,6 +27,8 @@ import { Rally } from './Rally'
 import { RallyGhost } from './RallyGhost'
 import { RallyPanel, RallyStart } from './RallyPanel'
 import { Apollo17 } from './Apollo17'
+import { MoonRabbit } from './MoonRabbit'
+import { MoonRabbitPanel } from './MoonRabbitPanel'
 import { HistoricCard, HistoricStatus } from './HistoricPanel'
 import { FAR_SHRINK, farTerrainGeometry } from './farTerrain'
 import { STORM_HAZE, STORM_KIND, WEATHER_BODIES, WEATHER_FX, devilTarget, stepWeather, useWeather, stormTarget, weatherNow } from './weather'
@@ -1372,6 +1374,7 @@ function Scene({ def }: { def: SurfaceDef }) {
         </Suspense>
       )}
       {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} />}
+      {def.id === 'moon' && <MoonRabbit terrain={terrain} />}
       <Look terrain={terrain} />
       <WhenReady />
     </>
@@ -1582,6 +1585,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
         </div>
       )}
       {phase === 'ascent' && <div className="surface-caption">{ui().surfaceView.liftOff}</div>}
+      {phase === 'surface' && def.id === 'moon' && <MoonRabbitPanel />}
       {phase === 'surface' && (
         <>
           {/* 左上の列：説明・（スマホでは）時刻と天気・ミニマップを上から順に積む。重ならず、たたんだぶんだけ詰まる */}

@@ -27,6 +27,7 @@ import { mobDebug, walker } from './components/walk/WalkActors'
 import { walkDebug } from './components/walk/WalkWorld'
 import { chunkDebug } from './components/walk/WalkChunks'
 import { useSkyClock } from './components/surface/skyClock'
+import { rabbitDebug, useMoonRabbit } from './state/moonRabbit'
 import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
 import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
@@ -71,6 +72,8 @@ const sv = {
   eva: { site: evaSite, state: useEva, start: startEva, recall: recallEva, input: evaInput, debug: evaDebug, jobs: evaJobsDebug, jobsRt, jobsState: useEvaJobs, col: shipCol },
   historic: useHistoric,
   skyClock: useSkyClock,
+  moonRabbit: useMoonRabbit,
+  rabbitDebug,
   weather: weatherNow,
   ship,
   shipZoom,

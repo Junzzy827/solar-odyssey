@@ -24,6 +24,7 @@ export const stampTitlesEn: Translation<StampTitlesJa> = {
   colonist: { name: 'Colony Visitor', how: () => 'Visit the L5 Space Colony' },
   'race-debut': { name: 'Rover Racer', how: () => 'Win a medal in any rover race' },
   'race-champion': { name: 'Solar System Rover Champion', how: (count: number) => `Win gold on all ${count} rover race courses` },
+  'moon-rabbit-friend': { name: 'Friend of the Moon Rabbit', how: () => 'Follow the glowing rabbit that appears at lunar dusk' },
   scholar: { name: 'Budding Scientist', how: (count: number) => `Answer ${count} ship’s log quizzes correctly` },
   professor: { name: 'Solar System Professor', how: (count: number) => `Answer the ship’s log quiz for every sun, planet and moon (${count})` },
 }

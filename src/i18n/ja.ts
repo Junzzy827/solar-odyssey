@@ -86,6 +86,7 @@ import { rockSamplesJa } from './rockSamples.ja'
 import { shipsJa } from './ships.ja'
 import { surfaceNotesJa } from './surfaceNotes.ja'
 import { surfaceSitesJa } from './surfaceSites.ja'
+import { moonRabbitJa } from './moonRabbit.ja'
 import { surfaceSkyNotesJa } from './surfaceSkyNotes.ja'
 
 // 画面の文言（日本語）。ストーリーモードの短い文言はここに書く。ほかの画面の文言は画面ごとのファイル（navPanel.ja.ts など）にあり、ここに集める
@@ -195,6 +196,7 @@ export const ja = {
   racePanel: racePanelJa,
   rallyHiscore: rallyHiscoreJa,
   rallyPanel: rallyPanelJa,
+  moonRabbit: moonRabbitJa,
   rockBook: rockBookJa,
   bodyCards: bodyCardsJa,
   roverHud: roverHudJa,
