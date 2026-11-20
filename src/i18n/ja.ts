@@ -29,6 +29,7 @@ import { navPanelJa } from './navPanel.ja'
 import { observeJa } from './observe.ja'
 import { observePanelJa } from './observePanel.ja'
 import { photoNoteJa } from './photoNote.ja'
+import { saveDataJa } from './saveData.ja'
 import { probePanelJa } from './probePanel.ja'
 import { probeSceneJa } from './probeScene.ja'
 import { quizJa } from './quiz.ja'
@@ -184,6 +185,7 @@ export const ja = {
   observe: observeJa,
   observePanel: observePanelJa,
   photoNote: photoNoteJa,
+  saveData: saveDataJa,
   probePanel: probePanelJa,
   probeScene: probeSceneJa,
   quiz: quizJa,

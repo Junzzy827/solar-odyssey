@@ -65,6 +65,19 @@ const SCENARIOS = {
       for (const sel of ['.launch-button', '.gallery-button', '.mode-button', '.bridge-button', '.eva-button']) await visibleButton(page, sel)
     },
   },
+  // 共通のセーブ：前の版のキー（solar-voyager:settings、起動の前に入れたもの）が引き継がれ、セーブデータ画面に出る
+  save: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('solar-odyssey:save') ?? 'null'))
+      if (!saved || saved.app !== 'solar-odyssey' || !saved.data?.settings) throw new Error(`save not migrated: ${JSON.stringify(saved)?.slice(0, 200)}`)
+      await page.evaluate(() => document.querySelector('.save-data')?.setAttribute('open', ''))
+      await page.evaluate(() => document.querySelector('.save-data')?.scrollIntoView())
+      await sleep(500)
+      await visibleButton(page, '.save-export')
+    },
+  },
   // スマホ
   phone: { ctx: phone, hash: '#debug' },
   // SF の世界

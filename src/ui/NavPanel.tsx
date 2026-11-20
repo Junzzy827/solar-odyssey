@@ -31,6 +31,7 @@ import { ThrottleMeter } from './Throttle'
 import { toggleObserve, useObserve } from '../state/observe'
 import { startEva, startRepairEva } from '../state/eva'
 import { startWalkDirect } from '../state/walk'
+import { SaveDataPanel } from './SaveDataPanel'
 
 const fmtDistance = (d: number | null) => (d === null ? '—' : d < 10 ? d.toFixed(1) : Math.round(d).toString())
 
@@ -469,6 +470,7 @@ export function NavPanel() {
       <SimDate />
       <ShipSection />
       <Settings racing={racing} />
+      <SaveDataPanel />
     </aside>
   )
 }

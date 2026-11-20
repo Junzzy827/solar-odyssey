@@ -31,6 +31,7 @@ import { navPanelEn } from './navPanel.en'
 import { observeEn } from './observe.en'
 import { observePanelEn } from './observePanel.en'
 import { photoNoteEn } from './photoNote.en'
+import { saveDataEn } from './saveData.en'
 import { probePanelEn } from './probePanel.en'
 import { probeSceneEn } from './probeScene.en'
 import { quizEn } from './quiz.en'
@@ -183,6 +184,7 @@ export const en: Translation<typeof ja> = {
   observe: observeEn,
   observePanel: observePanelEn,
   photoNote: photoNoteEn,
+  saveData: saveDataEn,
   probePanel: probePanelEn,
   probeScene: probeSceneEn,
   quiz: quizEn,

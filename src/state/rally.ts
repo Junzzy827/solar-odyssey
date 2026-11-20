@@ -1,3 +1,4 @@
+import { saveData } from './save'
 import { create } from 'zustand'
 import { launchRover, roverActive } from './rover'
 import { goToSite, useLanding } from './landing'
@@ -76,14 +77,14 @@ export const useRallyTrack = (site: string | null | undefined) => useRally((r) =
 const bestKey = () => {
   const track = trackAt(useLanding.getState().site ?? 'coprates')
   const tr = TRACKS[track]
-  return `solar-voyager:rally-best:${track}${tr ? `:${coursePrint(tr.line)}` : ''}`
+  return `rally-best:${track}${tr ? `:${coursePrint(tr.line)}` : ''}`
 }
-const COLOR_KEY = 'solar-voyager:rally-color'
-const PICK_KEY = 'solar-voyager:rally-course'
+const COLOR_KEY = 'rally-color'
+const PICK_KEY = 'rally-course'
 
 function loadPicked(): Record<string, string> {
   try {
-    const v = JSON.parse(localStorage.getItem(PICK_KEY) ?? '{}')
+    const v = JSON.parse(saveData.get(PICK_KEY) ?? '{}')
     return v && typeof v === 'object' ? v : {}
   } catch {
     return {}
@@ -95,7 +96,7 @@ export function pickRallyTrack(site: string, track: string) {
   const picked = { ...useRally.getState().picked, [site]: track }
   useRally.setState({ picked })
   try {
-    localStorage.setItem(PICK_KEY, JSON.stringify(picked))
+    saveData.set(PICK_KEY, JSON.stringify(picked))
   } catch {
     // 保存できなくても遊べる
   }
@@ -105,7 +106,7 @@ export type RallyBest = { time: number; splits: number[] }
 
 export function loadBest(): RallyBest | null {
   try {
-    const v = JSON.parse(localStorage.getItem(bestKey()) ?? 'null')
+    const v = JSON.parse(saveData.get(bestKey()) ?? 'null')
     return v && v.time > 0 ? v : null
   } catch {
     return null
@@ -114,7 +115,7 @@ export function loadBest(): RallyBest | null {
 
 export function saveBest(b: RallyBest) {
   try {
-    localStorage.setItem(bestKey(), JSON.stringify(b))
+    saveData.set(bestKey(), JSON.stringify(b))
   } catch {
     // 保存できなくても遊べる
   }
@@ -122,7 +123,7 @@ export function saveBest(b: RallyBest) {
 
 function loadColor() {
   try {
-    const v = Number(localStorage.getItem(COLOR_KEY))
+    const v = Number(saveData.get(COLOR_KEY))
     return v >= 0 && v < RALLY_COLORS.length ? v : 0
   } catch {
     return 0
@@ -161,7 +162,7 @@ export const setRallyPhase = (phase: RallyPhase) => useRally.setState({ phase, s
 export function setRallyColor(color: number) {
   useRally.setState({ color })
   try {
-    localStorage.setItem(COLOR_KEY, String(color))
+    saveData.set(COLOR_KEY, String(color))
   } catch {
     // 保存できなくても遊べる
   }
