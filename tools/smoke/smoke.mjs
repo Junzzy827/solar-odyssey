@@ -424,9 +424,26 @@ const SCENARIOS = {
     run: async (page) => {
       // CI の機械（2 コア・GPU なし）では、公園を「標準」で描くと 1 コマに 30 秒以上かかるので「軽量」で
       await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      // 配達の仕事の最後（苗を研究温室へ歩いて届ける）：コロニーで降ろしたところから
+      await page.evaluate(() => {
+        const sv = window.__sv
+        sv.pioneer.state.setState({ introSeen: true })
+        sv.pioneer.start()
+        const def = { id: 'smoke', kind: 'seedlings', stops: ['spacedock', 'colony', 'colony-lab'], reward: { metal: 10, ice: 0, gas: 0 } }
+        sv.delivery.state.setState({ active: { def, stop: 2, elapsed: 40, warped: false, beamed: false } })
+      })
       await page.evaluate(() => window.__sv.walk.start())
       await page.waitForFunction(() => window.__sv.walk.debug.scene, null, { timeout: 120000 })
+      await page.waitForSelector('.pio-errand', { timeout: 60000 })
       await sleep(6000)
+      // 入口の輪へ歩いて行った（ことにする）と、手渡して仕事が終わる
+      await page.evaluate(() => {
+        const p = window.__sv.delivery.lab()
+        Object.assign(window.__sv.walk.walker, { s: p.doorS, y: p.doorY })
+      })
+      await page.waitForFunction(() => window.__sv.delivery.state.getState().active === null, null, { timeout: 60000 })
+      const done = await page.evaluate(() => window.__sv.delivery.state.getState().done)
+      if (done !== 1) throw new Error(`walk: errand done ${done}`)
     },
   },
   // 公園の外（円筒のほかの所）：歩く人のまわりの区画（地面・家・木）が作られて、細かく描く範囲が切りかわる

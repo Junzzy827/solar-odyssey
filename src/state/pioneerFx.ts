@@ -11,8 +11,8 @@ export type PioneerFx =
   | { kind: 'rare'; id: RareId; amount: number }
   | { kind: 'daily'; reward: Amounts }
   /** 配達：積んだ・途中で降ろした（at は行き先の id） */
-  | { kind: 'jobLoad'; job: JobKind; at: string }
-  | { kind: 'jobDrop'; job: JobKind; at: string }
+  | { kind: 'jobLoad'; job: JobKind; at: string; walk?: boolean }
+  | { kind: 'jobDrop'; job: JobKind; at: string; walk?: boolean }
   /** 配達：届け終えた */
   | { kind: 'jobDone'; job: JobKind; stars: number; kept: boolean; fast: boolean; reward: Amounts; seconds: number; target: number }
 

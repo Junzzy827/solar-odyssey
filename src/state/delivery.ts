@@ -3,10 +3,12 @@ import { saveSlot } from './save'
 import { useStore } from './store'
 import { emitPioneerFx } from './pioneerFx'
 import { engage } from './flight'
+import { colonyWalk, startWalkDirect } from './walk'
+import { COLONY_ID } from '../data/sf'
 import { receive, setTab, togglePanel } from './pioneer'
 import { ui } from '../i18n'
 import { today } from '../data/pioneer'
-import { addRecord, board, checkDelivery, fastSeconds, NEW_DELIVERY, rewardFor, ruleOf, starsFor, type ActiveJob, type DeliverySave, type JobDef } from '../data/delivery'
+import { addRecord, board, checkDelivery, fastSeconds, LAB_STOP, NEW_DELIVERY, rewardFor, ruleOf, starsFor, type ActiveJob, type DeliverySave, type JobDef } from '../data/delivery'
 
 // 配達の仕事の進み具合（決まりは data/delivery.ts）。共通のセーブの 'delivery' に入る。
 // 行き先に着いて止まったか・ワープやビームを使ったかは、components/sf/pioneer/DeliveryRunner が見て、ここを呼ぶ
@@ -78,8 +80,16 @@ export function goToStop() {
   const at = nextStop(job)
   if (!job || !at) return
   const st = useStore.getState()
-  st.setTarget(at)
   togglePanel(false)
+  // 研究温室へは、1 号基の中を歩いて（ほかのコロニーにいるなら、まず 1 号基へ）
+  if (at === LAB_STOP) {
+    if (colonyWalk.inside && colonyWalk.inside.id !== COLONY_ID) {
+      st.setTarget(COLONY_ID)
+      engage()
+    } else startWalkDirect()
+    return
+  }
+  st.setTarget(at)
   if (job.stop > 0 && ruleOf(job.def.kind) === 'noWarp') {
     if (st.mode === 'map') st.setMode('flight')
     useStore.getState().setAutopilot(true)
@@ -104,7 +114,8 @@ export function tickJob(dt: number) {
 /** 積んだあとにワープ・ビームを使った（約束を破ったかどうかの記録） */
 export function markUsed(what: 'warped' | 'beamed') {
   const job = activeJob()
-  if (!job || job.stop === 0 || job[what]) return
+  // 積む前と、コロニーで降ろして歩いて運ぶあいだ（船の外）は数えない
+  if (!job || job.stop === 0 || job[what] || nextStop(job) === LAB_STOP) return
   useDelivery.setState({ active: { ...job, [what]: true } })
   persist()
   // 約束を破ったときだけ知らせる
@@ -132,8 +143,10 @@ export function handoffDone() {
     const next = { ...job, stop: job.stop + 1 }
     useDelivery.setState({ active: next, handoff: 0, tooFast: false, near: false })
     persist()
-    emitPioneerFx({ kind: job.stop === 0 ? 'jobLoad' : 'jobDrop', job: job.def.kind, at })
-    useStore.getState().setTarget(next.def.stops[next.stop])
+    const walk = next.def.stops[next.stop] === LAB_STOP
+    emitPioneerFx({ kind: job.stop === 0 ? 'jobLoad' : 'jobDrop', job: job.def.kind, at, walk })
+    // 研究温室は宇宙の場面の行き先ではないので、目標はコロニーのまま
+    if (!walk) useStore.getState().setTarget(next.def.stops[next.stop])
     return
   }
   const { kept, fast, stars } = starsFor(job)

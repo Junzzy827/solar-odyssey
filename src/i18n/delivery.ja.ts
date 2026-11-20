@@ -73,4 +73,13 @@ export const deliveryJa = {
   doneTitle: '配達完了',
   seconds: (sec: number, fast: number) => `かかった時間 ${mmss(sec)}（目安 ${mmss(fast)}）`,
   jobsButton: '仕事',
+  // コロニーの中の研究温室へ歩いて届ける
+  lab: 'コロニーの研究温室',
+  walk: '歩く',
+  goalWalk: (cargo: string) => `コロニーで降りて、研究温室まで${cargo}を歩いて届けよう`,
+  walkHint: '光の柱が研究温室の目じるしです',
+  walkButton: '降りて歩く',
+  labDistance: (m: number) => `研究温室まで ${Math.round(m)} m`,
+  labHere: '入口の光る輪に入ると、手渡します',
+  arrivedWalk: (place: string) => `${place}に入港しました。降りて研究温室まで歩こう`,
 }

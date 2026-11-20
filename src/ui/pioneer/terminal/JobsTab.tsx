@@ -1,7 +1,7 @@
 import { ui } from '../../../i18n'
 import { acceptJob, cancelJob, goToStop, jobBoard, refreshBoard, useDelivery } from '../../../state/delivery'
 import { RESOURCES } from '../../../data/pioneer'
-import { fastSeconds, JOB_KINDS, kindStats, ruleOf, starsFor, timeLimit, type ActiveJob, type JobDef } from '../../../data/delivery'
+import { fastSeconds, JOB_KINDS, LAB_STOP, kindStats, ruleOf, starsFor, timeLimit, type ActiveJob, type JobDef } from '../../../data/delivery'
 import { JOB_ICON, placeName, Stars } from '../jobKind'
 
 // 端末「仕事」：天の湊の掲示板（3 件）・進行中の仕事（行き先の順・時間・約束）・配達の記録
@@ -20,7 +20,7 @@ function Route({ def, at }: { def: JobDef; at?: number }) {
     <ol className="pio-job-route" aria-label={t.route}>
       {def.stops.map((id, i) => (
         <li key={`${id}-${i}`} className={at === undefined ? '' : i < at ? 'done' : i === at ? 'now' : ''}>
-          <small>{i === 0 ? t.load : t.drop}</small>
+          <small>{i === 0 ? t.load : id === LAB_STOP ? t.walk : t.drop}</small>
           <b>{placeName(id)}</b>
         </li>
       ))}
@@ -59,7 +59,7 @@ function Current({ job }: { job: ActiveJob }) {
           <b>{t.kind[def.kind].title}</b>
         </span>
         <button type="button" className="pio-goal-go" onClick={goToStop}>
-          {t.go}
+          {def.stops[job.stop] === LAB_STOP ? t.walkButton : t.go}
         </button>
       </header>
       <Route def={def} at={job.stop} />

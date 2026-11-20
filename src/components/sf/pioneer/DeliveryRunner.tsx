@@ -8,7 +8,7 @@ import { MAX_SPEED } from '../../../state/throttle'
 import { usePioneer } from '../../../state/pioneer'
 import { beamCharge } from '../../../state/beam'
 import { activeJob, handoffDone, markUsed, nextStop, setHandoff, tickJob } from '../../../state/delivery'
-import { HANDOFF_SECONDS, HANDOFF_SPEED } from '../../../data/delivery'
+import { HANDOFF_SECONDS, HANDOFF_SPEED, LAB_STOP } from '../../../data/delivery'
 
 // 配達の仕事を見張る（仕事を引き受けているあいだ、SF の世界の中に置く。開拓をやめていても約束と時間は見る）：
 // - 積んだあとにワープ・ビームを使ったか（約束）、積んでからの時間
@@ -49,9 +49,15 @@ export function DeliveryRunner() {
     }
     if (st.warpPhase !== 'idle' || jumped) markUsed('warped')
     if (shot) markUsed('beamed')
-    if (st.mode === 'flight' || st.mode === 'map') tickJob(dt)
+    if ((st.mode === 'flight' || st.mode === 'map') && nextStop(job) !== LAB_STOP) tickJob(dt)
 
     const id = nextStop(job)
+    // 研究温室へは歩いて届ける（歩く場面の WalkErrand が見る）。歩いているあいだは時間も止める
+    if (id === LAB_STOP) {
+      s.current.hold = 0
+      setHandoff(0, false, false)
+      return
+    }
     const body = id ? bodies.get(id) : undefined
     if (!body) return
     body.object.getWorldPosition(at)
