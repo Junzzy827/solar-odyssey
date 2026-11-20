@@ -404,12 +404,12 @@ export class VrmPerson implements Person {
     } else if (motion === 'sit') this.play(this.choice.sit, 0.5)
     else if (motion === 'ground') this.play(this.choice.ground, 0.5)
     else if (motion === 'wave') this.play(this.choice.wave)
-    else if (motion === 'ride') this.play('idleNeutral', 0.25)
+    else if (motion === 'ride' || motion === 'glide') this.play('idleNeutral', 0.25)
     else this.play(this.choice.idle)
     this.mixer.update(dt)
     this.applyLook(dt)
     this.blink(dt)
-    if (motion === 'ride') this.applyGrip()
+    if (motion === 'ride' || motion === 'glide') this.applyGrip()
   }
 
   dispose() {

@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { colonyDay } from '../sf/colonyCity'
 import { HALF_L, frameAt, landPoint } from './park'
-import { CORE, STATION, STATION_H, STATION_R, TOWER, elevCar, elevH } from './axis'
+import { CORE, DECK_END, STATION, STATION_H, STATION_R, TOWER, elevCar, elevH } from './axis'
 
 // 港側の端の壁の前に立つ、回転の軸へのエレベーターの塔と、軸のまわりの駅（内側の床に立つ細い円筒）。
 // 塔は約 4 km。かごはガラス張りで、のぼるにつれて足もとのコロニーが円筒の形に見えてくる。
@@ -38,7 +38,12 @@ export function WalkAxis() {
     const carGlass = new THREE.BoxGeometry(4.4, 3, 4.4).translate(0, 1.5, 0)
     const carPlate = new THREE.BoxGeometry(4.6, 0.2, 4.6)
     const lightGeo = new THREE.SphereGeometry(0.6, 8, 6)
-    return { coreMat, stationMat, capMat, glassMat, frameMat, lightMat, stripMat, coreGeo, stationGeo, capGeo, stripGeo, ribGeo, carGlass, carPlate, lightGeo, len }
+    // 駅の先の発着デッキ：壁のない、すけた床（格子）の円筒
+    const deckLen = DECK_END - STATION.y1
+    const deckGeo = new THREE.CylinderGeometry(STATION_R, STATION_R, deckLen, 64, 1, true)
+    const deckMat = new THREE.MeshLambertMaterial({ color: '#8e959e', transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false })
+    const edgeGeo = new THREE.TorusGeometry(STATION_R - 0.1, 0.12, 6, 96)
+    return { deckLen, deckGeo, deckMat, edgeGeo, coreMat, stationMat, capMat, glassMat, frameMat, lightMat, stripMat, coreGeo, stationGeo, capGeo, stripGeo, ribGeo, carGlass, carPlate, lightGeo, len }
   }, [])
   useEffect(
     () => () => {
@@ -77,7 +82,14 @@ export function WalkAxis() {
           return <mesh key={`r${i}`} geometry={parts.ribGeo} material={parts.frameMat} position={[Math.sin(a) * (STATION_R - 0.08), 0, Math.cos(a) * (STATION_R - 0.08)]} rotation={[0, a, 0]} scale={[1, parts.len, 1]} />
         })}
         <mesh geometry={parts.capGeo} material={parts.capMat} position={[0, -parts.len / 2, 0]} rotation={[-Math.PI / 2, 0, 0]} />
-        <mesh geometry={parts.capGeo} material={parts.capMat} position={[0, parts.len / 2, 0]} rotation={[Math.PI / 2, 0, 0]} />
+        <group position={[0, parts.len / 2 + parts.deckLen / 2, 0]}>
+          <mesh geometry={parts.deckGeo} material={parts.deckMat} renderOrder={3} />
+          {Array.from({ length: 16 }, (_, i) => {
+            const a = ((i + 0.5) / 16) * Math.PI * 2
+            return <mesh key={`d${i}`} geometry={parts.ribGeo} material={parts.frameMat} position={[Math.sin(a) * (STATION_R - 0.08), 0, Math.cos(a) * (STATION_R - 0.08)]} rotation={[0, a, 0]} scale={[1, parts.deckLen, 1]} />
+          })}
+          <mesh geometry={parts.edgeGeo} material={parts.stripMat} position={[0, parts.deckLen / 2, 0]} rotation={[Math.PI / 2, 0, 0]} />
+        </group>
         {[-0.4, -0.24, -0.08, 0.08, 0.24, 0.4].map((f) => (
           <mesh key={f} geometry={parts.stripGeo} material={parts.stripMat} position={[0, f * parts.len, 0]} />
         ))}

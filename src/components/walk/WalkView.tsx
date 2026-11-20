@@ -102,6 +102,11 @@ function WalkPanel() {
   const elevNear = useWalk((w) => w.elevNear)
   const inElev = useWalk((w) => w.inElev)
   const axisNote = useWalk((w) => w.axisNote)
+  const wings = useWalk((w) => w.wings)
+  const wingsHere = useWalk((w) => w.wingsHere)
+  // 翼をつけたとき、使い方を少し出す
+  const [wingsAt, setWingsAt] = useState(0)
+  useEffect(() => setWingsAt(wings ? walkNow() : 0), [wings])
   const day = useDayWord()
   useEffect(() => bindWalkKeys(), [])
   // 降りたときのお知らせ（しばらくして消す）
@@ -127,7 +132,7 @@ function WalkPanel() {
           {ui().walk.view}: {view === 'chase' ? ui().walk.viewChase : ui().walk.viewEye}
           <kbd>V</kbd>
         </button>
-        {(gee > 0.9 || riding) && (
+        {((gee > 0.9 && !wings) || riding) && (
           <button className={riding ? 'on' : ''} onClick={() => (walkInput.ride = true)}>
             {riding ? ui().walk.rideOff : ui().walk.ride}
             <kbd>F</kbd>
@@ -137,6 +142,12 @@ function WalkPanel() {
           <button className={flying ? 'on' : ''} onPointerDown={() => (walkInput.sky = true)}>
             {flying ? ui().walk.skyOff : ui().walk.sky}
             <kbd>G</kbd>
+          </button>
+        )}
+        {(wingsHere || wings) && (
+          <button className={wings ? 'on' : ''} onPointerDown={() => (walkInput.wings = true)}>
+            {wings ? ui().walk.wingsOff : ui().walk.wingsOn}
+            <kbd>R</kbd>
           </button>
         )}
         <button onClick={endWalk}>
@@ -154,7 +165,8 @@ function WalkPanel() {
         </button>
       )}
       {inElev && <ElevNote />}
-      {axisNote > 0 && <AxisNote at={axisNote} />}
+      {axisNote > 0 && !wings && <AxisNote at={axisNote} />}
+      {wingsAt > 0 && <TimedNote at={wingsAt} secs={12} text={ui().walk.wingsNote} />}
       {!elevNear && (benchNear || sitting) && (
         <button className="walk-sit" onPointerDown={stop} onClick={() => (walkInput.sit = true)}>
           {sitting ? ui().walk.stand : ui().walk.sit}
@@ -162,11 +174,11 @@ function WalkPanel() {
         </button>
       )}
       {note && <div className="walk-note">{ui().walk.arrived(name)}</div>}
-      <div className="walk-hint">{flying ? ui().walk.skyHint : riding ? ui().walk.rideHint : ui().walk.keysHint}</div>
+      <div className="walk-hint">{wings ? ui().walk.wingsHint : flying ? ui().walk.skyHint : riding ? ui().walk.rideHint : ui().walk.keysHint}</div>
       <Stick />
       <div className="walk-pad" onPointerDown={stop}>
         {/* iPhone はスティックを押さえたままの 2 本目の指だと click が来ないので、押した瞬間に切り替える */}
-        {(gee > 0.9 || riding) && (
+        {((gee > 0.9 && !wings) || riding) && (
           <button className={riding ? 'walk-ride on' : 'walk-ride'} onPointerDown={() => (walkInput.ride = true)}>
             {riding ? ui().walk.rideOff : ui().walk.ride}
           </button>
@@ -174,7 +186,7 @@ function WalkPanel() {
         <button className={run ? 'on' : ''} onPointerDown={() => useWalk.setState({ run: !useWalk.getState().run })}>
           {riding ? ui().walk.boost : ui().walk.run}
         </button>
-        <button onPointerDown={() => (walkInput.jump = true)}>{riding ? ui().walk.hop : ui().walk.jump}</button>
+        <button onPointerDown={() => (walkInput.jump = true)}>{riding ? ui().walk.hop : wings ? ui().walk.flap : ui().walk.jump}</button>
       </div>
     </div>
   )
@@ -210,6 +222,17 @@ function AxisNote({ at }: { at: number }) {
   }, [at])
   if (walkNow() - at > 14) return null
   return <div className="walk-note">{ui().walk.axisNote}</div>
+}
+
+/** 少しのあいだだけ出すお知らせ */
+function TimedNote({ at, secs, text }: { at: number; secs: number; text: string }) {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const t = window.setTimeout(() => setTick((n) => n + 1), Math.max(0, (at + secs + 0.1 - walkNow()) * 1000))
+    return () => window.clearTimeout(t)
+  }, [at, secs])
+  if (walkNow() - at > secs) return null
+  return <div className="walk-note">{text}</div>
 }
 
 function WaterNote({ at, text }: { at: number; text: string }) {
