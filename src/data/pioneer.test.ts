@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addToHold, canPay, checkSave, holdCapacity, NEW_SAVE, NONE, pay, rockYield, shortfall, STAGES, total } from './pioneer'
+import { addToHold, canPay, checkSave, goal, holdCapacity, NEW_SAVE, NONE, pay, rockYield, shortfall, STAGES, total } from './pioneer'
 
 describe('pioneer rules', () => {
   it('fills the hold up to its capacity', () => {
@@ -40,5 +40,27 @@ describe('pioneer rules', () => {
     expect(checkSave({ ...NEW_SAVE, stage: 9 })).toBe(false)
     expect(checkSave({ ...NEW_SAVE, store: { metal: -1, ice: 0, gas: 0 } })).toBe(false)
     expect(checkSave(null)).toBe(false)
+  })
+})
+
+describe('pioneer goal', () => {
+  const base = { hold: { ...NONE }, store: { ...NONE }, stage: 0, colonyName: '' }
+  it('starts by mining metal for the frame', () => {
+    expect(goal(base, 60)).toEqual({ kind: 'mine', resource: 'metal' })
+  })
+  it('asks to deliver when the hold is full or already enough', () => {
+    expect(goal({ ...base, hold: { metal: 0, ice: 60, gas: 0 } }, 60)).toEqual({ kind: 'deliver', full: true })
+    expect(goal({ ...base, store: { metal: 30, ice: 0, gas: 0 }, hold: { metal: 30, ice: 0, gas: 0 } }, 60)).toEqual({ kind: 'deliver', full: false })
+  })
+  it('asks to build when the store can pay', () => {
+    expect(goal({ ...base, store: { metal: 60, ice: 0, gas: 0 } }, 60)).toEqual({ kind: 'build' })
+  })
+  it('sends the player to Jupiter when gas is what is missing most', () => {
+    expect(goal({ ...base, stage: 3 }, 60)).toEqual({ kind: 'gas' })
+    expect(goal({ ...base, stage: 4, store: { metal: 40, ice: 0, gas: 0 } }, 60)).toEqual({ kind: 'mine', resource: 'ice' })
+  })
+  it('asks for a name once finished, then is done', () => {
+    expect(goal({ ...base, stage: STAGES.length }, 60)).toEqual({ kind: 'name' })
+    expect(goal({ ...base, stage: STAGES.length, colonyName: 'A' }, 60)).toEqual({ kind: 'done' })
   })
 })
