@@ -1,3 +1,4 @@
+import { saveData } from './save'
 import { create } from 'zustand'
 
 // 無人探査ローバー ORV-7。着陸したあと、着陸船の腹からたたんだまま落とされ、地面で展開して走り出す。
@@ -348,11 +349,11 @@ export const roverFocus = { x: 0, y: 0, z: -15, set(x: number, y: number, z: num
 
 // ---- 採集した岩の記録（天体ごとに、集めた種類の id。ブラウザに残す） ----
 
-const LOG_KEY = 'solar-voyager:rover-samples'
+const LOG_KEY = 'rover-samples'
 
 function readLog(): Record<string, string[]> {
   try {
-    return JSON.parse(localStorage.getItem(LOG_KEY) ?? '{}')
+    return JSON.parse(saveData.get(LOG_KEY) ?? '{}')
   } catch {
     return {}
   }
@@ -369,7 +370,7 @@ export const useSampleLog = create<{ log: Record<string, string[]>; add: (bodyId
     log[bodyId] = [...list, id]
     set({ log })
     try {
-      localStorage.setItem(LOG_KEY, JSON.stringify(log))
+      saveData.set(LOG_KEY, JSON.stringify(log))
     } catch {
       // 保存できなくても遊べる
     }
