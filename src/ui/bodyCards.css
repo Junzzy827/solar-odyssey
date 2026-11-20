@@ -216,3 +216,8 @@
     text-align: left;
   }
 }
+/* 大きさくらべ（3D）を開くボタン（ui/SizeCompare.tsx） */
+.body-cards .bc-3d {
+  margin-top: 4px;
+  min-height: 34px;
+}
