@@ -25,6 +25,7 @@ import { evaSite } from './components/eva/hull'
 import { colonyWalk, endWalk, startWalk, useWalk, walkInput } from './state/walk'
 import { mobDebug, walker } from './components/walk/WalkActors'
 import { walkDebug } from './components/walk/WalkWorld'
+import { chunkDebug } from './components/walk/WalkChunks'
 import { useSkyClock } from './components/surface/skyClock'
 import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
@@ -58,6 +59,7 @@ const sv = {
     walker,
     mobs: mobDebug,
     debug: walkDebug,
+    chunks: chunkDebug,
     pond: POND,
     start: (id = 'colony', name = 'Colony') => {
       colonyWalk.inside = { id, name: () => name }

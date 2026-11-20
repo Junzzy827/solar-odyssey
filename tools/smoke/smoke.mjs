@@ -100,6 +100,20 @@ const SCENARIOS = {
       await sleep(6000)
     },
   },
+  // 公園の外（円筒のほかの所）：歩く人のまわりの区画（地面・家・木）が作られて、細かく描く範囲が切りかわる
+  walkCity: {
+    ctx: desktop,
+    hash: '#debug&sf?colonytime=day',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.walk.start())
+      await page.waitForFunction(() => window.__sv.walk.debug.scene, null, { timeout: 120000 })
+      // 住宅地（帯 1 の、港から 17 km）へ
+      await page.evaluate(() => Object.assign(window.__sv.walk.walker, { s: 560, y: 17430, turnTo: -1.57 }))
+      await page.waitForFunction(() => window.__sv.walk.chunks.shown && window.__sv.walk.chunks.shown.j0 > 80, null, { timeout: 240000, polling: 1000 })
+      await sleep(3000)
+    },
+  },
 }
 
 await mkdir(outDir, { recursive: true })

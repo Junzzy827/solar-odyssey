@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { GRAVITY, HOVER_BOOST, HOVER_SPEED, JUMP_SPEED, RUN_SPEED, WALK_SPEED, useWalk, walkInput, walkNow } from '../../state/walk'
+import { GRAVITY, HOVER_BOOST, HOVER_SPEED, JUMP_SPEED, RUN_SPEED, SKY_BOOST, SKY_HEIGHT, SKY_SPEED, WALK_SPEED, useWalk, walkInput, walkNow, type WalkArea } from '../../state/walk'
 import { isTouchDevice } from '../../state/input'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { seeded } from '../sf/batch'
@@ -9,7 +9,8 @@ import { CREW_LOOK, Mannequin, randomLook, type Age, type Motion, type Person } 
 import { PLAYER_MODEL, PLAYER_SCALE, VrmPerson, prepareVrmPeople } from './vrmPeople'
 import { DECK_TOP, HoverScooter, RIDER_Z } from './hoverScooter'
 import { JUNGLE, inJungle } from './jungle'
-import { BOUNDS, G, GROUND_LIFT, LOOP, NS_S, PLAY, POND, STREETS, STREET_W, WALK_W, frameAt, landPoint, loopPoint, parkLayout, pondValue, pushOutOfBoxes, clampWalk, inTown, upAt, type Bench } from './park'
+import { BOUNDS, G, GROUND_LIFT, HALF_L, LOOP, NS_S, PLAY, POND, STREETS, STREET_W, WALK_W, frameAt, landPoint, loopPoint, parkLayout, pondValue, pushOutOfBoxes, inTown, upAt, type Bench } from './park'
+import { CIRC, inBuilding, pushWorld, standable, wetAt, worldArea, wrapS } from './cylinder'
 
 // 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
 // 人の形は Person（figure.ts）。読み込むまでは仮の人形で、読めたら VRM の人（vrmPeople.ts、MakeHuman 製）と Mixamo の動きに差し替える。
@@ -60,8 +61,12 @@ export const walker = {
 
 /* ---------- 自分 ---------- */
 
-/** ぶつかるもの・池・柵から押し出す（ホバースクーターは池の上も走れる） */
-function collide(p: { s: number; y: number }, r: number, pond = true) {
+/** ぶつかるもの・池・柵から押し出す（ホバースクーターは池の上も走れる）。fly：空を飛んでいる高さ m（低い物は越える） */
+function collide(p: { s: number; y: number }, r: number, pond = true, fly = 0) {
+  if (fly > 3) {
+    pushWorld(p, r, { water: false, fly })
+    return
+  }
   const park = parkLayout()
   for (const o of park.obstacles) {
     const ds = p.s - o.s
@@ -83,7 +88,17 @@ function collide(p: { s: number; y: number }, r: number, pond = true) {
     p.s = POND.s + (p.s - POND.s) * f
     p.y = POND.y + (p.y - POND.y) * f
   }
-  clampWalk(p)
+  // 公園の外：街の建物・木・川・湖、端の壁、窓の帯
+  pushWorld(p, r, { water: pond })
+}
+
+/** 今いる所の名前（左上） */
+function areaAt(s: number, y: number): { area: WalkArea; land: number } {
+  if (inJungle(s, y)) return { area: 'jungle', land: 0 }
+  if (s > BOUNDS.s0 && s < BOUNDS.s1 && y > BOUNDS.y0 && y < BOUNDS.y1) return { area: inTown(s, y) ? 'town' : 'park', land: 0 }
+  const w = worldArea(s, y)
+  const area: WalkArea = w.area === 'park' ? 'parkZone' : w.area === 'town' ? 'townZone' : w.area
+  return { area, land: w.k }
 }
 
 function Player() {
@@ -124,6 +139,8 @@ function Player() {
       tilt: 0,
       lastLook: 0,
       fov: 62,
+      /** 空を飛んでいる高さ m */
+      alt: 0,
     }),
     [],
   )
@@ -183,8 +200,23 @@ function Player() {
     if (walkInput.ride) {
       walkInput.ride = false
       if (!w.riding) mount()
-      else if (pondValue(walker.s, walker.y, 0.5) < 1) useWalk.setState({ waterNote: walkNow() })
+      else if (w.flying) {
+        // 空からは、まず地面へ降りる（窓の上では降りられない）
+        if (standable(walker.s, walker.y)) {
+          useWalk.setState({ flying: false })
+          st.wantOff = true
+        } else useWalk.setState({ skyNote: walkNow() })
+      } else if (pondValue(walker.s, walker.y, 0.5) < 1 || wetAt(walker.s, walker.y)) useWalk.setState({ waterNote: walkNow() })
       else st.wantOff = true
+    }
+    // 空を飛ぶ・地面へ降りる
+    if (walkInput.sky) {
+      walkInput.sky = false
+      if (w.riding) {
+        if (!w.flying) useWalk.setState({ flying: true })
+        else if (standable(walker.s, walker.y)) useWalk.setState({ flying: false })
+        else useWalk.setState({ skyNote: walkNow() })
+      }
     }
     function mount() {
       if (useWalk.getState().sitting) standUp()
@@ -207,7 +239,8 @@ function Player() {
     function dismount() {
       st.wantOff = false
       st.onDeck = false
-      useWalk.setState({ riding: false })
+      useWalk.setState({ riding: false, flying: false })
+      st.alt = 0
       ;(st.me as VrmPerson).grip?.(null, null)
       st.sc0 = { s: st.scS, y: st.scY, yaw: st.scYaw }
       // 右へ跳んで降りる
@@ -257,10 +290,22 @@ function Player() {
     if (riding) {
       // ---- ホバースクーター：前後で加速・ブレーキ、左右で曲がる。浮いているので少し横すべりする ----
       const steer = Math.max(-1, Math.min(1, right))
-      const throttle = st.wantOff ? -1 : Math.max(-1, Math.min(1, fwd))
-      const top = running ? HOVER_BOOST : HOVER_SPEED
+      let flying = useWalk.getState().flying
+      // 降りている途中で窓の上（橋の外）へ出たら、また上がる
+      if (!flying && st.alt > 0.3 && !standable(walker.s, walker.y)) {
+        useWalk.setState({ flying: true, skyNote: walkNow() })
+        flying = true
+        st.wantOff = false
+      }
+      // 高さ：飛ぶときは上がり、降りるときは下がる
+      st.alt = flying ? Math.min(SKY_HEIGHT, st.alt + dt * 8) : Math.max(0, st.alt - dt * 7)
+      const high = st.alt > 3
+      const throttle = st.wantOff && st.alt < 0.3 ? -1 : Math.max(-1, Math.min(1, fwd))
+      // 降りるときは、地面のスクーターの速さまで強く減速する（遠くへ流されない）
+      const landing = !flying && st.alt > 0.3
+      const top = landing ? HOVER_BOOST : high ? (running ? SKY_BOOST : SKY_SPEED) : running ? HOVER_BOOST : HOVER_SPEED
       const tgt = throttle > 0.05 ? throttle * top : throttle < -0.05 ? (st.wantOff ? 0 : throttle * 3) : 0
-      const acc = tgt > st.spd ? (st.spd < 0 ? 8 : running ? 6 : 4.5) : throttle < -0.05 && st.spd > 0 ? 10 : 2.4
+      const acc = landing && st.spd > tgt ? 30 : high ? (tgt > st.spd ? 14 : 12) : tgt > st.spd ? (st.spd < 0 ? 8 : running ? 6 : 4.5) : throttle < -0.05 && st.spd > 0 ? 10 : st.spd > HOVER_BOOST ? 12 : 2.4
       if (walker.rideSpeed !== null) {
         st.spd = walker.rideSpeed
         st.vs = -Math.sin(st.body) * st.spd
@@ -269,7 +314,7 @@ function Player() {
       }
       const before = st.spd
       st.spd += Math.sign(tgt - st.spd) * Math.min(Math.abs(tgt - st.spd), acc * dt)
-      const rate = 2.4 - 1.1 * Math.min(1, Math.abs(st.spd) / HOVER_BOOST)
+      const rate = high ? 1.05 : 2.4 - 1.1 * Math.min(1, Math.abs(st.spd) / HOVER_BOOST)
       const yawRate = -steer * rate * (st.spd < -0.2 ? -1 : 1) * (st.mountT < 1 ? 0 : 1)
       st.body += yawRate * dt
       const hs = -Math.sin(st.body) * st.spd
@@ -279,13 +324,14 @@ function Player() {
       st.vy += (hy - st.vy) * grip
       // 速いと木をすり抜けないよう、細かく分けて進む
       const want = Math.hypot(st.vs, st.vy) * dt
-      const n = Math.max(1, Math.ceil(want / 0.25))
+      const n = Math.max(1, Math.ceil(want / (high ? 2 : 0.25)))
       const s0 = walker.s
       const y0 = walker.y
       for (let i = 0; i < n; i++) {
         walker.s += (st.vs * dt) / n
         walker.y += (st.vy * dt) / n
-        collide(walker, 0.55, false)
+        collide(walker, 0.55, false, st.alt)
+        if (high) continue
         for (const m of mobDebug.mobs) {
           const ds = walker.s - m.s
           const dy = walker.y - m.y
@@ -303,7 +349,7 @@ function Player() {
         st.vs *= 0.45
         st.vy *= 0.45
       }
-      if (st.wantOff && Math.abs(st.spd) < 2) dismount()
+      if (st.wantOff && Math.abs(st.spd) < 2 && st.alt < 0.3) dismount()
       // ホップ（スペース・ジャンプのボタン）
       // 初速 4.5 m/s で、高さ約 1 m（v² / 2g）
       if (walkInput.jump && st.onDeck && st.hop <= 0.001) st.hopV = 4.5
@@ -345,14 +391,14 @@ function Player() {
       placeObj(st.sc.group, st.scS, st.scY, GROUND_LIFT, st.scYaw)
       st.sc.update(dt, {
         lift: 1,
-        hop: st.hop + liftH,
+        hop: st.hop + liftH + st.alt,
         speed: riding2 ? Math.abs(st.spd) : 0,
         roll: st.roll,
         pitch: st.tilt,
         s: st.scS,
         y: st.scY,
         yaw: st.scYaw,
-        water: pondValue(st.scS, st.scY, -1) < 1,
+        water: pondValue(st.scS, st.scY, -1) < 1 || wetAt(st.scS, st.scY),
         active: riding2,
       })
       if (riding2) {
@@ -415,9 +461,17 @@ function Player() {
     if (!deckPlaced) placePerson(st.me, walker.s, walker.y, walker.h, st.body)
     st.me.pose(motion, st.phase, dt, st.speed)
     landPoint(walker.s, walker.y, walker.h, walker.pos)
+    // 円筒を一周したら、s を半周の内側へもどす（同じ場所のまま）
+    if (Math.abs(walker.s) > CIRC / 2) {
+      const before = walker.s
+      walker.s = wrapS(walker.s)
+      st.scS += walker.s - before
+      st.mountFrom.s += walker.s - before
+      st.sc0.s += walker.s - before
+    }
     // 左上の場所の名前
-    const area = inJungle(walker.s, walker.y) ? 'jungle' : inTown(walker.s, walker.y) ? 'town' : 'park'
-    if (area !== useWalk.getState().area) useWalk.setState({ area })
+    const at = areaAt(walker.s, walker.y)
+    if (at.area !== useWalk.getState().area || at.land !== useWalk.getState().land) useWalk.setState(at)
     walker.speed = riding ? Math.abs(st.spd) : st.speed
 
     // 近くのベンチ（座るボタンを出す）
@@ -438,7 +492,7 @@ function Player() {
     const headH = (sitting ? 1.15 : 1.62) * (CREW_LOOK.height / 1.7)
     // 速く走るほど、カメラを少し引いて画角を広げる
     const fast = riding ? Math.abs(st.spd) : 0
-    const fov = 62 + fast * 0.6
+    const fov = 62 + Math.min(fast, 26) * 0.6
     if (Math.abs(fov - st.fov) > 0.01 && (camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
       st.fov += (fov - st.fov) * Math.min(1, dt * 3)
       ;(camera as THREE.PerspectiveCamera).fov = st.fov
@@ -448,8 +502,16 @@ function Player() {
       camera.position.copy(walker.pos).addScaledVector(up, headH)
     } else {
       camera.position.copy(walker.pos).addScaledVector(up, headH - 0.15)
-      tmp.set(0.35, 0.15, st.dist + fast * 0.12).applyQuaternion(qc)
-      camera.position.add(tmp)
+      // 街の建物の壁の中へ入らないよう、入るなら近づける
+      const base = camera.position.clone()
+      let d = st.dist + Math.min(fast, 30) * 0.12 + st.alt * 0.12
+      for (;;) {
+        tmp.set(0.35, 0.15, d).applyQuaternion(qc)
+        camera.position.copy(base).add(tmp)
+        const r = Math.hypot(camera.position.x, camera.position.z)
+        if (d <= 0.9 || !inBuilding(Math.atan2(camera.position.x, camera.position.z) * G, camera.position.y + HALF_L, G - r)) break
+        d = Math.max(0.9, d * 0.8)
+      }
       // 地面より下に入らない
       const r = Math.hypot(camera.position.x, camera.position.z)
       const above = G - r

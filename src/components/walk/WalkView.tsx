@@ -89,8 +89,11 @@ function WalkPanel() {
   const benchNear = useWalk((w) => w.benchNear)
   const run = useWalk((w) => w.run)
   const riding = useWalk((w) => w.riding)
+  const flying = useWalk((w) => w.flying)
+  const skyNote = useWalk((w) => w.skyNote)
   const waterNote = useWalk((w) => w.waterNote)
   const area = useWalk((w) => w.area)
+  const land = useWalk((w) => w.land)
   const day = useDayWord()
   useEffect(() => bindWalkKeys(), [])
   // 降りたときのお知らせ（しばらくして消す）
@@ -107,6 +110,7 @@ function WalkPanel() {
         {ui().walk[area]}
         <br />
         <small>
+          {land >= 0 && `${ui().walk.land(land)} · `}
           {ui().walk.gravity} · {ui().walk[day]}
         </small>
       </div>
@@ -119,13 +123,20 @@ function WalkPanel() {
           {riding ? ui().walk.rideOff : ui().walk.ride}
           <kbd>F</kbd>
         </button>
+        {riding && (
+          <button className={flying ? 'on' : ''} onPointerDown={() => (walkInput.sky = true)}>
+            {flying ? ui().walk.skyOff : ui().walk.sky}
+            <kbd>G</kbd>
+          </button>
+        )}
         <button onClick={endWalk}>
           {ui().walk.backToShip}
           <kbd>J</kbd>
         </button>
       </div>
       {riding && <Speedometer />}
-      {waterNote > 0 && walkNow() - waterNote < 3.5 && <WaterNote at={waterNote} />}
+      {waterNote > 0 && walkNow() - waterNote < 3.5 && <WaterNote at={waterNote} text={ui().walk.waterNote} />}
+      {skyNote > 0 && walkNow() - skyNote < 3.5 && <WaterNote at={skyNote} text={ui().walk.skyNote} />}
       {(benchNear || sitting) && (
         <button className="walk-sit" onPointerDown={stop} onClick={() => (walkInput.sit = true)}>
           {sitting ? ui().walk.stand : ui().walk.sit}
@@ -133,7 +144,7 @@ function WalkPanel() {
         </button>
       )}
       {note && <div className="walk-note">{ui().walk.arrived(name)}</div>}
-      <div className="walk-hint">{riding ? ui().walk.rideHint : ui().walk.keysHint}</div>
+      <div className="walk-hint">{flying ? ui().walk.skyHint : riding ? ui().walk.rideHint : ui().walk.keysHint}</div>
       <Stick />
       <div className="walk-pad" onPointerDown={stop}>
         {/* iPhone はスティックを押さえたままの 2 本目の指だと click が来ないので、押した瞬間に切り替える */}
@@ -159,15 +170,15 @@ function Speedometer() {
   return <div className="walk-speed">{ui().walk.kmh(v)}</div>
 }
 
-/** 水の上で降りようとしたときのお知らせ（少しして消える） */
-function WaterNote({ at }: { at: number }) {
+/** 水の上・窓の上で降りようとしたときのお知らせ（少しして消える） */
+function WaterNote({ at, text }: { at: number; text: string }) {
   const [, setTick] = useState(0)
   useEffect(() => {
     const t = window.setTimeout(() => setTick((n) => n + 1), Math.max(0, (at + 3.6 - walkNow()) * 1000))
     return () => window.clearTimeout(t)
   }, [at])
   if (walkNow() - at > 3.5) return null
-  return <div className="walk-note">{ui().walk.waterNote}</div>
+  return <div className="walk-note">{text}</div>
 }
 
 /** 画面をなぞって見回す。PC はクリックでマウスを固定して、動かすだけで見回す */
