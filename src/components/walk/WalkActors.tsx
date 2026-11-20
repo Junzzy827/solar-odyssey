@@ -624,7 +624,13 @@ function Player() {
       if (winged) {
         st.wings.group.position.set(0, 1.38, 0.17).applyQuaternion(st.me.group.quaternion).add(st.me.group.position)
         st.wings.group.quaternion.copy(st.me.group.quaternion)
-        st.wings.update(dt, airborne ? 1 : 0.1)
+        st.wings.update(dt, airborne ? 1 : 0)
+        // 飛んでいるあいだは、両手で翼の骨をにぎる（足はそろえてのばす）
+        if (airborne && st.lean > 0.5 && st.me instanceof VrmPerson) {
+          st.wings.handles(gripL, gripR)
+          st.me.grip(gripL, gripR)
+          motion = 'glide'
+        }
       }
     }
     st.me.pose(motion, st.phase, dt, st.speed)
