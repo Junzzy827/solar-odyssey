@@ -16,4 +16,5 @@ export const newsEn: Translation<typeof newsJa> = {
   arrival: '🪐 News: when you arrive at a world, it now shows its size next to the Earth. At Jupiter, 11 Earths line up across it.',
   colonyAxis: '🛗 News: at the port end of the colony there is now an elevator to the spin axis (Play in the nav). You get lighter as you rise, and in the glass axis station you weigh almost nothing, with the whole land wrapped around you.',
   colonyWings: '🪽 News: at the colony axis station you can now put on wings (R). Jump off the deck, flap, and glide down through ever-heavier air all the way to the park. Watch how the spin pushes you sideways.',
+  colonyPeople: '🧑‍🤝‍🧑 News: people in the colony park now wear many different clothing colours, so you no longer see the same person standing side by side. Phones get a second older person too.',
 }

@@ -6,7 +6,8 @@ import { isTouchDevice } from '../../state/input'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { seeded } from '../sf/batch'
 import { CREW_LOOK, Mannequin, randomLook, type Age, type Motion, type Person } from './figure'
-import { PLAYER_MODEL, PLAYER_SCALE, VrmPerson, prepareVrmPeople } from './vrmPeople'
+import { PLAYER_MODEL, PLAYER_SCALE, VrmPerson, prepareVrmPeople, type VrmModel } from './vrmPeople'
+import { LOOKS, applyLook } from './mobLooks'
 import { DECK_TOP, HoverScooter, RIDER_Z } from './hoverScooter'
 import { JUNGLE, inJungle } from './jungle'
 import { FOREST_SAMPLE_ON } from './forestSample'
@@ -730,6 +731,41 @@ function nearestBench(s: number, y: number, max: number) {
 
 /* ---------- まわりの人 ---------- */
 
+/**
+ * 公園の人に、素材の人と服の色を配る。近くに同じ素材の人がいるほど選ばれにくく、
+ * 同じ人・同じ色（見た目がまったく同じ人）は 60 m 以内に並べない。自分の姿（最初の人の元の色）は使わない
+ */
+function pickLooks(mobs: Mob[], models: VrmModel[]): [VrmModel, number][] {
+  const pos = mobs.map((m) => (m.kind === 'loop' ? loopPoint(m.t) : { s: m.s, y: m.y }))
+  const out: [VrmModel, number][] = []
+  const used = new Map<VrmModel, number>()
+  mobs.forEach((m, i) => {
+    const list = models.filter((md) => md.info.age === m.age)
+    let best: [VrmModel, number] = [list[0], 1]
+    let bestScore = Infinity
+    for (const md of list) {
+      for (let look = 0; look < LOOKS.length; look++) {
+        if (md === models[0] && look === 0) continue
+        let score = (used.get(md) ?? 0) * 0.3 + look * 0.01
+        for (let j = 0; j < i; j++) {
+          const d = Math.hypot(pos[i].s - pos[j].s, pos[i].y - pos[j].y)
+          if (out[j][0] !== md) continue
+          // 同じ素材の人：近いほど重く。同じ色ならもっと
+          score += Math.max(0, 1 - d / 40) * 4
+          if (out[j][1] === look) score += Math.max(0, 1 - d / 60) * 50 + 1
+        }
+        if (score < bestScore) {
+          bestScore = score
+          best = [md, look]
+        }
+      }
+    }
+    used.set(best[0], (used.get(best[0]) ?? 0) + 1)
+    out.push(best)
+  })
+  return out
+}
+
 type Mob = {
   p: Person
   kind: 'loop' | 'path' | 'kid' | 'sit' | 'chat' | 'lawn'
@@ -888,15 +924,14 @@ function Mobs() {
       .then((models) => {
         if (dead) return
         const rand = seeded(4242)
-        // 年齢ごとに順番に配って、同じ人が隣り合わないようにする
-        const next: Record<string, number> = { child: 0, adult: 1, elder: 0 }
-        for (const m of mobs) {
-          const list = models.filter((md) => md.info.age === m.age)
-          const model = list[next[m.age]++ % list.length]
+        const looks = pickLooks(mobs, models)
+        mobs.forEach((m, i) => {
+          const [model, look] = looks[i]
           const old = m.p
           m.p = new VrmPerson(model, rand, 0.96 + rand() * 0.08)
+          applyLook(m.p.group, look)
           old.dispose()
-        }
+        })
       })
       .catch((e) => console.error('[walk] VRM people failed, keeping placeholder figures', e))
     return () => {

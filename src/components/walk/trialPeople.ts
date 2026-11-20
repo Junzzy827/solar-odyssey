@@ -6,6 +6,7 @@ import { lowMemory } from '../../state/quality'
 
 // 公園の人の素材。ふだんは Rocketbox（junji さんが 3 つを見比べて、いちばん自然と選んだ。2026-11-18）。
 // 見比べ用に ?mobset=makehuman（前の MakeHuman の人、vrmPeople.ts）・?mobset=quaternius も残している。
+// スマホは phone の 8 人だけ（大人 4・子ども 2・年配 2。全部の人の 4 割ほどの重さ）。
 //  - Rocketbox（Microsoft、MIT）：リアル寄り。肌に凹凸の画像（毛穴・しわ）があり、まばたきの形も入っている。
 //    tools/mobs/rocketbox/ で FBX から glb 1 つにまとめたもの（まばたき以外の顔の形を捨て、テクスチャは 1024 px）
 //  - Quaternius Universal Base Characters（CC0）：すっきりした作風。無料版は下着姿の男女 2 体と髪型だけなので、服は体の高さで塗り分ける
@@ -39,7 +40,7 @@ const LIST: Record<'rocketbox' | 'quaternius', TrialModel[]> = {
     { file: 'Male_Adult_05', src: RB, age: 'elder', height: 1.7, phone: true },
     { file: 'Male_Adult_03', src: RB, age: 'elder', height: 1.72 },
     { file: 'Male_Adult_14', src: RB, age: 'elder', height: 1.74 },
-    { file: 'Female_Adult_02', src: RB, age: 'elder', height: 1.6 },
+    { file: 'Female_Adult_02', src: RB, age: 'elder', height: 1.6, phone: true },
   ],
   quaternius: [
     { file: 'q_male_light', src: 'Superhero_Male', tone: [1.32, 1.3, 1.32], hair: ['Hair_SimpleParted'], hairColor: 0x7a5236, age: 'adult', height: 1.76, cloth: [0x3d6f8f, 0x2c2f38] },
