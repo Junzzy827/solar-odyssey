@@ -2,24 +2,21 @@ import { useState } from 'react'
 import { ui } from '../../i18n'
 import { useLang } from '../../i18n/lang'
 import { useStore } from '../../state/store'
-import { build, nameColony, resetPioneer, stopPioneer, togglePanel, usePioneer } from '../../state/pioneer'
-import { canPay, FIELD_ID, NAME_MAX, RESOURCES, shortfall, STAGE_COUNT, STAGES, type Amounts } from '../../data/pioneer'
-import { COLONY_ID, DOCK_ID } from '../../data/sf'
+import { nameColony, resetPioneer, setTab, stopPioneer, TERMINAL_TABS, togglePanel, usePioneer } from '../../state/pioneer'
+import { NAME_MAX, STAGE_COUNT, STAGES } from '../../data/pioneer'
 import { PioneerHud } from './PioneerHud'
 import { PioneerGuide } from './PioneerGuide'
 import { GasGauge } from './GasGauge'
 import { PioneerFx } from './PioneerFx'
 import { BuildCinemaUi } from './BuildCinemaUi'
-import { go } from './go'
+import { StatusTab } from './terminal/StatusTab'
+import { RouteTab } from './terminal/RouteTab'
+import { FlowTab } from './terminal/FlowTab'
+import { LogTab } from './terminal/LogTab'
 import './pioneer.css'
 
 // 開拓の画面：飛んでいるあいだのカード（PioneerHud）・木星の高さのメーター・遊び方の案内と、
-// 開いたときの端末（倉庫・次の段階・行き先・建設）
-
-const fmt = (a: Amounts) =>
-  RESOURCES.filter((r) => a[r] > 0)
-    .map((r) => `${ui().pioneer.resource[r]} ${a[r]}`)
-    .join(' · ')
+// 開いたときの端末（状況・航路・流れ・記録の 4 つのタブ。ui/pioneer/terminal/）
 
 export function PioneerPanel() {
   useLang()
@@ -29,9 +26,6 @@ export function PioneerPanel() {
   const [name, setName] = useState('')
   if (!p.active || world !== 'sf') return null
   const t = ui().pioneer
-  const next = STAGES[p.stage] ?? null
-  const ready = !!next && canPay(p.store, next.cost)
-  const short = next ? shortfall(p.store, next.cost) : null
   // 着陸・EVA・公園などの場面では、ゲージだけ隠す（開拓は続いている）
   const flying = mode === 'flight' || mode === 'map'
 
@@ -58,42 +52,39 @@ export function PioneerPanel() {
               </span>
             ))}
           </div>
-          <div className="pio-rows">
-            <div>
-              <h3>{t.hold}</h3>
-              <p>{fmt(p.hold) || '—'}</p>
-            </div>
-            <div>
-              <h3>{t.store}</h3>
-              <p>{fmt(p.store) || '—'}</p>
-            </div>
-          </div>
-          {next && short && (
-            <div className="pio-next">
-              <h3>{t.nextStage(t.stageName[next.id])}</h3>
-              <p>
-                {t.needLine(fmt(next.cost))}
-                {ready ? <strong> · {t.ready}</strong> : <span className="pio-short"> · {t.short(fmt(short))}</span>}
-              </p>
-              <p className="pio-science">{t.stageScience[next.id]}</p>
-              <button type="button" className="pio-build" disabled={!ready} onClick={() => build()}>
-                {t.build}
+          <div className="pio-tabs" role="tablist" aria-label={t.term.tabsLabel}>
+            {TERMINAL_TABS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                id={`pio-tab-${id}`}
+                aria-selected={p.tab === id}
+                aria-controls="pio-tabpanel"
+                tabIndex={p.tab === id ? 0 : -1}
+                className={p.tab === id ? 'on' : ''}
+                onClick={() => setTab(id)}
+                onKeyDown={(e) => {
+                  // 左右の矢印でタブを移る
+                  const i = TERMINAL_TABS.indexOf(id)
+                  const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+                  if (!d) return
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const nextTab = TERMINAL_TABS[(i + d + TERMINAL_TABS.length) % TERMINAL_TABS.length]
+                  setTab(nextTab)
+                  document.getElementById(`pio-tab-${nextTab}`)?.focus()
+                }}
+              >
+                {t.term.tabs[id]}
               </button>
-            </div>
-          )}
-          <div className="pio-go">
-            <button type="button" onClick={() => go(FIELD_ID)}>
-              {t.goField}
-            </button>
-            <button type="button" onClick={() => go('jupiter')}>
-              {t.goJupiter}
-            </button>
-            <button type="button" onClick={() => go(DOCK_ID)}>
-              {t.goDock}
-            </button>
-            <button type="button" onClick={() => go(COLONY_ID)}>
-              {t.goSite}
-            </button>
+            ))}
+          </div>
+          <div id="pio-tabpanel" role="tabpanel" aria-labelledby={`pio-tab-${p.tab}`} className="pio-tabpanel" key={p.tab}>
+            {p.tab === 'status' && <StatusTab />}
+            {p.tab === 'route' && <RouteTab />}
+            {p.tab === 'flow' && <FlowTab />}
+            {p.tab === 'log' && <LogTab />}
           </div>
           <footer>
             <button type="button" className="pio-quit" onClick={() => stopPioneer()}>
