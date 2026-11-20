@@ -63,6 +63,8 @@ import { TodayPanel } from './ui/TodayPanel'
 import { ScannerHud } from './ui/ScannerHud'
 import { DiscoveryNote } from './ui/DiscoveryNote'
 import { ScanTracker } from './components/ScanTracker'
+import { ArrivalRow } from './components/ArrivalRow'
+import { ArrivalMoment } from './ui/ArrivalMoment'
 import { HistoricBook } from './ui/HistoricBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
 import { SurfaceMemory } from './components/SurfaceMemory'
@@ -143,6 +145,7 @@ export default function App() {
         <WarpStreaks />
         <TargetMarker />
         <ScanTracker />
+        <ArrivalRow />
         <ProbeScene />
         <EclipseScene />
         <Phaser />
@@ -162,6 +165,8 @@ export default function App() {
       <NavPanel />
       <GalleryPanel />
       <BeamGauge />
+      {/* 到着の瞬間は、スマホの操作ボタンの下に描く（ボタンを隠さない） */}
+      <ArrivalMoment />
       <TouchControls />
       <TouchWarp />
       <ObservePanel />
