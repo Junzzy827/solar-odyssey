@@ -316,6 +316,12 @@ const SCENARIOS = {
       await page.waitForFunction(() => window.__delivered, null, { timeout: 30000 })
       await page.click('.pio-open')
       await visibleButton(page, '.pio-quit')
+      // 端末の 4 つのタブ：それぞれの図が出る（納品 1 回ぶんの記録と流れがある）
+      for (const [tab, sel] of [['route', '.pio-map .pio-map-ship'], ['flow', '.pio-sankey .pio-band'], ['log', '.pio-bars .pio-tbar'], ['status', '.pio-donut']]) {
+        // 画面が重い（SwiftShader）と page.click の「止まるまで待つ」が 1 回 25 秒ほどかかるので、DOM で押す
+        await page.evaluate((id) => document.getElementById(`pio-tab-${id}`).click(), tab)
+        await page.waitForSelector(sel, { timeout: 15000 })
+      }
       await page.evaluate(() => {
         const p = window.__sv.pioneer
         p.give({ metal: 200, gas: 30 })

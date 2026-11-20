@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addToHold, canPay, checkSave, goal, holdCapacity, NEW_SAVE, NONE, pay, rockYield, shortfall, STAGES, total } from './pioneer'
+import { addToHold, addTrip, ALL_COST, canPay, checkSave, flow, goal, holdCapacity, LOG_MAX, markBuilt, NEW_SAVE, NONE, overallProgress, pay, rockYield, shortfall, STAGE_COUNT, STAGES, total, tripStats, type Trip } from './pioneer'
 
 describe('pioneer rules', () => {
   it('fills the hold up to its capacity', () => {
@@ -62,5 +62,43 @@ describe('pioneer goal', () => {
   it('asks for a name once finished, then is done', () => {
     expect(goal({ ...base, stage: STAGES.length }, 60)).toEqual({ kind: 'name' })
     expect(goal({ ...base, stage: STAGES.length, colonyName: 'A' }, 60)).toEqual({ kind: 'done' })
+  })
+})
+
+describe('記録と流れ（端末のグラフ）', () => {
+  const a = (metal: number, ice = 0, gas = 0) => ({ metal, ice, gas })
+  it('納品を記録し、古いものから捨てる', () => {
+    let log: Trip[] = []
+    for (let i = 0; i < LOG_MAX + 5; i++) log = addTrip(log, a(i), i)
+    expect(log).toHaveLength(LOG_MAX)
+    expect(log[0].a.metal).toBe(5)
+  })
+  it('建てた段階を最後の納品に付ける', () => {
+    expect(markBuilt([], 'frame')).toEqual([])
+    const log = markBuilt(markBuilt(addTrip([], a(60), 1), 'frame'), 'hull')
+    expect(log[0].built).toEqual(['frame', 'hull'])
+  })
+  it('集めた量 = 使った + 倉庫 + 積み荷', () => {
+    const f = flow({ stage: 2, store: a(10, 5), hold: a(0, 0, 7) })
+    expect(f.used).toEqual(a(150))
+    expect(f.gathered).toEqual(a(160, 5, 7))
+  })
+  it('全体の進み具合は、使える分だけ数える', () => {
+    expect(overallProgress({ stage: 0, store: a(0), hold: a(0) })).toBe(0)
+    expect(overallProgress({ stage: STAGE_COUNT, store: a(0), hold: a(0) })).toBe(1)
+    // 金属は全部で 240。余分に持っていても 240 までしか数えない
+    expect(overallProgress({ stage: 0, store: a(999), hold: a(0) })).toBeCloseTo(240 / total(ALL_COST))
+  })
+  it('記録のまとめ', () => {
+    const st = tripStats([{ at: 0, a: a(20, 10) }, { at: 1, a: a(0, 0, 60) }])
+    expect(st).toEqual({ count: 2, sum: a(20, 10, 60), average: 45, best: 60 })
+    expect(tripStats([]).average).toBe(0)
+  })
+  it('古いセーブ（記録なし）も読める。壊れた記録は読まない', () => {
+    const old = { v: 1, hold: a(0), store: a(0), stage: 0, colonyName: '', introSeen: true }
+    expect(checkSave(old)).toBe(true)
+    expect(checkSave({ ...old, log: [{ at: 1, a: a(1) }], trips: 1 })).toBe(true)
+    expect(checkSave({ ...old, log: [{ at: 1, a: a(-1) }] })).toBe(false)
+    expect(checkSave({ ...old, log: [{ at: 1, a: a(1), built: ['nope'] }] })).toBe(false)
   })
 })
