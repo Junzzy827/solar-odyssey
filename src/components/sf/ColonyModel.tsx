@@ -37,6 +37,14 @@ const HAZE_DAY = new THREE.Color('#a9cdf5')
 const HAZE_NIGHT = new THREE.Color('#0a0f1c')
 const CLOUD_NIGHT = new THREE.Color('#3a4250')
 const WHITE = new THREE.Color('#ffffff')
+/**
+ * 夜の明るさ（昼を 1 として）。帯ごとに分けて決める。
+ * 窓の帯：格子・ガラス・機器。映り込み（envMap）が昼のままだと夜でも白く光って見えるので、映り込みごと落とす。
+ * 端の壁：太陽側の丸屋根と港側の壁。大地の帯は LAND_NIGHT（地面の色）で決める。
+ */
+export const STRUCTURE_NIGHT = { window: 0.1, ends: 0.14 }
+type Dim = { mat: THREE.MeshStandardMaterial; color: THREE.Color; emissive: THREE.Color; env: number; band: keyof typeof STRUCTURE_NIGHT }
+const dimOf = (mat: THREE.MeshStandardMaterial, band: Dim['band']): Dim => ({ mat, color: mat.color.clone(), emissive: mat.emissive.clone(), env: mat.envMapIntensity, band })
 
 /** 映り込み用の環境マップ（ほかの構造物と共有。dispose しない） */
 const envMapFor = (gl: THREE.WebGLRenderer) => roomEnvironment(gl)
@@ -138,7 +146,13 @@ export function ColonyModel({ interior = true, cityTrees = true }: { interior?: 
     })
   }, [])
 
-  // 昼と夜：大地・かすみ・雲を暗くし、街の灯りをともす（建物と木の材質は ColonyInterior が共有の値で変える）
+  // 構造の帯の材質（昼の値を覚えておいて、夜はそれに掛ける）
+  const dims = useMemo(
+    () => [dimOf(parts.frameMat, 'window'), dimOf(parts.glassMat, 'window'), dimOf(parts.equipMat, 'window'), dimOf(parts.capMat, 'ends')],
+    [parts],
+  )
+
+  // 昼と夜：大地・かすみ・雲・構造の帯を暗くし、街の灯りをともす（建物と木の材質は ColonyInterior が共有の値で変える）
   const lastNight = useRef(-1)
   useFrame(() => {
     if (!interior) return
@@ -151,6 +165,12 @@ export function ColonyModel({ interior = true, cityTrees = true }: { interior?: 
     parts.haze.opacity = 0.16 - 0.06 * n
     parts.cloud.color.lerpColors(WHITE, CLOUD_NIGHT, n)
     parts.cloud.opacity = 0.85 - 0.5 * n
+    for (const d of dims) {
+      const f = 1 - n * (1 - STRUCTURE_NIGHT[d.band])
+      d.mat.color.copy(d.color).multiplyScalar(f)
+      d.mat.emissive.copy(d.emissive).multiplyScalar(f)
+      d.mat.envMapIntensity = d.env * f
+    }
   })
 
   const rings = Array.from({ length: 13 }, (_, k) => -L / 2 + (k / 12) * L)
