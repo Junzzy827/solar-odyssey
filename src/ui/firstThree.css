@@ -96,3 +96,10 @@ body.touch .first-three {
   color: #e8e4f6;
   font-size: 13px;
 }
+/* PC でも窓がせまいと、下の中央の列（打ち上げ・ブリッジ・EVA など）が左下まで来るので、その列の上に置く */
+@media (max-width: 1500px) {
+  body:not(.touch) .first-three,
+  body:not(.touch) .first-three-chip {
+    bottom: 132px;
+  }
+}
