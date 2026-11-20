@@ -33,6 +33,7 @@ import { chunkDebug } from './components/walk/WalkChunks'
 import { useSkyClock } from './components/surface/skyClock'
 import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
+import { useSizeCompare, openSizeCompare, closeSizeCompare, focusOn as sizeFocus, togglePick as sizePick } from './state/sizeCompare'
 import { useDiscovery, startScanner, stopScanner, openNote, discoveryDebug } from './state/discovery'
 import { closeToday, openToday, useToday } from './state/today'
 import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
@@ -66,6 +67,7 @@ const sv = {
       for (const f of rockBreaks) f(type, size, at)
     },
   },
+  sizeCompare: { state: useSizeCompare, open: openSizeCompare, close: closeSizeCompare, focus: sizeFocus, pick: sizePick },
   discovery: { state: useDiscovery, start: startScanner, stop: stopScanner, note: openNote, asteroids, debug: discoveryDebug },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff, site: goToSite },

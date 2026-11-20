@@ -5,6 +5,7 @@ import { closeBodyCard, stepBodyCard, useBodyCards } from '../state/bodyCards'
 import { useStore } from '../state/store'
 import { useLanding } from '../state/landing'
 import { warpToMissed } from '../state/quiz'
+import { openSizeCompare } from '../state/sizeCompare'
 import { useLang } from '../i18n/lang'
 import { ui } from '../i18n'
 import './bodyCards.css'
@@ -61,6 +62,9 @@ function SizeCompare({ c }: { c: BodyCard }) {
         {dot && t.tooSmall}
       </p>
       <p className="muted small">{t.sizeNote}</p>
+      <button className="secondary bc-3d" onClick={() => openSizeCompare(c.id)}>
+        {ui().sizeCompare.open3d}
+      </button>
     </div>
   )
 }

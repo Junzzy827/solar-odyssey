@@ -12,7 +12,6 @@ import { StructureLook } from './components/StructureLook'
 import { SimClock } from './components/SimClock'
 import { Ship } from './components/Ship'
 import { SpaceDust } from './components/SpaceDust'
-import { SizeCompare } from './components/SizeCompare'
 import { CloudWake } from './components/CloudWake'
 import { AsteroidBelt } from './components/AsteroidBelt'
 import { WarpStreaks } from './components/WarpStreaks'
@@ -59,6 +58,7 @@ import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
 import { RockBook } from './ui/RockBook'
 import { BodyCards } from './ui/BodyCards'
+import { SizeCompare } from './ui/SizeCompare'
 import { TodayPanel } from './ui/TodayPanel'
 import { ScannerHud } from './ui/ScannerHud'
 import { DiscoveryNote } from './ui/DiscoveryNote'
@@ -142,7 +142,6 @@ export default function App() {
         {mode === 'gallery' && <GalleryCamera />}
         <CloudWake />
         <SpaceDust />
-        <SizeCompare />
         <WarpStreaks />
         <TargetMarker />
         <ScanTracker />
@@ -191,6 +190,7 @@ export default function App() {
       <LazyScenes />
       <RockBook />
       <BodyCards />
+      <SizeCompare />
       <TodayPanel />
       <PioneerUi />
       <ScannerHud />

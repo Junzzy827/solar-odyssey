@@ -239,6 +239,31 @@ const SCENARIOS = {
     hash: '#debug',
     run: async (page) => jumpScene(page),
   },
+  // 大きさくらべ：木星と地球・太陽が本当の比で棚にならび、ひとことと、ならべるもののボタンが出る。さわると寄る
+  size: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.sizeCompare.open('jupiter'))
+      await page.waitForFunction(() => document.querySelector('.size-compare .sc-caption'), null, { timeout: 30000 })
+      for (const sel of ['.size-compare .sc-chip', '.size-compare .close']) await visibleButton(page, sel)
+      const n = await page.evaluate(() => document.querySelectorAll('.size-compare .sc-label').length)
+      if (n !== 3) throw new Error(`expected 3 things on the shelf, got ${n}`)
+      await page.evaluate(() => window.__sv.sizeCompare.focus('earth'))
+      await page.waitForFunction(() => document.querySelector('.size-compare .sc-back'), null, { timeout: 10000 })
+    },
+  },
+  // 大きさくらべ（スマホ）：フォボスとエベレスト。ボタンが隠れない
+  'size-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.sizeCompare.open('phobos'))
+      await page.waitForFunction(() => document.querySelector('.size-compare .sc-caption'), null, { timeout: 30000 })
+      await sleep(1500)
+      for (const sel of ['.size-compare .sc-chip', '.size-compare .close']) await visibleButton(page, sel)
+    },
+  },
   // SF の世界
   sf: { ctx: desktop, hash: '#debug&sf', settle: 8000 },
   // 火星の峡谷レース：着陸してレース場へ行き、スタートして 3・2・1 と表示が出ること、「レースをやめる」で自由走行に戻ること

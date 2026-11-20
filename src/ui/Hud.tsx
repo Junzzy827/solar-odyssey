@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { nextCameraMode, useStore } from '../state/store'
 import { enterBridge, leaveBridge, useBridge } from '../state/bridge'
-import { useCompare } from '../state/compare'
+import { closeSizeCompare, openSizeCompare, useSizeCompare } from '../state/sizeCompare'
 import { bodyInfo, engage, travelFacts } from '../state/flight'
 import { RACE_TEXT, raceActive } from '../state/race'
-import type { Near } from '../state/proximity'
+import { proximity, type Near } from '../state/proximity'
 import { isTelescope, scopeName, TELESCOPE_TEXT } from '../data/telescopes'
 import { canOpenGallery, closeGallery, openGallery } from '../state/gallery'
 import { isTouchDevice } from '../state/input'
@@ -62,7 +62,10 @@ export function useGlobalKeys() {
       if (e.code === 'KeyM') s.setMode(s.mode === 'map' ? 'flight' : 'map')
       else if (e.code === 'Enter') engage()
       else if (e.code === 'KeyC') s.setCameraMode(nextCameraMode(s.cameraMode))
-      else if (e.code === 'KeyB' && s.mode === 'flight') useCompare.getState().toggle()
+      else if (e.code === 'KeyB' && s.mode === 'flight') {
+        if (useSizeCompare.getState().id) closeSizeCompare()
+        else openSizeCompare(proximity.id ?? s.targetId)
+      }
       else if (e.code === 'KeyZ' && s.cameraMode === 'bridge') useBridge.getState().setViewscreen(!useBridge.getState().viewscreen)
       else if (e.code === 'KeyO' && s.mode === 'flight') toggleObserve()
       else if (e.code === 'KeyG' && raceActive()) s.showToast(RACE_TEXT.noWarp)
@@ -177,7 +180,7 @@ function NearReadout({ near }: { near: Near }) {
       <div className="muted">
         {ui().hud.diameterVsShip(big, roughly(near.timesEarth), roughly(near.timesShip))}
       </div>
-      <CompareButton far={near.zoom >= 3} />
+      <CompareButton id={near.id} />
       {near.zoom >= 1.5 && (
         <div className="muted near-zoom">
           {ui().hud.closeUpNote(Math.round(near.zoom), near.name)}
@@ -187,16 +190,14 @@ function NearReadout({ near }: { near: Near }) {
   )
 }
 
-/** 大きさくらべの切り替え。低い軌道からは横に並べた天体が見えにくいので、離れるよう案内する */
-function CompareButton({ far }: { far: boolean }) {
-  const on = useCompare((s) => s.on)
-  const toggle = useCompare((s) => s.toggle)
+/** 大きさくらべ（ui/SizeCompare.tsx）を開く：いま近くにいる天体と、地球・月・エベレストなどを本当の比でならべる */
+function CompareButton({ id }: { id: string }) {
+  const on = useSizeCompare((s) => s.id !== null)
   return (
     <div className="compare-row">
-      <button className={`compare-button${on ? ' on' : ''}`} onClick={toggle}>
+      <button className={`compare-button${on ? ' on' : ''}`} onClick={() => (on ? closeSizeCompare() : openSizeCompare(id))}>
         {on ? ui().hud.hideSizeComparison : ui().hud.compareSizes} {!isTouchDevice() && <kbd>B</kbd>}
       </button>
-      {on && far && <span className="muted">{ui().hud.backOffHint}</span>}
     </div>
   )
 }
