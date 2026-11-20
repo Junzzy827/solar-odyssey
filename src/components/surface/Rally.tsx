@@ -561,9 +561,11 @@ export function Rally({ track, terrain, prepare, dustColor, sky }: { track: stri
             if (gap < 25 && gap > -5) target *= 1.1
             else if (gap > (easy ? 130 : 220)) target *= easy ? 0.75 : 0.9
           } else if (b.pacer) {
-            // やさしい：自分より前に出たら、ゆっくりになって待つ（止まっていても追いこさない）
+            // やさしい：自分より前に出たら、ゆっくりになって待つ。並んだら自分より遅く、ゴールの手前では自分を待つ
             if (gap > 8) target *= 0.3
             else if (gap > -6) target *= 0.75
+            if (gap > -4) target = Math.min(target, Math.max(0, me.speed) * 0.9)
+            if (useRally.getState().phase === 'run' && b.s > last - 15) target = 0
           } else if (easy && gap > 60) target *= 0.8
           else if (gap > 120) target *= levelId === 'hard' ? 0.98 : 0.95
           else if (gap < -120) target *= 1.05
