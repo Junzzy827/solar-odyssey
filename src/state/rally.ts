@@ -4,6 +4,8 @@ import { launchRover, roverActive } from './rover'
 import { goToSite, useLanding } from './landing'
 import { TRACKS, tracksAt } from '../data/rallyTracks'
 import { coursePrint } from './rallyGhost'
+import { isTouchDevice } from './input'
+import type { Medal } from './rallyMedals'
 import type { RallyColorsJa } from '../i18n/rallyColors.ja'
 
 // 火星の峡谷レース（マリネリス峡谷のレース場）：色違いの ORV-7 が 4 台で、光の門を順にくぐってゴールを目指す。
@@ -34,6 +36,10 @@ export const COUNT_SEC = 3.6
 
 export type RallyEntry = { color: number; time: number | null; you: boolean }
 
+/** コンピューターの強さ（スタート欄で選ぶ。やさしいは、いちばん遅い 1 台が自分を待つので最下位にならない） */
+export const RALLY_LEVELS = ['easy', 'normal', 'hard'] as const
+export type RallyLevel = (typeof RALLY_LEVELS)[number]
+
 type RallyState = {
   phase: RallyPhase
   /** 今の段階を始めた時刻（performance.now() / 1000） */
@@ -52,7 +58,20 @@ type RallyState = {
   /** 門をくぐったときの表示：自己ベストとの差（秒）。null は初めて */
   split: { gate: number; time: number; diff: number | null; at: number } | null
   /** ゴールの結果。at はハイスコア表に入れた日時、rank は表での順位（state/rallyHiscore.ts） */
-  result: { time: number; place: number; best: number; newBest: boolean; order: RallyEntry[]; at: number; rank: number } | null
+  result: {
+    time: number
+    place: number
+    best: number
+    newBest: boolean
+    order: RallyEntry[]
+    at: number
+    rank: number
+    /** 取ったメダル（state/rallyMedals.ts）と、前より良いメダルか */
+    medal: Medal | null
+    newMedal: boolean
+    /** 金メダルで初めてもらった、ごほうびの岩の id */
+    rock: string | null
+  } | null
   /** 門から外れて戻る（R）の案内を出す */
   lost: boolean
   /** 追いかけっこ（月）：つかまえたローバーと、ゴールまで逃げきったローバー（色の番号）、最後につかまえた時刻と色 */
@@ -61,6 +80,10 @@ type RallyState = {
   bots: { c: number; x: number; z: number }[]
   /** レース場ごとに選んだコース（着陸地点の名前 → TRACKS の名前）。コースがひとつのレース場には無い */
   picked: Record<string, string>
+  /** コンピューターの強さ */
+  level: RallyLevel
+  /** 自動アクセル：レース中は ▲ を押さなくても進む（▼ でブレーキ）。スマホは最初から入れておく */
+  auto: boolean
 }
 
 /** そのレース場で今選んでいるコース（TRACKS の名前）。選んでいなければ、いちばんやさしいコース */
@@ -81,6 +104,32 @@ const bestKey = () => {
 }
 const COLOR_KEY = 'rally-color'
 const PICK_KEY = 'rally-course'
+const LEVEL_KEY = 'rally-level'
+const AUTO_KEY = 'rally-auto'
+
+function loadLevel(): RallyLevel {
+  const v = saveData.get(LEVEL_KEY) as RallyLevel | null
+  return v && RALLY_LEVELS.includes(v) ? v : 'normal'
+}
+
+function loadAuto(): boolean {
+  const v = saveData.get(AUTO_KEY)
+  if (v === '1' || v === '0') return v === '1'
+  // まだ選んでいなければ、端末に合わせる（スマホは入）
+  return isTouchDevice()
+}
+
+/** コンピューターの強さを選ぶ（スタート前に） */
+export function setRallyLevel(level: RallyLevel) {
+  useRally.setState({ level })
+  saveData.set(LEVEL_KEY, level)
+}
+
+/** 自動アクセルの入・切 */
+export function setRallyAuto(auto: boolean) {
+  useRally.setState({ auto })
+  saveData.set(AUTO_KEY, auto ? '1' : '0')
+}
 
 function loadPicked(): Record<string, string> {
   try {
@@ -155,6 +204,8 @@ export const useRally = create<RallyState>(() => ({
   chase: null,
   bots: [],
   picked: loadPicked(),
+  level: loadLevel(),
+  auto: loadAuto(),
 }))
 
 export const setRallyPhase = (phase: RallyPhase) => useRally.setState({ phase, since: rallyNow() })

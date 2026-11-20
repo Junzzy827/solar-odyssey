@@ -5,6 +5,7 @@ import { playBeep } from '../audio/sfx'
 import { ui } from '../i18n'
 import { bodies } from './registry'
 import { useStore } from './store'
+import { useRallyMedals } from './rallyMedals'
 
 // 訪問スタンプ帳：行った天体（いつ初めて行ったか）と、もらった称号。端末に保存する
 
@@ -107,5 +108,12 @@ useStore.subscribe((s, prev) => {
     useStamps.setState({ stamps: next })
   }
   const lines = newTitles(next)
+  if (lines.length) announce(lines)
+})
+
+// ローバーレースでメダルを取ったら、レースの称号を調べる
+useRallyMedals.subscribe((s, prev) => {
+  if (s.medals === prev.medals) return
+  const lines = newTitles(useStamps.getState().stamps)
   if (lines.length) announce(lines)
 })

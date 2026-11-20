@@ -31,6 +31,7 @@ import { chunkDebug } from './components/walk/WalkChunks'
 import { useSkyClock } from './components/surface/skyClock'
 import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
+import { closeToday, openToday, useToday } from './state/today'
 import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
@@ -48,6 +49,7 @@ const sv = {
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
   probes: { state: useProbes, clock: probeClock },
   bodyCards: { state: useBodyCards, open: openBodyCard, close: closeBodyCard, step: stepBodyCard },
+  today: { state: useToday, open: openToday, close: closeToday },
   pioneer: { state: usePioneer, start: startPioneer, stop: stopPioneer, give: pioneerGive, collect: pioneerCollect, deliver: pioneerDeliver, build: pioneerBuild, name: nameColony, site: constructionSite,
     /** 自機の前で岩が砕けたことにする（かけらが船に集まるかの確認） */
     breakRock: (type: 0 | 1 | 2, size: number) => {

@@ -59,6 +59,7 @@ import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
 import { RockBook } from './ui/RockBook'
 import { BodyCards } from './ui/BodyCards'
+import { TodayPanel } from './ui/TodayPanel'
 import { HistoricBook } from './ui/HistoricBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
 import { SurfaceMemory } from './components/SurfaceMemory'
@@ -179,6 +180,7 @@ export default function App() {
       <LazyScenes />
       <RockBook />
       <BodyCards />
+      <TodayPanel />
       <PioneerUi />
       <HistoricBook />
       <LabelDeclutter />
