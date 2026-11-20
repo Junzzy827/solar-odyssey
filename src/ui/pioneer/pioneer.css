@@ -696,3 +696,313 @@ body.touch .pio-gauge-track {
     grid-template-columns: 1fr;
   }
 }
+
+/* 手応え：拾った数字・納品のカード */
+.pio-pops {
+  position: fixed;
+  inset: 0;
+  z-index: 21;
+  pointer-events: none;
+  overflow: hidden;
+}
+.pio-pop {
+  position: absolute;
+  transform: translate(-50%, 0);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+  animation: pio-pop 1.1s var(--pio-ease) forwards;
+}
+.pio-pop-metal {
+  color: var(--pio-metal);
+}
+.pio-pop-ice {
+  color: var(--pio-ice);
+}
+.pio-pop-gas {
+  color: var(--pio-gas);
+}
+@keyframes pio-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.15);
+  }
+  30% {
+    transform: translate(-50%, -6px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -48px);
+  }
+}
+.pio-delivery {
+  position: fixed;
+  left: 50%;
+  /* 開拓のカードと船のあいだ */
+  top: 41%;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  min-width: 240px;
+  padding: 14px 20px 16px;
+  border-top: 4px solid #ffd86b;
+  border-radius: 14px;
+  background: rgba(14, 18, 28, 0.94);
+  box-shadow: 0 0 30px rgba(255, 216, 107, 0.25);
+  color: #e8ecf6;
+  text-align: center;
+  animation: pio-deliver 3.6s var(--pio-ease) forwards;
+}
+.pio-delivery h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+.pio-delivery-rows {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  font-size: 14px;
+}
+.pio-delivery-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pio-delivery-row b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.pio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.pio-delivery .pio-build {
+  margin-top: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: #e8ecf6;
+}
+@keyframes pio-deliver {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.9);
+  }
+  8% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.03);
+  }
+  14% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pio-delivery {
+    animation: none;
+  }
+  .pio-pop {
+    display: none;
+  }
+}
+
+/* 建設の場面（BuildCinemaUi）：ほかの文字とボタンは隠す（Shift+F12 の画面と同じやり方）。上下に黒い帯 */
+html.pio-cinema
+  body
+  *:not(
+    canvas[data-engine^='three.js'],
+    :has(canvas[data-engine^='three.js']),
+    .pio-cinema-ui,
+    .pio-cinema-ui *,
+    .pioneer-plate,
+    .pioneer-plate *
+  ) {
+  visibility: hidden !important;
+}
+.pio-cinema-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  color: #f1f4fb;
+}
+.pio-bar-top,
+.pio-bar-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9vh;
+  background: #000;
+  animation: pio-bar-in 0.6s var(--pio-ease);
+}
+.pio-bar-top {
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 16px;
+}
+.pio-bar-bottom {
+  bottom: 0;
+  animation-name: pio-bar-in-bottom;
+}
+.pio-cinema-time {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 2px;
+  background: var(--accent);
+}
+.pio-skip-cinema {
+  pointer-events: auto;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8ecf6;
+  font-size: 13px;
+}
+.pio-skip-cinema kbd {
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 0.6;
+}
+.pio-caption {
+  position: absolute;
+  left: 50%;
+  bottom: calc(9vh + 18px);
+  transform: translateX(-50%);
+  width: min(640px, calc(100vw - 32px));
+  text-align: center;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+}
+.pio-caption small {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 2px;
+  opacity: 0.85;
+  animation: pio-in 0.6s var(--pio-ease) 0.4s both;
+}
+.pio-caption h2 {
+  margin: 2px 0 6px;
+  font-size: clamp(26px, 5vw, 40px);
+  letter-spacing: 4px;
+  animation: pio-title 1s var(--pio-ease) 0.6s both;
+}
+.pio-cinema-science {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  opacity: 0.9;
+  animation: pio-in 0.8s var(--pio-ease) 2.2s both;
+}
+.pio-cinema-steps {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pio-cinema-steps i {
+  width: 28px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.pio-cinema-steps i.done {
+  background: var(--accent);
+}
+.pio-cinema-steps i.new {
+  background: linear-gradient(90deg, #ffd86b 50%, rgba(255, 255, 255, 0.25) 50%) right / 200% 100%;
+  animation: pio-fill 1.4s var(--pio-ease) 0.8s forwards;
+}
+.pio-gravity {
+  position: absolute;
+  right: max(24px, 6vw);
+  top: calc(9vh + 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 190px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(10, 12, 20, 0.7);
+  text-align: center;
+  animation: pio-in 0.6s var(--pio-ease) 0.8s both;
+}
+.pio-gravity svg {
+  width: 150px;
+  height: 88px;
+}
+.pio-gravity b {
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.pio-gravity-title {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.pio-gravity small {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  opacity: 0.8;
+}
+@keyframes pio-bar-in {
+  from {
+    transform: translateY(-100%);
+  }
+}
+@keyframes pio-bar-in-bottom {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes pio-title {
+  from {
+    opacity: 0;
+    letter-spacing: 14px;
+  }
+}
+@keyframes pio-fill {
+  to {
+    background-position: left;
+  }
+}
+@media (max-width: 600px) {
+  .pio-gravity {
+    right: 10px;
+    width: 128px;
+    padding: 6px 8px;
+  }
+  .pio-gravity svg {
+    width: 100px;
+    height: 58px;
+  }
+  .pio-gravity b {
+    font-size: 18px;
+  }
+  .pio-gravity small {
+    display: none;
+  }
+  .pio-caption {
+    bottom: calc(9vh + 8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pio-cinema-ui * {
+    animation: none !important;
+  }
+}

@@ -1,4 +1,5 @@
-import { useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { playGoal } from '../../audio/pioneerSfx'
 import { useToastBelow } from '../toastOffset'
 import { ui } from '../../i18n'
 import { useStore } from '../../state/store'
@@ -56,6 +57,14 @@ export function PioneerHud() {
   // カードの文が変わったときだけ、ふわっと出し直す
   const card = useRef<HTMLDivElement>(null)
   useToastBelow('pioneer', card, markCardBottom)
+  // やることが変わったら（場所が変わっただけのときは鳴らさない）、小さく知らせる
+  const kindKey = `${g.kind}-${'resource' in g ? g.resource : ''}`
+  const firstKind = useRef(kindKey)
+  useEffect(() => {
+    if (firstKind.current === kindKey) return
+    firstKind.current = kindKey
+    playGoal()
+  }, [kindKey])
   const goalKey = `${g.kind}-${'resource' in g ? g.resource : ''}-${p.near ?? ''}`
 
   return (

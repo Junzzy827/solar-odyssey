@@ -98,6 +98,24 @@ const SCENARIOS = {
       await visibleButton(page, '.save-export')
     },
   },
+  // 場面の受け皿：公園の場面でわざと失敗させて「問題が起きました」が出て、「もどる」で宇宙の自由探索にもどる
+  'scene-error': {
+    ctx: desktop,
+    hash: '#debug&sf',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.walk.start())
+      // 歩く場面が出来てから壊す（遅い CI でも読み込み途中で壊さない）
+      await page.waitForFunction(() => window.__sv.walk.debug.scene, null, { timeout: 120000 })
+      await page.evaluate(() => window.__sv.crashScene('walk'))
+      await page.waitForSelector('.scene-error[data-scene="walk"]', { timeout: 20000 })
+      await visibleButton(page, '.scene-error-back')
+      // 3D が重い CI ではクリックの安定待ちが終わらないので、DOM から直接押す
+      await page.evaluate(() => document.querySelector('.scene-error-back').click())
+      await page.waitForFunction(() => !document.querySelector('.scene-error') && window.__sv.walk.state.getState().phase === 'none', null, { timeout: 60000 })
+      await sleep(2000)
+    },
+  },
   // スマホ
   phone: { ctx: phone, hash: '#debug' },
   // 天体カード（PC とスマホ）：開いて、めくるボタンと閉じるボタンが隠れていない
@@ -257,6 +275,18 @@ const SCENARIOS = {
       await visibleButton(page, '.pio-goal-go')
       const goal = await page.textContent('.pio-goal-text b')
       if (!goal) throw new Error('pioneer: no goal text')
+      // 拾う → 納める：納品のカードが出る
+      // （ソフト描画では 1 コマが遅く、カードが出て消えるまでに見逃すので、出たことを記録しておく）
+      await page.evaluate(() => {
+        window.__delivered = false
+        new MutationObserver(() => {
+          if (document.querySelector('.pio-delivery')) window.__delivered = true
+        }).observe(document.body, { childList: true, subtree: true })
+        const p = window.__sv.pioneer
+        p.collect('metal', 12)
+        p.deliver()
+      })
+      await page.waitForFunction(() => window.__delivered, null, { timeout: 30000 })
       await page.click('.pio-open')
       await visibleButton(page, '.pio-quit')
       await page.evaluate(() => {
@@ -268,13 +298,12 @@ const SCENARIOS = {
       })
       const stage = await page.evaluate(() => window.__sv.pioneer.state.getState().stage)
       if (stage !== 3) throw new Error(`pioneer: stage ${stage}, expected 3`)
-      await page.evaluate(() => {
-        const st = window.__sv.store.getState()
-        st.setTarget('colony')
-        window.__sv.flightControl.jumpTo = 'colony'
-      })
-      await sleep(6000)
-      await page.click('.pioneer-panel .close')
+      // 建てると建設の場面（とばせる）
+      await page.waitForSelector('.pio-cinema-ui', { timeout: 30000 })
+      await page.evaluate(() => window.__sv.pioneer.skip(true))
+      await page.waitForSelector('.pio-cinema-ui', { state: 'detached', timeout: 30000 })
+      // 場面のあとは建設中のコロニーのそばにいて、カードに戻る
+      await sleep(3000)
       await visibleButton(page, '.pio-open')
     },
     after: async (page) => {

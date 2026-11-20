@@ -139,3 +139,8 @@ export const rockResource = (type: RockType): Resource => (type === 0 ? 'ice' : 
 
 /** 砕ける岩に重ねる輪の数（画面の .pio-ring の数） */
 export const RING_COUNT = 8
+
+/** 建設の場面の長さ（秒。とばせる） */
+export const CINEMA_SECONDS = 10
+/** 建てた直後、前の段階の形から今の段階の形へ伸びていく秒数（建設の場面と合わせる） */
+export const GROW_SECONDS = 7
