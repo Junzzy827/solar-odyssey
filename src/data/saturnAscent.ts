@@ -37,7 +37,7 @@ export const STAGES: StageDef[] = [
   // S-II：J-2 エンジン 5 基。6 分ほど燃える
   { id: 'S2', thrustVac: 5_165_000, thrustSl: 5_165_000, ispVac: 424, ispSl: 424, prop: 452_000, dry: 36_000 },
   // S-IVB：J-2 エンジン 1 基。軌道に入る燃焼と、月へ向かう燃焼（TLI）の 2 回燃える
-  { id: 'S3', thrustVac: 1_033_000, thrustSl: 1_033_000, ispVac: 424, ispSl: 424, prop: 107_000, dry: 15_300 },
+  { id: 'S3', thrustVac: 1_033_000, thrustSl: 1_033_000, ispVac: 424, ispSl: 424, prop: 110_000, dry: 15_300 },
 ]
 
 /** 段間部（第2段の下のリング。第2段の点火から 30 秒で捨てる）と、脱出塔（35 秒で捨てる） */
@@ -109,7 +109,7 @@ export function startAscent(): Ascent {
 }
 
 /** 月へ向かう燃焼（TLI）の目標：遠い所の高さ（m）。月の軌道の少し先 */
-export const TLI_APO = 380_000_000
+export const TLI_APO = 360_000_000
 
 /** 第3段に 2 回目の火を入れる（月へ向かう燃焼）。機首は進む向き（呼ぶ側が progradePitch を渡す） */
 export function startTli(a: Ascent) {

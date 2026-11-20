@@ -1,5 +1,5 @@
 import { Suspense, memo, useEffect, useState } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { useDpr } from '../../state/quality'
 import { QualityGovernor } from '../QualityGovernor'
 import { useLang } from '../../i18n/lang'
@@ -22,12 +22,38 @@ import {
   setAuto,
   sim,
   useMoonMission,
+  film,
 } from '../../state/moonMission'
+
+const debugOn = typeof location !== 'undefined' && location.hash.includes('debug')
 import { LaunchWorld } from './LaunchWorld'
 import './moonMission.css'
 
 // 月ミッション（アポロ17号の追体験）の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 // 画面の上に、時刻・高さ・速さ・G、機首の手本の目盛り、出来事の字幕、終わりのカードを重ねる。
+
+/** 確認用の動画：コマを 1 枚ずつ進める（window.__moonFilm.step(dt)）。ふだんは使わない */
+function FilmHook() {
+  const advance = useThree((s) => s.advance)
+  const setFrameloop = useThree((s) => s.setFrameloop)
+  useEffect(() => {
+    const w = window as unknown as { __moonFilm?: unknown }
+    w.__moonFilm = {
+      begin: () => {
+        film.t = 1000
+        setFrameloop('never')
+      },
+      step: (dt: number) => {
+        film.t = (film.t ?? 1000) + dt
+        advance(film.t)
+      },
+    }
+    return () => {
+      delete w.__moonFilm
+    }
+  }, [advance, setFrameloop])
+  return null
+}
 
 const MissionCanvas = memo(function MissionCanvas() {
   const dpr = useDpr(1.75)
@@ -38,6 +64,7 @@ const MissionCanvas = memo(function MissionCanvas() {
         <LaunchWorld />
       </Suspense>
       <QualityGovernor />
+      {debugOn && <FilmHook />}
     </Canvas>
   )
 })
@@ -159,7 +186,7 @@ function Hud() {
               <i style={{ width: `${Math.min(100, (r.g / 4) * 100)}%` }} />
             </i>
           </div>
-          {s.phase !== 'ascent' && r.apo < 1e9 && <div className="mm-orbit">{t.orbitInfo(r.peri, r.apo)}</div>}
+          {(s.phase === 'orbit' || s.phase === 'tli') && r.apo < 1e9 && <div className="mm-orbit">{t.orbitInfo(r.peri, r.apo)}</div>}
           {r.warp > 1.5 && <div className="mm-warp">{t.warp(r.warp)}</div>}
         </div>
       )}

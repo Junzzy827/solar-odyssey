@@ -48,8 +48,8 @@ const frag = /* glsl */ `
     night = pow(night, vec3(1.6)) * vec3(1.25, 0.95, 0.65) * 1.6 * uLights;
     vec3 col = mix(night, dayCol, day);
     // 夕焼けの帯
-    float dusk = exp(-pow((l - 0.02) / 0.07, 2.0));
-    col += vec3(0.6, 0.25, 0.08) * dusk * 0.35;
+    float dusk = exp(-pow((l - 0.02) / 0.045, 2.0));
+    col += vec3(0.6, 0.25, 0.08) * dusk * 0.12;
     // 大気：ふちほど青く光る（昼の側）
     // 低い軌道からは見える地面のほとんどが斜めなので、ふちの光は地平線のすぐ近くだけ
     float rim = pow(1.0 - max(0.0, dot(n, v)), mix(3.0, 9.0, uNear2));

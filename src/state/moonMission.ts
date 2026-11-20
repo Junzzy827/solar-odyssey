@@ -86,7 +86,9 @@ export type CaptionKey =
   | 'tliIgnition'
   | 'tliCutoff'
 
-export const missionNow = () => performance.now() / 1000
+/** 確認用の動画を撮るときは、画面の時計をコマ送りの時計にする（film.t が null でなければそれを使う） */
+export const film = { t: null as number | null }
+export const missionNow = () => film.t ?? performance.now() / 1000
 
 export const useMoonMission = create<MissionState>(() => ({
   phase: 'none',
@@ -328,8 +330,11 @@ export function tickMission(dt: number) {
     sim.pitch += missionInput.tilt * PITCH_RATE * dt
     // 第3段は誘導におまかせ（本物も最後は自動）
     if (a.stage === 2) sim.pitch += (guide - sim.pitch) * Math.min(1, dt * 2)
+  } else if (s.phase === 'ascent') {
+    sim.pitch += (guide - sim.pitch) * Math.min(1, dt * 3)
   } else {
-    sim.pitch += (guide - sim.pitch) * Math.min(1, dt * (s.phase === 'ascent' ? 3 : 1.5))
+    // 軌道の上では、いつも進む向き（月へ向かう燃焼も、早送りの中で遅れないように）
+    sim.pitch = guide
   }
   sim.pitch = Math.max(-10, Math.min(110, sim.pitch))
   // ずれの記録（操縦する第1・第2段だけ）

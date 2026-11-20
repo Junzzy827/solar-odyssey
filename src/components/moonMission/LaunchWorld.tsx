@@ -337,7 +337,7 @@ export function LaunchWorld() {
     }
     if (j3.current) {
       j3.current.visible = s3On
-      j3.current.scale.set(1.0, 16 + 40 * expand, 1.0)
+      j3.current.scale.set(1.1, 20 + 50 * expand, 1.1)
     }
     plumes.j2.uniforms.uTime.value = t
     plumes.j2.uniforms.uPower.value = 0.45
@@ -429,7 +429,11 @@ export function LaunchWorld() {
       want.copy(south).multiplyScalar(far).addScaledVector(nose, s.phase === 'outbound' ? 120 : 30).addScaledVector(up, s.phase === 'ascent' ? -15 : 40)
       look.copy(nose).multiplyScalar(s.phase === 'ascent' ? 35 : 50)
       // 月へ向かうときは、ロケットの向こうに小さくなっていく地球をふりかえる
-      if (s.phase === 'outbound') look.copy(nose).multiplyScalar(-20)
+      if (s.phase === 'outbound') {
+        const toEarth = toWorld(0, 0, new THREE.Vector3()).normalize()
+        want.copy(toEarth).multiplyScalar(-150).addScaledVector(south, 55).addScaledVector(up, 25)
+        look.copy(toEarth).multiplyScalar(400)
+      }
       fov = 50
       cs.up.copy(up)
     }
