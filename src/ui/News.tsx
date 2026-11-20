@@ -4,7 +4,7 @@ import { useStore } from '../state/store'
 
 // 新しい遊び方のお知らせ。起動して読み込みの画面が消えたら、まだ見ていないものを1回だけ出す
 // （スマホでは「お知らせ」の一覧に入る）。見たものは localStorage に覚える
-const NEWS = ['raceSites'] as const
+const NEWS = ['raceSites', 'bodyCards'] as const
 const KEY = 'solar-voyager:news-seen'
 
 function seen(): string[] {

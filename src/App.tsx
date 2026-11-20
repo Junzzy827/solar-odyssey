@@ -58,6 +58,7 @@ import { ObservePanel } from './ui/ObservePanel'
 import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
 import { RockBook } from './ui/RockBook'
+import { BodyCards } from './ui/BodyCards'
 import { HistoricBook } from './ui/HistoricBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
 import { SurfaceMemory } from './components/SurfaceMemory'
@@ -173,6 +174,7 @@ export default function App() {
       <ContextLost />
       <LazyScenes />
       <RockBook />
+      <BodyCards />
       <HistoricBook />
       <LabelDeclutter />
       <CleanScreenButton />
