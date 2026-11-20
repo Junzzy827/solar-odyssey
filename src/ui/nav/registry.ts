@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { create } from 'zustand'
 import { useStore } from '../../state/store'
 import { useRace } from '../../state/race'
 import { useMission } from '../../state/mission'
@@ -73,3 +74,7 @@ export function useNavContext() {
     flight: mode === 'flight',
   }
 }
+
+/** いま開いているタブ（パネルを閉じても覚えておく。ほかの画面から openNavTab('play') で開ける） */
+export const useNavTab = create<{ tab: NavTab }>(() => ({ tab: 'go' }))
+export const openNavTab = (tab: NavTab) => useNavTab.setState({ tab })
