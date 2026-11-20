@@ -94,6 +94,10 @@ function WalkPanel() {
   const waterNote = useWalk((w) => w.waterNote)
   const area = useWalk((w) => w.area)
   const land = useWalk((w) => w.land)
+  const gee = useWalk((w) => w.gee)
+  const elevNear = useWalk((w) => w.elevNear)
+  const inElev = useWalk((w) => w.inElev)
+  const axisNote = useWalk((w) => w.axisNote)
   const day = useDayWord()
   useEffect(() => bindWalkKeys(), [])
   // 降りたときのお知らせ（しばらくして消す）
@@ -111,7 +115,7 @@ function WalkPanel() {
         <br />
         <small>
           {land >= 0 && `${ui().walk.land(land)} · `}
-          {ui().walk.gravity} · {ui().walk[day]}
+          {gee < 0.995 ? ui().walk.gee(gee) : ui().walk.gravity} · {ui().walk[day]}
         </small>
       </div>
       <div className="walk-buttons" onPointerDown={stop}>
@@ -119,10 +123,12 @@ function WalkPanel() {
           {ui().walk.view}: {view === 'chase' ? ui().walk.viewChase : ui().walk.viewEye}
           <kbd>V</kbd>
         </button>
-        <button className={riding ? 'on' : ''} onClick={() => (walkInput.ride = true)}>
-          {riding ? ui().walk.rideOff : ui().walk.ride}
-          <kbd>F</kbd>
-        </button>
+        {(gee > 0.9 || riding) && (
+          <button className={riding ? 'on' : ''} onClick={() => (walkInput.ride = true)}>
+            {riding ? ui().walk.rideOff : ui().walk.ride}
+            <kbd>F</kbd>
+          </button>
+        )}
         {riding && (
           <button className={flying ? 'on' : ''} onPointerDown={() => (walkInput.sky = true)}>
             {flying ? ui().walk.skyOff : ui().walk.sky}
@@ -137,7 +143,15 @@ function WalkPanel() {
       {riding && <Speedometer />}
       {waterNote > 0 && walkNow() - waterNote < 3.5 && <WaterNote at={waterNote} text={ui().walk.waterNote} />}
       {skyNote > 0 && walkNow() - skyNote < 3.5 && <WaterNote at={skyNote} text={ui().walk.skyNote} />}
-      {(benchNear || sitting) && (
+      {elevNear && !riding && (
+        <button className="walk-sit" onPointerDown={stop} onClick={() => (walkInput.sit = true)}>
+          {elevNear === 'up' ? ui().walk.elevUp : ui().walk.elevDown}
+          <kbd>E</kbd>
+        </button>
+      )}
+      {inElev && <ElevNote />}
+      {axisNote > 0 && <AxisNote at={axisNote} />}
+      {!elevNear && (benchNear || sitting) && (
         <button className="walk-sit" onPointerDown={stop} onClick={() => (walkInput.sit = true)}>
           {sitting ? ui().walk.stand : ui().walk.sit}
           <kbd>E</kbd>
@@ -148,9 +162,11 @@ function WalkPanel() {
       <Stick />
       <div className="walk-pad" onPointerDown={stop}>
         {/* iPhone はスティックを押さえたままの 2 本目の指だと click が来ないので、押した瞬間に切り替える */}
-        <button className={riding ? 'walk-ride on' : 'walk-ride'} onPointerDown={() => (walkInput.ride = true)}>
-          {riding ? ui().walk.rideOff : ui().walk.ride}
-        </button>
+        {(gee > 0.9 || riding) && (
+          <button className={riding ? 'walk-ride on' : 'walk-ride'} onPointerDown={() => (walkInput.ride = true)}>
+            {riding ? ui().walk.rideOff : ui().walk.ride}
+          </button>
+        )}
         <button className={run ? 'on' : ''} onPointerDown={() => useWalk.setState({ run: !useWalk.getState().run })}>
           {riding ? ui().walk.boost : ui().walk.run}
         </button>
@@ -171,6 +187,27 @@ function Speedometer() {
 }
 
 /** 水の上・窓の上で降りようとしたときのお知らせ（少しして消える） */
+/** エレベーターの高さ（乗っているあいだ） */
+function ElevNote() {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((n) => n + 1), 250)
+    return () => window.clearInterval(t)
+  }, [])
+  return <div className="walk-note">{ui().walk.elevRiding(walker.h)}</div>
+}
+
+/** 軸の駅に着いたときの「現実の科学では」（少し長めに出す） */
+function AxisNote({ at }: { at: number }) {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const t = window.setTimeout(() => setTick((n) => n + 1), Math.max(0, (at + 14.1 - walkNow()) * 1000))
+    return () => window.clearTimeout(t)
+  }, [at])
+  if (walkNow() - at > 14) return null
+  return <div className="walk-note">{ui().walk.axisNote}</div>
+}
+
 function WaterNote({ at, text }: { at: number; text: string }) {
   const [, setTick] = useState(0)
   useEffect(() => {

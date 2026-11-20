@@ -14,6 +14,8 @@ export const walkEn: Translation<typeof walkJa> = {
   farm: 'Fields and villages',
   lake: 'Shore of the sunward lake',
   hill: 'Hills by the end wall',
+  axis: 'Axis station',
+  elevator: 'Axis elevator',
   bridge: 'Bridge over the window strip',
   land: (k: number) => `Land ${k + 1}`,
   gravity: '1 g from the spin',
@@ -42,4 +44,11 @@ export const walkEn: Translation<typeof walkJa> = {
   walkTo: (name: string) => `Go down and walk in ${name}`,
   keysHint: 'W A S D walk · Shift run · Space jump · Mouse look (click to lock) · Wheel distance · E sit · F hover scooter · V view · J ship',
   arrived: (name: string) => `You are in a park in ${name}. Look up: the land on the far side is your sky`,
+  gee: (g: number) => `${g.toFixed(2)} g`,
+  elevUp: 'Elevator to the axis',
+  elevDown: 'Elevator down to the ground',
+  elevRiding: (h: number) => `Elevator: ${Math.round(h).toLocaleString()} m above the ground`,
+  axisNote:
+    'The axis station. You weigh almost nothing here. Real science: colony gravity is the spin pushing outward, so it grows with distance from the axis. 1 g on the ground 4 km out, only 0.006 g here 25 m from the axis. Jump and you float, and the spin pushes you sideways.',
+  toAxis: 'To the colony axis (elevator)',
 }

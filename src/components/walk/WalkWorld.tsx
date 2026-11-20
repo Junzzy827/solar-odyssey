@@ -11,6 +11,7 @@ import { WalkJungle } from './WalkJungle'
 import { JUNGLE, TRAIL_W, jungleLayout } from './jungle'
 import { WalkChunks } from './WalkChunks'
 import { WalkBridges } from './WalkBridges'
+import { WalkAxis } from './WalkAxis'
 
 // コロニーの中を歩く場面の、動かないもの：遠くのコロニー全体（宇宙の場面の形を 1/M 倍）、
 // 公園の地面・池・木・ベンチ・街灯・遊具・噴水、空気のかすみ、昼と夜の光。
@@ -855,6 +856,7 @@ export function WalkWorld({ follow }: { follow: { current: THREE.Vector3 } }) {
       <Ground />
       <WalkChunks follow={follow} />
       <WalkBridges />
+      <WalkAxis />
       <Trees follow={follow} />
       <Furniture />
       <PlayAndPlaza />
