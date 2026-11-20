@@ -5,7 +5,8 @@ import type { Terrain } from './terrain'
 import { meshHeight } from './Rover'
 import { roverActive, roverPose, useRover } from '../../state/rover'
 import { useLanding } from '../../state/landing'
-import { rallyRacing } from '../../state/rally'
+import { useRally } from '../../state/rally'
+import { useHistoric } from '../../state/historic'
 import { beginTale, isDusk, quitRabbit, rabbitDebug, rabbitNow, showRabbit, useMoonRabbit } from '../../state/moonRabbit'
 
 // 月の光るウサギ（state/moonRabbit.ts の場面）：光るウサギ、ついていく道、月の庭（光る石の輪・臼と杵・舞う光の粒）。
@@ -230,7 +231,7 @@ export function MoonRabbit({ terrain }: { terrain: Terrain }) {
       garden.grp.visible = false
       const land = useLanding.getState()
       const calm = rover === 'none' || rover === 'drive'
-      if (!rb.shown && land.phase === 'surface' && land.ready && isDusk() && !rallyRacing() && calm) {
+      if (!rb.shown && land.phase === 'surface' && land.ready && isDusk() && useRally.getState().phase === 'off' && useHistoric.getState().card === null && calm) {
         // ローバーがいればその少し前、いなければ着陸船の少し先
         const h = rover === 'drive' ? me.heading : 0
         const bx = rover === 'drive' ? me.x : 0
@@ -308,6 +309,11 @@ export function MoonRabbit({ terrain }: { terrain: Terrain }) {
           target = 4
           lookAtMe = false
         }
+      }
+      // ついていく途中でレースを始めたら、ウサギはおしまい
+      if (useRally.getState().phase !== 'off') {
+        quitRabbit()
+        return
       }
       const waiting = target === 0 && r.s < L - RING - 1.5
       // 庭に着いて、ローバーも近くまで来たら、お話

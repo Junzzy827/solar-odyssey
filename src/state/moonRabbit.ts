@@ -128,8 +128,15 @@ export function goFindRabbit() {
     waitForDusk()
     return
   }
-  useMoonRabbit.setState({ pending: true, shown: false })
   startLanding('moon')
+  // 着陸を始められたときだけ（ほかの星にいる・キャンペーンでまだ開いていない、なら何もしない）
+  const now = useLanding.getState()
+  if (now.phase === 'fadeIn' && now.bodyId === 'moon') useMoonRabbit.setState({ pending: true, shown: false })
+}
+
+/** ナビのボタンを押せるか：月にいる、またはどこにも降りていない */
+export function canFindRabbit(l = useLanding.getState()) {
+  return l.phase === 'idle' || (l.phase === 'surface' && l.bodyId === 'moon')
 }
 
 // 月から離陸したり、別の着陸地点へ移ったら、ウサギはおしまい（次に月へ来たら、また夕暮れに出る）
@@ -143,6 +150,9 @@ useLanding.subscribe((l, prev) => {
   // 月に着いた：ナビから来たなら夕暮れへ（地表の時計が動き出してから）
   if (onMoon && !wasOnMoon && useMoonRabbit.getState().pending) {
     useMoonRabbit.setState({ pending: false })
-    window.setTimeout(waitForDusk, 1500)
+    window.setTimeout(() => {
+      const n = useLanding.getState()
+      if (n.phase === 'surface' && n.bodyId === 'moon') waitForDusk()
+    }, 1500)
   }
 })
