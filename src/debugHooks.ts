@@ -4,7 +4,7 @@ import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
 import { POND } from './components/walk/park'
 import { flightControl, ship, thrustFx, warpFx } from './state/flight'
-import { bodies, markerOverride, beamTargets, ports, sim } from './state/registry'
+import { asteroids, bodies, markerOverride, beamTargets, ports, sim } from './state/registry'
 import { useRace } from './state/race'
 import { useMission } from './state/mission'
 import { MISSIONS } from './data/missions'
@@ -29,6 +29,7 @@ import { chunkDebug } from './components/walk/WalkChunks'
 import { useSkyClock } from './components/surface/skyClock'
 import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
+import { useDiscovery, startScanner, stopScanner, openNote } from './state/discovery'
 import { closeToday, openToday, useToday } from './state/today'
 import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
@@ -48,6 +49,7 @@ const sv = {
   probes: { state: useProbes, clock: probeClock },
   bodyCards: { state: useBodyCards, open: openBodyCard, close: closeBodyCard, step: stepBodyCard },
   today: { state: useToday, open: openToday, close: closeToday },
+  discovery: { state: useDiscovery, start: startScanner, stop: stopScanner, note: openNote, asteroids },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff, site: goToSite },
   rally: { state: useRally, start: startRally, quit: quitRally },

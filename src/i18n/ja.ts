@@ -41,6 +41,7 @@ import { rallyPanelJa } from './rallyPanel.ja'
 import { rockBookJa } from './rockBook.ja'
 import { bodyCardsJa } from './bodyCards.ja'
 import { todayJa } from './today.ja'
+import { discoveryJa } from './discovery.ja'
 import { roverHudJa } from './roverHud.ja'
 import { scaleToggleJa } from './scaleToggle.ja'
 import { sfJa } from './sf.ja'
@@ -199,6 +200,7 @@ export const ja = {
   rockBook: rockBookJa,
   bodyCards: bodyCardsJa,
   today: todayJa,
+  discovery: discoveryJa,
   roverHud: roverHudJa,
   scaleToggle: scaleToggleJa,
   sf: sfJa,
