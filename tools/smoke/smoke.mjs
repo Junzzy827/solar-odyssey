@@ -12,7 +12,10 @@ const args = process.argv.slice(2)
 const outAt = args.indexOf('--out')
 const outDir = outAt >= 0 ? args[outAt + 1] : 'smoke-shots'
 const useFirefox = args.includes('--firefox')
-const wanted = args.filter((a, i) => !a.startsWith('--') && (outAt < 0 || i !== outAt + 1))
+// --shard i/n：場面の一覧を n 個に分けた i 番目（1 から）だけ動かす。CI で並べて走らせて、1 本 30 分の壁を越えないようにする
+const shardAt = args.indexOf('--shard')
+const shard = shardAt >= 0 ? args[shardAt + 1].split('/').map(Number) : null
+const wanted = args.filter((a, i) => !a.startsWith('--') && (outAt < 0 || i !== outAt + 1) && (shardAt < 0 || i !== shardAt + 1))
 const DIST = process.env.DIST ?? new URL('../../dist/', import.meta.url).pathname
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -114,6 +117,19 @@ const SCENARIOS = {
       await page.evaluate(() => document.querySelector('.scene-error-back').click())
       await page.waitForFunction(() => !document.querySelector('.scene-error') && window.__sv.walk.state.getState().phase === 'none', null, { timeout: 60000 })
       await sleep(2000)
+    },
+  },
+  // 航法コンピュータのタブ：遊ぶ・学ぶ を開くと、登録した入口が出る
+  'nav-tabs': {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.click('.nav-tab[data-tab="play"]')
+      await visibleButton(page, '.nav-entry.race-start')
+      await page.click('.nav-tab[data-tab="learn"]')
+      await visibleButton(page, '.nav-entry.quiz-start')
+      await page.click('.nav-tab[data-tab="go"]')
+      await visibleButton(page, '.engage')
     },
   },
   // スマホ
@@ -316,14 +332,31 @@ const SCENARIOS = {
         p.deliver()
       })
       await page.waitForFunction(() => window.__delivered, null, { timeout: 30000 })
-      await page.click('.pio-open')
+      // 重い画面では page.click が「押したあとの待ち」で 30 秒を超えることがあるので、DOM で押す
+      await page.evaluate(() => document.querySelector('.pio-open').click())
       await visibleButton(page, '.pio-quit')
       // 端末の 4 つのタブ：それぞれの図が出る（納品 1 回ぶんの記録と流れがある）
-      for (const [tab, sel] of [['route', '.pio-map .pio-map-ship'], ['flow', '.pio-sankey .pio-band'], ['log', '.pio-bars .pio-tbar'], ['status', '.pio-donut']]) {
-        // 画面が重い（SwiftShader）と page.click の「止まるまで待つ」が 1 回 25 秒ほどかかるので、DOM で押す
+      for (const [tab, sel] of [['route', '.pio-map .pio-map-ship'], ['flow', '.pio-sankey .pio-band'], ['log', '.pio-bars .pio-tbar'], ['ship', '.pio-upgrade'], ['status', '.pio-donut']]) {
+        // 画面が重い（SwiftShader）と page.click の「止まるまで待つ」が 30 秒を超えるので、DOM で押す
         await page.evaluate((id) => document.getElementById(`pio-tab-${id}`).click(), tab)
         await page.waitForSelector(sel, { timeout: 15000 })
       }
+      // 珍しい岩：記録に残り、今日の依頼の記録がある
+      const rare = await page.evaluate(() => {
+        const p = window.__sv.pioneer
+        p.breakRare()
+        const st = p.state.getState()
+        return { rare: Object.values(st.rare).reduce((a, b) => a + b, 0), day: st.daily?.day }
+      })
+      if (rare.rare !== 1 || !rare.day) throw new Error(`pioneer: rare ${JSON.stringify(rare)}`)
+      // 改造：倉庫の資源で積める量が増える
+      const cap = await page.evaluate(() => {
+        const p = window.__sv.pioneer
+        p.give({ metal: 30 })
+        if (!p.upgrade('hold')) return -1
+        return p.state.getState().upgrades.hold
+      })
+      if (cap !== 1) throw new Error(`pioneer: upgrade level ${cap}, expected 1`)
       await page.evaluate(() => {
         const p = window.__sv.pioneer
         p.give({ metal: 200, gas: 30 })
@@ -373,6 +406,19 @@ const SCENARIOS = {
       await sleep(3000)
     },
   },
+  walkAxis: {
+    ctx: desktop,
+    hash: '#debug&sf?colonytime=day',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.walk.start())
+      await page.waitForFunction(() => window.__sv.walk.debug.scene, null, { timeout: 120000 })
+      // 回転の軸の駅（エレベーターの上）へ。重さがほぼ 0 になる
+      await page.evaluate(() => Object.assign(window.__sv.walk.walker, { s: 0, y: 130, h: 3970, turnTo: 3.14 }))
+      await page.waitForFunction(() => window.__sv.walk.state.getState().gee < 0.02, null, { timeout: 60000, polling: 500 })
+      await sleep(4000)
+    },
+  },
 }
 
 await mkdir(outDir, { recursive: true })
@@ -383,7 +429,11 @@ const browser = useFirefox
     await firefox.launch({ headless: !process.env.DISPLAY, firefoxUserPrefs: { 'webgl.force-enabled': true, 'webgl.disabled': false } })
   : await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] })
 const failures = []
-for (const name of wanted.length ? wanted : Object.keys(SCENARIOS)) {
+const all = wanted.length ? wanted : Object.keys(SCENARIOS)
+// 重い場面（歩く・SF）が一つの組に固まらないよう、順に配る
+const names = shard ? all.filter((_, i) => i % shard[1] === shard[0] - 1) : all
+if (shard) console.log(`shard ${shard[0]}/${shard[1]}: ${names.join(' ')}`)
+for (const name of names) {
   const sc = SCENARIOS[name]
   const t0 = Date.now()
   const ctx = await browser.newContext(sc.ctx)

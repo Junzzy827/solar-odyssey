@@ -1,3 +1,4 @@
+import './hud.css'
 import { useEffect, useState } from 'react'
 import { nextCameraMode, useStore } from '../state/store'
 import { enterBridge, leaveBridge, useBridge } from '../state/bridge'
@@ -233,6 +234,8 @@ export function Hud() {
   const touch = isTouchDevice()
   // スマホでは、操作の説明は画面を切り替えたときに少しだけ出す
   const [hint, setHint] = useState(true)
+  // パソコンの操作の説明は、ふだんは1行だけ。「操作を見る」で全部ひらく
+  const [controlsOpen, setControlsOpen] = useState(false)
   useEffect(() => {
     if (!touch) return
     setHint(true)
@@ -259,13 +262,20 @@ export function Hud() {
           <div>{ui().hud.galleryMouseHint}</div>
         ) : (
           <div>
-            {ui().hud.clickToFly}
-            <br />
-            {ui().hud.moveKeysHint}
-            <br />
-            {ui().hud.actionKeysHint}
-            <br />
-            {ui().hud.thrustKeysHint}
+            {ui().hud.clickToFly}{' '}
+            <button className="hud-controls-toggle" onClick={() => setControlsOpen(!controlsOpen)} aria-expanded={controlsOpen}>
+              {controlsOpen ? ui().hud.hideControls : ui().hud.showControls}
+            </button>
+            {controlsOpen && (
+              <>
+                <br />
+                {ui().hud.moveKeysHint}
+                <br />
+                {ui().hud.actionKeysHint}
+                <br />
+                {ui().hud.thrustKeysHint}
+              </>
+            )}
           </div>
         )}
         {mode !== 'gallery' && (

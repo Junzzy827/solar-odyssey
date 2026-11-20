@@ -51,10 +51,20 @@ type WalkState = {
   area: WalkArea
   /** 今いる大地の帯（0〜2。窓の帯の橋の上は -1） */
   land: number
+  /** 今の重さ（G。地面で 1、回転の軸で 0） */
+  gee: number
+  /** 軸へのエレベーターの扉の近く（up = 地面から上へ、down = 軸の駅から下へ） */
+  elevNear: 'up' | 'down' | null
+  /** エレベーターに乗っている */
+  inElev: boolean
+  /** 軸の駅に着いた時刻（「現実の科学では」を少し出す） */
+  axisNote: number
+  /** 次に歩く場面を始めるとき、軸へのエレベーターの前から始める */
+  startAtTower: boolean
 }
 
 /** 今いる所の種類：公園・住宅街・ジャングル（お試しの場所）と、街の計画の区画、窓の帯の橋 */
-export type WalkArea = 'park' | 'town' | 'jungle' | 'parkZone' | 'townZone' | 'downtown' | 'urban' | 'suburb' | 'farm' | 'lake' | 'hill' | 'bridge'
+export type WalkArea = 'park' | 'town' | 'jungle' | 'parkZone' | 'townZone' | 'downtown' | 'urban' | 'suburb' | 'farm' | 'lake' | 'hill' | 'bridge' | 'axis' | 'elevator'
 
 export const walkNow = () => performance.now() / 1000
 
@@ -73,6 +83,11 @@ export const useWalk = create<WalkState>(() => ({
   skyNote: 0,
   area: 'park',
   land: 0,
+  gee: 1,
+  elevNear: null,
+  inElev: false,
+  axisNote: 0,
+  startAtTower: false,
 }))
 
 /** 歩く場面を出している（宇宙の場面は止める） */
@@ -108,10 +123,17 @@ export function startWalkDirect() {
   beginWalk(colonyWalk.inside ?? { id: COLONY_ID, name: colonyName })
 }
 
+/** 歩く場面を、回転の軸へのエレベーターの前から始める */
+export function startWalkAtTower() {
+  if (!canWalkDirect()) return
+  useWalk.setState({ startAtTower: true })
+  startWalkDirect()
+}
+
 function beginWalk(c: { id: string; name: () => string }) {
   if (document.pointerLockElement) document.exitPointerLock()
   resetWalkInput()
-  useWalk.setState({ colonyId: c.id, colonyName: c.name(), view: 'chase', run: false, sitting: false, benchNear: false, riding: false, flying: false, waterNote: 0, skyNote: 0 })
+  useWalk.setState({ colonyId: c.id, colonyName: c.name(), view: 'chase', run: false, sitting: false, benchNear: false, riding: false, flying: false, waterNote: 0, skyNote: 0, gee: 1, elevNear: null, inElev: false, axisNote: 0 })
   setPhase('fadeIn')
   window.setTimeout(() => {
     if (useWalk.getState().phase === 'fadeIn') setPhase('walk')

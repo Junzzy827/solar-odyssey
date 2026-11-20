@@ -14,4 +14,5 @@ export const newsEn: Translation<typeof newsJa> = {
   pioneer: '⛏ New in SF mode: Pioneering. Start it from “Pioneering” in the nav computer. Break asteroids for metal and ice, skim Jupiter for gas, unload at Amano-Minato, and finish the colony under construction.',
   discovery: '📡 New: discovery scan. Turn the scanner on from Learn in the nav panel, fly close to a rock in the asteroid belt and scan it to discover a new asteroid. You can name it, too.',
   arrival: '🪐 News: when you arrive at a world, it now shows its size next to the Earth. At Jupiter, 11 Earths line up across it.',
+  colonyAxis: '🛗 News: at the port end of the colony there is now an elevator to the spin axis (Play in the nav). You get lighter as you rise, and in the glass axis station you weigh almost nothing, with the whole land wrapped around you.',
 }

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { ui } from '../../../i18n'
 import { capacity, usePioneer } from '../../../state/pioneer'
-import { RESOURCES, total, tripStats } from '../../../data/pioneer'
+import { RARE_IDS, RESOURCES, total, tripStats } from '../../../data/pioneer'
 
 // 端末「記録」：納めた回ごとの量の積み上げ棒グラフ（積める量の線つき、建てた回に星）と、まとめの数字
 
@@ -152,6 +152,14 @@ export function LogTab() {
           {tl.capacity(cap)}
         </span>
       </div>
+      {RARE_IDS.some((id) => (p.rare?.[id] ?? 0) > 0) && (
+        <p className="pio-built-chips pio-rares">
+          <small>{t.rare.collection}</small>
+          {RARE_IDS.filter((id) => (p.rare?.[id] ?? 0) > 0).map((id) => (
+            <span key={id}>{t.term.amount(t.rare.name[id], p.rare![id])}</span>
+          ))}
+        </p>
+      )}
       <p className="pio-science">
         {first > 1 ? t.term.and(tl.tip, tl.older(first - 1)) : tl.tip}
       </p>

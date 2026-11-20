@@ -161,7 +161,8 @@ export function Phaser() {
     playBlast()
 
     const type = asteroids.types.get(mesh)?.[hit.instanceId] ?? 0
-    for (const f of rockBreaks) f(type, Math.hypot(tmpM.elements[0], tmpM.elements[1], tmpM.elements[2]), hit.point)
+    const rock = { shape: asteroids.meshes.indexOf(mesh), index: hit.instanceId }
+    for (const f of rockBreaks) f(type, Math.hypot(tmpM.elements[0], tmpM.elements[1], tmpM.elements[2]), hit.point, rock)
     destroyedCount.current += 1
     useStore.getState().showToast(destroyedCount.current === 1 ? `${ui().phaserFacts[type]}\n${ui().phaserFacts.sparse}` : ui().phaserFacts[type])
   }

@@ -73,6 +73,7 @@ import { useLanding } from './state/landing'
 import { BridgePanel } from './ui/BridgePanel'
 import { BridgeLabels } from './ui/BridgeLabels'
 import { PhotoNote } from './ui/PhotoNote'
+import { FirstThree } from './ui/FirstThree'
 import { evaScene, useEva } from './state/eva'
 import { LazyScenes } from './ui/LazyScenes'
 import { useWalk, walkScene } from './state/walk'
@@ -186,6 +187,7 @@ export default function App() {
       <SFBadge />
       <ScaleBadge />
       <PhotoNote />
+      <FirstThree />
       <ContextLost />
       <LazyScenes />
       <RockBook />

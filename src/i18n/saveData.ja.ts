@@ -46,6 +46,7 @@ export const saveDataJa = {
     roverSamples: '岩の図鑑',
     evaLog: '船外活動の作業',
     apollo17: 'アポロ17号の跡地',
+    firstThree: 'はじめての3つ',
     newsSeen: '読んだお知らせ',
     photoNoteHidden: '写真モードの説明',
   },
