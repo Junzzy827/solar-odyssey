@@ -1,0 +1,220 @@
+/* 開拓の画面（ui/pioneer/PioneerPanel.tsx） */
+.pioneer-hud button,
+.pioneer-panel button {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #e8ecf6;
+}
+.pioneer-hud button:hover:not(:disabled),
+.pioneer-panel button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+.pioneer-panel .pio-build:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.pioneer-hud {
+  position: fixed;
+  left: 50%;
+  /* PC は下の操作ボタンの上（左上の操作説明と重ならない）、スマホは上のアイコンの下 */
+  bottom: 132px;
+  transform: translateX(-50%);
+  z-index: 20;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-left: 4px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  background: rgba(20, 16, 30, 0.78);
+  font-size: 13px;
+  color: #e8ecf6;
+}
+.pioneer-hud .pio-title {
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+.pioneer-hud .pio-hold {
+  display: flex;
+  width: 120px;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+.pio-bar {
+  height: 100%;
+  transition: width 0.3s;
+}
+.pio-metal {
+  background: #f0a24a;
+}
+.pio-ice {
+  background: #7fd3ff;
+}
+.pio-gas {
+  background: #d79bf0;
+}
+.pioneer-hud .pio-count {
+  min-width: 52px;
+  font-variant-numeric: tabular-nums;
+}
+.pioneer-hud .pio-open {
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.pioneer-panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 60;
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  padding: 12px 16px 14px;
+  border-top: 5px solid var(--accent);
+  border-radius: 14px;
+  background: rgba(14, 18, 28, 0.97);
+  font-size: 14px;
+  line-height: 1.5;
+  color: #e8ecf6;
+}
+.pioneer-panel header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pioneer-panel h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 1px;
+}
+.pioneer-panel h3 {
+  margin: 0 0 2px;
+  font-size: 13px;
+  color: #c9d6ee;
+}
+.pioneer-panel p {
+  margin: 0 0 4px;
+}
+.pioneer-panel .close {
+  border: none;
+  background: none;
+  font-size: 20px;
+  min-width: 40px;
+  min-height: 40px;
+}
+.pioneer-panel .pio-stage {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.pio-intro {
+  margin: 8px 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+.pio-steps {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0;
+}
+.pio-steps span {
+  flex: 1;
+  padding: 4px 2px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  text-align: center;
+  opacity: 0.6;
+}
+.pio-steps span.now {
+  outline: 1px solid var(--accent);
+  opacity: 1;
+}
+.pio-steps span.done {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  opacity: 1;
+}
+.pio-rows {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.pio-rows > div,
+.pio-next {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.pio-next {
+  margin-top: 8px;
+}
+.pio-short {
+  color: #ffc58a;
+}
+.pio-science {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.pio-build {
+  min-height: 40px;
+  min-width: 120px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+.pio-go {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+.pio-go button {
+  min-height: 40px;
+}
+.pioneer-panel footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.pioneer-panel footer button {
+  min-height: 36px;
+}
+.pio-reset {
+  opacity: 0.7;
+}
+.pio-naming {
+  text-align: center;
+}
+.pio-naming input {
+  width: 80%;
+  margin: 6px 0;
+  padding: 8px 10px;
+  font-size: 16px;
+}
+.label.pioneer-plate span {
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: rgba(20, 16, 30, 0.7);
+}
+
+@media (max-width: 600px) {
+  .pioneer-hud {
+    top: 92px;
+    bottom: auto;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .pioneer-hud .pio-hold {
+    width: 70px;
+  }
+  .pio-go {
+    grid-template-columns: 1fr;
+  }
+}

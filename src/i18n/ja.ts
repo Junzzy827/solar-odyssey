@@ -75,6 +75,7 @@ import { compareItemsJa } from './compareItems.ja'
 import { deepSpaceImagesJa } from './deepSpaceImages.ja'
 import { eclipsesJa } from './eclipses.ja'
 import { evaJobsJa } from './evaJobs.ja'
+import { pioneerJa } from './pioneer.ja'
 import { evaSitesJa } from './evaSites.ja'
 import { evaToolsJa } from './evaTools.ja'
 import { phaserFactsJa } from './phaserFacts.ja'
@@ -230,6 +231,7 @@ export const ja = {
   deepSpaceImages: deepSpaceImagesJa,
   eclipses: eclipsesJa,
   evaJobs: evaJobsJa,
+  pioneer: pioneerJa,
   evaSites: evaSitesJa,
   evaTools: evaToolsJa,
   phaserFacts: phaserFactsJa,
