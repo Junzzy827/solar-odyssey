@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { ColonyModel } from '../sf/ColonyModel'
@@ -8,6 +8,10 @@ import { currentLevel, lowMemory } from '../../state/quality'
 import { EW_END, EW_Y, FADE, GROUND_LIFT, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, STREETS, STREET_W, frameAt, inBoundsTree, landPoint, parkLayout, streetRect, upAt } from './park'
 import { WalkTown } from './WalkTown'
 import { WalkJungle } from './WalkJungle'
+import { FOREST_SAMPLE_ON } from './forestSample'
+
+/** 「本格的な森」の見本の一角（お試し。?forest=sample のときだけ読み込む） */
+const WalkForest = lazy(() => import('./WalkForest'))
 import { JUNGLE, TRAIL_W, jungleLayout } from './jungle'
 import { WalkChunks } from './WalkChunks'
 import { WalkBridges } from './WalkBridges'
@@ -862,6 +866,11 @@ export function WalkWorld({ follow }: { follow: { current: THREE.Vector3 } }) {
       <PlayAndPlaza />
       <WalkTown />
       <WalkJungle />
+      {FOREST_SAMPLE_ON && (
+        <Suspense fallback={null}>
+          <WalkForest />
+        </Suspense>
+      )}
     </>
   )
 }
