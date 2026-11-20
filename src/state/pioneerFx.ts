@@ -7,7 +7,7 @@ export type PioneerFx =
   | { kind: 'full' }
   | { kind: 'deliver'; amounts: Amounts; ready: boolean }
   | { kind: 'upgrade'; id: UpgradeId; level: number }
-  | { kind: 'rare'; id: RareId }
+  | { kind: 'rare'; id: RareId; amount: number }
   | { kind: 'daily'; reward: Amounts }
 
 const listeners = new Set<(e: PioneerFx) => void>()

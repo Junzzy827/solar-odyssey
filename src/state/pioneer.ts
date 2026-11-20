@@ -8,6 +8,7 @@ import {
   addTrip,
   markBuilt,
   dailyFor,
+  hashText,
   dailyProgress,
   today,
   NO_RARE,
@@ -69,8 +70,8 @@ export const usePioneer = create<PioneerState>(() => {
 })
 
 function persist() {
-  const { v, hold, store, stage, colonyName, introSeen, log, trips, upgrades, rare, daily, dailyDone } = usePioneer.getState()
-  slot.save({ v, hold, store, stage, colonyName, introSeen, log, trips, upgrades, rare, daily, dailyDone })
+  const { v, hold, store, stage, colonyName, introSeen, log, trips, upgrades, rare, rareTaken, daily, dailyDone } = usePioneer.getState()
+  slot.save({ v, hold, store, stage, colonyName, introSeen, log, trips, upgrades, rare, rareTaken, daily, dailyDone })
 }
 
 export function setTab(tab: TerminalTab) {
@@ -148,11 +149,12 @@ export function deliver() {
   usePioneer.setState({ store, hold: { ...NONE }, log: addTrip(s.log ?? [], s.hold, Date.now()), trips: (s.trips ?? 0) + 1 })
   fullWarned = false
   persist()
+  // 今日の依頼を先に進める（ごほうびで次の段階を建てられるようになるかもしれない）
+  advanceDaily({ delivered: s.hold })
   const next = nextStage()
-  const ready = next && canPay(store, next.cost)
+  const ready = next && canPay(usePioneer.getState().store, next.cost)
   // 納品は画面の演出（数字が増えていくカード）で見せる。読み上げ用に文も渡す
   emitPioneerFx({ kind: 'deliver', amounts: s.hold, ready: !!ready })
-  advanceDaily({ delivered: s.hold })
   return true
 }
 
@@ -199,14 +201,35 @@ export function advanceDaily(e: { delivered?: Amounts; rare?: boolean }) {
   if (done) emitPioneerFx({ kind: 'daily', reward: def.reward })
 }
 
-/** 珍しい岩を砕いた（記録に足し、依頼を進める）。かけらは PioneerScene が出す */
-export function foundRare(id: RareId) {
+/** 今日の珍しい岩の場所を決める数（日付から。日付が変わると入れ替わる） */
+let saltDay = ''
+let saltValue = 0
+export function rareSalt() {
+  const day = today()
+  if (day !== saltDay) {
+    saltDay = day
+    saltValue = hashText(day)
+  }
+  return saltValue
+}
+
+/** その珍しい岩を、今日もう砕いたか */
+export function rareTakenToday(key: string) {
+  const t = usePioneer.getState().rareTaken
+  return !!t && t.day === today() && t.keys.includes(key)
+}
+
+/** 珍しい岩を砕いた（記録に足し、依頼を進める）。かけらは PioneerScene が出す。amount は実際に出るかけらの合計 */
+export function foundRare(id: RareId, key: string, amount: number) {
   const s = usePioneer.getState()
-  if (!s.active) return
-  usePioneer.setState({ rare: { ...NO_RARE, ...s.rare, [id]: (s.rare?.[id] ?? 0) + 1 } })
+  if (!s.active || rareTakenToday(key)) return false
+  const day = today()
+  const keys = s.rareTaken?.day === day ? s.rareTaken.keys : []
+  usePioneer.setState({ rare: { ...NO_RARE, ...s.rare, [id]: (s.rare?.[id] ?? 0) + 1 }, rareTaken: { day, keys: [...keys, key].slice(-200) } })
   persist()
-  emitPioneerFx({ kind: 'rare', id })
+  emitPioneerFx({ kind: 'rare', id, amount })
   advanceDaily({ rare: true })
+  return true
 }
 
 /** 倉庫の資源で船を改造する（1 段上げる）。買えたら true */

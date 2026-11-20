@@ -11,7 +11,7 @@ import { usePioneer } from '../../state/pioneer'
 
 type Pop = { id: number; resource: Resource; amount: number; x: number; y: number; born: number }
 /** 画面の真ん中に少し出るカード（納品・珍しい岩・今日の依頼）。重なったら順に出す */
-type Card = { id: number } & ({ kind: 'deliver'; amounts: Amounts; ready: boolean } | { kind: 'rare'; rare: RareId; count: number } | { kind: 'daily'; reward: Amounts })
+type Card = { id: number } & ({ kind: 'deliver'; amounts: Amounts; ready: boolean } | { kind: 'rare'; rare: RareId; count: number; amount: number } | { kind: 'daily'; reward: Amounts })
 
 /** 同じ資源をこの時間内に続けて拾ったら、1 つの数字にまとめる（ミリ秒） */
 const MERGE_MS = 400
@@ -94,7 +94,7 @@ export function PioneerFx() {
         } else if (e.kind === 'rare') {
           playRare()
           const count = usePioneer.getState().rare?.[e.id] ?? 1
-          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'rare', rare: e.id, count }])
+          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'rare', rare: e.id, count, amount: e.amount }])
         } else if (e.kind === 'daily') {
           playDaily()
           setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'daily', reward: e.reward }])
@@ -170,7 +170,7 @@ export function PioneerFx() {
         <div key={delivery.id} className="pio-delivery pio-card-rare" role="status">
           <small>{t.rare.found}</small>
           <h3>{t.rare.name[delivery.rare]}</h3>
-          <Rows amounts={{ metal: 0, ice: 0, gas: 0, [RARE_BONUS[delivery.rare].resource]: RARE_BONUS[delivery.rare].amount }} />
+          <Rows amounts={{ metal: 0, ice: 0, gas: 0, [RARE_BONUS[delivery.rare].resource]: delivery.amount }} />
           <p className="pio-science">{t.rare.science[delivery.rare]}</p>
           <small>{t.rare.count(delivery.count)}</small>
         </div>

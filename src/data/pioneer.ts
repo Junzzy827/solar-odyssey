@@ -62,8 +62,14 @@ function mix(n: number) {
   x = Math.imul(x ^ (x >>> 16), 0x45d9f3b)
   return (x ^ (x >>> 16)) >>> 0
 }
-/** その岩（何番目の形の何番目）は珍しいか */
-export const isRare = (shape: number, index: number) => mix(shape * 7919 + index + 1) % RARE_EVERY === 0
+/** 文字から数を作る（日付で珍しい岩の場所を変えるため） */
+export function hashText(text: string) {
+  let h = 0
+  for (let i = 0; i < text.length; i++) h = Math.imul(h, 31) + text.charCodeAt(i)
+  return mix(h)
+}
+/** その岩（何番目の形の何番目）は珍しいか。salt（日付から作る数）で、日ごとに珍しい岩が入れ替わる */
+export const isRare = (shape: number, index: number, salt = 0) => mix((shape * 7919 + index + 1) ^ salt) % RARE_EVERY === 0
 
 /** 今日の依頼：日付で決まる（同じ日なら誰でも同じ依頼）。果たすと倉庫にごほうび */
 export type DailyKind = 'metal' | 'ice' | 'gas' | 'bigTrip' | 'trips' | 'rare'
@@ -79,9 +85,7 @@ const DAILIES: readonly DailyDef[] = [
 ]
 /** その日の依頼（日付の文字 YYYY-MM-DD から） */
 export function dailyFor(day: string): DailyDef {
-  let h = 0
-  for (let i = 0; i < day.length; i++) h = Math.imul(h, 31) + day.charCodeAt(i)
-  return DAILIES[mix(h) % DAILIES.length]
+  return DAILIES[hashText(day) % DAILIES.length]
 }
 /** 遊んでいる人の、その土地の今日 */
 export function today(d = new Date()) {
@@ -200,6 +204,8 @@ export type PioneerSave = {
   upgrades?: Upgrades
   /** 見つけた珍しい岩の数 */
   rare?: Record<RareId, number>
+  /** その日に砕いた珍しい岩（「形-番号」）。読み込み直しても同じ岩で二度取れないように */
+  rareTaken?: { day: string; keys: string[] }
   /** 今日の依頼の進み具合 */
   daily?: DailyState
   /** これまでに果たした依頼の数 */
@@ -239,6 +245,8 @@ export function checkSave(v: unknown): v is PioneerSave {
     (s.rare === undefined || (!!s.rare && RARE_IDS.every((id) => Number.isInteger(s.rare![id]) && s.rare![id] >= 0))) &&
     (s.daily === undefined ||
       (!!s.daily && typeof s.daily.day === 'string' && Number.isFinite(s.daily.progress) && s.daily.progress >= 0 && typeof s.daily.done === 'boolean')) &&
+    (s.rareTaken === undefined ||
+      (!!s.rareTaken && typeof s.rareTaken.day === 'string' && Array.isArray(s.rareTaken.keys) && s.rareTaken.keys.every((k) => typeof k === 'string'))) &&
     (s.dailyDone === undefined || (Number.isInteger(s.dailyDone) && s.dailyDone >= 0)) &&
     (s.upgrades === undefined ||
       (!!s.upgrades && UPGRADE_IDS.every((id) => Number.isInteger(s.upgrades![id]) && s.upgrades![id] >= 0 && s.upgrades![id] <= MAX_LEVEL)))

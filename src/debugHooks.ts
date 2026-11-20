@@ -1,7 +1,7 @@
 import { useHistoric } from './state/historic'
 import { crashScene } from './ui/SceneBoundary'
 import { constructionSite } from './components/sf/ConstructionSite'
-import { build as pioneerBuild, collect as pioneerCollect, debugGive as pioneerGive, deliver as pioneerDeliver, buyUpgrade, endCinema, nameColony, startPioneer, stopPioneer, usePioneer } from './state/pioneer'
+import { build as pioneerBuild, collect as pioneerCollect, debugGive as pioneerGive, deliver as pioneerDeliver, buyUpgrade, endCinema, nameColony, rareSalt, rareTakenToday, startPioneer, stopPioneer, usePioneer } from './state/pioneer'
 import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
@@ -69,7 +69,7 @@ const sv = {
       const mesh = asteroids.meshes[0]
       if (!mesh) return false
       for (let i = 0; i < mesh.count; i++) {
-        if (!isRare(0, i)) continue
+        if (!isRare(0, i, rareSalt()) || rareTakenToday(`0-${i}`)) continue
         const at = new THREE.Vector3(0, 0, -6).applyQuaternion(ship.quaternion).add(ship.position)
         const type = (asteroids.types.get(mesh)?.[i] ?? 0) as 0 | 1 | 2
         for (const f of rockBreaks) f(type, 0.2, at, { shape: 0, index: i })
