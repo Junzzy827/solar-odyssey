@@ -15,6 +15,7 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    # 場面が増えて 30 分を超えるようになった（重力ジャンプ 2 場面を足した時点で約 31 分）
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4

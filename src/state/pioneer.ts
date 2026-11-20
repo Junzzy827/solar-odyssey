@@ -5,6 +5,8 @@ import { useStore } from './store'
 import { ui } from '../i18n'
 import {
   addToHold,
+  addTrip,
+  markBuilt,
   canPay,
   checkSave,
   holdCapacity,
@@ -38,7 +40,12 @@ type PioneerState = PioneerSave & {
   guide: boolean
   /** いまいる場所（採掘場・木星・天の湊のそば）。「いまやること」の言い方を変える */
   near: Near
+  /** 端末で開いているタブ（保存しない） */
+  tab: TerminalTab
 }
+
+export type TerminalTab = 'status' | 'route' | 'flow' | 'log'
+export const TERMINAL_TABS: readonly TerminalTab[] = ['status', 'route', 'flow', 'log']
 
 export type Near = 'field' | 'jupiter' | 'dock' | null
 
@@ -49,12 +56,16 @@ const needsName = (s: PioneerSave) => s.stage >= STAGE_COUNT && !s.colonyName
 
 export const usePioneer = create<PioneerState>(() => {
   const saved = slot.load()
-  return { ...saved, active: false, panel: false, builtAt: 0, naming: needsName(saved), guide: false, near: null, cinema: false }
+  return { log: [], trips: 0, ...saved, active: false, panel: false, builtAt: 0, naming: needsName(saved), guide: false, near: null, cinema: false, tab: 'status' }
 })
 
 function persist() {
-  const { v, hold, store, stage, colonyName, introSeen } = usePioneer.getState()
-  slot.save({ v, hold, store, stage, colonyName, introSeen })
+  const { v, hold, store, stage, colonyName, introSeen, log, trips } = usePioneer.getState()
+  slot.save({ v, hold, store, stage, colonyName, introSeen, log, trips })
+}
+
+export function setTab(tab: TerminalTab) {
+  usePioneer.setState({ tab })
 }
 
 const t = () => ui().pioneer
@@ -123,7 +134,7 @@ export function deliver() {
   const s = usePioneer.getState()
   if (!s.active || total(s.hold) === 0) return false
   const store = plus(s.store, s.hold)
-  usePioneer.setState({ store, hold: { ...NONE } })
+  usePioneer.setState({ store, hold: { ...NONE }, log: addTrip(s.log ?? [], s.hold, Date.now()), trips: (s.trips ?? 0) + 1 })
   fullWarned = false
   persist()
   const next = nextStage()
@@ -143,7 +154,7 @@ export function build() {
   const stage = s.stage + 1
   // 建設の場面へ（終わったら、完成なら名前を聞く）。文は場面の字幕で見せる
   cinemaClock.t = 0
-  usePioneer.setState({ store: pay(s.store, next.cost), stage, builtAt: Date.now(), naming: false, panel: false, cinema: true })
+  usePioneer.setState({ store: pay(s.store, next.cost), stage, builtAt: Date.now(), naming: false, panel: false, cinema: true, log: markBuilt(s.log ?? [], next.id) })
   persist()
   return true
 }
@@ -165,7 +176,7 @@ export function nameColony(name: string) {
 
 /** 最初からやり直す（倉庫・積み荷・段階を消す） */
 export function resetPioneer() {
-  usePioneer.setState({ ...NEW_SAVE, introSeen: true, builtAt: 0, naming: false, guide: false, cinema: false })
+  usePioneer.setState({ ...NEW_SAVE, introSeen: true, builtAt: 0, naming: false, guide: false, cinema: false, tab: 'status' })
   fullWarned = false
   persist()
 }

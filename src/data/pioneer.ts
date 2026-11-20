@@ -82,9 +82,23 @@ export type PioneerSave = {
   colonyName: string
   /** 初めての説明を見たか */
   introSeen: boolean
+  /** 納めた回の記録（新しいものが後ろ、LOG_MAX 回まで）。端末の「記録」のグラフに使う。古いセーブには無い */
+  log?: Trip[]
+  /** これまでに納めた回数（log より古い分も数える） */
+  trips?: number
 }
 
-export const NEW_SAVE: PioneerSave = { v: 1, hold: { ...NONE }, store: { ...NONE }, stage: 0, colonyName: '', introSeen: false }
+/** 1 回の納品。built は、この納品のあとに建てた段階 */
+export type Trip = { at: number; a: Amounts; built?: StageId[] }
+export const LOG_MAX = 30
+
+export const NEW_SAVE: PioneerSave = { v: 1, hold: { ...NONE }, store: { ...NONE }, stage: 0, colonyName: '', introSeen: false, log: [], trips: 0 }
+
+const STAGE_IDS = new Set<string>(['frame', 'hull', 'mirror', 'spin', 'air'])
+const isTrip = (t: unknown): t is Trip => {
+  const x = t as Trip
+  return !!x && Number.isFinite(x.at) && isAmounts(x.a) && (x.built === undefined || (Array.isArray(x.built) && x.built.every((b) => STAGE_IDS.has(b))))
+}
 
 const isAmounts = (a: unknown): a is Amounts =>
   !!a && typeof a === 'object' && RESOURCES.every((r) => Number.isFinite((a as Amounts)[r]) && (a as Amounts)[r] >= 0)
@@ -101,8 +115,55 @@ export function checkSave(v: unknown): v is PioneerSave {
     s.stage >= 0 &&
     s.stage <= STAGE_COUNT &&
     typeof s.colonyName === 'string' &&
-    typeof s.introSeen === 'boolean'
+    typeof s.introSeen === 'boolean' &&
+    (s.log === undefined || (Array.isArray(s.log) && s.log.every(isTrip))) &&
+    (s.trips === undefined || (Number.isInteger(s.trips) && s.trips >= 0))
   )
+}
+
+/** 納品を記録に足す（古いものは捨てる） */
+export function addTrip(log: readonly Trip[], a: Amounts, at: number): Trip[] {
+  return [...log, { at, a: { ...a } }].slice(-LOG_MAX)
+}
+
+/** 建てた段階を、いちばん新しい納品の記録に付ける（まだ納品が無ければそのまま） */
+export function markBuilt(log: readonly Trip[], id: StageId): Trip[] {
+  if (log.length === 0) return [...log]
+  const last = log[log.length - 1]
+  return [...log.slice(0, -1), { ...last, built: [...(last.built ?? []), id] }]
+}
+
+/** ここまでの段階で使った資源 */
+export function usedBy(stage: number): Amounts {
+  return STAGES.slice(0, stage).reduce((sum, st) => plus(sum, st.cost), { ...NONE })
+}
+
+/** 5 段階ぜんぶに要る資源 */
+export const ALL_COST: Amounts = usedBy(STAGES.length)
+
+/** 資源の流れ：集めた量 = 建設に使った + 倉庫 + 積み荷 */
+export function flow(s: Pick<PioneerSave, 'hold' | 'store' | 'stage'>) {
+  const used = usedBy(s.stage)
+  const gathered = plus(plus(used, s.store), s.hold)
+  return { used, gathered }
+}
+
+/** 全体の進み具合（0〜1）：建てた段階の資源と、倉庫・積み荷のうち次に使える分を、全部に要る量で割る */
+export function overallProgress(s: Pick<PioneerSave, 'hold' | 'store' | 'stage'>): number {
+  const all = total(ALL_COST)
+  if (all === 0) return 1
+  const left = shortfall(usedBy(s.stage), ALL_COST)
+  const have = plus(s.store, s.hold)
+  const useful = RESOURCES.reduce((n, r) => n + Math.min(have[r], left[r]), 0)
+  return Math.min(1, (total(usedBy(s.stage)) + useful) / all)
+}
+
+/** 記録のまとめ：回数、合計、1 回の平均、いちばん多かった回 */
+export function tripStats(log: readonly Trip[]) {
+  const sums = log.map((t) => total(t.a))
+  const sum = log.reduce((a, t) => plus(a, t.a), { ...NONE })
+  const best = sums.length ? Math.max(...sums) : 0
+  return { count: log.length, sum, average: sums.length ? Math.round(total(sum) / sums.length) : 0, best }
 }
 
 /** コロニーの名前の長さの上限（銘板に入る長さ） */

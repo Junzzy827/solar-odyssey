@@ -21,6 +21,26 @@ const desktop = { viewport: { width: 1280, height: 720 } }
 // Firefox は isMobile を使えないので、スマホは画面の大きさと指の操作だけまねる
 const phone = useFirefox ? { viewport: { width: 390, height: 664 }, hasTouch: true } : { ...devices['iPhone 13'], deviceScaleFactor: 1 }
 
+/** 月に降りてジャンプし、着地後の結果を確かめる */
+async function jumpScene(page) {
+  await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+  await page.evaluate(() => window.__sv.landing.start('moon'))
+  await sleep(3000)
+  await page.evaluate(() => window.__sv.landing.skip())
+  await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface', null, { timeout: 180000, polling: 500 })
+  await sleep(2000)
+  await visibleButton(page, '.jump-start')
+  await page.evaluate(() => {
+    window.__sv.jump.debug.freeze = 0
+    document.querySelector('.jump-start').click()
+  })
+  await page.waitForFunction(() => window.__sv.jump.state.getState().id === 'moon', null, { timeout: 30000 })
+  await page.evaluate(() => (window.__sv.jump.debug.freeze = 6))
+  await page.waitForFunction(() => window.__sv.jump.state.getState().landed, null, { timeout: 60000, polling: 300 })
+  await page.waitForFunction(() => document.querySelector('.jump-card .jump-result'), null, { timeout: 30000 })
+  for (const sel of ['.jump-card .jump-again', '.jump-card .jump-actions .secondary']) await visibleButton(page, sel)
+}
+
 /** 画面の 3D が描けているか（文字やボタンを消して撮る） */
 async function check3d(page, name, min = { std: 4, lit: 0.002 }) {
   await page.evaluate(() => document.documentElement.classList.add('clean-screen'))
@@ -205,6 +225,18 @@ const SCENARIOS = {
       for (const sel of ['.arrival .arr-more', '.arrival .arr-close']) await visibleButton(page, sel)
     },
   },
+  // 重力ジャンプ：月に降りて「ジャンプしてみる」を押すと跳び、着地すると結果（高さ・空中の時間）が出る（時間を止めて撮る）
+  jump: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => jumpScene(page),
+  },
+  // 重力ジャンプ（スマホ）：ボタンが押せて、結果の「もう一度」「閉じる」が隠れない
+  'jump-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => jumpScene(page),
+  },
   // SF の世界
   sf: { ctx: desktop, hash: '#debug&sf', settle: 8000 },
   // 火星の峡谷レース：着陸してレース場へ行き、スタートして 3・2・1 と表示が出ること、「レースをやめる」で自由走行に戻ること
@@ -257,6 +289,12 @@ const SCENARIOS = {
       await page.waitForFunction(() => window.__delivered, null, { timeout: 30000 })
       await page.click('.pio-open')
       await visibleButton(page, '.pio-quit')
+      // 端末の 4 つのタブ：それぞれの図が出る（納品 1 回ぶんの記録と流れがある）
+      for (const [tab, sel] of [['route', '.pio-map .pio-map-ship'], ['flow', '.pio-sankey .pio-band'], ['log', '.pio-bars .pio-tbar'], ['status', '.pio-donut']]) {
+        // 画面が重い（SwiftShader）と page.click の「止まるまで待つ」が 1 回 25 秒ほどかかるので、DOM で押す
+        await page.evaluate((id) => document.getElementById(`pio-tab-${id}`).click(), tab)
+        await page.waitForSelector(sel, { timeout: 15000 })
+      }
       await page.evaluate(() => {
         const p = window.__sv.pioneer
         p.give({ metal: 200, gas: 30 })
