@@ -36,6 +36,7 @@ import { weatherNow } from './components/surface/weather'
 import { useDiscovery, startScanner, stopScanner, openNote } from './state/discovery'
 import { closeToday, openToday, useToday } from './state/today'
 import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
+import { isRare } from './data/pioneer'
 import { arrivalDebug, closeArrival, showArrival, useArrival } from './state/arrival'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
@@ -62,6 +63,19 @@ const sv = {
     breakRock: (type: 0 | 1 | 2, size: number) => {
       const at = new THREE.Vector3(0, 0, -6).applyQuaternion(ship.quaternion).add(ship.position)
       for (const f of rockBreaks) f(type, size, at)
+    },
+    /** 自機の前で珍しい岩が砕けたことにする（何番目かは珍しい岩の 1 つを探す） */
+    breakRare: () => {
+      const mesh = asteroids.meshes[0]
+      if (!mesh) return false
+      for (let i = 0; i < mesh.count; i++) {
+        if (!isRare(0, i)) continue
+        const at = new THREE.Vector3(0, 0, -6).applyQuaternion(ship.quaternion).add(ship.position)
+        const type = (asteroids.types.get(mesh)?.[i] ?? 0) as 0 | 1 | 2
+        for (const f of rockBreaks) f(type, 0.2, at, { shape: 0, index: i })
+        return true
+      }
+      return false
     },
   },
   discovery: { state: useDiscovery, start: startScanner, stop: stopScanner, note: openNote, asteroids },

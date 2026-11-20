@@ -263,6 +263,14 @@ const SCENARIOS = {
         await page.evaluate((id) => document.getElementById(`pio-tab-${id}`).click(), tab)
         await page.waitForSelector(sel, { timeout: 15000 })
       }
+      // 珍しい岩：記録に残り、今日の依頼の記録がある
+      const rare = await page.evaluate(() => {
+        const p = window.__sv.pioneer
+        p.breakRare()
+        const st = p.state.getState()
+        return { rare: Object.values(st.rare).reduce((a, b) => a + b, 0), day: st.daily?.day }
+      })
+      if (rare.rare !== 1 || !rare.day) throw new Error(`pioneer: rare ${JSON.stringify(rare)}`)
       // 改造：倉庫の資源で積める量が増える
       const cap = await page.evaluate(() => {
         const p = window.__sv.pioneer

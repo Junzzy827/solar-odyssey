@@ -136,6 +136,7 @@ export function PioneerHud() {
             <em className="l-rich">{t.ringRich}</em>
             <em className="l-ice">{t.resource.ice}</em>
             <em className="l-far">{t.ringFar}</em>
+            <em className="l-rare">{t.rare.ring}</em>
           </span>
         ))}
       </div>

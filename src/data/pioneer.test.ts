@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addToHold, addTrip, ALL_COST, canPay, checkSave, flow, goal, holdCapacity, LOG_MAX, markBuilt, NEW_SAVE, NONE, overallProgress, pay, rockYield, shortfall, STAGE_COUNT, STAGES, total, tripStats, type Trip, shipTrait, TRAIT_SHIPS, magnetFactor, scoopFactor, UPGRADE_IDS, upgradeCost, MAX_LEVEL } from './pioneer'
+import { addToHold, addTrip, ALL_COST, canPay, checkSave, flow, goal, holdCapacity, LOG_MAX, markBuilt, NEW_SAVE, NONE, overallProgress, pay, rockYield, shortfall, STAGE_COUNT, STAGES, total, tripStats, type Trip, shipTrait, TRAIT_SHIPS, magnetFactor, scoopFactor, UPGRADE_IDS, upgradeCost, MAX_LEVEL, isRare, dailyFor, dailyProgress, today } from './pioneer'
 
 describe('pioneer rules', () => {
   it('fills the hold up to its capacity', () => {
@@ -128,5 +128,35 @@ describe('船の得意と改造', () => {
     expect(checkSave({ ...old, upgrades: { hold: 3, magnet: 0, scoop: 1 } })).toBe(true)
     expect(checkSave({ ...old, upgrades: { hold: 4, magnet: 0, scoop: 1 } })).toBe(false)
     expect(checkSave({ ...old, upgrades: { hold: 1 } })).toBe(false)
+  })
+})
+
+describe('珍しい岩と今日の依頼', () => {
+  it('珍しい岩はおよそ 40 個に 1 個で、同じ岩はいつも同じ', () => {
+    let n = 0
+    for (let i = 0; i < 4000; i++) if (isRare(0, i)) n++
+    expect(n).toBeGreaterThan(60)
+    expect(n).toBeLessThan(140)
+    expect(isRare(1, 123)).toBe(isRare(1, 123))
+  })
+  it('依頼は日付で決まる', () => {
+    expect(dailyFor('2026-11-20')).toEqual(dailyFor('2026-11-20'))
+    const kinds = new Set(Array.from({ length: 30 }, (_, i) => dailyFor(`2026-12-${String(i + 1).padStart(2, '0')}`).kind))
+    expect(kinds.size).toBeGreaterThan(3)
+    expect(today(new Date(2026, 0, 5))).toBe('2026-01-05')
+  })
+  it('依頼の進み', () => {
+    const a = { metal: 30, ice: 10, gas: 0 }
+    expect(dailyProgress({ kind: 'metal', target: 80, reward: NONE }, 10, { delivered: a })).toBe(40)
+    expect(dailyProgress({ kind: 'bigTrip', target: 50, reward: NONE }, 45, { delivered: a })).toBe(45)
+    expect(dailyProgress({ kind: 'trips', target: 3, reward: NONE }, 1, { delivered: a })).toBe(2)
+    expect(dailyProgress({ kind: 'rare', target: 1, reward: NONE }, 0, { delivered: a })).toBe(0)
+    expect(dailyProgress({ kind: 'rare', target: 1, reward: NONE }, 0, { rare: true })).toBe(1)
+  })
+  it('セーブの珍しい岩と依頼を確かめる', () => {
+    const old = { v: 1, hold: NONE, store: NONE, stage: 0, colonyName: '', introSeen: true }
+    expect(checkSave({ ...old, rare: { crystal: 1, olivine: 0, platinum: 2 }, daily: { day: '2026-11-20', progress: 3, done: false }, dailyDone: 4 })).toBe(true)
+    expect(checkSave({ ...old, daily: { day: 5, progress: 3, done: false } })).toBe(false)
+    expect(checkSave({ ...old, rare: { crystal: -1, olivine: 0, platinum: 0 } })).toBe(false)
   })
 })

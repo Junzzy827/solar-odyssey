@@ -43,6 +43,60 @@ const TRAITS: Record<ShipId, Partial<ShipTrait> & { strength: Strength }> = {
 export const shipTrait = (shipId: string): ShipTrait => ({ ...BASE, ...(TRAITS[shipId as ShipId] ?? { strength: 'hold' }) })
 export const TRAIT_SHIPS = Object.keys(TRAITS) as ShipId[]
 
+/** 珍しい岩：帯の岩のおよそ RARE_EVERY 個に 1 個。種類は岩の種類で決まる。砕くとたくさん取れて、記録に残る */
+export type RareId = 'crystal' | 'olivine' | 'platinum'
+export const RARE_IDS: readonly RareId[] = ['crystal', 'olivine', 'platinum']
+export const RARE_BY_TYPE: Record<RockType, RareId> = { 0: 'crystal', 1: 'olivine', 2: 'platinum' }
+export const RARE_BONUS: Record<RareId, { resource: Resource; amount: number }> = {
+  crystal: { resource: 'ice', amount: 40 },
+  olivine: { resource: 'metal', amount: 30 },
+  platinum: { resource: 'metal', amount: 50 },
+}
+export const RARE_EVERY = 40
+export const NO_RARE: Record<RareId, number> = { crystal: 0, olivine: 0, platinum: 0 }
+
+/** 決まった数から、ばらけた数を作る（同じ岩はいつも同じ答え） */
+function mix(n: number) {
+  let x = n | 0
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b)
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b)
+  return (x ^ (x >>> 16)) >>> 0
+}
+/** その岩（何番目の形の何番目）は珍しいか */
+export const isRare = (shape: number, index: number) => mix(shape * 7919 + index + 1) % RARE_EVERY === 0
+
+/** 今日の依頼：日付で決まる（同じ日なら誰でも同じ依頼）。果たすと倉庫にごほうび */
+export type DailyKind = 'metal' | 'ice' | 'gas' | 'bigTrip' | 'trips' | 'rare'
+export type DailyDef = { kind: DailyKind; target: number; reward: Amounts }
+export type DailyState = { day: string; progress: number; done: boolean }
+const DAILIES: readonly DailyDef[] = [
+  { kind: 'metal', target: 80, reward: { metal: 0, ice: 20, gas: 20 } },
+  { kind: 'ice', target: 50, reward: { metal: 30, ice: 0, gas: 10 } },
+  { kind: 'gas', target: 40, reward: { metal: 30, ice: 10, gas: 0 } },
+  { kind: 'bigTrip', target: 50, reward: { metal: 20, ice: 20, gas: 10 } },
+  { kind: 'trips', target: 3, reward: { metal: 25, ice: 15, gas: 15 } },
+  { kind: 'rare', target: 1, reward: { metal: 30, ice: 20, gas: 20 } },
+]
+/** その日の依頼（日付の文字 YYYY-MM-DD から） */
+export function dailyFor(day: string): DailyDef {
+  let h = 0
+  for (let i = 0; i < day.length; i++) h = Math.imul(h, 31) + day.charCodeAt(i)
+  return DAILIES[mix(h) % DAILIES.length]
+}
+/** 遊んでいる人の、その土地の今日 */
+export function today(d = new Date()) {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+/** 依頼の進み：納品・珍しい岩のたびに足す（bigTrip だけは 1 回の量のいちばん大きいもの） */
+export function dailyProgress(def: DailyDef, progress: number, e: { delivered?: Amounts; rare?: boolean }): number {
+  if (def.kind === 'rare') return progress + (e.rare ? 1 : 0)
+  if (!e.delivered) return progress
+  if (def.kind === 'trips') return progress + 1
+  if (def.kind === 'bigTrip') return Math.max(progress, total(e.delivered))
+  return progress + e.delivered[def.kind]
+}
+
 /** 船の改造（天の湊の倉庫の資源で買う。3 段まで） */
 export type UpgradeId = 'hold' | 'magnet' | 'scoop'
 export const UPGRADE_IDS: readonly UpgradeId[] = ['hold', 'magnet', 'scoop']
@@ -144,6 +198,12 @@ export type PioneerSave = {
   trips?: number
   /** 船の改造の段（0〜MAX_LEVEL）。古いセーブには無い */
   upgrades?: Upgrades
+  /** 見つけた珍しい岩の数 */
+  rare?: Record<RareId, number>
+  /** 今日の依頼の進み具合 */
+  daily?: DailyState
+  /** これまでに果たした依頼の数 */
+  dailyDone?: number
 }
 
 /** 1 回の納品。built は、この納品のあとに建てた段階 */
@@ -176,6 +236,10 @@ export function checkSave(v: unknown): v is PioneerSave {
     typeof s.introSeen === 'boolean' &&
     (s.log === undefined || (Array.isArray(s.log) && s.log.every(isTrip))) &&
     (s.trips === undefined || (Number.isInteger(s.trips) && s.trips >= 0)) &&
+    (s.rare === undefined || (!!s.rare && RARE_IDS.every((id) => Number.isInteger(s.rare![id]) && s.rare![id] >= 0))) &&
+    (s.daily === undefined ||
+      (!!s.daily && typeof s.daily.day === 'string' && Number.isFinite(s.daily.progress) && s.daily.progress >= 0 && typeof s.daily.done === 'boolean')) &&
+    (s.dailyDone === undefined || (Number.isInteger(s.dailyDone) && s.dailyDone >= 0)) &&
     (s.upgrades === undefined ||
       (!!s.upgrades && UPGRADE_IDS.every((id) => Number.isInteger(s.upgrades![id]) && s.upgrades![id] >= 0 && s.upgrades![id] <= MAX_LEVEL)))
   )

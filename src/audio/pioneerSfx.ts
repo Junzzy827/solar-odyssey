@@ -8,6 +8,7 @@ import type { Resource } from '../data/pioneer'
 // - 納品：上がっていく 4 音のチャイム
 // - いまやることが変わった：小さな 2 音
 // - 改造：カチッと組む音と、段の数だけ上がる音
+// - 珍しい岩：きらきら上がる音。今日の依頼：短いファンファーレ
 
 let master: GainNode | null = null
 function out(c: AudioContext) {
@@ -77,6 +78,28 @@ export function playUpgrade(level: number) {
   tone(c, 180, now, 0.08, 0.08, 'square')
   tone(c, 120, now + 0.06, 0.1, 0.06, 'square')
   for (let i = 0; i < level; i++) tone(c, 659.25 * 2 ** ((i * 4) / 12), now + 0.16 + i * 0.09, 0.35, 0.07, 'triangle')
+}
+
+/** 珍しい岩：きらきら上がっていく音 */
+export function playRare() {
+  const c = audio()
+  if (!c) return
+  const now = c.currentTime
+  ;[1046.5, 1318.5, 1568, 2093, 2637].forEach((f, i) => tone(c, f, now + i * 0.06, 0.5, 0.05, 'sine'))
+  tone(c, 523.25, now, 0.9, 0.06, 'triangle')
+}
+
+/** 今日の依頼を果たした：短いファンファーレ */
+export function playDaily() {
+  const c = audio()
+  if (!c) return
+  const now = c.currentTime
+  ;[
+    [523.25, 0],
+    [523.25, 0.12],
+    [783.99, 0.24],
+    [1046.5, 0.42],
+  ].forEach(([f, at]) => tone(c, f, now + at, 0.5, 0.08, 'triangle'))
 }
 
 /** いまやることが変わった */

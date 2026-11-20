@@ -250,6 +250,30 @@
   color: #e8ecf6;
   white-space: nowrap;
 }
+/* 珍しい岩：金色の二重の輪がゆっくり光る。名札はいつも出す */
+.pio-ring[data-rare='1'] {
+  border-color: #ffd86b;
+  border-width: 3px;
+  opacity: 1;
+  box-shadow:
+    0 0 0 3px rgba(255, 216, 107, 0.25),
+    0 0 14px rgba(255, 216, 107, 0.7);
+  animation: pio-rare 1.4s ease-in-out infinite;
+}
+@keyframes pio-rare {
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(255, 216, 107, 0.12),
+      0 0 22px rgba(255, 216, 107, 0.9);
+  }
+}
+.pio-ring[data-rare='1'] em {
+  display: none !important;
+}
+.pio-ring[data-rare='1'] .l-rare {
+  display: block !important;
+  color: #ffd86b;
+}
 .pio-ring[data-first='1'][data-reach='1'][data-res='metal'][data-rich='0'] .l-metal,
 .pio-ring[data-first='1'][data-reach='1'][data-res='metal'][data-rich='1'] .l-rich,
 .pio-ring[data-first='1'][data-reach='1'][data-res='ice'] .l-ice,
@@ -1620,4 +1644,84 @@ html.pio-cinema
 }
 .pio-tab-ship .pio-science + h3 {
   margin-top: 12px;
+}
+
+/* 珍しい岩・今日の依頼のカード */
+.pio-card-rare {
+  border-color: #ffd86b;
+  box-shadow: 0 0 24px rgba(255, 216, 107, 0.35);
+}
+.pio-card-rare > small:first-child,
+.pio-card-daily > small:first-child {
+  color: #ffd86b;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.pio-card-rare .pio-science {
+  max-width: 300px;
+  margin: 4px auto;
+}
+.pio-card-rare > small:last-child,
+.pio-card-daily > small:last-child {
+  font-size: 11px;
+  color: #aab6cc;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pio-ring[data-rare='1'] {
+    animation: none;
+  }
+}
+
+/* 今日の依頼 */
+.pio-daily {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 216, 107, 0.35);
+  background: rgba(255, 216, 107, 0.05);
+}
+.pio-daily.done {
+  border-color: rgba(143, 240, 164, 0.5);
+  background: rgba(143, 240, 164, 0.06);
+}
+.pio-daily-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.pio-daily-head small {
+  color: #ffd86b;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pio-daily-bar {
+  display: block;
+  height: 6px;
+  margin: 6px 0 4px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+.pio-daily-bar span {
+  display: block;
+  height: 100%;
+  background: #ffd86b;
+  transition: width 0.5s var(--pio-ease);
+}
+.pio-daily.done .pio-daily-bar span {
+  background: #8ff0a4;
+}
+.pio-daily-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+.pio-daily-foot .pio-cost small,
+.pio-daily-foot > small {
+  color: #aab6cc;
+}
+.pio-rares span {
+  background: rgba(255, 216, 107, 0.2);
 }

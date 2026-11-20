@@ -7,6 +7,11 @@ import {
   addToHold,
   addTrip,
   markBuilt,
+  dailyFor,
+  dailyProgress,
+  today,
+  NO_RARE,
+  type RareId,
   MAX_LEVEL,
   NO_UPGRADES,
   upgradeCost,
@@ -60,12 +65,12 @@ const needsName = (s: PioneerSave) => s.stage >= STAGE_COUNT && !s.colonyName
 
 export const usePioneer = create<PioneerState>(() => {
   const saved = slot.load()
-  return { log: [], trips: 0, ...saved, upgrades: { ...NO_UPGRADES, ...saved.upgrades }, active: false, panel: false, builtAt: 0, naming: needsName(saved), guide: false, near: null, cinema: false, tab: 'status' }
+  return { log: [], trips: 0, dailyDone: 0, ...saved, upgrades: { ...NO_UPGRADES, ...saved.upgrades }, rare: { ...NO_RARE, ...saved.rare }, active: false, panel: false, builtAt: 0, naming: needsName(saved), guide: false, near: null, cinema: false, tab: 'status' }
 })
 
 function persist() {
-  const { v, hold, store, stage, colonyName, introSeen, log, trips, upgrades } = usePioneer.getState()
-  slot.save({ v, hold, store, stage, colonyName, introSeen, log, trips, upgrades })
+  const { v, hold, store, stage, colonyName, introSeen, log, trips, upgrades, rare, daily, dailyDone } = usePioneer.getState()
+  slot.save({ v, hold, store, stage, colonyName, introSeen, log, trips, upgrades, rare, daily, dailyDone })
 }
 
 export function setTab(tab: TerminalTab) {
@@ -86,6 +91,7 @@ export function startPioneer() {
   if (st.settings.world !== 'sf') return
   // 初めてなら遊び方の案内。2 回目からは「いまやること」のカードだけ（端末はカードのボタンから）
   usePioneer.setState((p) => ({ active: true, panel: false, naming: needsName(p), guide: !p.introSeen }))
+  ensureDaily()
   st.showToast(t().started)
 }
 
@@ -146,6 +152,7 @@ export function deliver() {
   const ready = next && canPay(store, next.cost)
   // 納品は画面の演出（数字が増えていくカード）で見せる。読み上げ用に文も渡す
   emitPioneerFx({ kind: 'deliver', amounts: s.hold, ready: !!ready })
+  advanceDaily({ delivered: s.hold })
   return true
 }
 
@@ -162,6 +169,44 @@ export function build() {
   usePioneer.setState({ store: pay(s.store, next.cost), stage, builtAt: Date.now(), naming: false, panel: false, cinema: true, log: markBuilt(s.log ?? [], next.id) })
   persist()
   return true
+}
+
+/** 今日の依頼の記録を、今日のものにする（日付が変わったら新しい依頼） */
+export function ensureDaily() {
+  const day = today()
+  const d = usePioneer.getState().daily
+  if (d?.day === day) return d
+  const fresh = { day, progress: 0, done: false }
+  usePioneer.setState({ daily: fresh })
+  persist()
+  return fresh
+}
+
+/** 今日の依頼を進める。果たしたら倉庫にごほうびを入れて知らせる */
+export function advanceDaily(e: { delivered?: Amounts; rare?: boolean }) {
+  const d = ensureDaily()
+  if (d.done) return
+  const def = dailyFor(d.day)
+  const progress = dailyProgress(def, d.progress, e)
+  if (progress === d.progress) return
+  const done = progress >= def.target
+  const s = usePioneer.getState()
+  usePioneer.setState({
+    daily: { ...d, progress: Math.min(progress, def.target), done },
+    ...(done ? { store: plus(s.store, def.reward), dailyDone: (s.dailyDone ?? 0) + 1 } : {}),
+  })
+  persist()
+  if (done) emitPioneerFx({ kind: 'daily', reward: def.reward })
+}
+
+/** 珍しい岩を砕いた（記録に足し、依頼を進める）。かけらは PioneerScene が出す */
+export function foundRare(id: RareId) {
+  const s = usePioneer.getState()
+  if (!s.active) return
+  usePioneer.setState({ rare: { ...NO_RARE, ...s.rare, [id]: (s.rare?.[id] ?? 0) + 1 } })
+  persist()
+  emitPioneerFx({ kind: 'rare', id })
+  advanceDaily({ rare: true })
 }
 
 /** 倉庫の資源で船を改造する（1 段上げる）。買えたら true */

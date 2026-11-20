@@ -2,13 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import { ui } from '../../i18n'
 import { gasFx, onPioneerFx, shipOnScreen } from '../../state/pioneerFx'
 import { togglePanel } from '../../state/pioneer'
-import { playDeliver, playUpgrade, playFull, playPickup, startGasWind } from '../../audio/pioneerSfx'
-import { RESOURCES, type Amounts, type Resource } from '../../data/pioneer'
+import { playDaily, playDeliver, playRare, playUpgrade, playFull, playPickup, startGasWind } from '../../audio/pioneerSfx'
+import { RARE_BONUS, RESOURCES, type Amounts, type RareId, type Resource } from '../../data/pioneer'
+import { usePioneer } from '../../state/pioneer'
 
 // 開拓の手応え：拾った量の数字（船のそばから浮かぶ）、積み荷のゲージのはね、
-// いっぱいのゆれ、納品のカード（数字が増えていく）、ガスの風の音
+// いっぱいのゆれ、納品・珍しい岩・今日の依頼のカード（数字が増えていく）、ガスの風の音
 
 type Pop = { id: number; resource: Resource; amount: number; x: number; y: number; born: number }
+/** 画面の真ん中に少し出るカード（納品・珍しい岩・今日の依頼）。重なったら順に出す */
+type Card = { id: number } & ({ kind: 'deliver'; amounts: Amounts; ready: boolean } | { kind: 'rare'; rare: RareId; count: number } | { kind: 'daily'; reward: Amounts })
 
 /** 同じ資源をこの時間内に続けて拾ったら、1 つの数字にまとめる（ミリ秒） */
 const MERGE_MS = 400
@@ -42,9 +45,30 @@ function CountUp({ to, ms = 900 }: { to: number; ms?: number }) {
   return <>{v}</>
 }
 
+/** 資源ごとの「+数」の行（数は増えていく） */
+function Rows({ amounts }: { amounts: Amounts }) {
+  const t = ui().pioneer
+  return (
+    <div className="pio-delivery-rows">
+      {RESOURCES.filter((r) => amounts[r] > 0).map((r) => (
+        <span key={r} className="pio-delivery-row">
+          <i className={`pio-dot pio-${r}`} />
+          {t.resource[r]}
+          <b>
+            {t.term.plusSign}
+            <CountUp to={amounts[r]} />
+          </b>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export function PioneerFx() {
   const [pops, setPops] = useState<Pop[]>([])
-  const [delivery, setDelivery] = useState<{ id: number; amounts: Amounts; ready: boolean } | null>(null)
+  const [cards, setCards] = useState<Card[]>([])
+  const delivery = cards[0] ?? null
+  const shift = () => setCards((l) => l.slice(1))
   const ids = useRef(0)
 
   useEffect(
@@ -67,9 +91,16 @@ export function PioneerFx() {
           bumpHold('full')
         } else if (e.kind === 'upgrade') {
           playUpgrade(e.level)
+        } else if (e.kind === 'rare') {
+          playRare()
+          const count = usePioneer.getState().rare?.[e.id] ?? 1
+          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'rare', rare: e.id, count }])
+        } else if (e.kind === 'daily') {
+          playDaily()
+          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'daily', reward: e.reward }])
         } else {
           playDeliver()
-          setDelivery({ id: ++ids.current, amounts: e.amounts, ready: e.ready })
+          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'deliver', amounts: e.amounts, ready: e.ready }])
         }
       }),
     [],
@@ -84,7 +115,7 @@ export function PioneerFx() {
 
   useEffect(() => {
     if (!delivery) return
-    const timer = window.setTimeout(() => setDelivery(null), DELIVER_MS)
+    const timer = window.setTimeout(shift, DELIVER_MS)
     return () => window.clearTimeout(timer)
   }, [delivery])
 
@@ -117,32 +148,39 @@ export function PioneerFx() {
           </span>
         ))}
       </div>
-      {delivery && (
+      {delivery?.kind === 'deliver' && (
         <div key={delivery.id} className="pio-delivery" role="status" aria-label={t.delivered(delivery.amounts, delivery.ready)}>
           <h3>{t.deliveredTitle}</h3>
-          <div className="pio-delivery-rows">
-            {RESOURCES.filter((r) => delivery.amounts[r] > 0).map((r) => (
-              <span key={r} className="pio-delivery-row">
-                <i className={`pio-dot pio-${r}`} />
-                {t.resource[r]}
-                <b>
-                  +<CountUp to={delivery.amounts[r]} />
-                </b>
-              </span>
-            ))}
-          </div>
+          <Rows amounts={delivery.amounts} />
           {delivery.ready && (
             <button
               type="button"
               className="pio-build"
               onClick={() => {
-                setDelivery(null)
+                shift()
                 togglePanel(true)
               }}
             >
               {t.readyToBuild}
             </button>
           )}
+        </div>
+      )}
+      {delivery?.kind === 'rare' && (
+        <div key={delivery.id} className="pio-delivery pio-card-rare" role="status">
+          <small>{t.rare.found}</small>
+          <h3>{t.rare.name[delivery.rare]}</h3>
+          <Rows amounts={{ metal: 0, ice: 0, gas: 0, [RARE_BONUS[delivery.rare].resource]: RARE_BONUS[delivery.rare].amount }} />
+          <p className="pio-science">{t.rare.science[delivery.rare]}</p>
+          <small>{t.rare.count(delivery.count)}</small>
+        </div>
+      )}
+      {delivery?.kind === 'daily' && (
+        <div key={delivery.id} className="pio-delivery pio-card-daily" role="status">
+          <small>{t.daily.title}</small>
+          <h3>{t.daily.doneTitle}</h3>
+          <Rows amounts={delivery.reward} />
+          <small>{t.daily.rewardNote}</small>
         </div>
       )}
     </>

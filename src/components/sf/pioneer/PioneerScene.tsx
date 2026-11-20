@@ -6,10 +6,10 @@ import { ship, standoff, thrustFx } from '../../../state/flight'
 import { proximity } from '../../../state/proximity'
 import { useStore } from '../../../state/store'
 import { shipScale } from '../../../state/zoom'
-import { capacity, collect, deliver, setNear, upgradeLevel, usePioneer, type Near } from '../../../state/pioneer'
+import { capacity, collect, deliver, foundRare, setNear, upgradeLevel, usePioneer, type Near } from '../../../state/pioneer'
 import { gasFx, shipOnScreen } from '../../../state/pioneerFx'
 import { BuildCinema } from './BuildCinema'
-import { FIELD_ID, GAS_BAND, rockResource, goal, RING_COUNT, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, magnetFactor, scoopFactor, shipTrait, type Resource } from '../../../data/pioneer'
+import { FIELD_ID, GAS_BAND, rockResource, goal, RING_COUNT, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, magnetFactor, scoopFactor, shipTrait, isRare, RARE_BONUS, RARE_BY_TYPE, type Resource } from '../../../data/pioneer'
 import { DOCK_ID } from '../../../data/sf'
 import { ui } from '../../../i18n'
 
@@ -44,7 +44,9 @@ const FIELD_NEAR = 10
 /** その場所から出たとするのは、入る距離のこの倍から */
 const LEAVE = 1.3
 
-type Mark = { mesh: THREE.InstancedMesh; index: number; type: 0 | 1 | 2 }
+type Mark = { mesh: THREE.InstancedMesh; index: number; type: 0 | 1 | 2; rare: boolean }
+/** この遊びのあいだに砕いた珍しい岩（帯の岩はまた現れるので、同じ岩で何度も取らないように） */
+const rareTaken = new Set<string>()
 
 const tmp = new THREE.Vector3()
 const rockPos = new THREE.Vector3()
@@ -85,14 +87,21 @@ export function PioneerScene() {
 
   // 砕けた岩から、資源のかけらを出す
   useEffect(() => {
-    const onBreak = (type: 0 | 1 | 2, size: number, at: THREE.Vector3) => {
+    const onBreak = (type: 0 | 1 | 2, size: number, at: THREE.Vector3, rock?: { shape: number; index: number }) => {
       if (!usePioneer.getState().active) return
-      const got = rockYield(type, size)
+      // 珍しい岩：たくさん取れて記録に残る（同じ岩は、遊んでいるあいだ 1 回だけ）
+      const key = rock ? `${rock.shape}-${rock.index}` : ''
+      const rare = !!rock && rock.shape >= 0 && isRare(rock.shape, rock.index) && !rareTaken.has(key)
+      if (rare) {
+        rareTaken.add(key)
+        foundRare(RARE_BY_TYPE[type])
+      }
+      const got = rare ? RARE_BONUS[RARE_BY_TYPE[type]] : rockYield(type, size)
       const resource = got.resource
       // 船の得意：かけらが多く取れる
       const amount = Math.round(got.amount * shipTrait(useStore.getState().settings.ship).yield)
-      // 1 個の岩から 1〜3 個のかけら（合計は amount）
-      const n = Math.min(3, Math.max(1, Math.round(amount / 5)))
+      // 1 個の岩から 1〜3 個のかけら（珍しい岩は 5 個。合計は amount）
+      const n = rare ? 5 : Math.min(3, Math.max(1, Math.round(amount / 5)))
       const now = performance.now() / 1000
       for (let i = 0; i < n; i++) {
         const v = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(0.3 + Math.random() * 0.4)
@@ -138,7 +147,8 @@ export function PioneerScene() {
       const far2 = (range * 1.6) ** 2
       const found = s.found
       found.length = 0
-      for (const mesh of asteroids.meshes) {
+      for (let shape = 0; shape < asteroids.meshes.length; shape++) {
+        const mesh = asteroids.meshes[shape]
         const types = asteroids.types.get(mesh)
         const arr = mesh.instanceMatrix.array as Float32Array
         for (let i = 0; i < mesh.count; i++) {
@@ -152,9 +162,11 @@ export function PioneerScene() {
           const type = (types?.[i] ?? 0) as 0 | 1 | 2
           // 集めたい資源の岩は、遠くても先に選ぶ（金属の岩は帯の 4 分の 1 しかない）
           const wanted = !want || rockResource(type) === want
-          if (!wanted && d > range) continue
+          // 珍しい岩は、集めたい資源でなくても遠くから先に輪を付ける
+          const rare = isRare(shape, i) && !rareTaken.has(`${shape}-${i}`)
+          if (!wanted && !rare && d > range) continue
           if (tmp.copy(rockPos).sub(camera.position).dot(camDir) <= 0) continue
-          found.push({ mesh, index: i, type, score: wanted ? d * 0.4 : d })
+          found.push({ mesh, index: i, type, rare, score: rare ? d * 0.2 : wanted ? d * 0.4 : d })
         }
       }
       found.sort((a, b) => a.score - b.score)
@@ -189,6 +201,7 @@ export function PioneerScene() {
       el.dataset.reach = d < reach ? '1' : '0'
       el.dataset.want = !want || want === res ? '1' : '0'
       el.dataset.first = k === 0 ? '1' : '0'
+      el.dataset.rare = mk.rare && !rareTaken.has(`${asteroids.meshes.indexOf(mk.mesh)}-${mk.index}`) ? '1' : '0'
     }
   }
 
