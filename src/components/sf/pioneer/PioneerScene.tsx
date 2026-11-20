@@ -6,10 +6,10 @@ import { ship, standoff, thrustFx } from '../../../state/flight'
 import { proximity } from '../../../state/proximity'
 import { useStore } from '../../../state/store'
 import { shipScale } from '../../../state/zoom'
-import { collect, deliver, setNear, usePioneer, type Near } from '../../../state/pioneer'
+import { capacity, collect, deliver, setNear, upgradeLevel, usePioneer, type Near } from '../../../state/pioneer'
 import { gasFx, shipOnScreen } from '../../../state/pioneerFx'
 import { BuildCinema } from './BuildCinema'
-import { FIELD_ID, GAS_BAND, holdCapacity, rockResource, goal, RING_COUNT, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, type Resource } from '../../../data/pioneer'
+import { FIELD_ID, GAS_BAND, rockResource, goal, RING_COUNT, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, magnetFactor, scoopFactor, shipTrait, type Resource } from '../../../data/pioneer'
 import { DOCK_ID } from '../../../data/sf'
 import { ui } from '../../../i18n'
 
@@ -59,7 +59,7 @@ const sc = new THREE.Vector3()
 /** いま集めたい資源（「いまやること」が採掘のとき）。輪のうち、それ以外を薄くする */
 function goalResource(): Resource | null {
   const p = usePioneer.getState()
-  const g = goal(p, holdCapacity(useStore.getState().settings.ship))
+  const g = goal(p, capacity())
   return g.kind === 'mine' ? g.resource : null
 }
 
@@ -87,7 +87,10 @@ export function PioneerScene() {
   useEffect(() => {
     const onBreak = (type: 0 | 1 | 2, size: number, at: THREE.Vector3) => {
       if (!usePioneer.getState().active) return
-      const { resource, amount } = rockYield(type, size)
+      const got = rockYield(type, size)
+      const resource = got.resource
+      // 船の得意：かけらが多く取れる
+      const amount = Math.round(got.amount * shipTrait(useStore.getState().settings.ship).yield)
       // 1 個の岩から 1〜3 個のかけら（合計は amount）
       const n = Math.min(3, Math.max(1, Math.round(amount / 5)))
       const now = performance.now() / 1000
@@ -130,7 +133,9 @@ export function PioneerScene() {
       s.ringClock = 0
       camera.getWorldDirection(camDir)
       const want = (s.want = goalResource())
-      const far2 = (RING_RANGE * 1.6) ** 2
+      // 船の得意：調査船は遠くの岩まで見分ける
+      const range = RING_RANGE * shipTrait(useStore.getState().settings.ship).scan
+      const far2 = (range * 1.6) ** 2
       const found = s.found
       found.length = 0
       for (const mesh of asteroids.meshes) {
@@ -147,7 +152,7 @@ export function PioneerScene() {
           const type = (types?.[i] ?? 0) as 0 | 1 | 2
           // 集めたい資源の岩は、遠くても先に選ぶ（金属の岩は帯の 4 分の 1 しかない）
           const wanted = !want || rockResource(type) === want
-          if (!wanted && d > RING_RANGE) continue
+          if (!wanted && d > range) continue
           if (tmp.copy(rockPos).sub(camera.position).dot(camDir) <= 0) continue
           found.push({ mesh, index: i, type, score: wanted ? d * 0.4 : d })
         }
@@ -226,7 +231,9 @@ export function PioneerScene() {
     const now = performance.now() / 1000
     const unit = shipScale()
     const list = ores.current
-    const full = total(usePioneer.getState().hold) >= holdCapacity(st.settings.ship)
+    const full = total(usePioneer.getState().hold) >= capacity()
+    // 船の得意と改造：吸い寄せる距離
+    const magnet = magnetFactor(st.settings.ship, upgradeLevel('magnet'))
     s.spin += dt * 2
     let w = 0
     for (let i = 0; i < list.length; i++) {
@@ -241,9 +248,9 @@ export function PioneerScene() {
         o.amount -= got
         if (o.amount <= 0) continue
       }
-      if (room && d < ATTRACT && st.warpPhase === 'idle' && now - o.born > 0.6) {
+      if (room && d < ATTRACT * magnet && st.warpPhase === 'idle' && now - o.born > 0.6) {
         // 近いほど速く（遠くからでも数秒で届く）
-        const pull = 4 + (ATTRACT - d) * 0.9
+        const pull = 4 + Math.max(0, ATTRACT * magnet - d) * 0.9
         o.vel.lerp(tmp.multiplyScalar(pull / d), Math.min(1, dt * 3))
       } else o.vel.multiplyScalar(1 - Math.min(1, dt * 0.5))
       o.pos.addScaledVector(o.vel, dt)
@@ -307,7 +314,7 @@ export function PioneerScene() {
             s.gasNotice = true
             st.showToast(ui().pioneer.gasSkimming)
           }
-          s.gasCarry += GAS_RATE * dt
+          s.gasCarry += GAS_RATE * scoopFactor(st.settings.ship, upgradeLevel('scoop')) * dt
           if (s.gasCarry >= 1) {
             const n = Math.floor(s.gasCarry)
             s.gasCarry -= n

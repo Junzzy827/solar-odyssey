@@ -7,6 +7,10 @@ import {
   addToHold,
   addTrip,
   markBuilt,
+  MAX_LEVEL,
+  NO_UPGRADES,
+  upgradeCost,
+  type UpgradeId,
   canPay,
   checkSave,
   holdCapacity,
@@ -44,8 +48,8 @@ type PioneerState = PioneerSave & {
   tab: TerminalTab
 }
 
-export type TerminalTab = 'status' | 'route' | 'flow' | 'log'
-export const TERMINAL_TABS: readonly TerminalTab[] = ['status', 'route', 'flow', 'log']
+export type TerminalTab = 'status' | 'route' | 'flow' | 'log' | 'ship'
+export const TERMINAL_TABS: readonly TerminalTab[] = ['status', 'route', 'flow', 'log', 'ship']
 
 export type Near = 'field' | 'jupiter' | 'dock' | null
 
@@ -56,12 +60,12 @@ const needsName = (s: PioneerSave) => s.stage >= STAGE_COUNT && !s.colonyName
 
 export const usePioneer = create<PioneerState>(() => {
   const saved = slot.load()
-  return { log: [], trips: 0, ...saved, active: false, panel: false, builtAt: 0, naming: needsName(saved), guide: false, near: null, cinema: false, tab: 'status' }
+  return { log: [], trips: 0, ...saved, upgrades: { ...NO_UPGRADES, ...saved.upgrades }, active: false, panel: false, builtAt: 0, naming: needsName(saved), guide: false, near: null, cinema: false, tab: 'status' }
 })
 
 function persist() {
-  const { v, hold, store, stage, colonyName, introSeen, log, trips } = usePioneer.getState()
-  slot.save({ v, hold, store, stage, colonyName, introSeen, log, trips })
+  const { v, hold, store, stage, colonyName, introSeen, log, trips, upgrades } = usePioneer.getState()
+  slot.save({ v, hold, store, stage, colonyName, introSeen, log, trips, upgrades })
 }
 
 export function setTab(tab: TerminalTab) {
@@ -70,7 +74,8 @@ export function setTab(tab: TerminalTab) {
 
 const t = () => ui().pioneer
 
-export const capacity = () => holdCapacity(useStore.getState().settings.ship)
+export const capacity = () => holdCapacity(useStore.getState().settings.ship, usePioneer.getState().upgrades?.hold ?? 0)
+export const upgradeLevel = (id: UpgradeId) => usePioneer.getState().upgrades?.[id] ?? 0
 export const pioneerActive = () => usePioneer.getState().active
 export const nextStage = () => STAGES[usePioneer.getState().stage] ?? null
 export const finished = () => usePioneer.getState().stage >= STAGE_COUNT
@@ -156,6 +161,20 @@ export function build() {
   cinemaClock.t = 0
   usePioneer.setState({ store: pay(s.store, next.cost), stage, builtAt: Date.now(), naming: false, panel: false, cinema: true, log: markBuilt(s.log ?? [], next.id) })
   persist()
+  return true
+}
+
+/** 倉庫の資源で船を改造する（1 段上げる）。買えたら true */
+export function buyUpgrade(id: UpgradeId) {
+  const s = usePioneer.getState()
+  const level = s.upgrades?.[id] ?? 0
+  const cost = upgradeCost(id, level)
+  if (!s.active || !cost || level >= MAX_LEVEL || !canPay(s.store, cost)) return false
+  usePioneer.setState({ store: pay(s.store, cost), upgrades: { ...NO_UPGRADES, ...s.upgrades, [id]: level + 1 } })
+  // 積める量が増えたら、また「いっぱい」と知らせられるように
+  if (id === 'hold') fullWarned = false
+  persist()
+  emitPioneerFx({ kind: 'upgrade', id, level: level + 1 })
   return true
 }
 

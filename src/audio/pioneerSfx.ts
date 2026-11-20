@@ -7,6 +7,7 @@ import type { Resource } from '../data/pioneer'
 // - ガス：雲をかすめているあいだの、やわらかい風の音
 // - 納品：上がっていく 4 音のチャイム
 // - いまやることが変わった：小さな 2 音
+// - 改造：カチッと組む音と、段の数だけ上がる音
 
 let master: GainNode | null = null
 function out(c: AudioContext) {
@@ -66,6 +67,16 @@ export function playDeliver() {
     tone(c, f, now + i * 0.11, 0.6, 0.08, 'triangle')
     tone(c, f * 3, now + i * 0.11, 0.25, 0.015)
   })
+}
+
+/** 船を改造した：機械が組み上がる「カチッ」と、段の数だけ上がる音 */
+export function playUpgrade(level: number) {
+  const c = audio()
+  if (!c) return
+  const now = c.currentTime
+  tone(c, 180, now, 0.08, 0.08, 'square')
+  tone(c, 120, now + 0.06, 0.1, 0.06, 'square')
+  for (let i = 0; i < level; i++) tone(c, 659.25 * 2 ** ((i * 4) / 12), now + 0.16 + i * 0.09, 0.35, 0.07, 'triangle')
 }
 
 /** いまやることが変わった */

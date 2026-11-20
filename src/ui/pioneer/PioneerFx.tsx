@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ui } from '../../i18n'
 import { gasFx, onPioneerFx, shipOnScreen } from '../../state/pioneerFx'
 import { togglePanel } from '../../state/pioneer'
-import { playDeliver, playFull, playPickup, startGasWind } from '../../audio/pioneerSfx'
+import { playDeliver, playUpgrade, playFull, playPickup, startGasWind } from '../../audio/pioneerSfx'
 import { RESOURCES, type Amounts, type Resource } from '../../data/pioneer'
 
 // 開拓の手応え：拾った量の数字（船のそばから浮かぶ）、積み荷のゲージのはね、
@@ -65,6 +65,8 @@ export function PioneerFx() {
         } else if (e.kind === 'full') {
           playFull()
           bumpHold('full')
+        } else if (e.kind === 'upgrade') {
+          playUpgrade(e.level)
         } else {
           playDeliver()
           setDelivery({ id: ++ids.current, amounts: e.amounts, ready: e.ready })

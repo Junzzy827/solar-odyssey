@@ -49,7 +49,7 @@ export function PioneerHud() {
   const p = usePioneer()
   const shipId = useStore((s) => s.settings.ship)
   const t = ui().pioneer
-  const cap = holdCapacity(shipId)
+  const cap = holdCapacity(shipId, p.upgrades?.hold ?? 0)
   const g = goal(p, cap)
   const s = step(g, p.near, p.colonyName)
   const next = STAGES[p.stage] ?? null

@@ -258,10 +258,19 @@ const SCENARIOS = {
       await page.click('.pio-open')
       await visibleButton(page, '.pio-quit')
       // 端末の 4 つのタブ：それぞれの図が出る（納品 1 回ぶんの記録と流れがある）
-      for (const [tab, sel] of [['route', '.pio-map .pio-map-ship'], ['flow', '.pio-sankey .pio-band'], ['log', '.pio-bars .pio-tbar'], ['status', '.pio-donut']]) {
-        await page.click(`#pio-tab-${tab}`)
+      for (const [tab, sel] of [['route', '.pio-map .pio-map-ship'], ['flow', '.pio-sankey .pio-band'], ['log', '.pio-bars .pio-tbar'], ['ship', '.pio-upgrade'], ['status', '.pio-donut']]) {
+        // 画面が重い（SwiftShader）と page.click の「止まるまで待つ」が 30 秒を超えるので、DOM で押す
+        await page.evaluate((id) => document.getElementById(`pio-tab-${id}`).click(), tab)
         await page.waitForSelector(sel, { timeout: 15000 })
       }
+      // 改造：倉庫の資源で積める量が増える
+      const cap = await page.evaluate(() => {
+        const p = window.__sv.pioneer
+        p.give({ metal: 30 })
+        if (!p.upgrade('hold')) return -1
+        return p.state.getState().upgrades.hold
+      })
+      if (cap !== 1) throw new Error(`pioneer: upgrade level ${cap}, expected 1`)
       await page.evaluate(() => {
         const p = window.__sv.pioneer
         p.give({ metal: 200, gas: 30 })
