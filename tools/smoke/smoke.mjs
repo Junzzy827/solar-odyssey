@@ -12,7 +12,10 @@ const args = process.argv.slice(2)
 const outAt = args.indexOf('--out')
 const outDir = outAt >= 0 ? args[outAt + 1] : 'smoke-shots'
 const useFirefox = args.includes('--firefox')
-const wanted = args.filter((a, i) => !a.startsWith('--') && (outAt < 0 || i !== outAt + 1))
+// --shard i/n：場面の一覧を n 個に分けた i 番目（1 から）だけ動かす。CI で並べて走らせて、1 本 30 分の壁を越えないようにする
+const shardAt = args.indexOf('--shard')
+const shard = shardAt >= 0 ? args[shardAt + 1].split('/').map(Number) : null
+const wanted = args.filter((a, i) => !a.startsWith('--') && (outAt < 0 || i !== outAt + 1) && (shardAt < 0 || i !== shardAt + 1))
 const DIST = process.env.DIST ?? new URL('../../dist/', import.meta.url).pathname
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -373,7 +376,11 @@ const browser = useFirefox
     await firefox.launch({ headless: !process.env.DISPLAY, firefoxUserPrefs: { 'webgl.force-enabled': true, 'webgl.disabled': false } })
   : await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] })
 const failures = []
-for (const name of wanted.length ? wanted : Object.keys(SCENARIOS)) {
+const all = wanted.length ? wanted : Object.keys(SCENARIOS)
+// 重い場面（歩く・SF）が一つの組に固まらないよう、順に配る
+const names = shard ? all.filter((_, i) => i % shard[1] === shard[0] - 1) : all
+if (shard) console.log(`shard ${shard[0]}/${shard[1]}: ${names.join(' ')}`)
+for (const name of names) {
   const sc = SCENARIOS[name]
   const t0 = Date.now()
   const ctx = await browser.newContext(sc.ctx)
