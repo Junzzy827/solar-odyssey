@@ -14,6 +14,8 @@ import { useLang } from '../i18n/lang'
 import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
 import { ui } from '../i18n'
+import { hasCard } from '../data/bodyCards'
+import { openBodyCard } from '../state/bodyCards'
 
 const TOTAL = 1 + PLANETS.reduce((n, p) => n + 1 + p.moons.length, 0)
 const NEAR = 10
@@ -124,6 +126,11 @@ export function LogPanel() {
             ))}
           </ul>
         </div>
+      )}
+      {hasCard(targetId) && (
+        <button className="secondary card-open" onClick={() => openBodyCard(targetId)} title={ui().bodyCards.openHint}>
+          📇 {ui().bodyCards.open}
+        </button>
       )}
       {isTelescope(targetId) && (
         <button className="secondary scope-open" onClick={() => openScope(targetId)} disabled={scopeNear !== targetId}>

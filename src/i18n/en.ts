@@ -31,6 +31,7 @@ import { navPanelEn } from './navPanel.en'
 import { observeEn } from './observe.en'
 import { observePanelEn } from './observePanel.en'
 import { photoNoteEn } from './photoNote.en'
+import { saveDataEn } from './saveData.en'
 import { probePanelEn } from './probePanel.en'
 import { probeSceneEn } from './probeScene.en'
 import { quizEn } from './quiz.en'
@@ -40,6 +41,7 @@ import { racePanelEn } from './racePanel.en'
 import { rallyHiscoreEn } from './rallyHiscore.en'
 import { rallyPanelEn } from './rallyPanel.en'
 import { rockBookEn } from './rockBook.en'
+import { bodyCardsEn } from './bodyCards.en'
 import { roverHudEn } from './roverHud.en'
 import { scaleToggleEn } from './scaleToggle.en'
 import { sfEn } from './sf.en'
@@ -183,6 +185,7 @@ export const en: Translation<typeof ja> = {
   observe: observeEn,
   observePanel: observePanelEn,
   photoNote: photoNoteEn,
+  saveData: saveDataEn,
   probePanel: probePanelEn,
   probeScene: probeSceneEn,
   quiz: quizEn,
@@ -192,6 +195,7 @@ export const en: Translation<typeof ja> = {
   rallyHiscore: rallyHiscoreEn,
   rallyPanel: rallyPanelEn,
   rockBook: rockBookEn,
+  bodyCards: bodyCardsEn,
   roverHud: roverHudEn,
   scaleToggle: scaleToggleEn,
   sf: sfEn,

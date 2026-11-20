@@ -65,8 +65,40 @@ const SCENARIOS = {
       for (const sel of ['.launch-button', '.gallery-button', '.mode-button', '.bridge-button', '.eva-button']) await visibleButton(page, sel)
     },
   },
+  // 共通のセーブ：前の版のキー（solar-voyager:settings、起動の前に入れたもの）が引き継がれ、セーブデータ画面に出る
+  save: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('solar-odyssey:save') ?? 'null'))
+      if (!saved || saved.app !== 'solar-odyssey' || !saved.data?.settings) throw new Error(`save not migrated: ${JSON.stringify(saved)?.slice(0, 200)}`)
+      await page.evaluate(() => document.querySelector('.save-data')?.setAttribute('open', ''))
+      await page.evaluate(() => document.querySelector('.save-data')?.scrollIntoView())
+      await sleep(500)
+      await visibleButton(page, '.save-export')
+    },
+  },
   // スマホ
   phone: { ctx: phone, hash: '#debug' },
+  // 天体カード（PC とスマホ）：開いて、めくるボタンと閉じるボタンが隠れていない
+  cards: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.bodyCards.open('mars'))
+      await sleep(800)
+      for (const sel of ['.body-cards .bc-step', '.body-cards .close']) await visibleButton(page, sel)
+    },
+  },
+  'cards-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.bodyCards.open('phobos'))
+      await sleep(800)
+      for (const sel of ['.body-cards .bc-step', '.body-cards .close']) await visibleButton(page, sel)
+    },
+  },
   // SF の世界
   sf: { ctx: desktop, hash: '#debug&sf', settle: 8000 },
   // コロニーの公園を歩く

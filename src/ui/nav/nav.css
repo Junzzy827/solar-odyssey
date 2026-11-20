@@ -1,0 +1,8 @@
+/* 航法パネルの入口（ui/nav/） */
+
+/* スマホ・狭い画面でたたんだときは、目標とワープだけ */
+@media (max-width: 720px), (max-height: 500px) {
+  .nav-panel.collapsed .nav-entry {
+    display: none;
+  }
+}

@@ -29,6 +29,7 @@ import { navPanelJa } from './navPanel.ja'
 import { observeJa } from './observe.ja'
 import { observePanelJa } from './observePanel.ja'
 import { photoNoteJa } from './photoNote.ja'
+import { saveDataJa } from './saveData.ja'
 import { probePanelJa } from './probePanel.ja'
 import { probeSceneJa } from './probeScene.ja'
 import { quizJa } from './quiz.ja'
@@ -38,6 +39,7 @@ import { racePanelJa } from './racePanel.ja'
 import { rallyHiscoreJa } from './rallyHiscore.ja'
 import { rallyPanelJa } from './rallyPanel.ja'
 import { rockBookJa } from './rockBook.ja'
+import { bodyCardsJa } from './bodyCards.ja'
 import { roverHudJa } from './roverHud.ja'
 import { scaleToggleJa } from './scaleToggle.ja'
 import { sfJa } from './sf.ja'
@@ -184,6 +186,7 @@ export const ja = {
   observe: observeJa,
   observePanel: observePanelJa,
   photoNote: photoNoteJa,
+  saveData: saveDataJa,
   probePanel: probePanelJa,
   probeScene: probeSceneJa,
   quiz: quizJa,
@@ -193,6 +196,7 @@ export const ja = {
   rallyHiscore: rallyHiscoreJa,
   rallyPanel: rallyPanelJa,
   rockBook: rockBookJa,
+  bodyCards: bodyCardsJa,
   roverHud: roverHudJa,
   scaleToggle: scaleToggleJa,
   sf: sfJa,

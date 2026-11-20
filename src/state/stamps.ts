@@ -1,3 +1,4 @@
+import { saveData } from './save'
 import { create } from 'zustand'
 import { NATURAL, STAMP_IDS, TITLES, titleEarned, titleText } from '../data/stamps'
 import { playBeep } from '../audio/sfx'
@@ -7,12 +8,12 @@ import { useStore } from './store'
 
 // 訪問スタンプ帳：行った天体（いつ初めて行ったか）と、もらった称号。端末に保存する
 
-const STAMPS_KEY = 'solar-voyager:stamps'
-const TITLES_KEY = 'solar-voyager:titles'
+const STAMPS_KEY = 'stamps'
+const TITLES_KEY = 'titles'
 
 function load<T>(key: string, fallback: T): T {
   try {
-    return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback
+    return JSON.parse(saveData.get(key) ?? 'null') ?? fallback
   } catch {
     return fallback
   }
@@ -20,7 +21,7 @@ function load<T>(key: string, fallback: T): T {
 
 function save(key: string, value: unknown) {
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    saveData.set(key, JSON.stringify(value))
   } catch {
     // 保存できなくても遊べる
   }
