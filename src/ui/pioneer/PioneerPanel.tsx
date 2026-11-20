@@ -37,7 +37,15 @@ export function PioneerPanel() {
       <PioneerFx />
       {p.guide && !p.naming && <PioneerGuide />}
       {p.panel && !p.naming && !p.guide && (
-        <div className="pioneer-panel" role="dialog" aria-label={t.terminal}>
+        <div
+          className="pioneer-panel"
+          role="dialog"
+          aria-label={t.terminal}
+          onKeyDown={(e) => {
+            // 端末の中で押したキー（Enter・スペース・矢印）を、操縦（window のキー）へ渡さない。Esc は閉じるのに使うので通す
+            if (e.key !== 'Escape') e.stopPropagation()
+          }}
+        >
           <header>
             <h2>{t.terminal}</h2>
             <span className="pio-stage">{p.stage >= STAGE_COUNT ? `${t.doneBadge} · ${p.colonyName}` : t.stages(p.stage, STAGE_COUNT)}</span>
@@ -70,7 +78,6 @@ export function PioneerPanel() {
                   const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
                   if (!d) return
                   e.preventDefault()
-                  e.stopPropagation()
                   const nextTab = TERMINAL_TABS[(i + d + TERMINAL_TABS.length) % TERMINAL_TABS.length]
                   setTab(nextTab)
                   document.getElementById(`pio-tab-${nextTab}`)?.focus()

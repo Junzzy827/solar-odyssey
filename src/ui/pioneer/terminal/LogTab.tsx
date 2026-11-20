@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ui } from '../../../i18n'
 import { capacity, usePioneer } from '../../../state/pioneer'
 import { RESOURCES, total, tripStats } from '../../../data/pioneer'
@@ -18,11 +18,13 @@ export function LogTab() {
   const t = ui().pioneer
   const tl = t.term.log
   const [hover, setHover] = useState<number | null>(null)
+  const pointer = useRef('mouse')
   const log = p.log ?? []
   const trips = Math.max(p.trips ?? 0, log.length)
   const cap = capacity()
 
-  if (log.length === 0) return <p className="pio-empty">{tl.empty}</p>
+  // 古いセーブ（記録を付ける前に進めていた）なら、記録はここから始まると伝える
+  if (log.length === 0) return <p className="pio-empty">{p.stage > 0 || (p.trips ?? 0) > 0 ? tl.emptyOld : tl.empty}</p>
 
   const st = tripStats(log)
   const first = trips - log.length + 1
@@ -50,7 +52,7 @@ export function LogTab() {
           <small>{tl.average}</small>
           <b>
             {st.average}
-            <span>/{cap}</span>
+            <span>{t.term.of(cap)}</span>
           </b>
         </div>
         <div>
@@ -102,8 +104,16 @@ export function LogTab() {
                   width={slot}
                   height={plotH}
                   className="pio-bar-hit"
-                  onMouseEnter={() => setHover(i)}
-                  onClick={() => setHover(hover === i ? null : i)}
+                  onPointerEnter={(e) => {
+                    if (e.pointerType === 'mouse') setHover(i)
+                  }}
+                  onPointerDown={(e) => {
+                    pointer.current = e.pointerType
+                  }}
+                  onClick={() => {
+                    // マウスは乗せるだけで出る。指で触ったときは、押すたびに出す・消す
+                    if (pointer.current !== 'mouse') setHover(hover === i ? null : i)
+                  }}
                 />
               </g>
             )
@@ -118,12 +128,12 @@ export function LogTab() {
           )}
         </svg>
         {hv && hover !== null && (
-          <div className="pio-tip" style={{ left: `${((PL + slot * hover + slot / 2) / W) * 100}%` }} role="status">
+          <div className="pio-tip" style={{ left: `${Math.min(80, Math.max(20, ((PL + slot * hover + slot / 2) / W) * 100))}%` }} role="status">
             <b>{tl.tripN(first + hover)}</b>
             {RESOURCES.filter((r) => hv.a[r] > 0).map((r) => (
               <span key={r}>
                 <i className={`pio-dot pio-${r}`} />
-                {t.resource[r]} {hv.a[r]}
+                {t.term.amount(t.resource[r], hv.a[r])}
               </span>
             ))}
             {hv.built && <em>{tl.built(hv.built.map((b) => t.stageName[b]))}</em>}
@@ -143,8 +153,7 @@ export function LogTab() {
         </span>
       </div>
       <p className="pio-science">
-        {tl.tip}
-        {first > 1 && <> · {tl.older(first - 1)}</>}
+        {first > 1 ? t.term.and(tl.tip, tl.older(first - 1)) : tl.tip}
       </p>
     </div>
   )

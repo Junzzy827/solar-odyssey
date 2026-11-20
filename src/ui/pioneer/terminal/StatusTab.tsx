@@ -20,7 +20,7 @@ export function StatusTab() {
   return (
     <div className="pio-tab-status">
       <div className="pio-overall">
-        <svg viewBox="0 0 84 84" className="pio-donut" role="img" aria-label={`${tt.overall} ${pct}%`}>
+        <svg viewBox="0 0 84 84" className="pio-donut" role="img" aria-label={tt.and(tt.overall, tt.pct(pct))}>
           <circle cx="42" cy="42" r={R} className="pio-donut-track" />
           <circle cx="42" cy="42" r={R} className="pio-donut-fill" strokeDasharray={`${(pct / 100) * C} ${C}`} transform="rotate(-90 42 42)" />
           {STAGES.map((_, i) => {
@@ -31,7 +31,7 @@ export function StatusTab() {
             return <circle key={i} cx={42 + Math.cos(a) * R} cy={42 + Math.sin(a) * R} r="2.2" className={i < p.stage ? 'pio-tick done' : 'pio-tick'} />
           })}
           <text x="42" y="47" textAnchor="middle" className="pio-donut-num">
-            {pct}%
+            {tt.pct(pct)}
           </text>
         </svg>
         <div className="pio-overall-text">
@@ -67,9 +67,13 @@ export function StatusTab() {
                   </span>
                   <span className="pio-bigmeter-num">
                     {inStore}
-                    {inHold > 0 && <em>+{inHold}</em>}
-                    <span>/{need}</span>
-                    {ok && <b aria-hidden> ✓</b>}
+                    {inHold > 0 && <em>{tt.plus(inHold)}</em>}
+                    <span>{tt.of(need)}</span>
+                    {ok && (
+                      <svg className="pio-ok" viewBox="0 0 12 12" aria-hidden>
+                        <path d="M2 6.5l2.5 2.5L10 3.5" />
+                      </svg>
+                    )}
                   </span>
                 </div>
               )
@@ -87,7 +91,7 @@ export function StatusTab() {
           </div>
           <p className="pio-science">{t.stageScience[next.id]}</p>
           <button type="button" className="pio-build" disabled={!ready} onClick={() => build()}>
-            {ready ? t.build : t.short(RESOURCES.filter((r) => next.cost[r] > p.store[r]).map((r) => `${t.resource[r]} ${next.cost[r] - p.store[r]}`).join(' · '))}
+            {ready ? t.build : t.short(tt.shortList(RESOURCES.filter((r) => next.cost[r] > p.store[r]).map((r) => tt.amount(t.resource[r], next.cost[r] - p.store[r]))))}
           </button>
         </div>
       )}

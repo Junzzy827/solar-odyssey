@@ -9,6 +9,20 @@ const SINKS: readonly Sink[] = ['used', 'store', 'hold']
 
 const W = 340
 const H = 190
+/** 名前と量の 2 行ぶんの高さ。箱が小さくても、字が重ならないようにずらす */
+const LABEL = 26
+
+/** 字の真ん中の位置を、重ならないよう上から順にずらし、はみ出したら下からも押し戻す */
+function spread(centers: number[]): number[] {
+  const out = [...centers]
+  for (let i = 1; i < out.length; i++) out[i] = Math.max(out[i], out[i - 1] + LABEL)
+  const last = H - LABEL / 2
+  if (out.length && out[out.length - 1] > last) {
+    out[out.length - 1] = last
+    for (let i = out.length - 2; i >= 0; i--) out[i] = Math.min(out[i], out[i + 1] - LABEL)
+  }
+  return out.map((c) => Math.max(LABEL / 2, c))
+}
 const TOP = 8
 const GAP = 10
 const BAR = 12
@@ -67,40 +81,44 @@ export function FlowTab() {
     }
   }
   const built = STAGES.slice(0, p.stage)
+  const leftLabel = spread(left.map((r) => leftY[r]! + Math.max(2, gathered[r] * scale) / 2))
+  const rightLabel = spread(right.map((k) => rightY[k]! + Math.max(2, sinkTotal(k) * scale) / 2))
 
   return (
     <div className="pio-tab-flow">
       <svg viewBox={`0 0 ${W} ${H}`} className="pio-sankey" role="img" aria-label={tf.title}>
         {bands.map((b) => (
           <path key={`${b.r}-${b.k}`} d={b.d} className={`pio-band pio-band-${b.r}`}>
-            <title>{`${t.resource[b.r]} → ${sinkName[b.k]}: ${b.v}`}</title>
+            <title>{t.term.band(t.resource[b.r], sinkName[b.k], b.v)}</title>
           </path>
         ))}
-        {left.map((r) => {
+        {left.map((r, i) => {
           const h = Math.max(2, gathered[r] * scale)
           const y0 = leftY[r]!
+          const ly = leftLabel[i]
           return (
             <g key={r}>
               <rect x={LX} y={y0} width={BAR} height={h} rx="3" className={`pio-node-${r}`} />
-              <text x={LX - 6} y={y0 + h / 2 - 1} textAnchor="end" className="pio-sankey-label">
-                {t.resource[r]} {gathered[r]}
+              <text x={LX - 6} y={ly - 1} textAnchor="end" className="pio-sankey-label">
+                {t.term.amount(t.resource[r], gathered[r])}
               </text>
-              <text x={LX - 6} y={y0 + h / 2 + 11} textAnchor="end" className="pio-sankey-sub">
+              <text x={LX - 6} y={ly + 11} textAnchor="end" className="pio-sankey-sub">
                 {tf.from[r]}
               </text>
             </g>
           )
         })}
-        {right.map((k) => {
+        {right.map((k, i) => {
           const h = Math.max(2, sinkTotal(k) * scale)
           const y0 = rightY[k]!
+          const ly = rightLabel[i]
           return (
             <g key={k}>
               <rect x={RX} y={y0} width={BAR} height={h} rx="3" className={`pio-node-sink pio-node-${k}`} />
-              <text x={RX + BAR + 6} y={y0 + h / 2 - 1} className="pio-sankey-label">
+              <text x={RX + BAR + 6} y={ly - 1} className="pio-sankey-label">
                 {sinkName[k]}
               </text>
-              <text x={RX + BAR + 6} y={y0 + h / 2 + 11} className="pio-sankey-sub">
+              <text x={RX + BAR + 6} y={ly + 11} className="pio-sankey-sub">
                 {sinkTotal(k)}
               </text>
             </g>

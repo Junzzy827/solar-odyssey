@@ -144,16 +144,8 @@ export function RouteTab() {
       key={pl}
       className={`pio-map-place pio-place-${pl}${pl === next ? ' next' : ''}`}
       transform={`translate(${pt.x} ${pt.y})`}
-      role="button"
-      tabIndex={0}
-      aria-label={`${tr.place[pl]}（${tr.gives[pl]}）`}
+      aria-hidden
       onClick={() => go(BODY[pl])}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          go(BODY[pl])
-        }
-      }}
     >
       <circle r="12" className="pio-map-hit" />
       {pl === next && <circle r="10" className="pio-map-pulse" />}
