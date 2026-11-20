@@ -35,6 +35,7 @@ import { chunkDebug } from './components/walk/WalkChunks'
 import { useSkyClock } from './components/surface/skyClock'
 import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
+import { useSuitWalk, startSuitWalk, endSuitWalk, suitInput, suitDebug, suitCam, suitPose } from './state/suitWalk'
 import { useSizeCompare, openSizeCompare, closeSizeCompare, focusOn as sizeFocus, togglePick as sizePick } from './state/sizeCompare'
 import { useDiscovery, startScanner, stopScanner, openNote, discoveryDebug } from './state/discovery'
 import { closeToday, openToday, useToday } from './state/today'
@@ -86,6 +87,7 @@ const sv = {
       return false
     },
   },
+  suitWalk: { state: useSuitWalk, start: startSuitWalk, end: endSuitWalk, input: suitInput, debug: suitDebug, cam: suitCam, pose: suitPose },
   sizeCompare: { state: useSizeCompare, open: openSizeCompare, close: closeSizeCompare, focus: sizeFocus, pick: sizePick },
   delivery: { state: useDelivery, board: jobBoard, accept: acceptJob, cancel: cancelJob, handoff: handoffDone, lab: labPlace },
   colony: { state: useColony, begin: beginColony, build: buildColonyZone, catchUp: colonyCatchUp },

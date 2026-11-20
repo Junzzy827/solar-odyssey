@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -6,6 +6,7 @@ import { jumpOn, heightAt, type Jump } from '../../data/jump'
 import { CROUCH, LAND, jumpClock, useJump } from '../../state/jump'
 import type { Terrain } from './terrain'
 import { HIP_Y, SHIN, THIGH, makeAstronaut, type Rig } from './astronaut'
+import { loadSuit, makeSuitRig } from './suitModel'
 import { ui } from '../../i18n'
 import { useLang } from '../../i18n/lang'
 
@@ -40,10 +41,12 @@ function pose(r: Rig, c: number, up: number, tuck: number, swing: number) {
   }
   r.torso.rotation.x = 0.45 * c
   // 脚を曲げたぶん腰が下がる（もも・すねの縦の長さから）
-  const legY = THIGH * Math.cos(hip) + SHIN * Math.cos(hip + knee)
-  r.body.position.y = HIP_Y - (THIGH + SHIN - legY)
+  const L = r.legs ?? { hipY: HIP_Y, thigh: THIGH, shin: SHIN }
+  const legY = L.thigh * Math.cos(hip) + L.shin * Math.cos(hip + knee)
+  r.body.position.y = L.hipY - (L.thigh + L.shin - legY)
   // 前に出たひざの分、体を少し後ろへ（重心を足の上に）
   r.body.position.z = -0.12 * c
+  r.update?.()
 }
 
 /** ひとりぶんの動き：秒 t（跳び始めから）、空中の時間 air、高さの関数。戻り値は足の高さ */
@@ -81,6 +84,8 @@ export const jumpFocus = { on: false, point: new THREE.Vector3(), lift: 0 }
 const RIDE_FROM = 20
 
 export function GravityJump({ terrain }: { terrain: Terrain }) {
+  // 地表に降りたら、宇宙飛行士のモデルを先に読んでおく（跳ぶときに待たないように）
+  useEffect(() => void loadSuit(), [])
   const id = useJump((s) => s.id)
   const at = useJump((s) => s.at)
   const j = id ? jumpOn(id) : null
@@ -91,8 +96,18 @@ export function GravityJump({ terrain }: { terrain: Terrain }) {
 function Pair({ j, terrain }: { j: Jump; terrain: Terrain }) {
   useLang()
   const { camera } = useThree()
-  const me = useMemo(() => makeAstronaut(false), [])
-  const earth = useMemo(() => makeAstronaut(true), [])
+  const hand = useMemo(() => ({ me: makeAstronaut(false), earth: makeAstronaut(true) }), [])
+  const [model, setModel] = useState<{ me: Rig; earth: Rig } | null>(null)
+  useEffect(() => {
+    let dead = false
+    void loadSuit().then(async (src) => {
+      if (!src || dead) return
+      const [a, b] = await Promise.all([makeSuitRig(src, false), makeSuitRig(src, true)])
+      if (!dead && a && b) setModel({ me: a, earth: b })
+    })
+    return () => void (dead = true)
+  }, [])
+  const { me, earth } = model ?? hand
   const meLabel = useRef<HTMLSpanElement>(null)
   const earthLabel = useRef<HTMLSpanElement>(null)
   const meTag = useRef<THREE.Group>(null)

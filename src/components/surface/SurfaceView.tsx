@@ -50,6 +50,9 @@ import { useMapTerrain } from './mapRelief'
 import { isTouchDevice } from '../../state/input'
 import { bindRoverKeys, bindRoverMouse, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
 import { openRocks } from '../../state/rockBook'
+import { followOn, startSuitWalk, useSuitWalk } from '../../state/suitWalk'
+import { SuitWalk } from './SuitWalk'
+import { SuitWalkPanel } from './SuitWalkPanel'
 import { compLabel, samplesFor } from '../../data/rockSamples'
 import { ui } from '../../i18n'
 
@@ -631,7 +634,7 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
   const shown = useRef({ version: -1, coarse: -1, mats: null as unknown })
   useFrame(() => {
     if (!world) {
-      const rv = useRover.getState().phase !== 'none'
+      const rv = followOn()
       const x = rv ? roverFocus.x : 0
       const z = rv ? roverFocus.z : 0
       if (Math.hypot(x - laidAt.current.x, z - laidAt.current.z) > 25) {
@@ -640,7 +643,7 @@ function Ground({ terrain, ap }: { terrain: Terrain; ap: ApUniforms }) {
       }
       return
     }
-    const rv = useRover.getState().phase !== 'none'
+    const rv = followOn()
     world.update(rv ? roverFocus.x : 0, rv ? roverFocus.z : 0, light ? 3 : 4)
     const sh = shown.current
     // 素材が作り直されたとき（画質の切り替え）も並べ直す
@@ -1070,7 +1073,7 @@ function Look({ terrain }: { terrain: Terrain }) {
     if (phase === 'surface' && prevPhase.current !== 'surface' && s.pitch > 0.5) s.pitch = 0.12
     prevPhase.current = phase
     // ローバーを出しているあいだは、ローバーの側がカメラを動かす
-    if (phase === 'surface' && useRover.getState().phase !== 'none') return
+    if (phase === 'surface' && followOn()) return
     // 降下中と離陸中は、着陸船を目で追う
     if (phase === 'descent' || phase === 'ascent' || phase === 'fadeOut') {
       const lander = state.scene.getObjectByName('surface-lander')
@@ -1289,7 +1292,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       l.color.setRGB(t.x / tMax, t.y / tMax, t.z / tMax)
       l.intensity = sky.sunDir.y > -0.02 ? sunI * tMax * sky.exposure : 0
       // 影を描く範囲：ふだんは着陸地点のまわり、ローバーを出しているときはローバーのまわり
-      const rv = useRover.getState().phase !== 'none'
+      const rv = followOn()
       tmpDir.set(rv ? roverFocus.x : 0, rv ? roverFocus.y : 0, rv ? roverFocus.z : -15)
       l.position.copy(sky.sunDir).multiplyScalar(160).add(tmpDir)
       if (!l.target.position.equals(tmpDir)) {
@@ -1387,6 +1390,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} />}
       <Look terrain={terrain} />
       <GravityJump terrain={terrain} />
+      <SuitWalk terrain={terrain} landerYaw={LANDER_YAW} />
       <WhenReady />
     </>
   )
@@ -1572,6 +1576,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
   const roverMenu = useRover((r) => r.menu)
   // 着陸船のまわりでも、メニュー（説明と時刻・天気）はボタンでたたんで景色を広く見られる
   const landerMenu = useLanding((l) => l.menu)
+  const walking = useSuitWalk((w) => w.on)
   const showInfo = rover === 'none' ? landerMenu : roverMenu
   const phase = useLanding((l) => l.phase)
   const view = useLanding((l) => l.view)
@@ -1586,7 +1591,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
   const note = def.site ? ui().surfaceSites[def.site].note : ui().surfaceNotes[def.id]
   const skyNote: string | undefined = ui().surfaceSkyNotes[def.id]
   return (
-    <div className={`surface-ui${rover !== 'none' && showInfo ? ' rover-menu' : ''}`}>
+    <div className={`surface-ui${rover !== 'none' && showInfo ? ' rover-menu' : ''}${walking && showInfo ? ' walk-menu' : ''}`}>
       {phase === 'descent' && (
         <div className="surface-caption">
           <div>{ui().surfaceView.descendingTo(name)}</div>
@@ -1630,7 +1635,9 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
           {showInfo && <TimeBar def={def} />}
           {rover === 'drive' && <RoverMap />}
           </div>
-          {rover !== 'none' ? (
+          {walking ? (
+            <SuitWalkPanel def={def} />
+          ) : rover !== 'none' ? (
             <RoverPanel bodyId={def.id} site={def.site} />
           ) : (
           <>
@@ -1650,6 +1657,9 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             </button>
             <button className="secondary" onClick={() => launchRover()}>
               {ui().surfaceView.deployRover}
+            </button>
+            <button className="secondary suit-out" onClick={startSuitWalk} title={ui().suitWalk.buttonTip}>
+              {ui().suitWalk.button}
             </button>
             <JumpButton bodyId={def.id} />
             {!def.site && trackForBody(def.id) && (

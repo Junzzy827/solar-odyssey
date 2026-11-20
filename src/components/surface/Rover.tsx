@@ -392,7 +392,7 @@ const CELL = 5
 type RockBody = { id: number; x: number; z: number; r: number; h: number; t: number }
 type RockGrid = Map<string, RockBody[]>
 
-function rockBodies(terrain: Terrain): RockGrid {
+export function rockBodies(terrain: Terrain): RockGrid {
   const grid: RockGrid = new Map()
   // 広い天体の岩は、地面のタイルといっしょに持つ（wideNow.world.cells）
   if (isWide(terrain)) return grid
@@ -419,7 +419,7 @@ const siteBodies: RockBody[] = []
 const hillR = (r: RockBody) => r.r + 0.3 + 0.25 * r.h
 
 /** 岩の上に乗ったときの地面の高さ（岩をまるい丘とみなす）。岩の外なら base のまま */
-function onRocks(rocks: RockBody[], x: number, z: number, base: number) {
+export function onRocks(rocks: RockBody[], x: number, z: number, base: number) {
   let y = base
   for (const r of rocks) {
     const R = hillR(r)
@@ -477,7 +477,7 @@ function rockLift(
   return Math.max(0, withRocks - bare)
 }
 
-function nearRocks(grid: RockGrid, x: number, z: number, sites?: { x: number; z: number; size: number }[], taken?: Set<number>) {
+export function nearRocks(grid: RockGrid, x: number, z: number, sites?: { x: number; z: number; size: number }[], taken?: Set<number>) {
   nearOut.length = 0
   const cx = Math.floor(x / CELL)
   const cz = Math.floor(z / CELL)
