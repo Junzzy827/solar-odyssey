@@ -59,6 +59,10 @@ import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
 import { RockBook } from './ui/RockBook'
 import { BodyCards } from './ui/BodyCards'
+import { TodayPanel } from './ui/TodayPanel'
+import { ScannerHud } from './ui/ScannerHud'
+import { DiscoveryNote } from './ui/DiscoveryNote'
+import { ScanTracker } from './components/ScanTracker'
 import { HistoricBook } from './ui/HistoricBook'
 import { BridgeInterior } from './components/bridge/BridgeInterior'
 import { SurfaceMemory } from './components/SurfaceMemory'
@@ -69,6 +73,8 @@ import { PhotoNote } from './ui/PhotoNote'
 import { evaScene, useEva } from './state/eva'
 import { LazyScenes } from './ui/LazyScenes'
 import { useWalk, walkScene } from './state/walk'
+
+import { PioneerUi, PioneerWorld } from './components/sf/pioneer/Pioneer'
 
 // SF の世界の船や構造物は、SF モードにしたときに読み込む（現実の世界だけで遊ぶときは読まない）
 const SFWorld = lazy(() => import('./components/sf/SFWorld').then((m) => ({ default: m.SFWorld })))
@@ -120,6 +126,7 @@ export default function App() {
               <Suspense fallback={null}>
                 <SFWorld />
               </Suspense>
+              <PioneerWorld />
             </StructureLook>
           </SFBoundary>
         )}
@@ -135,6 +142,7 @@ export default function App() {
         <SizeCompare />
         <WarpStreaks />
         <TargetMarker />
+        <ScanTracker />
         <ProbeScene />
         <EclipseScene />
         <Phaser />
@@ -176,6 +184,10 @@ export default function App() {
       <LazyScenes />
       <RockBook />
       <BodyCards />
+      <TodayPanel />
+      <PioneerUi />
+      <ScannerHud />
+      <DiscoveryNote />
       <HistoricBook />
       <LabelDeclutter />
       <CleanScreenButton />

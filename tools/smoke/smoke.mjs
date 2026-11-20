@@ -108,6 +108,53 @@ const SCENARIOS = {
       for (const sel of ['.body-cards .bc-step', '.body-cards .close']) await visibleButton(page, sel)
     },
   },
+  // 今日の宇宙（スマホ）：閉じるボタンが隠れていない
+  'today-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.today.open())
+      await sleep(800)
+      await visibleButton(page, '.today-panel .close')
+    },
+  },
+  // 発見スキャン：小惑星帯の岩のそばでスキャンすると、発見のカードが出る
+  scan: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(async () => {
+        const sv = window.__sv
+        sv.discovery.start()
+        // 出発点では船が地球に合わせて動くので、それを外してから帯の岩のそばへ
+        sv.flightControl.releaseHold = true
+        await new Promise((r) => setTimeout(r, 300))
+        const mesh = sv.discovery.asteroids.meshes[0]
+        const m = new sv.THREE.Matrix4()
+        mesh.getMatrixAt(0, m)
+        const p = new sv.THREE.Vector3().setFromMatrixPosition(m.premultiply(mesh.matrixWorld))
+        sv.ship.position.copy(p).add(new sv.THREE.Vector3(2, 0.5, 2))
+        sv.ship.velocity.set(0, 0, 0)
+      })
+      await page.waitForFunction(() => window.__sv.discovery.state.getState().candidate, null, { timeout: 30000 })
+      await page.evaluate(() => window.__sv.discovery.state.setState({ progress: 0.95 }))
+      await page.waitForFunction(() => window.__sv.discovery.state.getState().fresh, null, { timeout: 30000 })
+      await visibleButton(page, '.scan-fresh button')
+    },
+  },
+  // 発見スキャン（スマホ）：スキャナーの表示と発見ノートが画面に収まる
+  'scan-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.discovery.start())
+      await sleep(800)
+      await visibleButton(page, '.scanner-hud .scan-stop')
+      await page.evaluate(() => window.__sv.discovery.note())
+      await sleep(500)
+      await visibleButton(page, '.discovery-note .close')
+    },
+  },
   'cards-phone': {
     ctx: phone,
     hash: '#debug',
@@ -119,7 +166,63 @@ const SCENARIOS = {
   },
   // SF の世界
   sf: { ctx: desktop, hash: '#debug&sf', settle: 8000 },
+  // 火星の峡谷レース：着陸してレース場へ行き、スタートして 3・2・1 と表示が出ること、「レースをやめる」で自由走行に戻ること
+  race: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.landing.start('mars'))
+      await sleep(3000)
+      await page.evaluate(() => window.__sv.landing.skip())
+      await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface', null, { timeout: 180000, polling: 500 })
+      await page.evaluate(() => window.__sv.landing.site('coprates'))
+      await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface' && window.__sv.landing.state.getState().site === 'coprates', null, { timeout: 180000, polling: 500 })
+      await page.waitForSelector('.rally-start .rally-medals', { timeout: 60000 })
+      await page.evaluate(() => window.__sv.rally.start())
+      await page.waitForFunction(() => ['count', 'run'].includes(window.__sv.rally.state.getState().phase), null, { timeout: 120000, polling: 500 })
+      await page.waitForSelector('.rally-hud', { timeout: 30000 })
+      await visibleButton(page, '.rally-actions .rally-auto')
+      await sleep(4000)
+      await page.evaluate(() => window.__sv.rally.quit())
+      await page.waitForFunction(() => window.__sv.rally.state.getState().phase === 'off', null, { timeout: 10000 })
+    },
+  },
   // コロニーの公園を歩く
+  // SF の開拓：端末が開き、建設が 3 段進み、建設中のコロニーのそばで描ける。「開拓をやめる」で抜けられる
+  pioneer: {
+    ctx: desktop,
+    hash: '#debug&sf',
+    settle: 8000,
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.pioneer.start())
+      await page.waitForSelector('.pioneer-panel', { timeout: 60000 })
+      await visibleButton(page, '.pio-quit')
+      await page.evaluate(() => {
+        const p = window.__sv.pioneer
+        p.give({ metal: 200, gas: 30 })
+        p.build()
+        p.build()
+        p.build()
+      })
+      const stage = await page.evaluate(() => window.__sv.pioneer.state.getState().stage)
+      if (stage !== 3) throw new Error(`pioneer: stage ${stage}, expected 3`)
+      await page.evaluate(() => {
+        const st = window.__sv.store.getState()
+        st.setTarget('colony')
+        window.__sv.flightControl.jumpTo = 'colony'
+      })
+      await sleep(6000)
+      await page.click('.pioneer-panel .close')
+      await visibleButton(page, '.pio-open')
+    },
+    after: async (page) => {
+      await page.click('.pio-open')
+      await page.click('.pio-quit')
+      await sleep(300)
+      if (await page.$('.pioneer-hud')) throw new Error('pioneer: still shown after quitting')
+    },
+  },
   walk: {
     ctx: desktop,
     hash: '#debug&sf',
@@ -179,6 +282,8 @@ for (const name of wanted.length ? wanted : Object.keys(SCENARIOS)) {
     if (sc.run) await sc.run(page)
     const s = await check3d(page, name)
     await page.screenshot({ path: join(outDir, `${name}${useFirefox ? '-firefox' : ''}.png`), timeout: 120000 })
+    // 撮ったあとに確かめること（「もどる」で抜けられるか など）
+    if (sc.after) await sc.after(page)
     if (errors.length) throw new Error(`page errors: ${errors.join(' | ')}`)
     console.log(`ok   ${name} (${((Date.now() - t0) / 1000).toFixed(0)} s, std ${s.std.toFixed(1)})`)
   } catch (e) {

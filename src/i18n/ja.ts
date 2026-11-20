@@ -41,6 +41,8 @@ import { rallyHiscoreJa } from './rallyHiscore.ja'
 import { rallyPanelJa } from './rallyPanel.ja'
 import { rockBookJa } from './rockBook.ja'
 import { bodyCardsJa } from './bodyCards.ja'
+import { todayJa } from './today.ja'
+import { discoveryJa } from './discovery.ja'
 import { roverHudJa } from './roverHud.ja'
 import { scaleToggleJa } from './scaleToggle.ja'
 import { sfJa } from './sf.ja'
@@ -76,6 +78,7 @@ import { compareItemsJa } from './compareItems.ja'
 import { deepSpaceImagesJa } from './deepSpaceImages.ja'
 import { eclipsesJa } from './eclipses.ja'
 import { evaJobsJa } from './evaJobs.ja'
+import { pioneerJa } from './pioneer.ja'
 import { evaSitesJa } from './evaSites.ja'
 import { evaToolsJa } from './evaTools.ja'
 import { phaserFactsJa } from './phaserFacts.ja'
@@ -199,6 +202,8 @@ export const ja = {
   rallyPanel: rallyPanelJa,
   rockBook: rockBookJa,
   bodyCards: bodyCardsJa,
+  today: todayJa,
+  discovery: discoveryJa,
   roverHud: roverHudJa,
   scaleToggle: scaleToggleJa,
   sf: sfJa,
@@ -232,6 +237,7 @@ export const ja = {
   deepSpaceImages: deepSpaceImagesJa,
   eclipses: eclipsesJa,
   evaJobs: evaJobsJa,
+  pioneer: pioneerJa,
   evaSites: evaSitesJa,
   evaTools: evaToolsJa,
   phaserFacts: phaserFactsJa,

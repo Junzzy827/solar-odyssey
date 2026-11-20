@@ -43,6 +43,8 @@ import { rallyHiscoreEn } from './rallyHiscore.en'
 import { rallyPanelEn } from './rallyPanel.en'
 import { rockBookEn } from './rockBook.en'
 import { bodyCardsEn } from './bodyCards.en'
+import { todayEn } from './today.en'
+import { discoveryEn } from './discovery.en'
 import { roverHudEn } from './roverHud.en'
 import { scaleToggleEn } from './scaleToggle.en'
 import { sfEn } from './sf.en'
@@ -78,6 +80,7 @@ import { compareItemsEn } from './compareItems.en'
 import { deepSpaceImagesEn } from './deepSpaceImages.en'
 import { eclipsesEn } from './eclipses.en'
 import { evaJobsEn } from './evaJobs.en'
+import { pioneerEn } from './pioneer.en'
 import { evaSitesEn } from './evaSites.en'
 import { evaToolsEn } from './evaTools.en'
 import { phaserFactsEn } from './phaserFacts.en'
@@ -198,6 +201,8 @@ export const en: Translation<typeof ja> = {
   rallyPanel: rallyPanelEn,
   rockBook: rockBookEn,
   bodyCards: bodyCardsEn,
+  today: todayEn,
+  discovery: discoveryEn,
   roverHud: roverHudEn,
   scaleToggle: scaleToggleEn,
   sf: sfEn,
@@ -231,6 +236,7 @@ export const en: Translation<typeof ja> = {
   deepSpaceImages: deepSpaceImagesEn,
   eclipses: eclipsesEn,
   evaJobs: evaJobsEn,
+  pioneer: pioneerEn,
   evaSites: evaSitesEn,
   evaTools: evaToolsEn,
   phaserFacts: phaserFactsEn,
