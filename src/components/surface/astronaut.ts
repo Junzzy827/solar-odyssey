@@ -14,6 +14,10 @@ export type Rig = {
   hips: [THREE.Group, THREE.Group]
   knees: [THREE.Group, THREE.Group]
   materials: THREE.MeshStandardMaterial[]
+  /** 腰の高さ・もも・すねの長さ（m）。無ければ手作りの宇宙飛行士の値（HIP_Y, THIGH, SHIN） */
+  legs?: { hipY: number; thigh: number; shin: number }
+  /** 関節の箱に書いた角度を、モデルの骨へ写す（骨の入ったモデルだけ） */
+  update?: () => void
 }
 
 /** 立ったときの、地面から腰までの高さ（m） */
