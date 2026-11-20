@@ -412,24 +412,43 @@ export function townLayout(): Town {
     }
   })
 
-  // まわりの生け垣（ブロック塀の代わりに、低い木の列）。円周の向きは地面が曲がるので 16 m ごとに区切る
-  const hedgeAlongS = (y: number, s0: number, s1: number) => {
-    const n = Math.max(1, Math.ceil((s1 - s0) / 16))
-    const l = (s1 - s0) / n
-    for (let i = 0; i < n; i++) t.walls.push({ s: s0 + l * (i + 0.5), y, yaw: 0, len: l + 0.05, h: 1.4, t: 0.8, hedge: true, color: HEDGE })
+  // まわりの生け垣（ブロック塀の代わりに、低い木の列）。円周の向きは地面が曲がるので 16 m ごとに区切る。
+  // 道の行き止まりのところは切れ目をあけて、公園の外（コロニーの街や畑）へ出られるようにする
+  const GAP = 4
+  const split = (a0: number, a1: number, gaps: number[]) => {
+    const out: [number, number][] = []
+    let a = a0
+    for (const g of [...gaps].sort((x, y) => x - y)) {
+      if (g - GAP > a && g + GAP < a1) {
+        out.push([a, g - GAP])
+        a = g + GAP
+      }
+    }
+    out.push([a, a1])
+    return out
   }
-  const hedgeAlongY = (s: number, y0: number, y1: number) => t.walls.push({ s, y: (y0 + y1) / 2, yaw: Math.PI / 2, len: y1 - y0, h: 1.4, t: 0.8, hedge: true, color: HEDGE })
+  const hedgeAlongS = (y: number, s0: number, s1: number, gaps: number[] = []) => {
+    for (const [a0, a1] of split(s0, s1, gaps)) {
+      const n = Math.max(1, Math.ceil((a1 - a0) / 16))
+      const l = (a1 - a0) / n
+      for (let i = 0; i < n; i++) addWall({ s: a0 + l * (i + 0.5), y, yaw: 0, len: l + 0.05, h: 1.4, t: 0.8, hedge: true, color: HEDGE })
+    }
+  }
+  const hedgeAlongY = (s: number, y0: number, y1: number, gaps: number[] = []) => {
+    for (const [a0, a1] of split(y0, y1, gaps)) addWall({ s, y: (a0 + a1) / 2, yaw: Math.PI / 2, len: a1 - a0, h: 1.4, t: 0.8, hedge: true, color: HEDGE })
+  }
   // 池の岸（砂利の外）と、まわりの線が交わる所
   const shoreS = (y: number) => POND.s - (POND.rs + 6) * Math.sqrt(Math.max(0, 1 - ((y - POND.y) / (POND.ry + 6)) ** 2))
   const shoreY = (s: number) => POND.y - (POND.ry + 6) * Math.sqrt(Math.max(0, 1 - ((s - POND.s) / (POND.rs + 6)) ** 2))
   const north = BOUNDS.y1 + 0.6
   const east = BOUNDS.s1 + 0.6
-  hedgeAlongY(BOUNDS.s0 - 0.5, BOUNDS.y0 - 1, BOUNDS.y1 + 1)
+  // 西は大通りへ（住宅街の東西の道と、公園の東西の道の先）、南は住宅街の南北の道の先、東と北は 1 か所ずつ
+  hedgeAlongY(BOUNDS.s0 - 0.5, BOUNDS.y0 - 1, BOUNDS.y1 + 1, [11130, 11262, 11400, EW_Y, 11645])
   // 北の生け垣は、ジャングルへ続く所をあける
-  hedgeAlongS(north, BOUNDS.s0 - 0.9, JUNGLE.s0 - 0.4)
+  hedgeAlongS(north, BOUNDS.s0 - 0.9, JUNGLE.s0 - 0.4, [122])
   hedgeAlongS(north, JUNGLE.s1 + 0.4, shoreS(north))
-  hedgeAlongS(BOUNDS.y0 - 0.6, BOUNDS.s0 - 0.9, east + 0.4)
-  hedgeAlongY(east, BOUNDS.y0 - 1, shoreY(east))
+  hedgeAlongS(BOUNDS.y0 - 0.6, BOUNDS.s0 - 0.9, east + 0.4, [122, 196, NS_S, 440])
+  hedgeAlongY(east, BOUNDS.y0 - 1, shoreY(east), [11160])
   // 池の上の端は、ブイを並べる
   for (let y = shoreY(east) + 5; y < north; y += 6) if (pondValue(east, y) < 1) t.buoys.push({ s: east, y })
   for (let s = shoreS(north) + 5; s < east; s += 6) if (pondValue(s, north) < 1) t.buoys.push({ s, y: north })
@@ -488,20 +507,3 @@ export function pushOutOfBoxes(p: Pt, r: number) {
     }
 }
 const seen = new Set<Rect>()
-
-/** 歩ける所（公園と住宅街の範囲、北のジャングル）の中へ戻す */
-export function clampWalk(p: Pt) {
-  if (inside(p, BOUNDS) || inside(p, JUNGLE)) return
-  let best: Pt | null = null
-  let bd = Infinity
-  for (const r of [BOUNDS, JUNGLE]) {
-    const q = { s: Math.min(r.s1, Math.max(r.s0, p.s)), y: Math.min(r.y1, Math.max(r.y0, p.y)) }
-    const d = Math.hypot(q.s - p.s, q.y - p.y)
-    if (d < bd) {
-      bd = d
-      best = q
-    }
-  }
-  p.s = best!.s
-  p.y = best!.y
-}
