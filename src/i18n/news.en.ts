@@ -13,4 +13,5 @@ export const newsEn: Translation<typeof newsJa> = {
   today: '🌙 New: “Today in space”. Open it from Learn in the nav panel to see tonight’s Moon, the planets in tonight’s sky and where the probes are now.',
   pioneer: '⛏ New in SF mode: Pioneering. Start it from “Pioneering” in the nav computer. Break asteroids for metal and ice, skim Jupiter for gas, unload at Amano-Minato, and finish the colony under construction.',
   discovery: '📡 New: discovery scan. Turn the scanner on from Learn in the nav panel, fly close to a rock in the asteroid belt and scan it to discover a new asteroid. You can name it, too.',
+  arrival: '🪐 News: when you arrive at a world, it now shows its size next to the Earth. At Jupiter, 11 Earths line up across it.',
 }

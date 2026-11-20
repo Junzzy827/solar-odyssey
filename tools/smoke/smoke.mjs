@@ -146,6 +146,47 @@ const SCENARIOS = {
       for (const sel of ['.body-cards .bc-step', '.body-cards .close']) await visibleButton(page, sel)
     },
   },
+  // 到着の瞬間：木星に着くと、木星の前に地球が 11 個ならび、「もっと知る」が押せる（時間を止めて撮る）
+  arrival: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => {
+        const sv = window.__sv
+        sv.store.getState().setTarget('jupiter')
+        sv.flightControl.jumpTo = 'jupiter'
+      })
+      await page.waitForFunction(() => window.__sv.arrival.state.getState().id === 'jupiter', null, { timeout: 60000 })
+      await page.evaluate(() => (window.__sv.arrival.debug.freeze = 6))
+      await page.waitForFunction(() => document.querySelector('.arrival .arr-head-text'), null, { timeout: 30000 })
+      await sleep(1500)
+      await visibleButton(page, '.arrival .arr-more')
+      const n = await page.evaluate(() => {
+        let count = 0
+        window.__sv.root(0).scene.traverse((o) => {
+          if (o.isInstancedMesh && o.renderOrder === 12) count = o.count
+        })
+        return count
+      })
+      if (n !== 11) throw new Error(`expected 11 Earths in front of Jupiter, got ${n}`)
+    },
+  },
+  // 到着の瞬間（スマホ）：月に着くと、地球の円に月がならんだ絵が出て、ボタンが隠れない
+  'arrival-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => {
+        const sv = window.__sv
+        sv.store.getState().setTarget('moon')
+        sv.flightControl.jumpTo = 'moon'
+      })
+      await page.waitForFunction(() => window.__sv.arrival.state.getState().id === 'moon', null, { timeout: 60000 })
+      await page.evaluate(() => (window.__sv.arrival.debug.freeze = 6))
+      await page.waitForFunction(() => document.querySelectorAll('.arrival .arr-slot.on').length === 4, null, { timeout: 30000 })
+      for (const sel of ['.arrival .arr-more', '.arrival .arr-close']) await visibleButton(page, sel)
+    },
+  },
   // SF の世界
   sf: { ctx: desktop, hash: '#debug&sf', settle: 8000 },
   // 火星の峡谷レース：着陸してレース場へ行き、スタートして 3・2・1 と表示が出ること、「レースをやめる」で自由走行に戻ること
