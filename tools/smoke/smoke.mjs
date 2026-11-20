@@ -111,6 +111,28 @@ const SCENARIOS = {
   },
   // SF の世界
   sf: { ctx: desktop, hash: '#debug&sf', settle: 8000 },
+  // 火星の峡谷レース：着陸してレース場へ行き、スタートして 3・2・1 と表示が出ること、「レースをやめる」で自由走行に戻ること
+  race: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.landing.start('mars'))
+      await sleep(3000)
+      await page.evaluate(() => window.__sv.landing.skip())
+      await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface', null, { timeout: 180000, polling: 500 })
+      await page.evaluate(() => window.__sv.landing.site('coprates'))
+      await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface' && window.__sv.landing.state.getState().site === 'coprates', null, { timeout: 180000, polling: 500 })
+      await page.waitForSelector('.rally-start .rally-medals', { timeout: 60000 })
+      await page.evaluate(() => window.__sv.rally.start())
+      await page.waitForFunction(() => ['count', 'run'].includes(window.__sv.rally.state.getState().phase), null, { timeout: 120000, polling: 500 })
+      await page.waitForSelector('.rally-hud', { timeout: 30000 })
+      await visibleButton(page, '.rally-actions .rally-auto')
+      await sleep(4000)
+      await page.evaluate(() => window.__sv.rally.quit())
+      await page.waitForFunction(() => window.__sv.rally.state.getState().phase === 'off', null, { timeout: 10000 })
+    },
+  },
   // コロニーの公園を歩く
   walk: {
     ctx: desktop,
