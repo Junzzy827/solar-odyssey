@@ -139,7 +139,8 @@ export default function App() {
         <Phaser />
         <ChargeBeam />
         {mode === 'map' && !eclipseView && <MapControls />}
-        <PostFx />
+        {/* 地表・船外活動・コロニーの中にいるあいだは、宇宙の後処理（画面いっぱいの絵を何枚も持つ）を外してメモリを空ける */}
+        {!onSurface && <PostFx />}
         {bridge && <BridgeInterior />}
         <BootFrames />
         <SurfaceMemory />
