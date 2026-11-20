@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { jumpOn, heightAt, type Jump } from '../../data/jump'
 import { CROUCH, LAND, jumpClock, useJump } from '../../state/jump'
 import type { Terrain } from './terrain'
+import { HIP_Y, SHIN, THIGH, makeAstronaut, type Rig } from './astronaut'
 import { ui } from '../../i18n'
 import { useLang } from '../../i18n/lang'
 
@@ -16,130 +17,6 @@ const EARTH_G = 9.81
 const AHEAD = 7.5
 /** 二人のあいだ（m） */
 const APART = 1.9
-
-// ---- 宇宙飛行士（形はこのアプリのオリジナル。丸い部品を組み合わせた宇宙服） ------------------------
-
-type Rig = {
-  root: THREE.Group
-  body: THREE.Group
-  torso: THREE.Group
-  shoulders: [THREE.Group, THREE.Group]
-  elbows: [THREE.Group, THREE.Group]
-  hips: [THREE.Group, THREE.Group]
-  knees: [THREE.Group, THREE.Group]
-  materials: THREE.MeshStandardMaterial[]
-}
-
-/** 立ったときの、地面から腰までの高さ（m） */
-const HIP_Y = 0.98
-const THIGH = 0.44
-const SHIN = 0.44
-
-function capsule(r: number, len: number, mat: THREE.Material, y = -len / 2 - r * 0.2) {
-  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 14), mat)
-  m.position.y = y
-  m.castShadow = true
-  return m
-}
-
-function makeAstronaut(ghost: boolean): Rig {
-  const suit = new THREE.MeshStandardMaterial({ color: ghost ? '#7fb6ff' : '#eceae4', roughness: 0.62, metalness: 0 })
-  const trim = new THREE.MeshStandardMaterial({ color: ghost ? '#5f8fd6' : '#9aa0aa', roughness: 0.5, metalness: 0.2 })
-  const accent = new THREE.MeshStandardMaterial({ color: ghost ? '#8fc2ff' : '#d8743a', roughness: 0.5 })
-  const visor = new THREE.MeshStandardMaterial({ color: ghost ? '#a9d4ff' : '#c9963a', roughness: 0.12, metalness: 1, envMapIntensity: 1.6 })
-  const materials = [suit, trim, accent, visor]
-  if (ghost)
-    for (const m of materials) {
-      m.transparent = true
-      m.opacity = 0.55
-      m.depthWrite = false
-      m.emissive = new THREE.Color('#2a5aa8')
-      m.emissiveIntensity = 0.35
-    }
-
-  const root = new THREE.Group()
-  const body = new THREE.Group()
-  body.position.y = HIP_Y
-  root.add(body)
-
-  // 腰から上
-  const torso = new THREE.Group()
-  body.add(torso)
-  const chest = capsule(0.25, 0.3, suit, 0.36)
-  chest.scale.set(1.12, 1, 0.86)
-  torso.add(chest)
-  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.23, 0.09, 20), trim)
-  belt.position.y = 0.08
-  belt.scale.z = 0.82
-  torso.add(belt)
-  // 胸の操作パネル
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.13, 0.07), trim)
-  panel.position.set(0, 0.34, 0.2)
-  torso.add(panel)
-  const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.065), accent)
-  stripe.position.set(0.055, 0.36, 0.21)
-  torso.add(stripe)
-  // 生命維持の背負い箱
-  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.24), suit)
-  pack.position.set(0, 0.42, -0.29)
-  pack.castShadow = true
-  torso.add(pack)
-  const packTop = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.07, 0.2), trim)
-  packTop.position.set(0, 0.74, -0.29)
-  torso.add(packTop)
-  // ヘルメットと金色のバイザー
-  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.235, 32, 24), suit)
-  helmet.position.set(0, 0.84, 0.01)
-  helmet.castShadow = true
-  torso.add(helmet)
-  const face = new THREE.Mesh(new THREE.SphereGeometry(0.205, 32, 24, Math.PI * 0.1, Math.PI * 0.8, Math.PI * 0.24, Math.PI * 0.46), visor)
-  face.position.set(0, 0.83, 0.05)
-  torso.add(face)
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 10, 24), trim)
-  ring.rotation.x = Math.PI / 2
-  ring.position.y = 0.64
-  torso.add(ring)
-
-  // 腕（肩 → ひじ → 手袋）
-  const shoulders: [THREE.Group, THREE.Group] = [new THREE.Group(), new THREE.Group()]
-  const elbows: [THREE.Group, THREE.Group] = [new THREE.Group(), new THREE.Group()]
-  for (let i = 0; i < 2; i++) {
-    const side = i === 0 ? 1 : -1
-    const sh = shoulders[i]
-    sh.position.set(0.34 * side, 0.52, 0)
-    torso.add(sh)
-    sh.add(capsule(0.1, 0.16, suit))
-    const el = elbows[i]
-    el.position.y = -0.3
-    sh.add(el)
-    el.add(capsule(0.09, 0.14, suit))
-    const glove = new THREE.Mesh(new THREE.SphereGeometry(0.095, 16, 12), trim)
-    glove.position.y = -0.31
-    glove.scale.set(1, 1.15, 0.9)
-    el.add(glove)
-  }
-
-  // 脚（腰 → ひざ → 長靴）
-  const hips: [THREE.Group, THREE.Group] = [new THREE.Group(), new THREE.Group()]
-  const knees: [THREE.Group, THREE.Group] = [new THREE.Group(), new THREE.Group()]
-  for (let i = 0; i < 2; i++) {
-    const side = i === 0 ? 1 : -1
-    const hp = hips[i]
-    hp.position.set(0.13 * side, 0, 0)
-    body.add(hp)
-    hp.add(capsule(0.12, THIGH - 0.22, suit, -THIGH / 2))
-    const kn = knees[i]
-    kn.position.y = -THIGH
-    hp.add(kn)
-    kn.add(capsule(0.11, SHIN - 0.24, suit, -SHIN / 2 + 0.02))
-    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.13, 0.32), trim)
-    boot.position.set(0, -SHIN + 0.01, 0.05)
-    boot.castShadow = true
-    kn.add(boot)
-  }
-  if (ghost) root.traverse((o) => (o.castShadow = false))
-  return { root, body, torso, shoulders, elbows, hips, knees, materials }
-}
 
 const smooth = (x: number) => {
   const k = Math.min(1, Math.max(0, x))
