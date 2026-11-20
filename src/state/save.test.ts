@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BACKUP_KEY, createSaveStore, exportFileName, readSaveText, registerSave, SAVE_KEY, SaveError, saveSlot, summarize, type KeyValueStorage } from './save'
+import { BACKUP_KEY, BROKEN_KEY, createSaveStore, exportFileName, readSaveText, registerSave, SAVE_KEY, SaveError, saveSlot, summarize, type KeyValueStorage } from './save'
 
 /** localStorage の代わり（メモリ） */
 function fakeStorage(init: Record<string, string> = {}, opts: { full?: boolean } = {}): KeyValueStorage & { map: Map<string, string> } {
@@ -70,11 +70,26 @@ describe('migration from the old keys', () => {
     expect(storage.map.has(SAVE_KEY)).toBe(false)
   })
 
-  it('moves a broken save to the backup and starts again from the old keys', () => {
+  it('keeps a broken save under its own key and starts again from the old keys', () => {
     const storage = fakeStorage({ ...LEGACY, [SAVE_KEY]: '{not json' })
-    const save = createSaveStore(storage)
-    expect(storage.map.get(BACKUP_KEY)).toBe('{not json')
+    const save = createSaveStore(storage, () => 42)
+    expect(storage.map.get(`${BROKEN_KEY}:42`)).toBe('{not json')
+    expect(save.recovered()).toBe(true)
     expect(save.get('quiz-best')).toBe('7')
+    // バックアップ（1 回分）とは別なので、読み込みや消去で上書きされない
+    save.clear()
+    expect(storage.map.get(`${BROKEN_KEY}:42`)).toBe('{not json')
+  })
+
+  it('never overwrites a save written by a newer version', () => {
+    const newerSave = JSON.stringify({ app: 'solar-odyssey', v: 99, savedAt: 1, data: { stamps: 'new' } })
+    const storage = fakeStorage({ ...LEGACY, [SAVE_KEY]: newerSave })
+    const save = createSaveStore(storage)
+    expect(save.newer()).toBe(true)
+    expect(save.migrated()).toBe(0)
+    save.set('quiz-best', '1')
+    expect(save.get('quiz-best')).toBe('1')
+    expect(storage.map.get(SAVE_KEY)).toBe(newerSave)
   })
 })
 
@@ -96,10 +111,13 @@ describe('reading and writing', () => {
     expect(save.failed()).toBe(true)
   })
 
-  it('works with no storage at all', () => {
+  it('works with no storage at all, and still tells listeners', () => {
     const save = createSaveStore(null)
+    let told = 0
+    save.subscribe(() => told++)
     save.set('a', 'b')
     expect(save.get('a')).toBe('b')
+    expect(told).toBe(1)
   })
 
   it('saveSlot reads typed values and falls back on bad ones', () => {

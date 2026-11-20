@@ -11,6 +11,8 @@
 
 export const SAVE_KEY = 'solar-odyssey:save'
 export const BACKUP_KEY = 'solar-odyssey:save-backup'
+/** 読めなかったセーブを残す名前の頭（後ろに時刻） */
+export const BROKEN_KEY = 'solar-odyssey:save-broken'
 export const LEGACY_PREFIX = 'solar-voyager:'
 export const SAVE_APP = 'solar-odyssey'
 /** セーブの形の版。形を変えたら上げて、migrate() に前の版からの直し方を書く */
@@ -110,17 +112,23 @@ export function createSaveStore(storage: KeyValueStorage | null, now: () => numb
   let failed = false
   /** 起動したとき前の版から引き継いだ記録の数（引き継がなかったら 0） */
   let migrated = 0
+  /** 端末のセーブが壊れていて、前の版のキーから作り直したか */
+  let recovered = false
   const listeners = new Set<() => void>()
+
+  /** 端末のセーブが新しい版のアプリのもの：上書きしないように、この回はメモリだけで遊ぶ */
+  let newer = false
 
   const write = () => {
     file = { ...file, savedAt: now() }
-    if (!storage) return
-    try {
-      storage.setItem(SAVE_KEY, JSON.stringify(file))
-      failed = false
-    } catch (e) {
-      failed = true
-      console.warn(`save: not stored (${(e as Error).message})`)
+    if (storage && !newer) {
+      try {
+        storage.setItem(SAVE_KEY, JSON.stringify(file))
+        failed = false
+      } catch (e) {
+        failed = true
+        console.warn(`save: not stored (${(e as Error).message})`)
+      }
     }
     listeners.forEach((f) => f())
   }
@@ -137,17 +145,23 @@ export function createSaveStore(storage: KeyValueStorage | null, now: () => numb
       try {
         file = parseSave(JSON.parse(text))
       } catch (e) {
-        // 壊れたセーブは捨てずに、バックアップへ移してから、前の版のキーで始めなおす
         console.warn(`save: stored save not used (${(e as Error).message})`)
-        try {
-          storage.setItem(BACKUP_KEY, text)
-        } catch {
-          // 残せなくても遊べる
+        if (e instanceof SaveError && e.kind === 'newer') {
+          // 新しい版のアプリが書いたセーブ（古いページが開いたまま、など）：消さずに、この回は保存しない
+          newer = true
+        } else {
+          // 壊れたセーブは捨てずに BROKEN_KEY へ移してから（バックアップとは別。上書きされない）、前の版のキーで始めなおす
+          try {
+            storage.setItem(`${BROKEN_KEY}:${now()}`, text)
+          } catch {
+            // 残せなくても遊べる
+          }
+          recovered = true
+          text = null
         }
-        text = null
       }
     }
-    if (text === null) {
+    if (text === null && !newer) {
       let legacy: Record<string, string> = {}
       try {
         legacy = collectLegacy(storage)
@@ -158,6 +172,20 @@ export function createSaveStore(storage: KeyValueStorage | null, now: () => numb
       file = { ...file, data: legacy }
       if (migrated > 0) write()
     }
+  }
+
+  // ほかのタブが保存したら、その中身を取りこむ（全体を書き戻すので、古い中身でほかのタブの記録を消さないように）
+  if (storage && typeof window !== 'undefined') {
+    window.addEventListener('storage', (ev) => {
+      if (ev.key !== SAVE_KEY || ev.newValue === null) return
+      try {
+        file = parseSave(JSON.parse(ev.newValue))
+        newer = false
+        listeners.forEach((f) => f())
+      } catch {
+        // 読めない中身は取りこまない
+      }
+    })
   }
 
   return {
@@ -183,10 +211,14 @@ export function createSaveStore(storage: KeyValueStorage | null, now: () => numb
     savedAt: () => file.savedAt,
     failed: () => failed,
     migrated: () => migrated,
+    recovered: () => recovered,
+    /** 新しい版のセーブがあるので、この回は保存していない */
+    newer: () => newer,
     /** セーブ全体を置きかえる（ファイルの読み込み）。前の中身は BACKUP_KEY に残す */
     replace(next: SaveFile) {
       backup()
       file = { ...parseSave(next) }
+      newer = false
       write()
     },
     /** 記録をぜんぶ消す（前の版のキーも消して、引き継ぎで戻ってこないようにする）。前の中身は BACKUP_KEY に残す */
@@ -200,6 +232,7 @@ export function createSaveStore(storage: KeyValueStorage | null, now: () => numb
         }
       }
       file = { ...file, data: {} }
+      newer = false
       write()
     },
     subscribe(f: () => void) {

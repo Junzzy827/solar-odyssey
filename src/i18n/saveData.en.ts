@@ -9,6 +9,8 @@ export const saveDataEn: Translation<typeof saveDataJa> = {
   lastSaved: (at: string) => `Last saved: ${at}`,
   neverSaved: 'Nothing saved yet',
   storeFailed: 'Could not save on this device (storage is full or saving is turned off). Exporting a file keeps your progress safe.',
+  newerSave: 'This device has a save from a newer version of the app. To keep it safe, nothing is being saved now. Please reload the page.',
+  recovered: 'Your save was damaged, so it was rebuilt from the older records (the damaged save is kept on this device too).',
   migrated: (n: number) => `Brought over ${n} records from the previous version.`,
   autoNote: 'Your progress saves automatically. Export a file to take it to another device.',
   count: (n: number) => `${n}`,

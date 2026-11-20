@@ -72,6 +72,8 @@ export function SaveDataPanel() {
       <summary>{t.title}</summary>
       <div className="muted small save-at">{savedAt ? t.lastSaved(t.dateTime(new Date(savedAt))) : t.neverSaved}</div>
       {saveData.failed() && <div className="save-warn small">{t.storeFailed}</div>}
+      {saveData.newer() && <div className="save-warn small">{t.newerSave}</div>}
+      {saveData.recovered() && <div className="save-warn small">{t.recovered}</div>}
       {saveData.migrated() > 0 && <div className="muted small">{t.migrated(saveData.migrated())}</div>}
       <Rows data={saveData.snapshot().data} />
       <div className="muted small">{t.autoNote}</div>
