@@ -40,6 +40,7 @@ import { raceJa } from './race.ja'
 import { racePanelJa } from './racePanel.ja'
 import { rallyHiscoreJa } from './rallyHiscore.ja'
 import { rallyPanelJa } from './rallyPanel.ja'
+import { skyFlightJa } from './skyFlight.ja'
 import { rockBookJa } from './rockBook.ja'
 import { bodyCardsJa } from './bodyCards.ja'
 import { todayJa } from './today.ja'
@@ -205,6 +206,7 @@ export const ja = {
   racePanel: racePanelJa,
   rallyHiscore: rallyHiscoreJa,
   rallyPanel: rallyPanelJa,
+  skyFlight: skyFlightJa,
   rockBook: rockBookJa,
   bodyCards: bodyCardsJa,
   today: todayJa,

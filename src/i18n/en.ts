@@ -42,6 +42,7 @@ import { raceEn } from './race.en'
 import { racePanelEn } from './racePanel.en'
 import { rallyHiscoreEn } from './rallyHiscore.en'
 import { rallyPanelEn } from './rallyPanel.en'
+import { skyFlightEn } from './skyFlight.en'
 import { rockBookEn } from './rockBook.en'
 import { bodyCardsEn } from './bodyCards.en'
 import { todayEn } from './today.en'
@@ -204,6 +205,7 @@ export const en: Translation<typeof ja> = {
   racePanel: racePanelEn,
   rallyHiscore: rallyHiscoreEn,
   rallyPanel: rallyPanelEn,
+  skyFlight: skyFlightEn,
   rockBook: rockBookEn,
   bodyCards: bodyCardsEn,
   today: todayEn,

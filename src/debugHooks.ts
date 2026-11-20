@@ -1,3 +1,4 @@
+import { endFlight, forgetLaps, startFlight, useSkyFlight } from './state/skyFlight'
 import { useHistoric } from './state/historic'
 import { crashScene } from './ui/SceneBoundary'
 import { constructionSite } from './components/sf/ConstructionSite'
@@ -87,6 +88,7 @@ const sv = {
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff, site: goToSite },
   rally: { state: useRally, start: startRally, quit: quitRally },
+  skyFlight: { state: useSkyFlight, start: startFlight, end: endFlight, forget: forgetLaps },
   surfaceLab: useSurfaceLab,
   wide: wideNow,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus, ctl: roverCtl, pose: roverPose },
