@@ -15,7 +15,8 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 場面が増えて 30 分を超えるようになった（重力ジャンプ 2 場面を足した時点で約 31 分）
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,7 +38,8 @@ jobs:
   # Firefox（前に SF で黒い四角が出ると報告があった）。描き方の違いを見るためなので、失敗しても全体は止めない
   firefox:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 場面が増えて 30 分を超えるようになった（重力ジャンプ 2 場面を足した時点で約 31 分）
+    timeout-minutes: 45
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
