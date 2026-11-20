@@ -135,7 +135,7 @@ export const pioneerEn: Translation<typeof pioneerJa> = {
     total: (n: number) => `${n} done so far`,
   },
   term: {
-    tabs: { status: 'Status', route: 'Route', flow: 'Flow', log: 'Log', ship: 'Ship' },
+    tabs: { status: 'Status', jobs: 'Jobs', route: 'Route', flow: 'Flow', log: 'Log', ship: 'Ship' },
     tabsLabel: 'Terminal views',
     overall: 'Toward the finished colony',
     overallNote: 'Stages built, plus usable resources in the storehouse and hold',

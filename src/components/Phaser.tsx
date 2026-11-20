@@ -95,8 +95,13 @@ export function Phaser() {
     }
     // 離した：1段以上溜まっていればチャージビーム、そうでなければ従来の細いビーム
     if ((!down && h.was) || tapped) {
-      if (c.charging && c.level > 0) fireCharge(c.level)
-      else if (canFire) shoot(clock.getElapsedTime())
+      if (c.charging && c.level > 0) {
+        fireCharge(c.level)
+        c.shots++
+      } else if (canFire) {
+        shoot(clock.getElapsedTime())
+        c.shots++
+      }
       c.charging = false
       c.level = 0
     }

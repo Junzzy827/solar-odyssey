@@ -44,3 +44,57 @@ export const IconDone = ({ size = 22 }: P) => (
     <path d="M12 2l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17l-5.9 3 1.2-6.5L2.5 8.9 9.1 8z" fill="#ffd86b" />
   </svg>
 )
+
+/** 配達：氷の試料（試験管） */
+export const IconSamples = ({ size = 22 }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+    <path d="M9 2h6M10 2v13a2 2 0 004 0V2" stroke="#c9d6ee" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+    <path d="M10.4 9h3.2v6a1.6 1.6 0 01-3.2 0z" fill="var(--pio-ice)" />
+    <path d="M17 13l3 3M20 13l-3 3M18.5 12v5" stroke="var(--pio-ice)" strokeWidth="1.2" strokeLinecap="round" />
+  </svg>
+)
+
+/** 配達：苗 */
+export const IconSeedlings = ({ size = 22 }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+    <path d="M6 16h12l-1.5 6h-9z" fill="#b5835a" />
+    <path d="M12 16V9" stroke="#7ed18a" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M12 10c0-4 3-6 7-6 0 4-3 6-7 6zM12 12c0-3-2.4-5-6-5 0 3 2.4 5 6 5z" fill="#7ed18a" />
+  </svg>
+)
+
+/** 配達：精密部品（歯車） */
+export const IconParts = ({ size = 22 }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+    <path
+      d="M12 3l1.4 2.2 2.6-.6.6 2.6L19 8.6l-.9 2.4L20 13l-2.2 1.4.6 2.6-2.6.6L14.4 20 12 18.6 9.6 20l-1.4-2.4-2.6-.6.6-2.6L4 13l1.9-2-.9-2.4 2.4-1.4.6-2.6 2.6.6z"
+      fill="var(--pio-metal)"
+    />
+    <circle cx="12" cy="11.5" r="3" fill="#1a1420" />
+  </svg>
+)
+
+/** 配達：薬 */
+export const IconMedicine = ({ size = 22 }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+    <rect x="3" y="6" width="18" height="13" rx="2.5" fill="#e9eef8" />
+    <path d="M12 9v7M8.5 12.5h7" stroke="#e0566a" strokeWidth="2.4" strokeLinecap="round" />
+    <path d="M9 6V4h6v2" stroke="#e9eef8" strokeWidth="1.6" fill="none" />
+  </svg>
+)
+
+/** 配達：燃料（タンク） */
+export const IconFuel = ({ size = 22 }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+    <rect x="6" y="3" width="12" height="18" rx="6" fill="none" stroke="#c9d6ee" strokeWidth="1.8" />
+    <path d="M7.5 13h9v2a4.5 4.5 0 01-9 0z" fill="var(--pio-gas)" />
+    <path d="M12 6.5c1.5 2 2 3 2 3.8a2 2 0 01-4 0c0-.8.5-1.8 2-3.8z" fill="#ffd27a" />
+  </svg>
+)
+
+/** 星（評価）。on でなければ輪郭だけ */
+export const IconStar = ({ size = 16, on = true }: P & { on?: boolean }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden className={on ? 'pio-star on' : 'pio-star'}>
+    <path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" />
+  </svg>
+)

@@ -39,6 +39,8 @@ export const flightControl = {
   holding: false,
   /** 全体マップでワープを押したとき：この天体の前へ、ワープの演出なしで移る（Ship が次のフレームで動かす） */
   jumpTo: null as string | null,
+  /** プレイヤーがマップから移った回数（配達の「ワープを使わない」約束が見る。jumpTo はすぐ消えるので数で） */
+  jumps: 0,
 }
 
 /** ワープ演出の共有値（光の筋・ナセルの発光が参照する） */
@@ -100,6 +102,7 @@ export function engage() {
     if (!bodies.get(s.targetId)) return
     s.setAutopilot(false)
     flightControl.jumpTo = s.targetId
+    flightControl.jumps++
     s.setMode('flight')
     return
   }

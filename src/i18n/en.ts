@@ -43,6 +43,7 @@ import { raceEn } from './race.en'
 import { racePanelEn } from './racePanel.en'
 import { rallyHiscoreEn } from './rallyHiscore.en'
 import { rallyPanelEn } from './rallyPanel.en'
+import { skyFlightEn } from './skyFlight.en'
 import { rockBookEn } from './rockBook.en'
 import { bodyCardsEn } from './bodyCards.en'
 import { todayEn } from './today.en'
@@ -85,6 +86,7 @@ import { deepSpaceImagesEn } from './deepSpaceImages.en'
 import { eclipsesEn } from './eclipses.en'
 import { evaJobsEn } from './evaJobs.en'
 import { pioneerEn } from './pioneer.en'
+import { deliveryEn } from './delivery.en'
 import { evaSitesEn } from './evaSites.en'
 import { evaToolsEn } from './evaTools.en'
 import { phaserFactsEn } from './phaserFacts.en'
@@ -205,6 +207,7 @@ export const en: Translation<typeof ja> = {
   racePanel: racePanelEn,
   rallyHiscore: rallyHiscoreEn,
   rallyPanel: rallyPanelEn,
+  skyFlight: skyFlightEn,
   rockBook: rockBookEn,
   bodyCards: bodyCardsEn,
   today: todayEn,
@@ -245,6 +248,7 @@ export const en: Translation<typeof ja> = {
   eclipses: eclipsesEn,
   evaJobs: evaJobsEn,
   pioneer: pioneerEn,
+  delivery: deliveryEn,
   evaSites: evaSitesEn,
   evaTools: evaToolsEn,
   phaserFacts: phaserFactsEn,

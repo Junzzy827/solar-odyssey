@@ -41,6 +41,7 @@ import { raceJa } from './race.ja'
 import { racePanelJa } from './racePanel.ja'
 import { rallyHiscoreJa } from './rallyHiscore.ja'
 import { rallyPanelJa } from './rallyPanel.ja'
+import { skyFlightJa } from './skyFlight.ja'
 import { rockBookJa } from './rockBook.ja'
 import { bodyCardsJa } from './bodyCards.ja'
 import { todayJa } from './today.ja'
@@ -83,6 +84,7 @@ import { deepSpaceImagesJa } from './deepSpaceImages.ja'
 import { eclipsesJa } from './eclipses.ja'
 import { evaJobsJa } from './evaJobs.ja'
 import { pioneerJa } from './pioneer.ja'
+import { deliveryJa } from './delivery.ja'
 import { evaSitesJa } from './evaSites.ja'
 import { evaToolsJa } from './evaTools.ja'
 import { phaserFactsJa } from './phaserFacts.ja'
@@ -206,6 +208,7 @@ export const ja = {
   racePanel: racePanelJa,
   rallyHiscore: rallyHiscoreJa,
   rallyPanel: rallyPanelJa,
+  skyFlight: skyFlightJa,
   rockBook: rockBookJa,
   bodyCards: bodyCardsJa,
   today: todayJa,
@@ -246,6 +249,7 @@ export const ja = {
   eclipses: eclipsesJa,
   evaJobs: evaJobsJa,
   pioneer: pioneerJa,
+  delivery: deliveryJa,
   evaSites: evaSitesJa,
   evaTools: evaToolsJa,
   phaserFacts: phaserFactsJa,
