@@ -40,5 +40,11 @@ export const discoveryEn: Translation<typeof discoveryJa> = {
   rename: 'Rename',
   foundOn: (d: Date) => `Discovered ${d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
   close: 'Close',
+  sizeVs: (km: number, times: number) =>
+    times >= 1.15 ? `About ${km} km: ${times.toFixed(1)} times the height of Everest` : times >= 0.85 ? `About ${km} km: about as tall as Everest` : `About ${km} km: ${Math.round(times * 100)}% of Everest's height`,
+  more: 'Learn more',
+  less: 'Hide',
+  photo: 'Photo taken at discovery',
+  noPhoto: 'No photo',
   label: (name: string, code: string) => (name ? `${name} (${code})` : code),
 }

@@ -63,6 +63,7 @@ import { TodayPanel } from './ui/TodayPanel'
 import { ScannerHud } from './ui/ScannerHud'
 import { DiscoveryNote } from './ui/DiscoveryNote'
 import { ScanTracker } from './components/ScanTracker'
+import { DiscoveryFx } from './components/DiscoveryFx'
 import { ArrivalRow } from './components/ArrivalRow'
 import { ArrivalMoment } from './ui/ArrivalMoment'
 import { HistoricBook } from './ui/HistoricBook'
@@ -145,6 +146,7 @@ export default function App() {
         <WarpStreaks />
         <TargetMarker />
         <ScanTracker />
+        <DiscoveryFx />
         <ArrivalRow />
         <ProbeScene />
         <EclipseScene />

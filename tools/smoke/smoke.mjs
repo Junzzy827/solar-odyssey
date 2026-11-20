@@ -159,6 +159,8 @@ const SCENARIOS = {
       await page.waitForFunction(() => window.__sv.discovery.state.getState().candidate, null, { timeout: 30000 })
       await page.evaluate(() => window.__sv.discovery.state.setState({ progress: 0.95 }))
       await page.waitForFunction(() => window.__sv.discovery.state.getState().fresh, null, { timeout: 30000 })
+      // 発見の瞬間：写真が撮れて、ポラロイドに出る
+      await page.waitForFunction(() => document.querySelector('.fresh-polaroid img'), null, { timeout: 30000 })
       await visibleButton(page, '.scan-fresh button')
     },
   },

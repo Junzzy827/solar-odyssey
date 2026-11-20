@@ -37,6 +37,13 @@ export const discoveryJa = {
   rename: '名前を変える',
   foundOn: (d: Date) => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日に発見`,
   close: '閉じる',
+  /** エベレストとくらべた大きさ（A2 の発見の瞬間） */
+  sizeVs: (km: number, times: number) =>
+    times >= 1.15 ? `約${km}km：エベレストの高さの${times.toFixed(1)}倍` : times >= 0.85 ? `約${km}km：エベレストの高さと同じくらい` : `約${km}km：エベレストの高さの${Math.round(times * 10)}割くらい`,
+  more: 'もっと知る',
+  less: 'とじる',
+  photo: '発見したときの写真',
+  noPhoto: '写真なし',
   /** 名前を付けたものは「名前（仮符号）」、まだなら仮符号だけ */
   label: (name: string, code: string) => (name ? `${name}（${code}）` : code),
 }
