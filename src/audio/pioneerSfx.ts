@@ -181,3 +181,29 @@ export function playFanfare() {
   }
   ;[523.25, 659.25, 783.99, 1046.5].forEach((f) => tone(c, f, now + 1.6, 2.4, 0.06, 'triangle'))
 }
+
+/** 配達：荷物を積んだ・降ろした（ガコン、と 2 音） */
+export function playJobHandoff(load: boolean) {
+  const c = audio()
+  if (!c) return
+  const now = c.currentTime
+  tone(c, 140, now, 0.12, 0.09, 'square')
+  tone(c, 95, now + 0.05, 0.16, 0.07, 'square')
+  const [a, b] = load ? [587.33, 880] : [880, 587.33]
+  tone(c, a, now + 0.18, 0.18, 0.06, 'triangle')
+  tone(c, b, now + 0.3, 0.28, 0.06, 'triangle')
+}
+
+/** 配達完了：星の数だけ、上がっていく鈴の音（星が光るのに合わせる。STAR_GAP 秒おき） */
+export const STAR_GAP = 0.42
+export function playJobDone(stars: number) {
+  const c = audio()
+  if (!c) return
+  const now = c.currentTime
+  ;[523.25, 659.25, 783.99].forEach((f, i) => tone(c, f, now + i * 0.09, 0.4, 0.06, 'triangle'))
+  for (let i = 0; i < stars; i++) {
+    const at = now + 0.5 + i * STAR_GAP
+    tone(c, 1046.5 * 2 ** ((i * 4) / 12), at, 0.5, 0.06, 'sine')
+    tone(c, 2093 * 2 ** ((i * 4) / 12), at, 0.2, 0.02, 'sine')
+  }
+}

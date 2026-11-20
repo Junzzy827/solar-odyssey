@@ -2,21 +2,33 @@ import { useEffect, useRef, useState } from 'react'
 import { ui } from '../../i18n'
 import { gasFx, onPioneerFx, shipOnScreen } from '../../state/pioneerFx'
 import { togglePanel } from '../../state/pioneer'
-import { playDaily, playDeliver, playRare, playUpgrade, playFull, playPickup, startGasWind } from '../../audio/pioneerSfx'
+import { playDaily, playDeliver, playJobDone, playJobHandoff, playRare, playUpgrade, playFull, playPickup, startGasWind, STAR_GAP } from '../../audio/pioneerSfx'
 import { RARE_BONUS, RESOURCES, type Amounts, type RareId, type Resource } from '../../data/pioneer'
 import { usePioneer } from '../../state/pioneer'
+import type { JobKind } from '../../data/delivery'
+import { JOB_ICON, placeName } from './jobKind'
+import { IconStar } from './icons'
 
 // 開拓の手応え：拾った量の数字（船のそばから浮かぶ）、積み荷のゲージのはね、
 // いっぱいのゆれ、納品・珍しい岩・今日の依頼のカード（数字が増えていく）、ガスの風の音
 
 type Pop = { id: number; resource: Resource; amount: number; x: number; y: number; born: number }
 /** 画面の真ん中に少し出るカード（納品・珍しい岩・今日の依頼）。重なったら順に出す */
-type Card = { id: number } & ({ kind: 'deliver'; amounts: Amounts; ready: boolean } | { kind: 'rare'; rare: RareId; count: number; amount: number } | { kind: 'daily'; reward: Amounts })
+type Card = { id: number } & (
+  | { kind: 'deliver'; amounts: Amounts; ready: boolean }
+  | { kind: 'rare'; rare: RareId; count: number; amount: number }
+  | { kind: 'daily'; reward: Amounts }
+  | { kind: 'jobStep'; job: JobKind; at: string; load: boolean }
+  | { kind: 'jobDone'; job: JobKind; stars: number; kept: boolean; fast: boolean; reward: Amounts; seconds: number }
+)
 
 /** 同じ資源をこの時間内に続けて拾ったら、1 つの数字にまとめる（ミリ秒） */
 const MERGE_MS = 400
 const POP_MS = 1100
 const DELIVER_MS = 3600
+/** 積んだ・降ろしたカードは短く。配達完了は星が出そろうまで長く */
+const STEP_MS = 1800
+const JOB_DONE_MS = 5200
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -95,6 +107,12 @@ export function PioneerFx() {
           playRare()
           const count = usePioneer.getState().rare?.[e.id] ?? 1
           setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'rare', rare: e.id, count, amount: e.amount }])
+        } else if (e.kind === 'jobLoad' || e.kind === 'jobDrop') {
+          playJobHandoff(e.kind === 'jobLoad')
+          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'jobStep', job: e.job, at: e.at, load: e.kind === 'jobLoad' }])
+        } else if (e.kind === 'jobDone') {
+          playJobDone(e.stars)
+          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'jobDone', job: e.job, stars: e.stars, kept: e.kept, fast: e.fast, reward: e.reward, seconds: e.seconds }])
         } else if (e.kind === 'daily') {
           playDaily()
           setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'daily', reward: e.reward }])
@@ -115,7 +133,7 @@ export function PioneerFx() {
 
   useEffect(() => {
     if (!delivery) return
-    const timer = window.setTimeout(shift, DELIVER_MS)
+    const timer = window.setTimeout(shift, delivery.kind === 'jobStep' ? STEP_MS : delivery.kind === 'jobDone' ? JOB_DONE_MS : DELIVER_MS)
     return () => window.clearTimeout(timer)
   }, [delivery])
 
@@ -139,6 +157,7 @@ export function PioneerFx() {
   }, [])
 
   const t = ui().pioneer
+  const td = ui().delivery
   return (
     <>
       <div className="pio-pops" aria-hidden>
@@ -173,6 +192,31 @@ export function PioneerFx() {
           <Rows amounts={{ metal: 0, ice: 0, gas: 0, [RARE_BONUS[delivery.rare].resource]: delivery.amount }} />
           <p className="pio-science">{t.rare.science[delivery.rare]}</p>
           <small>{t.rare.count(delivery.count)}</small>
+        </div>
+      )}
+      {delivery?.kind === 'jobStep' && (
+        <div key={delivery.id} className="pio-delivery pio-card-step" role="status">
+          <span className="pio-place-icon">{JOB_ICON[delivery.job](30)}</span>
+          <h3>{delivery.load ? td.loaded(td.kind[delivery.job].title, placeName(delivery.at)) : td.dropped(placeName(delivery.at))}</h3>
+        </div>
+      )}
+      {delivery?.kind === 'jobDone' && (
+        <div key={delivery.id} className="pio-delivery pio-card-job" role="status" aria-label={`${td.doneTitle} ${td.starsAria(delivery.stars)}`}>
+          <small>{td.kind[delivery.job].title}</small>
+          <h3>{td.doneTitle}</h3>
+          <span className="pio-card-stars" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <span key={i} className={i < delivery.stars ? 'on' : ''} style={{ animationDelay: `${0.5 + i * STAR_GAP}s` }}>
+                <IconStar size={34} on={i < delivery.stars} />
+              </span>
+            ))}
+          </span>
+          <ul className="pio-card-checks">
+            <li className="on">{td.starDone}</li>
+            <li className={delivery.kept ? 'on' : ''}>{td.starKept}</li>
+            <li className={delivery.fast ? 'on' : ''}>{td.seconds(delivery.seconds)}</li>
+          </ul>
+          <Rows amounts={delivery.reward} />
         </div>
       )}
       {delivery?.kind === 'daily' && (

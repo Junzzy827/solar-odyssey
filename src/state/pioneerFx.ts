@@ -1,4 +1,5 @@
 import type { Amounts, RareId, Resource, UpgradeId } from '../data/pioneer'
+import type { JobKind } from '../data/delivery'
 
 // 開拓の手応えの合図（音・光・数字の演出が聞く）。ゲームの決まりとは別にしておく
 
@@ -9,6 +10,11 @@ export type PioneerFx =
   | { kind: 'upgrade'; id: UpgradeId; level: number }
   | { kind: 'rare'; id: RareId; amount: number }
   | { kind: 'daily'; reward: Amounts }
+  /** 配達：積んだ・途中で降ろした（at は行き先の id） */
+  | { kind: 'jobLoad'; job: JobKind; at: string }
+  | { kind: 'jobDrop'; job: JobKind; at: string }
+  /** 配達：届け終えた */
+  | { kind: 'jobDone'; job: JobKind; stars: number; kept: boolean; fast: boolean; reward: Amounts; seconds: number }
 
 const listeners = new Set<(e: PioneerFx) => void>()
 

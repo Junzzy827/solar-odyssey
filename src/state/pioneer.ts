@@ -54,8 +54,8 @@ type PioneerState = PioneerSave & {
   tab: TerminalTab
 }
 
-export type TerminalTab = 'status' | 'route' | 'flow' | 'log' | 'ship'
-export const TERMINAL_TABS: readonly TerminalTab[] = ['status', 'route', 'flow', 'log', 'ship']
+export type TerminalTab = 'status' | 'jobs' | 'route' | 'flow' | 'log' | 'ship'
+export const TERMINAL_TABS: readonly TerminalTab[] = ['status', 'jobs', 'route', 'flow', 'log', 'ship']
 
 export type Near = 'field' | 'jupiter' | 'dock' | null
 
@@ -265,6 +265,13 @@ export function nameColony(name: string) {
 export function resetPioneer() {
   usePioneer.setState({ ...NEW_SAVE, introSeen: true, builtAt: 0, naming: false, guide: false, cinema: false, tab: 'status' })
   fullWarned = false
+  persist()
+}
+
+/** 配達の仕事の報酬を倉庫に入れる（state/delivery.ts から） */
+export function receive(a: Amounts) {
+  const s = usePioneer.getState()
+  usePioneer.setState({ store: plus(s.store, a) })
   persist()
 }
 
