@@ -11,6 +11,7 @@ import { DECK_TOP, HoverScooter, RIDER_Z } from './hoverScooter'
 import { JUNGLE, inJungle } from './jungle'
 import { BOUNDS, G, GROUND_LIFT, HALF_L, LOOP, NS_S, PLAY, POND, STREETS, STREET_W, WALK_W, frameAt, landPoint, loopPoint, parkLayout, pondValue, pushOutOfBoxes, inTown, upAt, type Bench } from './park'
 import { CIRC, inBuilding, pushWorld, standable, wetAt, worldArea, wrapS } from './cylinder'
+import { CORE, OMEGA, RIDE_S, STATION, STATION_H, TOWER, elevCar, elevH, gAt, nearDoor, onStation, sMeters } from './axis'
 
 // 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
 // 人の形は Person（figure.ts）。読み込むまでは仮の人形で、読めたら VRM の人（vrmPeople.ts、MakeHuman 製）と Mixamo の動きに差し替える。
@@ -141,6 +142,11 @@ function Player() {
       fov: 62,
       /** 空を飛んでいる高さ m */
       alt: 0,
+      /** 軸へのエレベーター：位置（0 = 地面、1 = 軸の駅）と、動く向き（0 = 乗っていない） */
+      elevT: 0,
+      elevDir: 0,
+      /** 宙に浮いているあいだの、回転の向きへの横すべり m/s（コリオリの力） */
+      drift: 0,
     }),
     [],
   )
@@ -148,6 +154,13 @@ function Player() {
     walker.s = START.s
     walker.y = START.y
     walker.h = 0
+    // 軸へのエレベーターの前から始める
+    if (useWalk.getState().startAtTower) {
+      walker.s = TOWER.s
+      walker.y = TOWER.y + 16
+      st.body = st.yaw = 0
+      useWalk.setState({ startAtTower: false })
+    }
     // 公園の人（VRM）が読めたら、自分も VRM の人にする
     let dead = false
     prepareVrmPeople()
@@ -219,6 +232,11 @@ function Player() {
       }
     }
     function mount() {
+      // スクーターは地面だけ（軸の駅やエレベーターでは乗らない）
+      if (walker.h > 3 || st.elevDir) {
+        useWalk.setState({ riding: false })
+        return
+      }
       if (useWalk.getState().sitting) standUp()
       if (!st.sc) {
         st.sc = new HoverScooter(scene)
@@ -255,10 +273,21 @@ function Player() {
     // 座る・立つ
     if (walkInput.sit) {
       walkInput.sit = false
+      const door = nearDoor(walker.s, walker.y, walker.h)
       if (useWalk.getState().riding) {
         // 乗っているあいだは座らない
       } else if (w.sitting) standUp()
-      else sitDown()
+      else if (st.elevDir) {
+        // 乗っているあいだは何もしない
+      } else if (door) {
+        // 軸へのエレベーターに乗る（上へ・下へ）
+        st.elevDir = door === 'up' ? 1 : -1
+        st.elevT = door === 'up' ? 0 : 1
+        st.speed = st.vh = st.drift = 0
+        // 塔の柱を左に見て、円周の向きを向く（後ろのカメラから柱がじゃまにならない）
+        st.body = st.yaw = -Math.PI / 2
+        useWalk.setState({ inElev: true, elevNear: null })
+      } else sitDown()
     }
     if (useWalk.getState().sitting && mag > 0.3) standUp()
     function standUp() {
@@ -431,6 +460,23 @@ function Player() {
     }
     if (riding) {
       // 乗っているときは、ここで済み
+    } else if (st.elevDir) {
+      // ---- 軸へのエレベーター：かごの中に立って、塔をのぼる・くだる ----
+      walkInput.jump = false
+      st.elevT = Math.min(1, Math.max(0, st.elevT + (st.elevDir * dt) / RIDE_S))
+      elevCar.t = st.elevT
+      walker.s = TOWER.s
+      walker.y = TOWER.y + 1.2
+      walker.h = elevH(st.elevT)
+      if ((st.elevDir > 0 && st.elevT >= 1) || (st.elevDir < 0 && st.elevT <= 0)) {
+        // 着いたら、扉の外へ出る
+        const top = st.elevDir > 0
+        st.elevDir = 0
+        walker.h = top ? STATION_H : 0
+        walker.y = TOWER.y + 4
+        useWalk.setState(top ? { inElev: false, axisNote: walkNow() } : { inElev: false })
+      }
+      motion = 'idle'
     } else if (!sitting) {
       st.speed += (target - st.speed) * Math.min(1, dt * (target > st.speed ? 6 : 9))
       if (mag > 0.05) {
@@ -443,17 +489,43 @@ function Player() {
         const dy = (fy * fwd + ry * right) / Math.max(1e-6, Math.hypot(fwd, right))
         st.body = turn(st.body, Math.atan2(-ds, -dy), dt * 10)
       }
-      walker.s += -Math.sin(st.body) * st.speed * dt
-      walker.y += -Math.cos(st.body) * st.speed * dt
-      collide(walker, 0.3)
-      // ジャンプ（コロニーの地面は回転の遠心力で 1G）
-      if (walkInput.jump && walker.h <= 0.001) st.vh = JUMP_SPEED
+      // 重さは回転の遠心力（地面で 1G、軸に近いほど軽い）。軽いと、足が地面をけれないのでゆっくりしか進めない
+      const g = gAt(walker.h)
+      const floor = walker.h > STATION_H - 40 && onStation(walker.y) ? STATION_H : 0
+      const grounded = walker.h <= floor + 0.02
+      const pace = grounded ? Math.max(0.3, Math.sqrt(g / GRAVITY)) : 0.15
+      const sm = sMeters(walker.h)
+      walker.s += (-Math.sin(st.body) * st.speed * pace * dt + st.drift * dt) / sm
+      walker.y += -Math.cos(st.body) * st.speed * pace * dt
+      if (walker.h < 30) collide(walker, 0.3)
+      // 塔の柱
+      const cs = (walker.s - TOWER.s) * sm
+      const cy = walker.y - CORE.y
+      const cd = Math.hypot(cs, cy)
+      if (cd < CORE.r + 0.35 && (walker.h < 30 || walker.h > STATION_H - 40)) {
+        const k = (CORE.r + 0.35) / Math.max(1e-3, cd)
+        walker.s = TOWER.s + (cs * k) / sm
+        walker.y = CORE.y + cy * k
+      }
+      // 軸の駅は手すりの内側だけ
+      if (walker.h > STATION_H - 40) walker.y = Math.min(STATION.y1 - 0.5, Math.max(STATION.y0 + 0.5, walker.y))
+      // ジャンプ。宙にいるあいだは、回転のせいで横へ流される（上がると回転の向きへ、落ちると逆へ）
+      if (walkInput.jump && grounded) st.vh = JUMP_SPEED
       walkInput.jump = false
-      st.vh -= GRAVITY * dt
-      walker.h = Math.max(0, walker.h + st.vh * dt)
-      if (walker.h === 0) st.vh = Math.max(0, st.vh)
-      st.phase += dt * (st.speed / (st.speed > 2.6 ? 1.0 : 0.62)) * Math.PI
-      motion = walker.h > 0.05 ? 'jump' : st.speed > 2.6 ? 'run' : st.speed > 0.15 ? 'walk' : 'idle'
+      st.vh -= (g + 2 * OMEGA * st.drift) * dt
+      if (!grounded || st.vh > 0) st.drift += 2 * OMEGA * st.vh * dt
+      walker.h = Math.max(floor, walker.h + st.vh * dt)
+      // 軸（回転の中心）より上へは行かない
+      if (walker.h > G - 2) {
+        walker.h = G - 2
+        st.vh = Math.min(0, st.vh) * 0.3
+      }
+      if (walker.h === floor) {
+        st.vh = Math.max(0, st.vh)
+        st.drift = 0
+      }
+      st.phase += dt * ((st.speed * pace) / (st.speed > 2.6 ? 1.0 : 0.62)) * Math.PI
+      motion = walker.h > floor + 0.05 ? 'jump' : st.speed > 2.6 ? 'run' : st.speed > 0.15 ? 'walk' : 'idle'
     } else {
       walkInput.jump = false
       motion = 'sit'
@@ -470,7 +542,7 @@ function Player() {
       st.sc0.s += walker.s - before
     }
     // 左上の場所の名前
-    const at = areaAt(walker.s, walker.y)
+    const at = st.elevDir ? { area: 'elevator' as const, land: -1 } : walker.h > STATION_H - 40 ? { area: 'axis' as const, land: -1 } : areaAt(walker.s, walker.y)
     if (at.area !== useWalk.getState().area || at.land !== useWalk.getState().land) useWalk.setState(at)
     walker.speed = riding ? Math.abs(st.spd) : st.speed
 
@@ -478,8 +550,13 @@ function Player() {
     st.checkBench -= dt
     if (st.checkBench <= 0) {
       st.checkBench = 0.25
-      const near = !sitting && !riding && !!nearestBench(walker.s, walker.y, 2.4)
+      const near = !sitting && !riding && walker.h < 3 && !!nearestBench(walker.s, walker.y, 2.4)
       if (near !== w.benchNear) useWalk.setState({ benchNear: near })
+      const door = riding || st.elevDir ? null : nearDoor(walker.s, walker.y, walker.h)
+      if (door !== w.elevNear) useWalk.setState({ elevNear: door })
+      // 今の重さ（G）
+      const gee = Math.round((gAt(walker.h) / GRAVITY) * 100) / 100
+      if (gee !== w.gee) useWalk.setState({ gee })
     }
 
     // カメラ
@@ -504,7 +581,7 @@ function Player() {
       camera.position.copy(walker.pos).addScaledVector(up, headH - 0.15)
       // 街の建物の壁の中へ入らないよう、入るなら近づける
       const base = camera.position.clone()
-      let d = st.dist + Math.min(fast, 30) * 0.12 + st.alt * 0.12
+      let d = st.dist + Math.min(fast, 30) * 0.12 + st.alt * 0.12 + (st.elevDir ? 6 : 0)
       for (;;) {
         tmp.set(0.35, 0.15, d).applyQuaternion(qc)
         camera.position.copy(base).add(tmp)
@@ -512,9 +589,9 @@ function Player() {
         if (d <= 0.9 || !inBuilding(Math.atan2(camera.position.x, camera.position.z) * G, camera.position.y + HALF_L, G - r)) break
         d = Math.max(0.9, d * 0.8)
       }
-      // 地面より下に入らない
+      // 地面より下（軸の駅なら床より下）に入らない
       const r = Math.hypot(camera.position.x, camera.position.z)
-      const above = G - r
+      const above = G - r - (walker.h > STATION_H - 40 ? STATION_H : 0)
       if (above < 0.3) camera.position.addScaledVector(up, 0.3 - above)
     }
     camera.quaternion.copy(qc)

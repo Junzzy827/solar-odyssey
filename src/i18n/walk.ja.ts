@@ -13,6 +13,8 @@ export const walkJa = {
   lake: '太陽側の湖のほとり',
   hill: '端の壁のそばの丘',
   bridge: '窓の帯にかかる橋',
+  axis: '回転の軸の駅',
+  elevator: '軸へのエレベーター',
   land: (k: number) => `大地 ${k + 1}`,
   gravity: '回転の遠心力で 1G',
   day: '昼',
@@ -40,4 +42,11 @@ export const walkJa = {
   walkTo: (name: string) => `${name}に降りて歩く`,
   keysHint: 'W A S D 歩く・Shift 走る・スペース ジャンプ・マウス 見回す（クリックで固定）・ホイール 距離・E 座る・F ホバースクーター・V 見方・J 船へ',
   arrived: (name: string) => `${name}の公園に降りました。見上げると、向こう側の大地が空の代わりに広がっています`,
+  gee: (g: number) => `重さ ${g.toFixed(2)} G`,
+  elevUp: '軸へのエレベーターに乗る',
+  elevDown: 'エレベーターで地面へ',
+  elevRiding: (h: number) => `エレベーター：地面から ${Math.round(h).toLocaleString()} m`,
+  axisNote:
+    '回転の軸の駅。重さはほとんど 0 です。現実の科学では：コロニーの重さは回転の遠心力なので、軸からの距離に比例します。半径 4 km の地面で 1G、軸から 25 m のここでは 0.006G。跳ぶとふわりと浮き、回転のせいで横へ流されます。',
+  toAxis: 'コロニーの軸へ（エレベーター）',
 }

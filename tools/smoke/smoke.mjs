@@ -366,6 +366,19 @@ const SCENARIOS = {
       await sleep(3000)
     },
   },
+  walkAxis: {
+    ctx: desktop,
+    hash: '#debug&sf?colonytime=day',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.walk.start())
+      await page.waitForFunction(() => window.__sv.walk.debug.scene, null, { timeout: 120000 })
+      // 回転の軸の駅（エレベーターの上）へ。重さがほぼ 0 になる
+      await page.evaluate(() => Object.assign(window.__sv.walk.walker, { s: 0, y: 130, h: 3970, turnTo: 3.14 }))
+      await page.waitForFunction(() => window.__sv.walk.state.getState().gee < 0.02, null, { timeout: 60000, polling: 500 })
+      await sleep(4000)
+    },
+  },
 }
 
 await mkdir(outDir, { recursive: true })
