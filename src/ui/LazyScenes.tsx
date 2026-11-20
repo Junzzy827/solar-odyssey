@@ -3,6 +3,8 @@ import { useLanding } from '../state/landing'
 import { labEnabled } from '../state/surfaceLab'
 import { useEva } from '../state/eva'
 import { useWalk } from '../state/walk'
+import { SceneBoundary } from './SceneBoundary'
+import { recallRover } from '../state/rover'
 
 // 地表・船外活動・コロニーの中を歩く場面は、それぞれ別のファイルに分けて、使うときに読み込む。
 // 起動のときに読むプログラムが減り、スマホのメモリにも優しい。
@@ -31,6 +33,16 @@ function usePrefetch() {
   }, [])
 }
 
+/** 地表の場面を閉じて母船へ（失敗したとき。離陸の演出は飛ばす） */
+function backFromSurface() {
+  try {
+    recallRover()
+  } catch {
+    // ローバーが壊れていても母船へはもどる
+  }
+  useLanding.setState({ phase: 'idle', bodyId: null, site: null })
+}
+
 export function LazyScenes() {
   usePrefetch()
   const landing = useLanding((l) => l.phase !== 'idle') || labEnabled()
@@ -38,9 +50,16 @@ export function LazyScenes() {
   const walk = useWalk((w) => w.phase !== 'none')
   return (
     <>
-      <Suspense fallback={null}>{landing && <SurfaceView />}</Suspense>
-      <Suspense fallback={null}>{eva && <EvaView />}</Suspense>
-      <Suspense fallback={null}>{walk && <WalkView />}</Suspense>
+      {/* 場面が失敗したら「問題が起きました。もどる」：その場面を閉じて、宇宙の自由探索へ */}
+      <SceneBoundary name="surface" onBack={backFromSurface}>
+        <Suspense fallback={null}>{landing && <SurfaceView />}</Suspense>
+      </SceneBoundary>
+      <SceneBoundary name="eva" onBack={() => useEva.setState({ phase: 'none' })}>
+        <Suspense fallback={null}>{eva && <EvaView />}</Suspense>
+      </SceneBoundary>
+      <SceneBoundary name="walk" onBack={() => useWalk.setState({ phase: 'none' })}>
+        <Suspense fallback={null}>{walk && <WalkView />}</Suspense>
+      </SceneBoundary>
     </>
   )
 }

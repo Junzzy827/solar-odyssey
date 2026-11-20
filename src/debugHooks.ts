@@ -1,4 +1,5 @@
 import { useHistoric } from './state/historic'
+import { crashScene } from './ui/SceneBoundary'
 import { constructionSite } from './components/sf/ConstructionSite'
 import { build as pioneerBuild, collect as pioneerCollect, debugGive as pioneerGive, deliver as pioneerDeliver, nameColony, startPioneer, stopPioneer, usePioneer } from './state/pioneer'
 import * as THREE from 'three'
@@ -44,6 +45,8 @@ import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, s
 type CameraFn = (camera: THREE.PerspectiveCamera, dt: number) => void
 const sv = {
   THREE,
+  /** その場面の受け皿の中でわざと失敗させる（'surface' | 'eva' | 'walk' | 'app'） */
+  crashScene,
   store: useStore,
   race: useRace,
   mission: useMission,

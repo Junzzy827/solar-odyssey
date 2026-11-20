@@ -78,6 +78,24 @@ const SCENARIOS = {
       await visibleButton(page, '.save-export')
     },
   },
+  // 場面の受け皿：公園の場面でわざと失敗させて「問題が起きました」が出て、「もどる」で宇宙の自由探索にもどる
+  'scene-error': {
+    ctx: desktop,
+    hash: '#debug&sf',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.walk.start())
+      // 歩く場面が出来てから壊す（遅い CI でも読み込み途中で壊さない）
+      await page.waitForFunction(() => window.__sv.walk.debug.scene, null, { timeout: 120000 })
+      await page.evaluate(() => window.__sv.crashScene('walk'))
+      await page.waitForSelector('.scene-error[data-scene="walk"]', { timeout: 20000 })
+      await visibleButton(page, '.scene-error-back')
+      // 3D が重い CI ではクリックの安定待ちが終わらないので、DOM から直接押す
+      await page.evaluate(() => document.querySelector('.scene-error-back').click())
+      await page.waitForFunction(() => !document.querySelector('.scene-error') && window.__sv.walk.state.getState().phase === 'none', null, { timeout: 60000 })
+      await sleep(2000)
+    },
+  },
   // スマホ
   phone: { ctx: phone, hash: '#debug' },
   // 天体カード（PC とスマホ）：開いて、めくるボタンと閉じるボタンが隠れていない
