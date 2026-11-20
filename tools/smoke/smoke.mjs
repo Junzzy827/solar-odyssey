@@ -255,7 +255,8 @@ const SCENARIOS = {
         p.deliver()
       })
       await page.waitForFunction(() => window.__delivered, null, { timeout: 30000 })
-      await page.click('.pio-open')
+      // 重い画面では page.click が「押したあとの待ち」で 30 秒を超えることがあるので、DOM で押す
+      await page.evaluate(() => document.querySelector('.pio-open').click())
       await visibleButton(page, '.pio-quit')
       // 端末の 4 つのタブ：それぞれの図が出る（納品 1 回ぶんの記録と流れがある）
       for (const [tab, sel] of [['route', '.pio-map .pio-map-ship'], ['flow', '.pio-sankey .pio-band'], ['log', '.pio-bars .pio-tbar'], ['ship', '.pio-upgrade'], ['status', '.pio-donut']]) {
