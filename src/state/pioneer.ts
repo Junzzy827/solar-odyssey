@@ -54,8 +54,8 @@ type PioneerState = PioneerSave & {
   tab: TerminalTab
 }
 
-export type TerminalTab = 'status' | 'jobs' | 'route' | 'flow' | 'log' | 'ship'
-export const TERMINAL_TABS: readonly TerminalTab[] = ['status', 'jobs', 'route', 'flow', 'log', 'ship']
+export type TerminalTab = 'status' | 'jobs' | 'colony' | 'route' | 'flow' | 'log' | 'ship'
+export const TERMINAL_TABS: readonly TerminalTab[] = ['status', 'jobs', 'colony', 'route', 'flow', 'log', 'ship']
 
 export type Near = 'field' | 'jupiter' | 'dock' | null
 
@@ -273,6 +273,15 @@ export function receive(a: Amounts) {
   const s = usePioneer.getState()
   usePioneer.setState({ store: plus(s.store, a) })
   persist()
+}
+
+/** 倉庫から払う（コロニー経営の区画など）。足りなければ払わずに false */
+export function spend(cost: Amounts) {
+  const s = usePioneer.getState()
+  if (!canPay(s.store, cost)) return false
+  usePioneer.setState({ store: pay(s.store, cost) })
+  persist()
+  return true
 }
 
 /** 自動テスト・録画用：資源を足す */

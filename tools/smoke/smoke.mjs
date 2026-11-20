@@ -408,6 +408,22 @@ const SCENARIOS = {
       // 場面のあとは建設中のコロニーのそばにいて、カードに戻る
       await sleep(3000)
       await visibleButton(page, '.pio-open')
+      // コロニー経営：完成させたことにして、端末の経営タブで町づくりを始め、公園を 1 つ建てる
+      await page.evaluate(() => {
+        window.__sv.pioneer.state.setState({ stage: 5, colonyName: 'Smoke', naming: false, store: { metal: 300, ice: 300, gas: 300 }, panel: true, tab: 'colony' })
+      })
+      await page.waitForSelector('.col-intro .pio-build', { timeout: 30000 })
+      await page.evaluate(() => document.querySelector('.col-intro .pio-build').click())
+      await page.waitForSelector('.col-tab .col-chart svg', { timeout: 30000 })
+      const town = await page.evaluate(() => {
+        const sv = window.__sv
+        const before = sv.colony.state.getState().zones.park
+        document.querySelector('.col-z-park .pio-build').click()
+        const s = sv.colony.state.getState()
+        return { started: s.started, park: s.zones.park - before, ice: sv.pioneer.state.getState().store.ice }
+      })
+      if (!town.started || town.park !== 1 || town.ice !== 285) throw new Error(`pioneer: colony ${JSON.stringify(town)}`)
+      await page.evaluate(() => window.__sv.pioneer.state.setState({ panel: false }))
     },
     after: async (page) => {
       // 重い画面では page.click の待ちが 30 秒を超えるので、DOM で押す
