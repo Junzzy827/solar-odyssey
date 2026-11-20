@@ -5,10 +5,12 @@ import { ColonyModel } from '../sf/ColonyModel'
 import { AVENUE, M, colonyDay, treeInstancesWhere, sharedInstancedMesh, treeLiteGeometry, treeMaterial } from '../sf/colonyCity'
 import { Batch, place, seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
-import { EW_END, EW_Y, FADE, G, GROUND_LIFT, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, STREETS, STREET_W, frameAt, inBoundsTree, landPoint, parkLayout, streetRect, upAt } from './park'
+import { EW_END, EW_Y, FADE, GROUND_LIFT, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, STREETS, STREET_W, frameAt, inBoundsTree, landPoint, parkLayout, streetRect, upAt } from './park'
 import { WalkTown } from './WalkTown'
 import { WalkJungle } from './WalkJungle'
 import { JUNGLE, TRAIL_W, jungleLayout } from './jungle'
+import { WalkChunks } from './WalkChunks'
+import { WalkBridges } from './WalkBridges'
 
 // コロニーの中を歩く場面の、動かないもの：遠くのコロニー全体（宇宙の場面の形を 1/M 倍）、
 // 公園の地面・池・木・ベンチ・街灯・遊具・噴水、空気のかすみ、昼と夜の光。
@@ -45,10 +47,10 @@ export function standAt(s: number, y: number, h: number, yaw: number, scale: num
 // 区分けの絵 B：R = アスファルト（大通り）、G = 池の岸の砂利、B = 道路の白線
 // 何もないところは芝生。境目は少しぼかして、さらに細かいまだらで崩す。
 
-const PX_PER_M = () => (lowMemory() || currentLevel() === 'low' ? 0.9 : currentLevel() === 'medium' ? 1.3 : 1.7)
+export const PX_PER_M = () => (lowMemory() || currentLevel() === 'low' ? 0.9 : currentLevel() === 'medium' ? 1.3 : 1.7)
 
 /** 質感 1 枚が何 m 四方か（Poly Haven の実寸に近く） */
-const TILE = { grass: 2.2, path: 3, paving: 2.5, sand: 2.1, shore: 2.5, asphalt: 3 }
+export const TILE = { grass: 2.2, path: 3, paving: 2.5, sand: 2.1, shore: 2.5, asphalt: 3 }
 
 const textureLoader = new THREE.TextureLoader()
 const parkTextures = new Map<string, THREE.Texture>()
@@ -158,7 +160,7 @@ function maskCanvases() {
 }
 
 /** 境目を崩す・くり返しを目立たなくする細かいまだら（6 m ごとにくり返す） */
-function detailTexture() {
+export function detailTexture() {
   const N = 256
   const c = document.createElement('canvas')
   c.width = c.height = N
@@ -179,7 +181,7 @@ function detailTexture() {
 }
 
 /** 曲がった地面の一枚（円筒の内側に沿う）。uv は範囲の (0,0)〜(1,1) */
-function patchGeometry(segS: number, segY: number, lift: number) {
+export function patchGeometry(segS: number, segY: number, lift: number) {
   const geo = new THREE.PlaneGeometry(1, 1, segS, segY)
   const pos = geo.attributes.position
   const nor = geo.attributes.normal
@@ -358,14 +360,14 @@ function useInstanced(geo: THREE.BufferGeometry, mat: THREE.Material, list: THRE
 }
 
 /** 木の幹の皮（ケヤキ）。幹の円柱に、周りに 2 回・高さに 3 回くり返す */
-function barkTexture() {
+export function barkTexture() {
   const t = parkTexture('bark')
   t.repeat.set(2, 3)
   return t
 }
 
 /** 幹のある木（近くの木）。樹冠は 2 つの丸を重ねて、上が明るい */
-function crownGeometry() {
+export function crownGeometry() {
   // スマホや「軽量」では、大きい丸を一段粗く（三角形 320 → 80 枚）。公園の木は 600 本あるので、ここが効く
   const a = new THREE.IcosahedronGeometry(0.5, lowMemory() || currentLevel() === 'low' ? 1 : 2)
   const b = new THREE.IcosahedronGeometry(0.36, 1).translate(0.18, 0.28, 0.08)
@@ -726,6 +728,8 @@ function FarColony() {
 
 /* ---------- 光と空気 ---------- */
 
+const Y25 = new THREE.Vector3(0, 0.25, 0)
+
 /** 昼と夜の光。follow の位置（自分）のまわりだけ影を作る */
 function Lights({ follow }: { follow: { current: THREE.Vector3 } }) {
   const { scene } = useThree()
@@ -735,12 +739,10 @@ function Lights({ follow }: { follow: { current: THREE.Vector3 } }) {
   const glow = useRef<THREE.AmbientLight>(null!)
   const level = currentLevel()
   const shadows = level !== 'low' && !lowMemory()
-  const center = useMemo(() => {
-    const s = (PATCH.s0 + PATCH.s1) / 2
-    return { up: upAt(s), east: new THREE.Vector3(Math.cos(s / G), 0, -Math.sin(s / G)) }
-  }, [])
-  // 光は窓（大地の帯のとなり）から斜めに入ってくる：上から東へ 35°、少し太陽の側（北）から
-  const dir = useMemo(() => center.up.clone().multiplyScalar(Math.cos(0.6)).addScaledVector(center.east, Math.sin(0.6)).add(new THREE.Vector3(0, 0.25, 0)).normalize(), [center])
+  // 光は窓（大地の帯のとなり）から斜めに入ってくる：上から東へ 35°、少し太陽の側（北）から。
+  // 円筒のどこを歩いても同じ見え方になるよう、自分のいる所の上と東から決める
+  const center = useMemo(() => ({ up: new THREE.Vector3(), east: new THREE.Vector3() }), [])
+  const dir = useMemo(() => new THREE.Vector3(), [])
   useEffect(() => {
     scene.fog = new THREE.FogExp2(HAZE_DAY.clone(), 0.000055)
     scene.background = HAZE_DAY.clone()
@@ -750,6 +752,10 @@ function Lights({ follow }: { follow: { current: THREE.Vector3 } }) {
     }
   }, [scene])
   useFrame(() => {
+    const a = Math.atan2(follow.current.x, follow.current.z)
+    center.up.set(-Math.sin(a), 0, -Math.cos(a))
+    center.east.set(Math.cos(a), 0, -Math.sin(a))
+    dir.copy(center.up).multiplyScalar(Math.cos(0.6)).addScaledVector(center.east, Math.sin(0.6)).add(Y25).normalize()
     const n = colonyDay.night
     const fog = scene.fog as THREE.FogExp2
     fog.color.lerpColors(HAZE_DAY, HAZE_NIGHT, n)
@@ -809,6 +815,8 @@ export function WalkWorld({ follow }: { follow: { current: THREE.Vector3 } }) {
       <Lights follow={follow} />
       <FarColony />
       <Ground />
+      <WalkChunks follow={follow} />
+      <WalkBridges />
       <Trees follow={follow} />
       <Furniture />
       <PlayAndPlaza />
