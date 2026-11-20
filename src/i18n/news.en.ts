@@ -9,4 +9,5 @@ export const newsEn: Translation<typeof newsJa> = {
   colonyLap:
     '🛸 News: inside the colony you can now walk beyond the park, cross the bridges over the window strips to the other lands, and on the hover scooter “Fly (G)” at 360 km/h to lap the whole cylinder in about 4 minutes.',
   bodyCards: '📇 New: body cards. Press “📇 Body card” in the ship’s log to compare size, gravity, day length and temperature with Earth. Use ◀ ▶ to flip to other bodies.',
+  raceMedals: '🥇 News: rover races now have medals, and you can pick how tough your rivals are (Easy, Normal, Tough). A gold medal adds a reward rock to your rock collection. On phones the rover can drive with auto throttle.',
 }

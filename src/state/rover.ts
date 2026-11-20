@@ -172,11 +172,15 @@ export const toggleCruise = () => {
  * Rover が毎フレーム読む、運転の入力：キーボード・画面のボタン（roverInput）に、マウスのハンドルと巡航を足したもの。
  * speed はローバーの今の速さ（m/s）
  */
+/** 自動アクセル（レース中に Rally.tsx が毎フレーム入れる）：▲ を押していなくてもアクセル。▼ はブレーキのまま */
+export const roverAutoGas = { on: false }
+
 export function driveInput(speed: number, dt: number): { steer: number; throttle: number } {
   const m = roverMouse
   if (m.locked && performance.now() - m.lastMove > 80) m.steer -= Math.sign(m.steer) * Math.min(Math.abs(m.steer), MOUSE_CENTER * dt)
   const steer = roverInput.steer !== 0 ? roverInput.steer : m.locked ? m.steer : 0
   let throttle = roverInput.throttle
+  if (throttle === 0 && roverAutoGas.on) return { steer, throttle: 1 }
   if (throttle < 0 && useRoverCruise.getState().cruise > 0) stopCruise()
   const cruise = useRoverCruise.getState().cruise / 3.6
   if (throttle === 0 && cruise > 0) {
