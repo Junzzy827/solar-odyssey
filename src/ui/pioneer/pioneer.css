@@ -2108,3 +2108,39 @@ html.pio-cinema
   width: 2px;
   height: 4px;
 }
+/* 歩く場面の上：研究温室までの案内（components/walk/WalkErrandHud.tsx）。配達完了のカードも歩く場面の上に出す */
+.pio-errand {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 420px);
+  padding: 8px 14px;
+  border-left: 3px solid #ffd27a;
+  border-radius: 12px;
+  background: rgba(14, 18, 28, 0.86);
+  color: #e8ecf6;
+  pointer-events: none;
+}
+.pio-errand > span:last-child {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.pio-errand small {
+  font-size: 11px;
+  color: #aab6cc;
+}
+.pio-errand small:first-child {
+  color: #ffd27a;
+}
+.pio-errand b {
+  font-variant-numeric: tabular-nums;
+}
+.pio-delivery {
+  z-index: 60;
+}

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import type { JobKind } from '../../data/delivery'
+import { LAB_STOP, type JobKind } from '../../data/delivery'
+import { ui } from '../../i18n'
 import { sfEntry } from '../../data/sf'
 import { IconFuel, IconMedicine, IconParts, IconSamples, IconSeedlings, IconStar } from './icons'
 
@@ -14,7 +15,7 @@ export const JOB_ICON: Record<JobKind, (size?: number) => ReactNode> = {
 }
 
 /** 行き先の名前（SF の場所の一覧から） */
-export const placeName = (id: string) => sfEntry(id)?.name() ?? id
+export const placeName = (id: string) => (id === LAB_STOP ? ui().delivery.lab : (sfEntry(id)?.name() ?? id))
 
 /** 星 3 つの並び（n 個が光る） */
 export function Stars({ n, size = 16, label }: { n: number; size?: number; label: string }) {
