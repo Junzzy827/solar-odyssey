@@ -47,6 +47,7 @@ export const saveDataEn: Translation<typeof saveDataJa> = {
     roverSamples: 'Rock collection',
     evaLog: 'Spacewalk jobs',
     apollo17: 'Apollo 17 sites',
+    firstThree: 'First three things',
     newsSeen: 'News you have read',
     photoNoteHidden: 'Photographic mode note',
   },
