@@ -225,6 +225,18 @@ const SCENARIOS = {
       await visibleButton(page, '.pio-goal-go')
       const goal = await page.textContent('.pio-goal-text b')
       if (!goal) throw new Error('pioneer: no goal text')
+      // 拾う → 納める：納品のカードが出る
+      // （ソフト描画では 1 コマが遅く、カードが出て消えるまでに見逃すので、出たことを記録しておく）
+      await page.evaluate(() => {
+        window.__delivered = false
+        new MutationObserver(() => {
+          if (document.querySelector('.pio-delivery')) window.__delivered = true
+        }).observe(document.body, { childList: true, subtree: true })
+        const p = window.__sv.pioneer
+        p.collect('metal', 12)
+        p.deliver()
+      })
+      await page.waitForFunction(() => window.__delivered, null, { timeout: 30000 })
       await page.click('.pio-open')
       await visibleButton(page, '.pio-quit')
       await page.evaluate(() => {

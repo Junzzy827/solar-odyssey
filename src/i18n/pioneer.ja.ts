@@ -104,6 +104,8 @@ export const pioneerJa = {
   started: '開拓を始めました。端末から行き先を選べます',
   stopped: '開拓をやめました。続きは、また「遊ぶ」の「開拓」から',
   holdFull: '積み荷がいっぱいです。天の湊へ戻って納めましょう',
+  deliveredTitle: '天の湊に納めました',
+  readyToBuild: '次の段階を建てられます（端末へ）',
   delivered: (a: Amounts, ready: boolean) => `倉庫に納めました：${list(a)}${ready ? '。次の段階を建てられます（端末から）' : ''}`,
   built: (id: StageId) => `建設が進みました：${pioneerJa.stageName[id]}`,
   named: (name: string) => `コロニーの名前は「${name}」。港に銘板が付きました`,

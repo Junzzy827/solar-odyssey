@@ -108,6 +108,8 @@ export const pioneerEn: Translation<typeof pioneerJa> = {
   started: 'Pioneering started. Pick a destination from the terminal',
   stopped: 'Pioneering stopped. Continue any time from Play → Pioneering',
   holdFull: 'Cargo is full. Head back to Amano-Minato to unload',
+  deliveredTitle: 'Unloaded at Amano-Minato',
+  readyToBuild: 'Next stage ready (open terminal)',
   delivered: (a: Amounts, ready: boolean) => `Unloaded to the storehouse: ${list(a)}${ready ? '. The next stage can be built (from the terminal)' : ''}`,
   built: (id: StageId) => `Construction advanced: ${stageName[id]}`,
   named: (name: string) => `Your colony is named "${name}". A nameplate is now on the port`,

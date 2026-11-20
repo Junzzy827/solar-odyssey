@@ -7,6 +7,7 @@ import { proximity } from '../../../state/proximity'
 import { useStore } from '../../../state/store'
 import { shipScale } from '../../../state/zoom'
 import { collect, deliver, setNear, usePioneer, type Near } from '../../../state/pioneer'
+import { gasFx, shipOnScreen } from '../../../state/pioneerFx'
 import { FIELD_ID, GAS_BAND, holdCapacity, rockResource, goal, RING_COUNT, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, type Resource } from '../../../data/pioneer'
 import { DOCK_ID } from '../../../data/sf'
 import { ui } from '../../../i18n'
@@ -25,9 +26,10 @@ const ATTRACT = 40
 /** かけらが残る秒数 */
 const ORE_LIFE = 90
 const COLORS: Record<Resource, THREE.Color> = {
-  metal: new THREE.Color(3.2, 1.9, 0.6),
-  ice: new THREE.Color(0.9, 2.4, 3.4),
-  gas: new THREE.Color(2.6, 1.6, 2.8),
+  // 光ってにじむくらい（明るすぎると白く飛んで、色の区別がつかない）
+  metal: new THREE.Color(1.7, 0.85, 0.22),
+  ice: new THREE.Color(0.35, 1.25, 1.9),
+  gas: new THREE.Color(1.4, 0.75, 1.6),
 }
 
 type Ore = { pos: THREE.Vector3; vel: THREE.Vector3; resource: Resource; amount: number; born: number }
@@ -247,7 +249,7 @@ export function PioneerScene() {
     }
     list.length = w
     const im = mesh.current
-    const size = Math.max(unit * 0.25, 0.03)
+    const size = Math.max(unit * 0.15, 0.02)
     for (let i = 0; i < w; i++) {
       const o = list[i]
       q.setFromAxisAngle(tmp.set(0.3, 1, 0.2).normalize(), s.spin + i)
@@ -278,6 +280,13 @@ export function PioneerScene() {
 
     placeRings(camera, view, dt, near === 'field' && !full && st.mode === 'flight' && st.warpPhase === 'idle')
 
+    // 船の画面上の位置（拾った数字をここから浮かべる）
+    tmp.copy(ship.position).project(camera)
+    shipOnScreen.visible = tmp.z < 1 && Math.abs(tmp.x) < 1 && Math.abs(tmp.y) < 1
+    shipOnScreen.x = ((tmp.x + 1) / 2) * view.width
+    shipOnScreen.y = ((1 - tmp.y) / 2) * view.height
+    gasFx.collecting = false
+
     if (st.mode !== 'flight' || st.warpPhase !== 'idle') return
 
     // 木星の雲のすぐ上：速く飛んでいるあいだ、ガスがたまる
@@ -290,7 +299,8 @@ export function PioneerScene() {
         }
       } else if (h < GAS_BAND.high) {
         s.deepNotice = false
-        if (thrustFx.speed >= GAS_MIN_SPEED) {
+        if (thrustFx.speed >= GAS_MIN_SPEED && !full) {
+          gasFx.collecting = true
           if (!s.gasNotice) {
             s.gasNotice = true
             st.showToast(ui().pioneer.gasSkimming)
@@ -319,6 +329,84 @@ export function PioneerScene() {
     <>
       <group ref={field} />
       <instancedMesh ref={mesh} args={[geometry, material, MAX_ORE]} frustumCulled={false} />
+      <GasStream />
     </>
   )
 }
+
+/** ガスを集めているあいだ、船の前から紫の筋が流れこむ */
+const GAS_POINTS = 90
+const GAS_LIFE = 0.7
+function GasStream() {
+  const geo = useMemo(() => {
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(GAS_POINTS * 3), 3))
+    g.setAttribute('alpha', new THREE.BufferAttribute(new Float32Array(GAS_POINTS), 1))
+    return g
+  }, [])
+  const mat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+        uniforms: { uColor: { value: new THREE.Color(2.2, 1.3, 2.6) } },
+        vertexShader: `attribute float alpha; varying float vA;
+          void main() { vA = alpha; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = 2.0 + 4.0 * alpha; }`,
+        fragmentShader: `uniform vec3 uColor; varying float vA;
+          void main() { float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(uColor * vA * (1.0 - d * 2.0), 1.0); }`,
+      }),
+    [],
+  )
+  useEffect(
+    () => () => {
+      geo.dispose()
+      mat.dispose()
+    },
+    [geo, mat],
+  )
+  const parts = useRef(Array.from({ length: GAS_POINTS }, () => ({ pos: new THREE.Vector3(), vel: new THREE.Vector3(), age: GAS_LIFE })))
+  const next = useRef(0)
+  const pts = useRef<THREE.Points>(null!)
+  useFrame((_, raw) => {
+    const dt = Math.min(raw, 0.1)
+    const unit = shipScale()
+    const list = parts.current
+    if (gasFx.collecting) {
+      // 1 秒に 120 粒ほど。船の前方、少し横にずれたところから
+      const n = Math.max(1, Math.round(120 * dt))
+      fwd.set(0, 0, -1).applyQuaternion(ship.quaternion)
+      for (let k = 0; k < n; k++) {
+        const p = list[next.current]
+        next.current = (next.current + 1) % GAS_POINTS
+        side.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(unit * 3)
+        p.pos.copy(ship.position).addScaledVector(fwd, unit * (4 + Math.random() * 4)).add(side)
+        p.age = 0
+      }
+    }
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute
+    const alpha = geo.getAttribute('alpha') as THREE.BufferAttribute
+    let any = false
+    for (let i = 0; i < GAS_POINTS; i++) {
+      const p = list[i]
+      if (p.age >= GAS_LIFE) {
+        alpha.setX(i, 0)
+        continue
+      }
+      any = true
+      p.age += dt
+      // 船へ吸いこまれる（だんだん速く）
+      p.vel.copy(ship.position).sub(p.pos).multiplyScalar(dt * (2 + p.age * 6))
+      p.pos.add(p.vel)
+      pos.setXYZ(i, p.pos.x, p.pos.y, p.pos.z)
+      alpha.setX(i, Math.sin((p.age / GAS_LIFE) * Math.PI))
+    }
+    pos.needsUpdate = true
+    alpha.needsUpdate = true
+    pts.current.visible = any
+  })
+  return <points ref={pts} geometry={geo} material={mat} frustumCulled={false} />
+}
+const fwd = new THREE.Vector3()
+const side = new THREE.Vector3()
