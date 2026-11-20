@@ -81,5 +81,5 @@ export const deliveryJa = {
   walkButton: '降りて歩く',
   labDistance: (m: number) => `研究温室まで ${Math.round(m)} m`,
   labHere: '入口の光る輪に入ると、手渡します',
-  labSign: '研究温室',
+  arrivedWalk: (place: string) => `${place}に入港しました。降りて研究温室まで歩こう`,
 }

@@ -2144,3 +2144,18 @@ html.pio-cinema
 .pio-delivery {
   z-index: 60;
 }
+/* スマホ：上の場所カード・ボタンの列と重ならないよう、ボタンの列の下に小さく出す */
+@media (max-width: 720px) {
+  .pio-errand {
+    top: calc(max(12px, env(safe-area-inset-top)) + 150px);
+    max-width: min(80vw, 300px);
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+  .pio-errand b {
+    white-space: nowrap;
+  }
+  .pio-errand-hint {
+    display: none;
+  }
+}

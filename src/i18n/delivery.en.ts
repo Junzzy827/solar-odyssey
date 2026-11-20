@@ -81,5 +81,5 @@ export const deliveryEn: Translation<typeof deliveryJa> = {
   walkButton: 'Get out and walk',
   labDistance: (m: number) => `${Math.round(m)} m to the research greenhouse`,
   labHere: 'Step into the glowing ring at the door to hand it over',
-  labSign: 'Research greenhouse',
+  arrivedWalk: (place: string) => `Docked at ${theEn(place)}. Get out and walk to the research greenhouse`,
 }

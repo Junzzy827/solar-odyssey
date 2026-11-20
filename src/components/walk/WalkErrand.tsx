@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useDelivery, handoffDone, nextStop } from '../../state/delivery'
-import { usePioneer } from '../../state/pioneer'
+import { useWalk } from '../../state/walk'
+import { COLONY_ID } from '../../data/sf'
 import { LAB_STOP } from '../../data/delivery'
-import { EW_Y, NS_S, frameAt, landPoint, parkLayout, type Obstacle } from './park'
+import { EW_Y, GROUND_LIFT, NS_S, frameAt, landPoint, parkLayout, type Obstacle } from './park'
 import { walker } from './WalkActors'
 
 // 配達の仕事の最後：コロニーの公園の研究温室へ、歩いて荷物を届ける（state/delivery.ts の LAB_STOP）。
@@ -31,14 +32,14 @@ let spot: { s: number; y: number } | null = null
 export function labPlace() {
   if (!spot) spot = labSpot(parkLayout().obstacles)
   // 入口は道の側（西）
-  return { ...spot, doorS: spot.s - LAB_R - DOOR_R - 0.4, doorY: spot.y }
+  return { ...spot, doorS: spot.s - LAB_R - DOOR_R - 0.8, doorY: spot.y }
 }
 
-/** 研究温室へ向かっているところか（開拓で遊んでいて、仕事の次の行き先が研究温室） */
+/** 研究温室へ向かっているところか（仕事の次の行き先が研究温室で、研究温室のあるコロニー（1 号基）を歩いている） */
 export function useLabErrand() {
   const job = useDelivery((d) => d.active)
-  const active = usePioneer((p) => p.active)
-  return active && !!job && nextStop(job) === LAB_STOP
+  const colony = useWalk((w) => w.colonyId)
+  return !!job && nextStop(job) === LAB_STOP && colony === COLONY_ID
 }
 
 /** 研究温室までの距離（m） */
@@ -49,7 +50,8 @@ export function labDistance() {
 
 function Greenhouse() {
   const parts = useMemo(() => {
-    const glass = new THREE.MeshPhysicalMaterial({ color: '#cfe9ff', roughness: 0.08, metalness: 0, transmission: 0.6, transparent: true, opacity: 0.38, side: THREE.DoubleSide, depthWrite: false })
+    // 透過（transmission）は公園をもう一度描くので重い。ふつうの半透明にする
+    const glass = new THREE.MeshStandardMaterial({ color: '#cfe9ff', roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false })
     const frame = new THREE.MeshStandardMaterial({ color: '#e9edf2', roughness: 0.45, metalness: 0.3 })
     const base = new THREE.MeshStandardMaterial({ color: '#8b939e', roughness: 0.85 })
     const leaf = new THREE.MeshStandardMaterial({ color: '#4f9a52', roughness: 0.8 })
@@ -77,9 +79,20 @@ function Greenhouse() {
           <torusGeometry args={[LAB_R, 0.07, 6, 32, Math.PI]} />
         </mesh>
       ))}
-      <mesh material={parts.frame} position={[0, 2.3, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[LAB_R, 0.09, 6, 48]} />
-      </mesh>
+      {[0.32, 2.3].map((y) => (
+        <mesh key={y} material={parts.frame} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[LAB_R, 0.09, 6, 48]} />
+        </mesh>
+      ))}
+      {/* 壁の柱（ガラスの壁が見えにくくても、ドームが浮いて見えないように） */}
+      {Array.from({ length: ribs * 2 }, (_, i) => {
+        const a = (i / (ribs * 2)) * Math.PI * 2
+        return (
+          <mesh key={`p${i}`} material={parts.frame} position={[Math.cos(a) * LAB_R, 1.3, Math.sin(a) * LAB_R]} castShadow>
+            <boxGeometry args={[0.12, 2, 0.12]} />
+          </mesh>
+        )
+      })}
       {/* 中の苗床（緑の小山） */}
       {[-1.6, 0, 1.6].map((x) => (
         <mesh key={x} material={parts.leaf} position={[x, 0.6, 0.6 * Math.sign(x)]} castShadow>
@@ -119,7 +132,7 @@ function Errand() {
   // 温室には入れない：公園のぶつかる物に足す（終わったら外す）
   useEffect(() => {
     const obstacles = parkLayout().obstacles
-    const o: Obstacle = { s: place.s, y: place.y, r: LAB_R + 0.3 }
+    const o: Obstacle = { s: place.s, y: place.y, r: LAB_R + 0.7 }
     obstacles.push(o)
     return () => {
       const i = obstacles.indexOf(o)
@@ -129,11 +142,12 @@ function Errand() {
 
   useEffect(() => {
     if (lab.current) {
-      landPoint(place.s, place.y, 0, lab.current.position)
+      landPoint(place.s, place.y, GROUND_LIFT, lab.current.position)
       frameAt(place.s, lab.current.quaternion)
     }
     if (door.current) {
-      landPoint(place.doorS, place.doorY, 0.03, door.current.position)
+      // 地面の板（GROUND_LIFT だけ持ち上げてある）より少し上に
+      landPoint(place.doorS, place.doorY, GROUND_LIFT + 0.03, door.current.position)
       frameAt(place.doorS, door.current.quaternion)
     }
   }, [place.s, place.y, place.doorS, place.doorY])

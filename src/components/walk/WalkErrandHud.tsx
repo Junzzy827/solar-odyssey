@@ -23,7 +23,7 @@ export function WalkErrandHud() {
       <span>
         <small>{t.now}</small>
         <b>{t.labDistance(m)}</b>
-        <small>{m < 8 ? t.labHere : t.walkHint}</small>
+        <small className={m < 8 ? undefined : "pio-errand-hint"}>{m < 8 ? t.labHere : t.walkHint}</small>
       </span>
     </div>
   )
