@@ -19,7 +19,7 @@ type Card = { id: number } & (
   | { kind: 'rare'; rare: RareId; count: number; amount: number }
   | { kind: 'daily'; reward: Amounts }
   | { kind: 'jobStep'; job: JobKind; at: string; load: boolean }
-  | { kind: 'jobDone'; job: JobKind; stars: number; kept: boolean; fast: boolean; reward: Amounts; seconds: number }
+  | { kind: 'jobDone'; job: JobKind; stars: number; kept: boolean; fast: boolean; reward: Amounts; seconds: number; target: number }
 )
 
 /** 同じ資源をこの時間内に続けて拾ったら、1 つの数字にまとめる（ミリ秒） */
@@ -112,7 +112,7 @@ export function PioneerFx() {
           setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'jobStep', job: e.job, at: e.at, load: e.kind === 'jobLoad' }])
         } else if (e.kind === 'jobDone') {
           playJobDone(e.stars)
-          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'jobDone', job: e.job, stars: e.stars, kept: e.kept, fast: e.fast, reward: e.reward, seconds: e.seconds }])
+          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'jobDone', job: e.job, stars: e.stars, kept: e.kept, fast: e.fast, reward: e.reward, seconds: e.seconds, target: e.target }])
         } else if (e.kind === 'daily') {
           playDaily()
           setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'daily', reward: e.reward }])
@@ -201,8 +201,9 @@ export function PioneerFx() {
         </div>
       )}
       {delivery?.kind === 'jobDone' && (
-        <div key={delivery.id} className="pio-delivery pio-card-job" role="status" aria-label={`${td.doneTitle} ${td.starsAria(delivery.stars)}`}>
-          <small>{td.kind[delivery.job].title}</small>
+        <div key={delivery.id} className="pio-delivery pio-card-job" role="status">
+          <span className="pio-sr">{td.doneAria(td.kind[delivery.job].title, delivery.stars)}</span>
+          <small aria-hidden>{td.kind[delivery.job].title}</small>
           <h3>{td.doneTitle}</h3>
           <span className="pio-card-stars" aria-hidden>
             {[0, 1, 2].map((i) => (
@@ -214,7 +215,7 @@ export function PioneerFx() {
           <ul className="pio-card-checks">
             <li className="on">{td.starDone}</li>
             <li className={delivery.kept ? 'on' : ''}>{td.starKept}</li>
-            <li className={delivery.fast ? 'on' : ''}>{td.seconds(delivery.seconds)}</li>
+            <li className={delivery.fast ? 'on' : ''}>{td.seconds(delivery.seconds, delivery.target)}</li>
           </ul>
           <Rows amounts={delivery.reward} />
         </div>

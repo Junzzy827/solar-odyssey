@@ -54,6 +54,11 @@ export const deliveryJa = {
   historyEmpty: 'まだ届けた仕事はありません',
   kindDone: (n: number) => `${n} 回`,
   totalDone: (n: number, stars: number) => `届けた仕事 ${n} 件・星 ${stars} 個`,
+  acceptAria: (title: string) => `${title}の仕事を引き受ける`,
+  fastYes: '間に合っています',
+  fastNo: '目安をこえました',
+  ruleTimer: (rule: string, time: string) => `${rule} · ${time}`,
+  doneAria: (title: string, stars: number) => `${title}の配達完了。星 ${stars} つ`,
   best: 'いちばん良い星',
   starsAria: (n: number) => `星 ${n} つ`,
   // 飛んでいるあいだのカード
@@ -66,6 +71,6 @@ export const deliveryJa = {
   loaded: (cargo: string, place: string) => `${place}で${cargo}を積みました`,
   dropped: (place: string) => `${place}で荷物を降ろしました`,
   doneTitle: '配達完了',
-  seconds: (sec: number) => `かかった時間 ${mmss(sec)}`,
+  seconds: (sec: number, fast: number) => `かかった時間 ${mmss(sec)}（目安 ${mmss(fast)}）`,
   jobsButton: '仕事',
 }

@@ -14,7 +14,7 @@ export type PioneerFx =
   | { kind: 'jobLoad'; job: JobKind; at: string }
   | { kind: 'jobDrop'; job: JobKind; at: string }
   /** 配達：届け終えた */
-  | { kind: 'jobDone'; job: JobKind; stars: number; kept: boolean; fast: boolean; reward: Amounts; seconds: number }
+  | { kind: 'jobDone'; job: JobKind; stars: number; kept: boolean; fast: boolean; reward: Amounts; seconds: number; target: number }
 
 const listeners = new Set<(e: PioneerFx) => void>()
 

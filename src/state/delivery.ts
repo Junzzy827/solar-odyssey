@@ -2,26 +2,28 @@ import { create } from 'zustand'
 import { saveSlot } from './save'
 import { useStore } from './store'
 import { emitPioneerFx } from './pioneerFx'
+import { engage } from './flight'
 import { receive, setTab, togglePanel } from './pioneer'
 import { ui } from '../i18n'
 import { today } from '../data/pioneer'
-import { addRecord, board, checkDelivery, NEW_DELIVERY, rewardFor, ruleOf, starsFor, type ActiveJob, type DeliverySave, type JobDef } from '../data/delivery'
+import { addRecord, board, checkDelivery, fastSeconds, NEW_DELIVERY, rewardFor, ruleOf, starsFor, type ActiveJob, type DeliverySave, type JobDef } from '../data/delivery'
 
 // 配達の仕事の進み具合（決まりは data/delivery.ts）。共通のセーブの 'delivery' に入る。
 // 行き先に着いて止まったか・ワープやビームを使ったかは、components/sf/pioneer/DeliveryRunner が見て、ここを呼ぶ
+// （DeliveryRunner は、仕事を引き受けているあいだ、開拓をやめていても動く。約束と時間はいつも見ておく）
 
 type DeliveryState = DeliverySave & {
-  /** 掲示板の日付（日付が変わると仕事が入れ替わる） */
-  day: string
   /** 行き先のそばで止まって待っている割合（0〜1。保存しない） */
   handoff: number
-  /** 行き先のそばにいるが、速すぎて受け渡しができない（保存しない） */
+  /** 行き先の輪の中にいるが、速すぎて受け渡しができない（保存しない） */
   tooFast: boolean
+  /** 次の行き先の近く（輪が見えるところ）にいる（保存しない） */
+  near: boolean
 }
 
 const slot = saveSlot<DeliverySave>('delivery', NEW_DELIVERY, (v) => (checkDelivery(v) ? v : null))
 
-export const useDelivery = create<DeliveryState>(() => ({ ...slot.load(), day: today(), handoff: 0, tooFast: false }))
+export const useDelivery = create<DeliveryState>(() => ({ ...slot.load(), handoff: 0, tooFast: false, near: false }))
 
 function persist() {
   const { v, active, done, history, skipped } = useDelivery.getState()
@@ -34,13 +36,8 @@ const t = () => ui().delivery
 let pending = 0
 let sinceSave = 0
 
-/** 掲示板に出ている仕事（日付が変わっていたら、今日の掲示板にする） */
-export function jobBoard(): JobDef[] {
-  const s = useDelivery.getState()
-  const day = today()
-  if (s.day !== day) useDelivery.setState({ day })
-  return board(day, s)
-}
+/** 掲示板に出ている仕事（今日の日付と、届けた・入れ替えた数で決まる） */
+export const jobBoard = (s: Pick<DeliverySave, 'done' | 'skipped'> = useDelivery.getState()): JobDef[] => board(today(), s)
 
 export const activeJob = () => useDelivery.getState().active
 /** 次に向かう行き先（仕事がなければ null） */
@@ -50,7 +47,8 @@ export const nextStop = (job = activeJob()) => (job ? job.def.stops[job.stop] : 
 export function acceptJob(def: JobDef) {
   if (activeJob()) return false
   const job: ActiveJob = { def, stop: 0, elapsed: 0, warped: false, beamed: false }
-  useDelivery.setState({ active: job, handoff: 0 })
+  pending = 0
+  useDelivery.setState({ active: job, handoff: 0, tooFast: false, near: false })
   persist()
   useStore.getState().setTarget(def.stops[0])
   useStore.getState().showToast(t().accepted(t().kind[def.kind].title))
@@ -59,10 +57,12 @@ export function acceptJob(def: JobDef) {
 
 /** 仕事をやめる（罰はない。掲示板の仕事が入れ替わる） */
 export function cancelJob() {
-  if (!activeJob()) return
+  const at = nextStop()
+  if (!at) return
   pending = 0
-  useDelivery.setState((s) => ({ active: null, skipped: s.skipped + 1, handoff: 0, tooFast: false }))
+  useDelivery.setState((s) => ({ active: null, skipped: s.skipped + 1, handoff: 0, tooFast: false, near: false }))
   persist()
+  if (useStore.getState().targetId === at) useStore.getState().setTarget(null)
   useStore.getState().showToast(t().cancelled)
 }
 
@@ -72,12 +72,26 @@ export function refreshBoard() {
   persist()
 }
 
-/** 積んでからの時間を進める（遊んでいるあいだだけ）。画面へは 0.25 秒おき、保存は 5 秒おき */
+/** 次の行き先へ向かう。積んだあとで「ワープを使わない」約束なら、ワープせず自動航行で */
+export function goToStop() {
+  const job = activeJob()
+  const at = nextStop(job)
+  if (!job || !at) return
+  const st = useStore.getState()
+  st.setTarget(at)
+  togglePanel(false)
+  if (job.stop > 0 && ruleOf(job.def.kind) === 'noWarp') {
+    if (st.mode === 'map') st.setMode('flight')
+    useStore.getState().setAutopilot(true)
+  } else engage()
+}
+
+/** 積んでからの時間を進める（遊んでいるあいだだけ）。画面へは 1 秒おき、保存は 5 秒おき */
 export function tickJob(dt: number) {
   const job = activeJob()
   if (!job || job.stop === 0) return
   pending += dt
-  if (pending < 0.25) return
+  if (pending < 1) return
   useDelivery.setState({ active: { ...job, elapsed: job.elapsed + pending } })
   sinceSave += pending
   pending = 0
@@ -93,14 +107,16 @@ export function markUsed(what: 'warped' | 'beamed') {
   if (!job || job.stop === 0 || job[what]) return
   useDelivery.setState({ active: { ...job, [what]: true } })
   persist()
-  // 約束を破ったときだけ知らせる（ワープ中は声とかぶるので、短く）
+  // 約束を破ったときだけ知らせる
   const rule = what === 'warped' ? 'noWarp' : 'noBeam'
   if (ruleOf(job.def.kind) === rule) useStore.getState().showToast(t().broke[rule])
 }
 
-export function setHandoff(handoff: number, tooFast: boolean) {
+/** 受け渡しの様子（輪の近くか・待っている割合・速すぎるか）。変わったときだけ画面へ */
+export function setHandoff(handoff: number, tooFast: boolean, near: boolean) {
   const s = useDelivery.getState()
-  if (Math.abs(s.handoff - handoff) > 0.02 || (handoff === 0) !== (s.handoff === 0) || s.tooFast !== tooFast) useDelivery.setState({ handoff, tooFast })
+  const step = Math.round(handoff * 20) / 20
+  if (s.handoff !== step || s.tooFast !== tooFast || s.near !== near) useDelivery.setState({ handoff: step, tooFast, near })
 }
 
 /** 今の行き先での受け渡しが済んだ：積む・降ろす・届け終える */
@@ -114,7 +130,7 @@ export function handoffDone() {
   const last = job.stop === job.def.stops.length - 1
   if (!last) {
     const next = { ...job, stop: job.stop + 1 }
-    useDelivery.setState({ active: next, handoff: 0 })
+    useDelivery.setState({ active: next, handoff: 0, tooFast: false, near: false })
     persist()
     emitPioneerFx({ kind: job.stop === 0 ? 'jobLoad' : 'jobDrop', job: job.def.kind, at })
     useStore.getState().setTarget(next.def.stops[next.stop])
@@ -123,14 +139,13 @@ export function handoffDone() {
   const { kept, fast, stars } = starsFor(job)
   const reward = rewardFor(job.def, stars)
   receive(reward)
-  useDelivery.setState((s) => ({ active: null, done: s.done + 1, history: addRecord(s.history, { at: Date.now(), kind: job.def.kind, stars }), handoff: 0, tooFast: false }))
+  useDelivery.setState((s) => ({ active: null, done: s.done + 1, history: addRecord(s.history, { at: Date.now(), kind: job.def.kind, stars }), handoff: 0, tooFast: false, near: false }))
   persist()
-  emitPioneerFx({ kind: 'jobDone', job: job.def.kind, stars, kept, fast, reward, seconds: Math.round(job.elapsed) })
+  emitPioneerFx({ kind: 'jobDone', job: job.def.kind, stars, kept, fast, reward, seconds: Math.round(job.elapsed), target: fastSeconds(job.def) })
 }
 
 /** 端末の「仕事」タブを開く */
 export function openJobs() {
-  useDelivery.setState({ day: today() })
   setTab('jobs')
   togglePanel(true)
 }

@@ -11,7 +11,6 @@ import { gasFx, shipOnScreen } from '../../../state/pioneerFx'
 import { BuildCinema } from './BuildCinema'
 import { FIELD_ID, GAS_BAND, rockResource, goal, RING_COUNT, total, GAS_MIN_SPEED, GAS_RATE, GAS_TOO_DEEP, rockYield, magnetFactor, scoopFactor, shipTrait, isRare, RARE_BONUS, RARE_BY_TYPE, type Resource } from '../../../data/pioneer'
 import { DOCK_ID } from '../../../data/sf'
-import { DeliveryRunner } from './DeliveryRunner'
 import { ui } from '../../../i18n'
 
 // 開拓の 3D の部分（開拓で遊んでいるあいだだけ読み込む）：
@@ -350,7 +349,6 @@ export function PioneerScene() {
       <group ref={field} />
       <instancedMesh ref={mesh} args={[geometry, material, MAX_ORE]} frustumCulled={false} />
       <GasStream />
-      <DeliveryRunner />
       {cinema && <BuildCinema />}
     </>
   )

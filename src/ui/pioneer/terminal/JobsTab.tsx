@@ -1,10 +1,8 @@
 import { ui } from '../../../i18n'
-import { usePioneer } from '../../../state/pioneer'
-import { acceptJob, cancelJob, jobBoard, refreshBoard, useDelivery } from '../../../state/delivery'
+import { acceptJob, cancelJob, goToStop, jobBoard, refreshBoard, useDelivery } from '../../../state/delivery'
 import { RESOURCES } from '../../../data/pioneer'
 import { fastSeconds, JOB_KINDS, kindStats, ruleOf, starsFor, timeLimit, type ActiveJob, type JobDef } from '../../../data/delivery'
 import { JOB_ICON, placeName, Stars } from '../jobKind'
-import { go } from '../go'
 
 // 端末「仕事」：天の湊の掲示板（3 件）・進行中の仕事（行き先の順・時間・約束）・配達の記録
 
@@ -52,7 +50,6 @@ function Current({ job }: { job: ActiveJob }) {
   const { kept, fast } = starsFor(job)
   const loaded = job.stop > 0
   const limit = rule === 'inTime' ? timeLimit(def) : fastSeconds(def)
-  const next = def.stops[job.stop]
   return (
     <section className="pio-job pio-job-now" aria-label={t.now}>
       <header>
@@ -61,7 +58,7 @@ function Current({ job }: { job: ActiveJob }) {
           <small>{t.now}</small>
           <b>{t.kind[def.kind].title}</b>
         </span>
-        <button type="button" className="pio-goal-go" onClick={() => go(next)}>
+        <button type="button" className="pio-goal-go" onClick={goToStop}>
           {t.go}
         </button>
       </header>
@@ -85,6 +82,7 @@ function Current({ job }: { job: ActiveJob }) {
         </li>
         <li className={fast ? 'on' : 'off'}>
           {t.starFast(fastSeconds(def))}
+          <em>{fast ? t.fastYes : t.fastNo}</em>
         </li>
       </ul>
       <button type="button" className="pio-reset" onClick={() => cancelJob()}>
@@ -95,11 +93,13 @@ function Current({ job }: { job: ActiveJob }) {
 }
 
 export function JobsTab() {
-  const d = useDelivery()
-  // 倉庫の資源が変わったら（報酬を受け取ったら）描き直す
-  usePioneer((p) => p.store)
+  const active = useDelivery((d) => d.active)
+  const done = useDelivery((d) => d.done)
+  const skipped = useDelivery((d) => d.skipped)
+  const history = useDelivery((d) => d.history)
+  const d = { active, done, history }
   const t = ui().delivery
-  const jobs = jobBoard()
+  const jobs = jobBoard({ done, skipped })
   const stats = kindStats(d.history)
   const totalStars = d.history.reduce((n, r) => n + r.stars, 0)
   const most = Math.max(1, ...JOB_KINDS.map((k) => stats[k].count))
@@ -126,7 +126,7 @@ export function JobsTab() {
               </span>
               <small className="pio-job-reward-label">{t.reward}</small>
               <Reward def={def} />
-              <button type="button" className="pio-build" disabled={!!d.active} onClick={() => acceptJob(def)}>
+              <button type="button" className="pio-build" disabled={!!d.active} aria-label={t.acceptAria(t.kind[def.kind].title)} onClick={() => acceptJob(def)}>
                 {t.accept}
               </button>
             </article>

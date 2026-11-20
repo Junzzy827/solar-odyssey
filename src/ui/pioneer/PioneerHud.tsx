@@ -9,7 +9,7 @@ import { FIELD_ID, goal, holdCapacity, RESOURCES, RING_COUNT, STAGES, total, typ
 import { COLONY_ID, DOCK_ID } from '../../data/sf'
 import { IconBuild, IconDock, IconDone, IconGas, IconMine } from './icons'
 import { go } from './go'
-import { useDelivery } from '../../state/delivery'
+import { goToStop, useDelivery } from '../../state/delivery'
 import { ruleOf, timeLimit, type ActiveJob } from '../../data/delivery'
 import { JOB_ICON, placeName } from './jobKind'
 
@@ -43,7 +43,7 @@ function step(g: Goal, near: string | null, colonyName: string): Step {
 }
 
 /** 配達の仕事を引き受けているあいだは、「いまやること」を仕事の次の行き先にする */
-function jobStep(job: ActiveJob, handoff: number, tooFast: boolean): Step {
+function jobStep(job: ActiveJob, handoff: number, tooFast: boolean, near: boolean): Step {
   const t = ui().delivery
   const def = job.def
   const at = def.stops[job.stop]
@@ -51,9 +51,9 @@ function jobStep(job: ActiveJob, handoff: number, tooFast: boolean): Step {
   const place = placeName(at)
   const text = job.stop === 0 ? t.goalLoad(cargo, place) : t.goalDrop(cargo, place)
   const rule = ruleOf(def.kind)
-  const ruleLine = rule === 'inTime' ? `${t.rule.inTime(timeLimit(def))} · ${t.time(job.elapsed)}` : t.rule[rule]
-  const hint = handoff > 0 ? t.handing(job.stop === 0) : tooFast ? t.tooFast : job.stop > 0 ? ruleLine : t.goalHere
-  return { icon: JOB_ICON[def.kind](22), text, hint, action: handoff > 0 ? undefined : { label: t.go, run: () => go(at) } }
+  const ruleLine = rule === 'inTime' ? t.ruleTimer(t.rule.inTime(timeLimit(def)), t.time(job.elapsed)) : t.rule[rule]
+  const hint = handoff > 0 ? t.handing(job.stop === 0) : tooFast ? t.tooFast : near ? t.goalHere : job.stop > 0 ? ruleLine : undefined
+  return { icon: JOB_ICON[def.kind](22), text, hint, action: handoff > 0 || near ? undefined : { label: t.go, run: goToStop } }
 }
 
 /** カードの下端を CSS 変数に（スマホで木星のメーターをその下に置く） */
@@ -71,7 +71,8 @@ export function PioneerHud() {
   const job = useDelivery((d) => d.active)
   const handoff = useDelivery((d) => d.handoff)
   const tooFast = useDelivery((d) => d.tooFast)
-  const s = job ? jobStep(job, handoff, tooFast) : step(g, p.near, p.colonyName)
+  const jobNear = useDelivery((d) => d.near)
+  const s = job ? jobStep(job, handoff, tooFast, jobNear) : step(g, p.near, p.colonyName)
   const next = STAGES[p.stage] ?? null
   const used = total(p.hold)
   // カードの文が変わったときだけ、ふわっと出し直す
@@ -119,7 +120,7 @@ export function PioneerHud() {
             <b>{s.text}</b>
             {s.hint && <small className="pio-goal-hint">{s.hint}</small>}
             {job && handoff > 0 && (
-              <span className="pio-handoff" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(handoff * 100)}>
+              <span className="pio-handoff" role="progressbar" aria-label={ui().delivery.handing(job.stop === 0)} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(handoff * 100)}>
                 <i style={{ width: `${handoff * 100}%` }} />
               </span>
             )}

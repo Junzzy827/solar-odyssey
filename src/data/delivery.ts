@@ -173,7 +173,7 @@ export function kindStats(history: readonly JobRecord[]) {
 const isKind = (k: unknown): k is JobKind => typeof k === 'string' && (JOB_KINDS as readonly string[]).includes(k)
 const isDef = (d: unknown): d is JobDef => {
   const x = d as JobDef
-  return !!x && typeof x.id === 'string' && isKind(x.kind) && Array.isArray(x.stops) && x.stops.length >= 2 && x.stops.every((s) => typeof s === 'string') && isAmounts(x.reward)
+  return !!x && typeof x.id === 'string' && isKind(x.kind) && Array.isArray(x.stops) && x.stops.length >= 2 && x.stops.length <= 3 && x.stops.every((s) => (JOB_PLACES as readonly string[]).includes(s)) && isAmounts(x.reward)
 }
 const isActive = (j: unknown): j is ActiveJob => {
   const x = j as ActiveJob

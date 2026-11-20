@@ -2015,7 +2015,7 @@ html.pio-cinema
   border-top-color: #ffd27a;
   animation-duration: 5.2s;
 }
-.pio-card-job > small:first-child {
+.pio-card-job > small:nth-child(2) {
   color: #ffd27a;
   font-size: 12px;
   letter-spacing: 1px;
@@ -2087,4 +2087,24 @@ html.pio-cinema
   .pio-card-stars > span.on {
     animation: none;
   }
+}
+/* 画面には出さず、読み上げだけ */
+.pio-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* 掲示板のカードは幅がせまいので、行き先を縦に並べる */
+.pio-jobs .pio-job-route {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.pio-jobs .pio-job-route li + li::before {
+  top: -4px;
+  left: 14px;
+  width: 2px;
+  height: 4px;
 }
