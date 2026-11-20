@@ -273,6 +273,28 @@ const SCENARIOS = {
     hash: '#debug',
     run: async (page) => jumpScene(page),
   },
+  // 人が乗る与圧ローバー（月）：着陸船のそばに停めてある車に乗りこみ、少し走って運転席から見る
+  crewrover: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.landing.start('moon'))
+      await sleep(3000)
+      await page.evaluate(() => window.__sv.landing.skip())
+      await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface' && window.__sv.landing.state.getState().ready, null, { timeout: 180000, polling: 500 })
+      await visibleButton(page, '.crew-rover-start')
+      await page.evaluate(() => document.querySelector('.crew-rover-start').click())
+      await page.waitForFunction(() => window.__sv.rover.state.getState().phase === 'drive', null, { timeout: 60000, polling: 500 })
+      await page.evaluate(() => (window.__sv.rover.input.throttle = 1))
+      await sleep(4000)
+      await page.evaluate(() => (window.__sv.rover.input.throttle = 0))
+      const st = await page.evaluate(() => window.__sv.rover.state.getState())
+      if (st.vehicle !== 'crew' || !(st.hud.dist > 3)) throw new Error(`crewrover: did not drive (${st.vehicle}, ${st.hud.dist} m)`)
+      await page.evaluate(() => window.__sv.rover.state.getState().setView('cam'))
+      await sleep(2000)
+    },
+  },
   // 宇宙服で歩く（月）：外へ出て歩ける
   suit: {
     ctx: desktop,
