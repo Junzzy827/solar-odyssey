@@ -67,6 +67,25 @@ const SCENARIOS = {
   },
   // スマホ
   phone: { ctx: phone, hash: '#debug' },
+  // 天体カード（PC とスマホ）：開いて、めくるボタンと閉じるボタンが隠れていない
+  cards: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.bodyCards.open('mars'))
+      await sleep(800)
+      for (const sel of ['.body-cards .bc-step', '.body-cards .close']) await visibleButton(page, sel)
+    },
+  },
+  'cards-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.bodyCards.open('phobos'))
+      await sleep(800)
+      for (const sel of ['.body-cards .bc-step', '.body-cards .close']) await visibleButton(page, sel)
+    },
+  },
   // SF の世界
   sf: { ctx: desktop, hash: '#debug&sf', settle: 8000 },
   // コロニーの公園を歩く
