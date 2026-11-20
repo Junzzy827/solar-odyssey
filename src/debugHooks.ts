@@ -29,6 +29,7 @@ import { chunkDebug } from './components/walk/WalkChunks'
 import { useSkyClock } from './components/surface/skyClock'
 import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
+import { closeToday, openToday, useToday } from './state/today'
 import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
@@ -46,6 +47,7 @@ const sv = {
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
   probes: { state: useProbes, clock: probeClock },
   bodyCards: { state: useBodyCards, open: openBodyCard, close: closeBodyCard, step: stepBodyCard },
+  today: { state: useToday, open: openToday, close: closeToday },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff, site: goToSite },
   rally: { state: useRally, start: startRally, quit: quitRally },

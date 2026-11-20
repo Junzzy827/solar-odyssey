@@ -90,6 +90,16 @@ const SCENARIOS = {
       for (const sel of ['.body-cards .bc-step', '.body-cards .close']) await visibleButton(page, sel)
     },
   },
+  // 今日の宇宙（スマホ）：閉じるボタンが隠れていない
+  'today-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.today.open())
+      await sleep(800)
+      await visibleButton(page, '.today-panel .close')
+    },
+  },
   'cards-phone': {
     ctx: phone,
     hash: '#debug',
