@@ -15,4 +15,5 @@ export const newsEn: Translation<typeof newsJa> = {
   discovery: '📡 New: discovery scan. Turn the scanner on from Learn in the nav panel, fly close to a rock in the asteroid belt and scan it to discover a new asteroid. You can name it, too.',
   arrival: '🪐 News: when you arrive at a world, it now shows its size next to the Earth. At Jupiter, 11 Earths line up across it.',
   colonyAxis: '🛗 News: at the port end of the colony there is now an elevator to the spin axis (Play in the nav). You get lighter as you rise, and in the glass axis station you weigh almost nothing, with the whole land wrapped around you.',
+  colonyWings: '🪽 News: at the colony axis station you can now put on wings (R). Jump off the deck, flap, and glide down through ever-heavier air all the way to the park. Watch how the spin pushes you sideways.',
 }

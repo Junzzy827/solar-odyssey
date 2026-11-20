@@ -131,7 +131,7 @@ export const pioneerJa = {
     total: (n: number) => `これまでに ${n} 回`,
   },
   term: {
-    tabs: { status: '状況', jobs: '仕事', route: '航路', flow: '流れ', log: '記録', ship: '船' },
+    tabs: { status: '状況', jobs: '仕事', colony: '経営', route: '航路', flow: '流れ', log: '記録', ship: '船' },
     tabsLabel: '端末の表示',
     overall: 'コロニー完成まで',
     overallNote: '建てた段階と、倉庫・積み荷のうち使える資源',

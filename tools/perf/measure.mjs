@@ -87,6 +87,8 @@ async function snapshot(page, net, label) {
     return null
   })
   await sleep(5000)
+  // 重い場面は 1 コマに何秒もかかる：数コマたまるまで待つ（長くて 1 分）
+  for (let i = 0; i < 28 && (await page.evaluate(() => window.__perf.frames.length)) < 4; i++) await sleep(2000)
   const r = await page.evaluate(() => {
     const s = window.__perf
     return { frames: s.frames.slice(1), perFrame: s.perFrame.slice(1), links: s.links, long: s.long, tex: s.tex, heap: performance.memory?.usedJSHeapSize ?? 0 }
@@ -144,6 +146,18 @@ const SCENARIOS = {
       await sleep(8000)
     },
   },
+  // 「本格的な森」の見本の一角（?forest=sample）と、同じ場所・同じ向きの今までの森。この 2 つを比べる
+  forestOff: { hash: '#debug&sf', after: (page) => forestCorner(page) },
+  forestOn: { query: '?forest=sample', hash: '#debug&sf', after: (page) => forestCorner(page) },
+}
+
+/** 森の入口から少し入った小道の上で、北（森の奥）を向く */
+async function forestCorner(page) {
+  await page.evaluate(() => window.__sv.walk.start())
+  await page.waitForFunction(() => window.__sv.walk.debug.scene, null, { timeout: 120000 })
+  await sleep(3000)
+  await page.evaluate(() => Object.assign(window.__sv.walk.walker, { s: 250, y: 11766, turnTo: Math.PI }))
+  await sleep(12000)
 }
 
 const server = await serve(DIST)
@@ -168,7 +182,7 @@ for (const name of wanted.length ? wanted : Object.keys(SCENARIOS)) {
   })
   page.on('pageerror', (e) => console.error(`[${name}] pageerror`, e.message))
   const t0 = Date.now()
-  await page.goto(`http://localhost:${port}/${sc.hash}`)
+  await page.goto(`http://localhost:${port}/${sc.query ?? ''}${sc.hash}`)
   const bootS = await booted(page, t0)
   if (sc.after) await sc.after(page)
   const r = await snapshot(page, net, name)

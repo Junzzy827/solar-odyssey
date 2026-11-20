@@ -15,10 +15,11 @@ import { FlowTab } from './terminal/FlowTab'
 import { LogTab } from './terminal/LogTab'
 import { ShipTab } from './terminal/ShipTab'
 import { JobsTab } from './terminal/JobsTab'
+import { ColonyTab } from './terminal/ColonyTab'
 import './pioneer.css'
 
 // 開拓の画面：飛んでいるあいだのカード（PioneerHud）・木星の高さのメーター・遊び方の案内と、
-// 開いたときの端末（状況・仕事・航路・流れ・記録・船のタブ。ui/pioneer/terminal/）
+// 開いたときの端末（状況・仕事・経営・航路・流れ・記録・船のタブ。ui/pioneer/terminal/）
 
 export function PioneerPanel() {
   useLang()
@@ -92,6 +93,7 @@ export function PioneerPanel() {
           <div id="pio-tabpanel" role="tabpanel" aria-labelledby={`pio-tab-${p.tab}`} className="pio-tabpanel" key={p.tab}>
             {p.tab === 'status' && <StatusTab />}
             {p.tab === 'jobs' && <JobsTab />}
+            {p.tab === 'colony' && <ColonyTab />}
             {p.tab === 'route' && <RouteTab />}
             {p.tab === 'flow' && <FlowTab />}
             {p.tab === 'log' && <LogTab />}

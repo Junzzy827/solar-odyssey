@@ -4,6 +4,10 @@ import * as THREE from 'three'
 import { colonyDay } from '../sf/colonyCity'
 import { parkLayout, type House } from './park'
 import { parkTexture, standAt } from './WalkWorld'
+import { catchUp, useColony } from '../../state/colony'
+import { useWalk } from '../../state/walk'
+import { occupancy } from '../../data/colony'
+import { COLONY_ID } from '../../data/sf'
 
 // 公園のとなりの住宅街（お試し）：家（窓・玄関は色の計算で描く）、屋根、玄関のひさし、塀と生け垣、池のブイ。
 // 家は箱 1 つで、窓は箱の面の上の位置（m）から計算するので、どの大きさの家でも窓の大きさがそろう。
@@ -20,10 +24,15 @@ vec3 ks = vec3(1.0);
 #endif
 vec3 kp = position * ks;`
 
-export function houseMaterial(night: { value: number }) {
+/** 公園のとなりの住宅街で、人が住んでいる家の割合（0〜1）。夜に灯る窓は、この割合の家だけ（コロニー経営の人口に合わせる。経営をしていなければ 1）。
+ * 一周の道の家（WalkChunks）は、いつもすべての家に人がいる */
+export const townLived = { value: 1 }
+
+export function houseMaterial(night: { value: number }, lived: { value: number } = { value: 1 }) {
   const mat = new THREE.MeshLambertMaterial({ color: '#ffffff' })
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uNight = night
+    shader.uniforms.uLived = lived
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -51,6 +60,7 @@ vHR = aSeed;`,
         '#include <common>',
         `#include <common>
 uniform float uNight;
+uniform float uLived;
 varying vec3 vHP;
 varying vec3 vHN;
 varying vec3 vHS;
@@ -100,7 +110,7 @@ if (abs(vHN.y) < 0.5) {
   if (vHR > 0.55) col *= 1.0 - 0.07 * step(0.88, fract(y / 0.21)) * (1.0 - win) * (1.0 - door) * step(0.4, y);
   // 階の境の帯
   col *= 1.0 - 0.12 * step(abs(y - 2.9), 0.06) * step(3.3, vHS.y);
-  lit = win * inner * step(0.42, fract(h * 7.31));
+  lit = win * inner * step(0.42, fract(h * 7.31)) * step(fract(vHR * 13.7), uLived);
 }
 diffuseColor.rgb = col;`,
       )
@@ -110,7 +120,7 @@ diffuseColor.rgb = col;`,
 totalEmissiveRadiance += vec3(1.0, 0.7, 0.38) * lit * uNight * 1.4;`,
       )
   }
-  mat.customProgramCacheKey = () => 'walk-house-1'
+  mat.customProgramCacheKey = () => 'walk-house-2'
   return mat
 }
 
@@ -262,7 +272,7 @@ export function WalkTown() {
     const wallGeo = box()
     wallGeo.setAttribute('aDoor', new THREE.InstancedBufferAttribute(new Float32Array(doors), 1))
     wallGeo.setAttribute('aSeed', new THREE.InstancedBufferAttribute(new Float32Array(seeds), 1))
-    const houseMat = houseMaterial(night)
+    const houseMat = houseMaterial(night, townLived)
     const roofMat = roofMaterial()
     const plain = new THREE.MeshLambertMaterial({ color: '#ffffff' })
     const capMat = new THREE.MeshLambertMaterial({ color: '#8d9094' })
@@ -299,6 +309,16 @@ export function WalkTown() {
     },
     [data],
   )
+  // 町づくり（コロニー経営）をしていれば、人口に合わせて灯る家を減らす
+  const lived = useColony((c) => (c.started ? Math.round(Math.max(0.12, occupancy(c)) * 50) / 50 : 1))
+  const here = useWalk((w) => w.colonyId === COLONY_ID)
+  useEffect(() => catchUp(), [])
+  useEffect(() => {
+    townLived.value = here ? lived : 1
+    return () => {
+      townLived.value = 1
+    }
+  }, [lived, here])
   useFrame(() => {
     data.night.value = colonyDay.night
     // 夜のブイは、ほんのり光る

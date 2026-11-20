@@ -18,7 +18,7 @@ type Card = { id: number } & (
   | { kind: 'deliver'; amounts: Amounts; ready: boolean }
   | { kind: 'rare'; rare: RareId; count: number; amount: number }
   | { kind: 'daily'; reward: Amounts }
-  | { kind: 'jobStep'; job: JobKind; at: string; load: boolean }
+  | { kind: 'jobStep'; job: JobKind; at: string; load: boolean; walk: boolean }
   | { kind: 'jobDone'; job: JobKind; stars: number; kept: boolean; fast: boolean; reward: Amounts; seconds: number; target: number }
 )
 
@@ -109,7 +109,7 @@ export function PioneerFx() {
           setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'rare', rare: e.id, count, amount: e.amount }])
         } else if (e.kind === 'jobLoad' || e.kind === 'jobDrop') {
           playJobHandoff(e.kind === 'jobLoad')
-          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'jobStep', job: e.job, at: e.at, load: e.kind === 'jobLoad' }])
+          setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'jobStep', job: e.job, at: e.at, load: e.kind === 'jobLoad', walk: !!e.walk }])
         } else if (e.kind === 'jobDone') {
           playJobDone(e.stars)
           setCards((l) => [...l.slice(-2), { id: ++ids.current, kind: 'jobDone', job: e.job, stars: e.stars, kept: e.kept, fast: e.fast, reward: e.reward, seconds: e.seconds, target: e.target }])
@@ -197,7 +197,7 @@ export function PioneerFx() {
       {delivery?.kind === 'jobStep' && (
         <div key={delivery.id} className="pio-delivery pio-card-step" role="status">
           <span className="pio-place-icon">{JOB_ICON[delivery.job](30)}</span>
-          <h3>{delivery.load ? td.loaded(td.kind[delivery.job].title, placeName(delivery.at)) : td.dropped(placeName(delivery.at))}</h3>
+          <h3>{delivery.load ? td.loaded(td.kind[delivery.job].title, placeName(delivery.at)) : delivery.walk ? td.arrivedWalk(placeName(delivery.at)) : td.dropped(placeName(delivery.at))}</h3>
         </div>
       )}
       {delivery?.kind === 'jobDone' && (

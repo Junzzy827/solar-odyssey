@@ -10,7 +10,8 @@ import { COLONY_ID, DOCK_ID } from '../../data/sf'
 import { IconBuild, IconDock, IconDone, IconGas, IconMine } from './icons'
 import { go } from './go'
 import { goToStop, useDelivery } from '../../state/delivery'
-import { ruleOf, timeLimit, type ActiveJob } from '../../data/delivery'
+import { LAB_STOP, ruleOf, timeLimit, type ActiveJob } from '../../data/delivery'
+import { canWalkDirect, startWalkDirect } from '../../state/walk'
 import { JOB_ICON, placeName } from './jobKind'
 
 // 飛んでいるあいだいつも出る開拓のカード：
@@ -49,6 +50,7 @@ function jobStep(job: ActiveJob, handoff: number, tooFast: boolean, near: boolea
   const at = def.stops[job.stop]
   const cargo = t.kind[def.kind].title
   const place = placeName(at)
+  if (at === LAB_STOP) return { icon: JOB_ICON[def.kind](22), text: t.goalWalk(cargo), hint: t.walkHint, action: canWalkDirect() ? { label: t.walkButton, run: startWalkDirect } : undefined }
   const text = job.stop === 0 ? t.goalLoad(cargo, place) : t.goalDrop(cargo, place)
   const rule = ruleOf(def.kind)
   const ruleLine = rule === 'inTime' ? t.ruleTimer(t.rule.inTime(timeLimit(def)), t.time(job.elapsed)) : t.rule[rule]

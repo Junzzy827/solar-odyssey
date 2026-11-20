@@ -36,8 +36,10 @@ export function nearDoor(s: number, y: number, h: number): 'up' | 'down' | null 
   return null
 }
 
-/** 駅の上（立てる面）か */
-export const onStation = (y: number) => y >= STATION.y0 && y <= STATION.y1
+/** 駅の先の、壁のない発着デッキの端（翼をつけていれば、ここから飛び出せる） */
+export const DECK_END = STATION.y1 + 30
+/** 駅かデッキの床の上か */
+export const onStation = (y: number) => y >= STATION.y0 && y <= DECK_END
 
 /** エレベーターのかごの今の位置（0〜1）。WalkActors が動かし、WalkAxis が描く */
 export const elevCar = { t: 0 }

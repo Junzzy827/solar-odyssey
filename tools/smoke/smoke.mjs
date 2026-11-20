@@ -255,6 +255,33 @@ const SCENARIOS = {
     hash: '#debug',
     run: async (page) => jumpScene(page),
   },
+  // 大きさくらべ：木星と地球・太陽が本当の比で棚にならび、ひとことと、ならべるもののボタンが出る。さわると寄る
+  size: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.sizeCompare.open('jupiter'))
+      await page.waitForFunction(() => document.querySelector('.size-compare .sc-caption'), null, { timeout: 30000 })
+      for (const sel of ['.size-compare .sc-chip', '.size-compare .close']) await visibleButton(page, sel)
+      // 名札は 3D の場面の中（Canvas が描き始めてから出る）。遅い端末では少し待つ
+      await page.waitForFunction(() => document.querySelectorAll('.size-compare .sc-label').length >= 3, null, { timeout: 60000 }).catch(() => undefined)
+      const n = await page.evaluate(() => document.querySelectorAll('.size-compare .sc-label').length)
+      if (n !== 3) throw new Error(`expected 3 things on the shelf, got ${n}`)
+      await page.evaluate(() => window.__sv.sizeCompare.focus('earth'))
+      await page.waitForFunction(() => document.querySelector('.size-compare .sc-back'), null, { timeout: 10000 })
+    },
+  },
+  // 大きさくらべ（スマホ）：フォボスとエベレスト。ボタンが隠れない
+  'size-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.sizeCompare.open('phobos'))
+      await page.waitForFunction(() => document.querySelector('.size-compare .sc-caption'), null, { timeout: 30000 })
+      await sleep(1500)
+      for (const sel of ['.size-compare .sc-chip', '.size-compare .close']) await visibleButton(page, sel)
+    },
+  },
   // SF の世界
   sf: { ctx: desktop, hash: '#debug&sf', settle: 8000 },
   // 火星の峡谷レース：着陸してレース場へ行き、スタートして 3・2・1 と表示が出ること、「レースをやめる」で自由走行に戻ること
@@ -408,6 +435,22 @@ const SCENARIOS = {
       // 場面のあとは建設中のコロニーのそばにいて、カードに戻る
       await sleep(3000)
       await visibleButton(page, '.pio-open')
+      // コロニー経営：完成させたことにして、端末の経営タブで町づくりを始め、公園を 1 つ建てる
+      await page.evaluate(() => {
+        window.__sv.pioneer.state.setState({ stage: 5, colonyName: 'Smoke', naming: false, store: { metal: 300, ice: 300, gas: 300 }, panel: true, tab: 'colony' })
+      })
+      await page.waitForSelector('.col-intro .pio-build', { timeout: 30000 })
+      await page.evaluate(() => document.querySelector('.col-intro .pio-build').click())
+      await page.waitForSelector('.col-tab .col-chart svg', { timeout: 30000 })
+      const town = await page.evaluate(() => {
+        const sv = window.__sv
+        const before = sv.colony.state.getState().zones.park
+        document.querySelector('.col-z-park .pio-build').click()
+        const s = sv.colony.state.getState()
+        return { started: s.started, park: s.zones.park - before, ice: sv.pioneer.state.getState().store.ice }
+      })
+      if (!town.started || town.park !== 1 || town.ice !== 285) throw new Error(`pioneer: colony ${JSON.stringify(town)}`)
+      await page.evaluate(() => window.__sv.pioneer.state.setState({ panel: false }))
     },
     after: async (page) => {
       // 重い画面では page.click の待ちが 30 秒を超えるので、DOM で押す
@@ -452,9 +495,26 @@ const SCENARIOS = {
     run: async (page) => {
       // CI の機械（2 コア・GPU なし）では、公園を「標準」で描くと 1 コマに 30 秒以上かかるので「軽量」で
       await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      // 配達の仕事の最後（苗を研究温室へ歩いて届ける）：コロニーで降ろしたところから
+      await page.evaluate(() => {
+        const sv = window.__sv
+        sv.pioneer.state.setState({ introSeen: true })
+        sv.pioneer.start()
+        const def = { id: 'smoke', kind: 'seedlings', stops: ['spacedock', 'colony', 'colony-lab'], reward: { metal: 10, ice: 0, gas: 0 } }
+        sv.delivery.state.setState({ active: { def, stop: 2, elapsed: 40, warped: false, beamed: false } })
+      })
       await page.evaluate(() => window.__sv.walk.start())
       await page.waitForFunction(() => window.__sv.walk.debug.scene, null, { timeout: 120000 })
+      await page.waitForSelector('.pio-errand', { timeout: 60000 })
       await sleep(6000)
+      // 入口の輪へ歩いて行った（ことにする）と、手渡して仕事が終わる
+      await page.evaluate(() => {
+        const p = window.__sv.delivery.lab()
+        Object.assign(window.__sv.walk.walker, { s: p.doorS, y: p.doorY })
+      })
+      await page.waitForFunction(() => window.__sv.delivery.state.getState().active === null, null, { timeout: 60000 })
+      const done = await page.evaluate(() => window.__sv.delivery.state.getState().done)
+      if (done !== 1) throw new Error(`walk: errand done ${done}`)
     },
   },
   // 公園の外（円筒のほかの所）：歩く人のまわりの区画（地面・家・木）が作られて、細かく描く範囲が切りかわる
@@ -481,6 +541,9 @@ const SCENARIOS = {
       // 回転の軸の駅（エレベーターの上）へ。重さがほぼ 0 になる
       await page.evaluate(() => Object.assign(window.__sv.walk.walker, { s: 0, y: 130, h: 3970, turnTo: 3.14 }))
       await page.waitForFunction(() => window.__sv.walk.state.getState().gee < 0.02, null, { timeout: 60000, polling: 500 })
+      // 翼をつける（軸の駅でだけつけられる）
+      await page.evaluate(() => (window.__sv.walk.input.wings = true))
+      await page.waitForFunction(() => window.__sv.walk.state.getState().wings, null, { timeout: 30000, polling: 500 })
       await sleep(4000)
     },
   },
