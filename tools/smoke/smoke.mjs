@@ -171,6 +171,40 @@ const SCENARIOS = {
     },
   },
   // コロニーの公園を歩く
+  // SF の開拓：端末が開き、建設が 3 段進み、建設中のコロニーのそばで描ける。「開拓をやめる」で抜けられる
+  pioneer: {
+    ctx: desktop,
+    hash: '#debug&sf',
+    settle: 8000,
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.pioneer.start())
+      await page.waitForSelector('.pioneer-panel', { timeout: 60000 })
+      await visibleButton(page, '.pio-quit')
+      await page.evaluate(() => {
+        const p = window.__sv.pioneer
+        p.give({ metal: 200, gas: 30 })
+        p.build()
+        p.build()
+        p.build()
+      })
+      const stage = await page.evaluate(() => window.__sv.pioneer.state.getState().stage)
+      if (stage !== 3) throw new Error(`pioneer: stage ${stage}, expected 3`)
+      await page.evaluate(() => {
+        const st = window.__sv.store.getState()
+        st.setTarget('colony')
+        window.__sv.flightControl.jumpTo = 'colony'
+      })
+      await sleep(6000)
+      await page.click('.pioneer-panel .close')
+      await visibleButton(page, '.pio-open')
+    },
+    after: async (page) => {
+      await page.click('.pio-open')
+      await page.click('.pio-quit')
+      await sleep(300)
+      if (await page.$('.pioneer-hud')) throw new Error('pioneer: still shown after quitting')
+    },
+  },
   walk: {
     ctx: desktop,
     hash: '#debug&sf',
@@ -230,6 +264,8 @@ for (const name of wanted.length ? wanted : Object.keys(SCENARIOS)) {
     if (sc.run) await sc.run(page)
     const s = await check3d(page, name)
     await page.screenshot({ path: join(outDir, `${name}${useFirefox ? '-firefox' : ''}.png`), timeout: 120000 })
+    // 撮ったあとに確かめること（「もどる」で抜けられるか など）
+    if (sc.after) await sc.after(page)
     if (errors.length) throw new Error(`page errors: ${errors.join(' | ')}`)
     console.log(`ok   ${name} (${((Date.now() - t0) / 1000).toFixed(0)} s, std ${s.std.toFixed(1)})`)
   } catch (e) {

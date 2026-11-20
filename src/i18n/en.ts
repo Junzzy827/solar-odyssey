@@ -79,6 +79,7 @@ import { compareItemsEn } from './compareItems.en'
 import { deepSpaceImagesEn } from './deepSpaceImages.en'
 import { eclipsesEn } from './eclipses.en'
 import { evaJobsEn } from './evaJobs.en'
+import { pioneerEn } from './pioneer.en'
 import { evaSitesEn } from './evaSites.en'
 import { evaToolsEn } from './evaTools.en'
 import { phaserFactsEn } from './phaserFacts.en'
@@ -233,6 +234,7 @@ export const en: Translation<typeof ja> = {
   deepSpaceImages: deepSpaceImagesEn,
   eclipses: eclipsesEn,
   evaJobs: evaJobsEn,
+  pioneer: pioneerEn,
   evaSites: evaSitesEn,
   evaTools: evaToolsEn,
   phaserFacts: phaserFactsEn,

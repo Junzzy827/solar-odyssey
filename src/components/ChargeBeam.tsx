@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CHARGE_LEVELS, CHARGE_STEPS, FADE_SECONDS, beamCharge, beamFx, muzzle, now } from '../state/beam'
-import { asteroids, beamSweeps, beamTargets, bodies } from '../state/registry'
+import { asteroids, beamSweeps, beamTargets, bodies, rockBreaks } from '../state/registry'
 import { ship } from '../state/flight'
 import { shipScale } from '../state/zoom'
 import { useStore } from '../state/store'
@@ -767,6 +767,7 @@ export function ChargeBeam() {
         asteroids.destroyed.push({ mesh: p.mesh, index: p.index, matrix: p.matrix, at: elapsed })
         v.setFromMatrixPosition(p.matrix).applyMatrix4(p.mesh.matrixWorld)
         spawnShards(v, p.size, time, pool.perRock)
+        if (rockBreaks.size) for (const f of rockBreaks) f(asteroids.types.get(p.mesh)?.[p.index] ?? 0, p.size, v)
         s.rocks++
         return false
       })

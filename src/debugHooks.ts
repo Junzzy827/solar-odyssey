@@ -1,10 +1,12 @@
 import { useHistoric } from './state/historic'
+import { constructionSite } from './components/sf/ConstructionSite'
+import { build as pioneerBuild, collect as pioneerCollect, debugGive as pioneerGive, deliver as pioneerDeliver, nameColony, startPioneer, stopPioneer, usePioneer } from './state/pioneer'
 import * as THREE from 'three'
 import { _roots } from '@react-three/fiber'
 import { useStore } from './state/store'
 import { POND } from './components/walk/park'
 import { flightControl, ship, thrustFx, warpFx } from './state/flight'
-import { asteroids, bodies, markerOverride, beamTargets, ports, sim } from './state/registry'
+import { asteroids, bodies, markerOverride, beamTargets, ports, rockBreaks, sim } from './state/registry'
 import { useRace } from './state/race'
 import { useMission } from './state/mission'
 import { MISSIONS } from './data/missions'
@@ -49,6 +51,13 @@ const sv = {
   probes: { state: useProbes, clock: probeClock },
   bodyCards: { state: useBodyCards, open: openBodyCard, close: closeBodyCard, step: stepBodyCard },
   today: { state: useToday, open: openToday, close: closeToday },
+  pioneer: { state: usePioneer, start: startPioneer, stop: stopPioneer, give: pioneerGive, collect: pioneerCollect, deliver: pioneerDeliver, build: pioneerBuild, name: nameColony, site: constructionSite,
+    /** 自機の前で岩が砕けたことにする（かけらが船に集まるかの確認） */
+    breakRock: (type: 0 | 1 | 2, size: number) => {
+      const at = new THREE.Vector3(0, 0, -6).applyQuaternion(ship.quaternion).add(ship.position)
+      for (const f of rockBreaks) f(type, size, at)
+    },
+  },
   discovery: { state: useDiscovery, start: startScanner, stop: stopScanner, note: openNote, asteroids },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff, site: goToSite },
@@ -87,6 +96,7 @@ const sv = {
   ports,
   markerOverride,
   beamTargets,
+  asteroids,
   sim,
   camera: null as CameraFn | null,
   setCamera: null as unknown as (fn: CameraFn | null) => void,

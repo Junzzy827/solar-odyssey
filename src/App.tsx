@@ -74,6 +74,8 @@ import { evaScene, useEva } from './state/eva'
 import { LazyScenes } from './ui/LazyScenes'
 import { useWalk, walkScene } from './state/walk'
 
+import { PioneerUi, PioneerWorld } from './components/sf/pioneer/Pioneer'
+
 // SF の世界の船や構造物は、SF モードにしたときに読み込む（現実の世界だけで遊ぶときは読まない）
 const SFWorld = lazy(() => import('./components/sf/SFWorld').then((m) => ({ default: m.SFWorld })))
 
@@ -124,6 +126,7 @@ export default function App() {
               <Suspense fallback={null}>
                 <SFWorld />
               </Suspense>
+              <PioneerWorld />
             </StructureLook>
           </SFBoundary>
         )}
@@ -182,6 +185,7 @@ export default function App() {
       <RockBook />
       <BodyCards />
       <TodayPanel />
+      <PioneerUi />
       <ScannerHud />
       <DiscoveryNote />
       <HistoricBook />
