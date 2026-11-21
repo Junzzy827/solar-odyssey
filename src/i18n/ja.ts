@@ -48,6 +48,7 @@ import { todayJa } from './today.ja'
 import { discoveryJa } from './discovery.ja'
 import { arrivalJa } from './arrival.ja'
 import { jumpJa } from './jump.ja'
+import { suitWalkJa } from './suitWalk.ja'
 import { roverHudJa } from './roverHud.ja'
 import { scaleToggleJa } from './scaleToggle.ja'
 import { sfJa } from './sf.ja'
@@ -216,6 +217,7 @@ export const ja = {
   discovery: discoveryJa,
   arrival: arrivalJa,
   jump: jumpJa,
+  suitWalk: suitWalkJa,
   roverHud: roverHudJa,
   scaleToggle: scaleToggleJa,
   sf: sfJa,

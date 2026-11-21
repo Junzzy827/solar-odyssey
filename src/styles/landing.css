@@ -131,6 +131,15 @@
   gap: 12px;
 }
 
+/* 着陸船のまわりのボタンは数が多い（星によって 9 個まで）。画面からはみ出さないよう折り返す */
+.surface-buttons.lander-actions {
+  width: max-content;
+  max-width: calc(100% - 32px);
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
 .surface-buttons button {
   padding: 10px 20px;
   border-radius: 20px;

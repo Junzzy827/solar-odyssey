@@ -44,6 +44,24 @@ async function jumpScene(page) {
   for (const sel of ['.jump-card .jump-again', '.jump-card .jump-actions .secondary']) await visibleButton(page, sel)
 }
 
+/** 宇宙服で歩く：着陸して外へ出て、前へ歩く。足あとが付き、戻るボタンが隠れない */
+async function suitScene(page, body) {
+  await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+  await page.evaluate((b) => window.__sv.landing.start(b), body)
+  await sleep(3000)
+  await page.evaluate(() => window.__sv.landing.skip())
+  await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface', null, { timeout: 180000, polling: 500 })
+  await sleep(2000)
+  await visibleButton(page, '.suit-out')
+  await page.evaluate(() => document.querySelector('.suit-out').click())
+  await page.waitForFunction(() => window.__sv.suitWalk.state.getState().on, null, { timeout: 30000 })
+  const from = await page.evaluate(() => ({ ...window.__sv.suitWalk.pose }))
+  await page.evaluate(() => (window.__sv.suitWalk.debug.move = [0, 1]))
+  await page.waitForFunction((f) => Math.hypot(window.__sv.suitWalk.pose.x - f.x, window.__sv.suitWalk.pose.z - f.z) > 1.5, from, { timeout: 120000, polling: 500 })
+  await page.evaluate(() => (window.__sv.suitWalk.debug.move = null))
+  for (const sel of ['.sw-actions .primary']) await visibleButton(page, sel)
+}
+
 /** 画面の 3D が描けているか（文字やボタンを消して撮る） */
 async function check3d(page, name, min = { std: 4, lit: 0.002 }) {
   await page.evaluate(() => document.documentElement.classList.add('clean-screen'))
@@ -254,6 +272,21 @@ const SCENARIOS = {
     ctx: phone,
     hash: '#debug',
     run: async (page) => jumpScene(page),
+  },
+  // 宇宙服で歩く（月）：外へ出て歩ける
+  suit: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => suitScene(page, 'moon'),
+  },
+  // 宇宙服で歩く（スマホ・フォボス）：スティックと跳ぶボタンが隠れない
+  'suit-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => {
+      await suitScene(page, 'phobos')
+      for (const sel of ['.sw-pad .sw-jump', '.sw-pad .sw-run']) await visibleButton(page, sel)
+    },
   },
   // 大きさくらべ：木星と地球・太陽が本当の比で棚にならび、ひとことと、ならべるもののボタンが出る。さわると寄る
   size: {
