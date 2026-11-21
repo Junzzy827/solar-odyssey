@@ -65,8 +65,9 @@ export const apolloEvaEn: Translation<typeof apolloEvaJa> = {
   doneLines: [
     'Over three moonwalks the crew spent about 22 hours outside and drove about 36 km in the Rover.',
     'They brought back about 111 kg of rock and soil, still used in research today.',
-    'Chapter 8 (meeting the mothership and the trip home) is coming soon.',
+    'Next, Evans is waiting for them aboard the mothership America in lunar orbit.',
   ],
+  toReturn: 'Next: chapter 8, back to the mothership and home',
   again: 'Play again',
   end: 'End the mission',
 }

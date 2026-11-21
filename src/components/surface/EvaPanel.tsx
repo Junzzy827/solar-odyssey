@@ -7,6 +7,7 @@ import { EVA_STOPS, evaSite, leaveApolloEva, nextLeg, restartEva, skipDrive, tak
 import { RoverHud, RoverMap } from './RoverHud'
 import { RadioSubtitle } from '../moonMission/RadioSubtitle'
 import { useRadio } from '../../audio/radio'
+import { startChapter } from '../../state/missionChapters'
 import './evaPanel.css'
 
 // アポロ17号の追体験・章7（state/apolloEva.ts）の表示：いまの船外活動・次の場所・着いたときのカード・
@@ -144,10 +145,13 @@ export function EvaPanel() {
             <p key={l}>{l}</p>
           ))}
           <div className="ae-buttons">
+            <button className="primary" onClick={() => startChapter(8)}>
+              {T.toReturn}
+            </button>
             <button className="secondary" onClick={restartEva}>
               {T.again}
             </button>
-            <button className="primary" onClick={leaveApolloEva}>
+            <button className="secondary" onClick={leaveApolloEva}>
               {T.end}
             </button>
           </div>

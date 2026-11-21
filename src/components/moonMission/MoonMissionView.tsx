@@ -30,6 +30,8 @@ import { LaunchWorld } from './LaunchWorld'
 import { LunarWorld } from './LunarWorld'
 import { DockWorld } from './DockWorld'
 import { DockHud } from './DockHud'
+import { ReturnWorld } from './ReturnWorld'
+import { ReturnHud } from './ReturnHud'
 import { startDock } from '../../state/moonDock'
 import { LunarHud } from './LunarHud'
 import { bindLunarKeys, lunarPhase } from '../../state/moonLunar'
@@ -66,7 +68,7 @@ function FilmHook() {
   return null
 }
 
-type World = 'launch' | 'dock' | 'moon'
+type World = 'launch' | 'dock' | 'moon' | 'home'
 
 const MissionCanvas = memo(function MissionCanvas({ world }: { world: World }) {
   const dpr = useDpr(1.75)
@@ -74,7 +76,7 @@ const MissionCanvas = memo(function MissionCanvas({ world }: { world: World }) {
     <Canvas dpr={dpr} gl={{ alpha: false, logarithmicDepthBuffer: true, antialias: true }} camera={{ fov: 40, near: 0.3, far: 2e10, position: [0, 20, 300] }}>
       <color attach="background" args={['#000']} />
       {/* 第1弾（地球から月へ向かうまで）と第2弾（月のまわり）は、別の世界 */}
-      <Suspense fallback={null}>{world === 'moon' ? <LunarWorld /> : world === 'dock' ? <DockWorld /> : <LaunchWorld />}</Suspense>
+      <Suspense fallback={null}>{world === 'moon' ? <LunarWorld /> : world === 'dock' ? <DockWorld /> : world === 'home' ? <ReturnWorld /> : <LaunchWorld />}</Suspense>
       <QualityGovernor />
       {debugOn && <FilmHook />}
     </Canvas>
@@ -291,12 +293,20 @@ export function MoonMissionView() {
   const shown = phase !== 'none' && phase !== 'fadeIn'
   const moon = lunarPhase(phase)
   const docking = phase === 'dock' || phase === 'marble'
+  const home = phase === 'home'
   return (
     <div className="mm-root" data-phase={phase}>
-      {shown && <MissionCanvas world={moon ? 'moon' : docking ? 'dock' : 'launch'} />}
+      {shown && <MissionCanvas world={moon ? 'moon' : docking ? 'dock' : home ? 'home' : 'launch'} />}
       {shown && <CabinFrame />}
       {shown && <JourneyBar />}
-      {shown && !moon && !docking && <Hud />}
+      {shown && !moon && !docking && !home && <Hud />}
+      {shown && home && (
+        <div className="mm-hud">
+          <ReturnHud />
+          <Caption />
+          <RadioSubtitle />
+        </div>
+      )}
       {shown && docking && (
         <div className="mm-hud">
           <DockHud />

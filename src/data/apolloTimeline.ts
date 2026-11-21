@@ -5,6 +5,14 @@ const hms = (h: number, m: number, s: number) => h * 3600 + m * 60 + s
 
 /** 打ち上げ：1972-12-07 05:33:00 UTC */
 export const LAUNCH_UTC = Date.UTC(1972, 11, 7, 5, 33, 0)
+/** 経過時間の時計合わせ：打ち上げが 2 時間 40 分おくれたので、65 時間目に時計を +2:40:00 進めて、予定の時刻表に合わせた */
+const CLOCK_UPDATE_AT = 65 * 3600
+const CLOCK_UPDATE = 2 * 3600 + 40 * 60
+
+/** 経過時間（時計合わせのあとの表示）から、世界時（ms） */
+export function getToUtc(get: number) {
+  return LAUNCH_UTC + (get >= CLOCK_UPDATE_AT + CLOCK_UPDATE ? get - CLOCK_UPDATE : get) * 1000
+}
 
 export const GET = {
   /** 地球を回る軌道に入った */
@@ -23,6 +31,21 @@ export const GET = {
   /** 降下の点火（PDI）と着陸 */
   pdi: hms(112, 49, 53),
   landing: hms(113, 1, 58),
+  // 章8：月を出てから着水まで（ミッション報告の表 3-1。65 時間目の時計合わせ +2:40:00 のあとの時刻）
+  /** 月からの離陸・司令船とつなぐ・着陸船を切り離す */
+  lunarLiftoff: hms(188, 1, 37),
+  lunarDock: hms(190, 17, 15),
+  lmJettison: hms(193, 58, 31),
+  /** 地球へ向かう点火（143.7 秒） */
+  tei: hms(236, 42, 9),
+  /** 司令船と機械船を切り離す・大気に入る（高さ 121.9 km）・通信が途絶える・ドローグ・主パラシュート・着水 */
+  cmSep: hms(304, 3, 49),
+  entry: hms(304, 18, 38),
+  blackoutStart: hms(304, 18, 55),
+  blackoutEnd: hms(304, 22, 15),
+  drogue: hms(304, 26, 22),
+  mains: hms(304, 27, 13),
+  splash: hms(304, 31, 59),
 }
 
 /** 地球と月の中心の間（m）。1972 年 12 月 10 日ごろ */

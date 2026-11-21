@@ -56,6 +56,7 @@ import { sunriseEn } from './sunrise.en'
 import { crewRoverEn } from './crewRover.en'
 import { apolloEvaEn } from './apolloEva.en'
 import { moonDockEn } from './moonDock.en'
+import { moonReturnEn } from './moonReturn.en'
 import { roverHudEn } from './roverHud.en'
 import { scaleToggleEn } from './scaleToggle.en'
 import { sfEn } from './sf.en'
@@ -227,6 +228,7 @@ export const en: Translation<typeof ja> = {
   crewRover: crewRoverEn,
   apolloEva: apolloEvaEn,
   moonDock: moonDockEn,
+  moonReturn: moonReturnEn,
   roverHud: roverHudEn,
   scaleToggle: scaleToggleEn,
   sf: sfEn,

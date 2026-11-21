@@ -6,6 +6,7 @@ import { PDI_IDEAL, LOI_IDEAL } from '../data/lunarDescent'
 import { TLI_WINDOW, TLI_WINDOW_OPEN, missionReadout, sim, useMoonMission } from './moonMission'
 import { lunar, lunarReadout } from './moonLunar'
 import { dockJourney } from './moonDock'
+import { returnJourney } from './moonReturn'
 
 export type Journey = {
   /** 打ち上げからの経過時間（秒。発射前は負） */
@@ -41,6 +42,7 @@ export function journey(): Journey | null {
     const d = dockJourney()
     return { get: d.get, fromEarth: d.fromEarth, toMoon: EARTH_MOON - d.fromEarth - R_EARTH - R_MOON_M, speed: d.speed, near: 'earth' }
   }
+  if (p === 'home') return returnJourney()
   if (p === 'coast') {
     const dist = coastDistance(lunar.coast)
     return { get: lerp(GET.marble + 900, GET.loi - 3600, lunar.coast), fromEarth: dist - R_EARTH, toMoon: EARTH_MOON - dist - R_MOON_M, speed: coastSpeed(dist), near: 'earth' }

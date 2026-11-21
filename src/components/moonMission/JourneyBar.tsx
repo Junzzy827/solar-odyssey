@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLang } from '../../i18n/lang'
 import { ui } from '../../i18n'
 import { journey } from '../../state/missionJourney'
-import { EARTH_MOON, LAUNCH_UTC, R_EARTH, R_MOON_M } from '../../data/apolloTimeline'
+import { EARTH_MOON, R_EARTH, R_MOON_M, getToUtc } from '../../data/apolloTimeline'
 import './journeyBar.css'
 
 const SPAN = EARTH_MOON - R_EARTH - R_MOON_M
@@ -55,7 +55,7 @@ export function JourneyBar() {
       </div>
       <div className="jb-time">
         {T.elapsed} <b>{clock(j.get)}</b>
-        <span className="jb-date">{T.date(LAUNCH_UTC + j.get * 1000)}</span>
+        <span className="jb-date">{T.date(getToUtc(j.get))}</span>
       </div>
     </div>
   )

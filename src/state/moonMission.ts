@@ -41,6 +41,8 @@ export type MissionPhase =
   | 'undock'
   | 'descent'
   | 'landed'
+  // 章8（state/moonReturn.ts）
+  | 'home'
   | 'leave'
 /**
  * pad：地上から見上げる、chase：ロケット・宇宙船のうしろから、onboard：ロケットにつけたカメラで後ろを見る、
@@ -121,6 +123,23 @@ export type CaptionKey =
   | 'ejected'
   | 'evade'
   | 'marble'
+  // 章8
+  | 'rvApproach'
+  | 'rvDock'
+  | 'lmJettison'
+  | 'teiWait'
+  | 'tei'
+  | 'coastHome'
+  | 'cmSep'
+  | 'corridor'
+  | 'entryInterface'
+  | 'blackout'
+  | 'blackoutEnd'
+  | 'skipOut'
+  | 'tooSteep'
+  | 'drogue'
+  | 'mains'
+  | 'splash'
   // 第2弾
   | 'coast'
   | 'coastMoon'
@@ -342,6 +361,9 @@ const MUSIC_AT: Partial<Record<CaptionKey, MusicCue | 'stop'>> = {
   contact: 'stop',
   touchdown: 'stop',
   outOfFuel: 'stop',
+  // 章8：火の玉のあいだは音楽を止めて、パラシュートが開いたら木星の賛歌
+  entryInterface: 'stop',
+  mains: 'jupiterHymn',
 }
 
 export function setCaption(key: CaptionKey) {
@@ -363,7 +385,7 @@ const DOCK_CAMS: MissionCam[] = ['window', 'chase', 'wide']
 const LM_CAMS: MissionCam[] = ['chase', 'window', 'wide']
 export function cycleCam() {
   const s = useMoonMission.getState()
-  if (s.phase === 'dock' || s.phase === 'marble') {
+  if (s.phase === 'dock' || s.phase === 'marble' || s.phase === 'home') {
     const i = DOCK_CAMS.indexOf(s.cam)
     useMoonMission.setState({ cam: DOCK_CAMS[(i + 1) % DOCK_CAMS.length], camLocked: true })
     return

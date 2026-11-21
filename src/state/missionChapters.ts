@@ -1,10 +1,13 @@
 // 月ミッションの章：どの章からでも始められ、遊んでいる途中で次の章へ飛ばせる。
 // 章の番号は計画の 0〜8（0 発射台、1 上昇、2 地球の周回と月への点火、3 ドッキング、4 青い地球と 3 日の旅、
-// 5 月の裏でブレーキ、6 着陸、7 月面の探検、8 帰還）。まだ作っていない章は start がない。
+// 5 月の裏でブレーキ、6 着陸、7 月面の探検、8 帰還）。
 
 import { debugSkip, saveChapter, startMoonMission, useMoonMission, setCaption, type MissionPhase } from './moonMission'
 import { lunarSkip, stepOutside } from './moonLunar'
 import { startDock, startMarble } from './moonDock'
+import { startReturn } from './moonReturn'
+import { evaOn, leaveApolloEva } from './apolloEva'
+import { FADE as SURFACE_FADE } from './landing'
 
 export type Chapter = {
   n: number
@@ -51,8 +54,16 @@ export const CHAPTERS: Chapter[] = [
   { n: 6, start: () => begin('moon', () => lunarSkip('undock', false)) },
   // 月面の探検：ミッションの場面を閉じて、地表の場面（タウルス・リトロー谷）へ
   { n: 7, start: () => stepOutside() },
-  { n: 8 },
+  // 帰還：月面（章7 の終わり）からは、地表の場面を閉じてから
+  { n: 8, start: () => beginReturn() },
 ]
+
+function beginReturn() {
+  if (evaOn()) {
+    leaveApolloEva()
+    window.setTimeout(() => begin('launch', startReturn), SURFACE_FADE * 1000 + 150)
+  } else begin('launch', startReturn)
+}
 
 const OF_PHASE: Partial<Record<MissionPhase, number>> = {
   pad: 0,
@@ -67,6 +78,7 @@ const OF_PHASE: Partial<Record<MissionPhase, number>> = {
   undock: 6,
   descent: 6,
   landed: 6,
+  home: 8,
 }
 
 /** いまの章（ミッションの外では null） */
