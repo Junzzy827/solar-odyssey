@@ -12,7 +12,10 @@ registerNav({
   label: () => ui().skyFlight.navButton,
   use: () => {
     const { busy, onMission } = useNavContext()
-    return { on: useSkyFlight((s) => s.phase) !== 'off', disabled: busy || onMission || !useLanding(canGoFly) }
+    // フックは毎回かならず同じ順で呼ぶ（|| の後ろに置くと、任務中だけ呼ばれずに画面ごと落ちる）
+    const on = useSkyFlight((s) => s.phase) !== 'off'
+    const canFly = useLanding(canGoFly)
+    return { on, disabled: busy || onMission || !canFly }
   },
   run: goFly,
 })
