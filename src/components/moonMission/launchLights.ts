@@ -27,7 +27,7 @@ const ARRAYS: LampArray[] = [
 /** 照らす先（ロケットの胴のまん中あたり） */
 const AIM = new THREE.Vector3(0, 55, 0)
 /** 1 列の明るさ */
-export const SPOT_POWER = 0.8e6
+export const SPOT_POWER = 0.4e6
 /** 光の柱の色 */
 const BEAM_COLOR = new THREE.Color('#cfe0ff')
 

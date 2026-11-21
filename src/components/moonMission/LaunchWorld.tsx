@@ -14,6 +14,7 @@ import { buildSky } from './launchSky'
 import { launchSmoke } from './launchFx'
 import { encodeOutput } from './shaderOut'
 import { missionLook } from './MissionPost'
+import { frostRocket, frostUniform } from './frost'
 import { atmosphereMaterial, earthMaterial } from './earth'
 import { buildCabin, CABIN_Y, CM_WIN_DIR, CM_WIN_EYE } from './cmCabin'
 import { FILM_CUTS, FILM_END, filmCut, filmForce, filmRig, filmShake } from './launchFilm'
@@ -98,8 +99,11 @@ export function LaunchWorld() {
       const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined
       if (m && 'envMapIntensity' in m) m.envMapIntensity = 0.4
     })
-    return { root, byName }
+    // 発射台では、冷たいタンクの外に霜が付いている（frost.ts）
+    const disposeFrost = frostRocket(['S1', 'S2', 'S3'].map((n) => byName[n]).filter(Boolean))
+    return { root, byName, disposeFrost }
   }, [rocket])
+  useEffect(() => () => parts.disposeFrost(), [parts])
   const pad = useMemo(() => {
     const root = padGltf.scene.clone(true)
     // 甲板の灰色は、照明の真下で白く飛ばないよう、鋼の暗い灰色にする（読み込んだ素材は複製してから変える）
@@ -111,7 +115,7 @@ export function LaunchWorld() {
         if (x.name === 'Dark') return new THREE.MeshBasicMaterial({ color: '#060606' })
         if (x.name !== 'Grey') return x
         const c = (x as THREE.MeshStandardMaterial).clone()
-        c.color.multiplyScalar(0.5)
+        c.color.multiplyScalar(0.4)
         c.roughness = 0.85
         return c
       })
@@ -335,6 +339,8 @@ export function LaunchWorld() {
     lights.group.visible = h < 20_000
     // 光の柱：点火の炎がまぶしいあいだは、目がくらんで薄く見える（作業5で露出と合わせる）
     lights.update(1 - 0.7 * (s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 3000, 0, 1) : 0), t)
+    // 霜：離昇の揺れと風で、上がるにつれてはがれ落ちる
+    frostUniform.value = THREE.MathUtils.clamp(1 - h / 2500, 0, 1)
     // 炎のまぶしさ（露出を下げる量。カメラが決まったあとで使う）
     const glare = s1On > 0 ? ignite.current * (1 - THREE.MathUtils.smoothstep(h, 4000, 30_000)) : 0
     // 溝の炎：点火から離昇のすぐ後まで（ロケットが高く上がると、溝にはもう届かない）

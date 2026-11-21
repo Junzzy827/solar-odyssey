@@ -154,16 +154,24 @@ def launcher(p):
         box(p, (r0 * c, r0 * s, ML_TOP + 0.9), (3.0, 3.0, 1.8), 'Grey', rz=a)
         beam(p, (r0 * c, r0 * s, ML_TOP + 1.6), (r1 * c, r1 * s, ML_TOP + 3.4), 1.4, 1.6, 'Grey')
         box(p, (r1 * c, r1 * s, ML_TOP + 3.4), (1.2, 1.6, 1.2), 'Dark', rz=a)
-    # 尾部の配管塔（TSM）3 本：甲板の上の箱の塔と、先のフード
-    for ang, h in ((math.radians(100), 9.4), (math.radians(200), 9.4), (math.radians(-20), 9.4)):
+    # 尾部の配管塔（TSM）3 本：鉄骨の塔（中に配管の箱）と、ロケットへ伸びる先のフード
+    for ang in (math.radians(100), math.radians(200), math.radians(-20)):
         c, s = math.cos(ang), math.sin(ang)
-        r = R1 + 5.6
-        box(p, (r * c, r * s, ML_TOP + h / 2), (2.4, 2.4, h), 'Grey', rz=ang)
-        for k in range(4):
-            z = ML_TOP + 1.5 + k * 2.2
-            beam(p, ((r - 1.2) * c, (r - 1.2) * s, z), ((r + 1.2) * c, (r + 1.2) * s, z + 2.0), 0.15, 0.15, 'Grey')
-        box(p, ((r - 1.8) * c, (r - 1.8) * s, ML_TOP + h - 0.6), (2.0, 2.6, 1.6), 'Grey', rz=ang)
-        box(p, ((r + 1.4) * c, (r + 1.4) * s, ML_TOP + h * 0.55), (0.8, 1.6, h * 1.1), 'Dark', rz=ang)
+        r, h, hw = R1 + 5.6, 9.4, 1.3
+        t = (-s, c)  # 塔の横の向き
+        corners = [(r * c + (u * c) + v * t[0], r * s + (u * s) + v * t[1]) for u, v in ((-hw, -hw), (hw, -hw), (hw, hw), (-hw, hw))]
+        for (x, y) in corners:
+            beam(p, (x, y, ML_TOP), (x, y, ML_TOP + h), 0.22, 0.22, 'Grey')
+        for k in range(6):
+            z = ML_TOP + 0.3 + k * h / 5.2
+            for j in range(4):
+                a0, a1 = corners[j], corners[(j + 1) % 4]
+                beam(p, (a0[0], a0[1], z), (a1[0], a1[1], z), 0.12, 0.16, 'Grey')
+                if k < 5:
+                    beam(p, (a0[0], a0[1], z), (a1[0], a1[1], z + h / 5.2), 0.08, 0.08, 'Grey')
+        box(p, (r * c, r * s, ML_TOP + h * 0.45), (1.1, 1.1, h * 0.9), 'Dark', rz=ang)  # 中の配管の箱
+        box(p, ((r - 1.9) * c, (r - 1.9) * s, ML_TOP + h - 0.7), (1.6, 2.2, 1.4), 'Grey', rz=ang)  # 先のフード
+        box(p, (r * c, r * s, ML_TOP + h + 0.2), (2.8, 2.8, 0.25), 'Grey', rz=ang)  # 屋根
     # 甲板の機械の箱（いくつか）
     for (x, y, sx, sy, h) in ((-18.0, -14.0, 6.0, 4.0, 2.2), (17.0, -15.0, 5.0, 3.0, 1.8), (-19.0, 10.0, 4.0, 6.0, 2.6),
                               (19.0, 9.0, 3.0, 5.0, 2.0), (-8.0, -17.0, 3.0, 2.0, 1.4)):
