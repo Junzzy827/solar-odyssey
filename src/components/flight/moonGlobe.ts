@@ -189,9 +189,9 @@ const _d = new THREE.Vector3()
 /**
  * かけらの形を作る。position はかけらの中心（返す center）からの位置。
  * dir は月の中心から見た向き（色の地図を読む）、normal は高さから求めた向き。ふちには下へ垂らした「すそ」を付けて、
- * 細かさのちがうかけらどうしのすき間をふさぐ
+ * 細かさのちがうかけらどうしのすき間をふさぐ。height を渡すと、地面の高さをそれで決める（月ミッションの谷の本物の地形など）
  */
-export function buildChunk(m: GlobalMap, k: ChunkKey) {
+export function buildChunk(m: GlobalMap, k: ChunkKey, height: (x: number, y: number, z: number, minWave: number) => number = (x, y, z, w) => heightAt(m, x, y, z, w)) {
   const n = 2 ** k.level
   const size = chunkSize(k.level)
   // 頂点の間隔より細かい起伏は足さない（遠くのかけらがざらつかない）
@@ -203,7 +203,7 @@ export function buildChunk(m: GlobalMap, k: ChunkKey) {
       const s = ((k.i + (ii - 1) / SEG) / n) * 2 - 1
       const t = ((k.j + (jj - 1) / SEG) / n) * 2 - 1
       cubeDir(k.face, s, t, _d)
-      const r = MOON_R + heightAt(m, _d.x, _d.y, _d.z, minWave)
+      const r = MOON_R + height(_d.x, _d.y, _d.z, minWave)
       const o = (jj * G + ii) * 3
       pos[o] = _d.x * r
       pos[o + 1] = _d.y * r
