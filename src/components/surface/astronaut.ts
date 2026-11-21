@@ -16,6 +16,10 @@ export type Rig = {
   materials: THREE.MeshStandardMaterial[]
   /** 腰の高さ・もも・すねの長さ（m）。無ければ手作りの宇宙飛行士の値（HIP_Y, THIGH, SHIN） */
   legs?: { hipY: number; thigh: number; shin: number }
+  /** 足の裏の傾き（正がつま先を上げる）。足首の骨があるモデルだけ使う */
+  feet?: [number, number]
+  /** 足首から靴の裏・かかと・つま先まで（m）。これがあると、かかとやつま先で地面に立つ高さを計算する */
+  boot?: { sole: number; heel: number; toe: number }
   /** 関節の箱に書いた角度を、モデルの骨へ写す（骨の入ったモデルだけ） */
   update?: () => void
 }

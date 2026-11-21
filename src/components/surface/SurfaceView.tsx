@@ -1411,7 +1411,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} />}
       <Look terrain={terrain} />
       <GravityJump terrain={terrain} />
-      <SuitWalk terrain={terrain} landerYaw={LANDER_YAW} />
+      <SuitWalk terrain={terrain} landerYaw={LANDER_YAW} sky={sky} />
       <WaterCup terrain={terrain} />
       <HorizonCompass def={def} />
       <WhenReady />

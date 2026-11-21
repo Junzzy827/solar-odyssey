@@ -16,7 +16,7 @@ export const suitWalkEn: Translation<typeof suitWalkJa> = {
   hintTouch: 'Left stick to walk · drag to look around',
   gait: {
     walk: (g: string) => `Gravity ${g} G. You can walk just like on Earth`,
-    hop: (g: string) => `Gravity ${g} G. Hopping on both feet is easier than walking`,
+    hop: (g: string) => `Gravity ${g} G. Lope like the Apollo astronauts, bounding from foot to foot`,
     float: (g: string) => `Gravity ${g} G. One push and you float up off the ground`,
   },
   edge: 'You are too far from the lander',

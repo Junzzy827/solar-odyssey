@@ -122,14 +122,14 @@ export async function makeSuitRig(src: Src, ghost: boolean): Promise<Rig | null>
   link(hips[1], 'leg_1R')
   link(knees[0], 'leg_2L')
   link(knees[1], 'leg_2R')
-  // 足首：靴の裏を地面と平らに保つ（もも・すねの角度を打ち消す）
+  // 足首：ふだんは靴の裏を地面と平らに保つ（もも・すねの角度を打ち消す）。rig.feet で、かかと・つま先を上げる
   const feet = g2()
   link(feet[0], 'footL')
   link(feet[1], 'footR')
 
   const update = () => {
     holder.position.set(0, body.position.y - hipY, body.position.z)
-    for (let i = 0; i < 2; i++) feet[i].rotation.x = -(hips[i].rotation.x + knees[i].rotation.x)
+    for (let i = 0; i < 2; i++) feet[i].rotation.x = -(hips[i].rotation.x + knees[i].rotation.x) - (rig.feet?.[i] ?? 0)
     for (const l of links) {
       // モデルの X 軸・Z 軸を、この骨の向きで見た軸に
       ax.copy(X).applyQuaternion(l.toLocal)
@@ -140,5 +140,8 @@ export async function makeSuitRig(src: Src, ghost: boolean): Promise<Rig | null>
     }
   }
 
-  return { root, body, torso, shoulders, elbows, hips, knees, materials, legs: { hipY, thigh, shin }, update }
+  // 靴：足首の高さ（骨の位置）と、かかと・つま先までの長さ（だいたい）
+  const sole = Math.max(0.06, Math.min(0.16, y('footL')))
+  const rig: Rig = { root, body, torso, shoulders, elbows, hips, knees, materials, legs: { hipY, thigh, shin }, update, feet: [0, 0], boot: { sole, heel: 0.07, toe: 0.2 } }
+  return rig
 }
