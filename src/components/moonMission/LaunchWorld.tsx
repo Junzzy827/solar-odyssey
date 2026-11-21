@@ -82,7 +82,7 @@ export function LaunchWorld() {
     `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
     `${base}textures/${small ? '2k' : '4k'}_earth_nightmap.jpg`,
     `${base}textures/${small ? '2k' : '4k'}_earth_clouds.jpg`,
-    `${base}textures/2k_stars_milky_way.jpg`,
+    `${base}textures/milky_way_glow.jpg`,
   ])
   useMemo(() => {
     for (const t of [day, night, stars]) t.colorSpace = THREE.SRGBColorSpace
@@ -273,7 +273,7 @@ export function LaunchWorld() {
       toWorld(Math.cos(ang) * MOON_DIST, Math.sin(ang) * MOON_DIST, moonM.current.position)
       moonM.current.visible = s.phase === 'outbound' || s.phase === 'tli'
     }
-    sky.update(camera)
+    sky.update(camera, up, h, t)
     // 日の出：太陽が地平線の上に出たとき
     if (!sim.sunrise && s.phase === 'orbit' && up.dot(SUN) > -0.06) {
       sim.sunrise = true

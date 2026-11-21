@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { APOLLO17_LIFTOFF, equatorialToGround, siteSky } from './siteSky'
+import { APOLLO17_LIFTOFF, equatorialToGround, groundFromEquatorial, siteSky } from './siteSky'
 
 describe('発射場の空', () => {
   it('アポロ17号の離昇のとき、月は地平線の下（月齢 1 日ほど）', () => {
@@ -34,5 +34,19 @@ describe('発射場の空', () => {
   it('向きの長さは 1', () => {
     const s = siteSky(Date.UTC(1972, 10, 21, 3, 0))
     for (const v of [s.sun, s.moon]) expect(Math.hypot(v.x, v.y, v.z)).toBeCloseTo(1, 6)
+  })
+
+  it('星をまとめて回す行列は、1 つずつの変換と同じ向きになる', () => {
+    const m = groundFromEquatorial(APOLLO17_LIFTOFF)
+    for (const [ra, dec] of [[88.79, 7.41], [101.29, -16.72], [37.95, 89.26], [279.23, 38.78]]) {
+      const r = (ra * Math.PI) / 180
+      const d = (dec * Math.PI) / 180
+      const q = [Math.cos(d) * Math.cos(r), Math.cos(d) * Math.sin(r), Math.sin(d)]
+      const g = [0, 1, 2].map((i) => m[i * 3] * q[0] + m[i * 3 + 1] * q[1] + m[i * 3 + 2] * q[2])
+      const e = equatorialToGround(ra, dec, APOLLO17_LIFTOFF)
+      expect(g[0]).toBeCloseTo(e.x, 6)
+      expect(g[1]).toBeCloseTo(e.y, 6)
+      expect(g[2]).toBeCloseTo(e.z, 6)
+    }
   })
 })

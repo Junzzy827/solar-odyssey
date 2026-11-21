@@ -73,6 +73,17 @@ export function equatorialToGround(raDeg: number, decDeg: number, ms: number, la
   }
 }
 
+/**
+ * 赤道座標の向き（単位ベクトル）→ 地面の組の向き（x 東、y 上、z 南）の行列（行ごと 3 つずつ、9 個）。
+ * equatorialToGround と同じ変換を、星をまとめて回すために行列にしたもの
+ */
+export function groundFromEquatorial(ms: number, latDeg = PAD_LAT_DEG, lonDeg = PAD_LON_DEG): number[] {
+  const th = localSiderealTime(ms, lonDeg) * D2R
+  const lat = latDeg * D2R
+  const [st, ct, sl, cl] = [Math.sin(th), Math.cos(th), Math.sin(lat), Math.cos(lat)]
+  return [-st, ct, 0, cl * ct, cl * st, sl, sl * ct, sl * st, -cl]
+}
+
 export type SiteSky = {
   sun: ReturnType<typeof equatorialToGround>
   moon: ReturnType<typeof equatorialToGround>
