@@ -8,6 +8,10 @@
 .mm-root[data-phase='none'] {
   display: none;
 }
+/* 3D の絵がまだ出ていない一瞬（章の切り替え・地形の読みこみ）に、うしろのアプリの画面が透けないように */
+.mm-root:not([data-phase='fadeIn']) {
+  background: #000;
+}
 .mm-root > div:first-child {
   pointer-events: auto;
   touch-action: none;
@@ -66,6 +70,10 @@
   font-size: 15px;
   line-height: 1.7;
   animation: mm-in 1.2s ease-out;
+  /* 発射塔の明かりの上でも読めるように */
+  padding: 14px 0 18px;
+  background: radial-gradient(ellipse 50% 60% at 50% 50%, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0) 100%);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
 }
 .mm-intro-title {
   font-size: 26px;

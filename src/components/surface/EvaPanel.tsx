@@ -64,6 +64,12 @@ export function EvaPanel() {
   return (
     <>
       {tv && <div className="ae-tv" aria-hidden="true" />}
+      {/* 章の始まりの幕：月面車の用意ができるまで（黒い空だけの画面にしない） */}
+      <div className={`ae-title ${step === 'board' && phase !== 'drive' ? 'on' : ''}`} aria-hidden={step !== 'board'}>
+        <div className="ae-title-k">{T.chapter}</div>
+        <div className="ae-title-date">{T.titleCard[1]}</div>
+        <div className="ae-title-line">{T.titleCard[2]}</div>
+      </div>
       <RadioSubtitle />
       <div className="ae-head">
         <div className="ae-chapter">{T.chapter}</div>

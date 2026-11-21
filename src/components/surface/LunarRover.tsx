@@ -47,7 +47,8 @@ const SEAT_Y = 0.78
 const SEAT_X = [-0.3, 0.3]
 const SEAT_Z = 0.32
 /** 船長の目（車の座標、three の向き：右 +x、上 +y、前 -z） */
-const EYE = new THREE.Vector3(-0.3, 1.62, 0.12)
+// 座った宇宙服のヘルメットの中の高さ。高利得アンテナの皿（左前の柱の上、高さ約 1.7 m）が画面の上のほうに来て、前の地面が見える
+const EYE = new THREE.Vector3(-0.3, 1.4, 0.12)
 /** テレビカメラ（車の座標）。離陸を見送るときの目 */
 export const TV_EYE = new THREE.Vector3(0.06, 1.35, -1.78)
 
