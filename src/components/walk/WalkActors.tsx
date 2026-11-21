@@ -181,8 +181,9 @@ function Player() {
         const old = st.me
         st.me = new VrmPerson(model, seeded(77), mh ? PLAYER_SCALE : 1, true)
         old.dispose()
+        useWalk.setState({ peopleReady: true })
       })
-      .catch(() => {})
+      .catch(() => useWalk.setState({ peopleReady: true }))
     return () => {
       dead = true
       st.me.dispose()
@@ -671,7 +672,8 @@ function Player() {
     euler.set(st.pitch, st.yaw, 0)
     qc.copy(qf).multiply(new THREE.Quaternion().setFromEuler(euler))
     const eye = w.view === 'eye'
-    st.me.group.visible = !eye
+    // 人の模型（VRM）を読み終わるまでは、仮の人形（棒人間）を出さない
+    st.me.group.visible = !eye && st.me instanceof VrmPerson
     const headH = (sitting ? 1.15 : 1.62) * (CREW_LOOK.height / 1.7)
     // 速く走るほど、カメラを少し引いて画角を広げる
     const fast = riding ? Math.abs(st.spd) : 0
@@ -1028,9 +1030,9 @@ function Mobs() {
       const vrm = m.p instanceof VrmPerson
       if (vrm) h = 0
       placePerson(m.p, m.s, m.y, h, m.yaw)
-      // 遠い人は描かない。芝生に座る人は VRM の人だけ
       tmp.copy(m.p.group.position)
-      const far = tmp.distanceTo(camera.position) > 220 || (m.kind === 'lawn' && !vrm)
+      // 遠い人は描かない。VRM の人を読み終わるまでは、仮の人形（棒人間）を出さない
+      const far = !vrm || tmp.distanceTo(camera.position) > 220
       m.p.group.visible = !far
       if (!far) {
         // 近くに来たら、こちらの顔を見る（走っている子は前を見たまま）

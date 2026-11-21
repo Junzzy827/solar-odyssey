@@ -59,6 +59,8 @@ type WalkState = {
   inElev: boolean
   /** 軸の駅に着いた時刻（「現実の科学では」を少し出す） */
   axisNote: number
+  /** 人の模型を読み終えたか（それまでは人を出さず、「読み込み中」を出す） */
+  peopleReady: boolean
   /** 次に歩く場面を始めるとき、軸へのエレベーターの前から始める */
   startAtTower: boolean
   /** 翼をつけている */
@@ -91,6 +93,7 @@ export const useWalk = create<WalkState>(() => ({
   elevNear: null,
   inElev: false,
   axisNote: 0,
+  peopleReady: false,
   startAtTower: false,
   wings: false,
   wingsHere: false,
@@ -139,7 +142,7 @@ export function startWalkAtTower() {
 function beginWalk(c: { id: string; name: () => string }) {
   if (document.pointerLockElement) document.exitPointerLock()
   resetWalkInput()
-  useWalk.setState({ colonyId: c.id, colonyName: c.name(), view: 'chase', run: false, sitting: false, benchNear: false, riding: false, flying: false, waterNote: 0, skyNote: 0, gee: 1, elevNear: null, inElev: false, axisNote: 0, wings: false, wingsHere: false })
+  useWalk.setState({ colonyId: c.id, colonyName: c.name(), view: 'chase', run: false, sitting: false, benchNear: false, riding: false, flying: false, waterNote: 0, skyNote: 0, gee: 1, elevNear: null, inElev: false, axisNote: 0, wings: false, wingsHere: false, peopleReady: false })
   setPhase('fadeIn')
   window.setTimeout(() => {
     if (useWalk.getState().phase === 'fadeIn') setPhase('walk')
