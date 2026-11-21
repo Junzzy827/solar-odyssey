@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { ColonyModel } from '../sf/ColonyModel'
+import { rootGeometry, rootShade, trunkRadius } from './treeRoots'
 import { AVENUE, M, colonyDay, treeInstancesWhere, sharedInstancedMesh, treeLiteGeometry, treeMaterial } from '../sf/colonyCity'
 import { Batch, place, seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
@@ -419,7 +420,7 @@ function pickKind(r: number) {
 }
 const nearDistance = () => (lowMemory() || currentLevel() === 'low' ? 70 : currentLevel() === 'medium' ? 110 : 150)
 
-type TreeKind = { branches: THREE.InstancedMesh; leaves: THREE.InstancedMesh; update: (t: number) => void; height: number }
+type TreeKind = { branches: THREE.InstancedMesh; leaves: THREE.InstancedMesh; roots: THREE.InstancedMesh; update: (t: number) => void; height: number; base: number; radius: number }
 
 function Trees({ follow }: { follow: { current: THREE.Vector3 } }) {
   const park = parkLayout()
@@ -431,6 +432,8 @@ function Trees({ follow }: { follow: { current: THREE.Vector3 } }) {
       return {
         t,
         yaw,
+        /** 幹の根元の半径 m（軽い木の円柱の下の半径） */
+        r: 0.5 * (0.16 + t.h * 0.012),
         kind: pickKind(rand()),
         trunk: standAt(t.s, t.y, t.h * 0.22, yaw, [0.16 + t.h * 0.012, t.h * 0.44, 0.16 + t.h * 0.012], new THREE.Matrix4()),
         crown: standAt(t.s, t.y, t.h * 0.62, yaw, [w, t.h * 0.62, w], new THREE.Matrix4()),
@@ -451,7 +454,20 @@ function Trees({ follow }: { follow: { current: THREE.Vector3 } }) {
       m.castShadow = m.receiveShadow = true
       m.frustumCulled = false
     }
-    return { items, trunks, crowns, crownMat }
+    // 根元：根張り（近くの木だけ）と、根元の土のしみ（全部の木）。軽い木の幹の根元の太さは、幹の円柱の下の半径
+    const rootGeo = rootGeometry()
+    const roots = new THREE.InstancedMesh(rootGeo, trunkMat, n)
+    roots.castShadow = roots.receiveShadow = true
+    roots.frustumCulled = false
+    roots.count = 0
+    const shade = rootShade()
+    const shades = new THREE.InstancedMesh(shade.geo, shade.mat, n)
+    shades.frustumCulled = false
+    // 地面（renderOrder 1、半透明の扱い）より後、池の水（2）より前に描く
+    shades.renderOrder = 1.5
+    // 奥行きが対数（logarithmicDepthBuffer）で polygonOffset が効かないので、地面から 4 cm 浮かせる
+    items.forEach((it, i) => shades.setMatrixAt(i, standAt(it.t.s, it.t.y, 0.04, it.yaw, it.t.h * 0.42, new THREE.Matrix4())))
+    return { items, trunks, crowns, crownMat, rootGeo, roots, shades }
   }, [park])
   const group = useRef<THREE.Group>(null!)
   const kinds = useRef<TreeKind[] | null>(null)
@@ -518,15 +534,21 @@ transformed.z += sin(uWind * 1.7 + ph * 1.3 + position.x * 0.8) * sw * 0.7;`,
             m.geometry.dispose()
             return geo
           }
-          const branches = new THREE.InstancedMesh(bake(bm), lambert(bm.material as THREE.Material, false), cap)
+          const bark = lambert(bm.material as THREE.Material, false)
+          const branchGeo = bake(bm)
+          const branches = new THREE.InstancedMesh(branchGeo, bark, cap)
           const leaves = new THREE.InstancedMesh(bake(lm), lambert(lm.material as THREE.Material, true), cap)
-          for (const m of [branches, leaves]) {
+          // 根張りは、この木の樹皮で。上から光を受けて幹より明るく見えるので、少し暗くする（土で汚れた色）
+          const roots = new THREE.InstancedMesh(data.rootGeo, bark, cap)
+          for (let i = 0; i < cap; i++) roots.setColorAt(i, rootTint)
+          for (const m of [branches, leaves, roots]) {
             m.count = 0
             m.castShadow = m.receiveShadow = true
             m.frustumCulled = false
           }
-          made.push({ branches, leaves, update: (t) => (wind.value = t), height: Math.max(1, box.max.y - box.min.y) })
-          group.current?.add(branches, leaves)
+          const height = Math.max(1, box.max.y - box.min.y)
+          made.push({ branches, leaves, roots, update: (t) => (wind.value = t), height, base: box.min.y, radius: trunkRadius(branchGeo, box.min.y + height * 0.015, height) })
+          group.current?.add(branches, leaves, roots)
         })
         kinds.current = made
         st.current.next = 0
@@ -537,6 +559,7 @@ transformed.z += sin(uWind * 1.7 + ph * 1.3 + position.x * 0.8) * sw * 0.7;`,
       for (const k of made) {
         k.branches.removeFromParent()
         k.leaves.removeFromParent()
+        k.roots.removeFromParent()
         k.branches.geometry.dispose()
         k.leaves.geometry.dispose()
         ;(k.branches.material as THREE.Material).dispose()
@@ -561,40 +584,53 @@ transformed.z += sin(uWind * 1.7 + ph * 1.3 + position.x * 0.8) * sw * 0.7;`,
     const near = nearDistance()
     const p = follow.current
     let far = 0
-    if (ks) for (const k of ks) k.branches.count = k.leaves.count = 0
+    if (ks) for (const k of ks) k.branches.count = k.leaves.count = k.roots.count = 0
+    const rootNear = Math.min(near, 90)
+    data.roots.count = 0
     data.items.forEach((it) => {
       landPoint(it.t.s, it.t.y, 0, v)
-      const close = !!ks && v.distanceTo(p) < near
+      const dist = v.distanceTo(p)
+      const close = !!ks && dist < near
       if (close && ks) {
         const k = ks[it.kind]
         const sc = (it.t.h / k.height) * 1.15
         standAt(it.t.s, it.t.y, -0.2, it.yaw, sc, m)
         k.branches.setMatrixAt(k.branches.count++, m)
         k.leaves.setMatrixAt(k.leaves.count++, m)
+        if (dist < rootNear && k.radius > 0) {
+          // 形の中の地面の高さでの幹の太さに合わせる（幹は地面より 0.2 m 下から生えている）
+          standAt(it.t.s, it.t.y, 0, it.yaw + 0.7, k.radius * sc, m)
+          k.roots.setMatrixAt(k.roots.count++, m)
+        }
         return
       }
+      if (dist < rootNear) data.roots.setMatrixAt(data.roots.count++, standAt(it.t.s, it.t.y, 0, it.yaw, it.r, m))
       data.trunks.setMatrixAt(far, it.trunk)
       data.crowns.setMatrixAt(far, it.crown)
       data.crowns.setColorAt(far, c.setHex(it.t.color))
       far++
     })
     data.trunks.count = data.crowns.count = far
-    data.trunks.instanceMatrix.needsUpdate = data.crowns.instanceMatrix.needsUpdate = true
+    data.trunks.instanceMatrix.needsUpdate = data.crowns.instanceMatrix.needsUpdate = data.roots.instanceMatrix.needsUpdate = true
     if (data.crowns.instanceColor) data.crowns.instanceColor.needsUpdate = true
     if (ks)
       for (const k of ks) {
         k.branches.instanceMatrix.needsUpdate = true
         k.leaves.instanceMatrix.needsUpdate = true
+        k.roots.instanceMatrix.needsUpdate = true
       }
   })
   return (
     <group ref={group}>
       <primitive object={data.trunks} />
       <primitive object={data.crowns} />
+      <primitive object={data.roots} />
+      <primitive object={data.shades} />
     </group>
   )
 }
 const c = new THREE.Color()
+const rootTint = new THREE.Color(0.62, 0.56, 0.5)
 
 function benchGeometry() {
   const box = new THREE.BoxGeometry(1, 1, 1)
