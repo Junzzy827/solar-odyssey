@@ -2,11 +2,15 @@ import { seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { isTouchDevice } from '../../state/input'
 
-// 「本格的な森」（お試し）。URL に ?forest=jungle（前の ?forest=sample も同じ）を付けたときだけ、ラボの森（jungle.ts）の
-// 全体を、本物をスキャンした植物・板根の高い木・写真の地面・木もれ日で作り直す（WalkForest.tsx）。付けなければ今までどおり。
+// 「本格的な森」。ラボの森（jungle.ts）の全体を、本物をスキャンした植物・板根の高い木・写真の地面・木もれ日で作り直す
+// （WalkForest.tsx）。URL に ?forest=old を付けたときだけ、前の作りの森に戻る（見比べ用）。
 // ここは「どこに何を置くか」だけを決める。森の広さや小道は jungle.ts から受け取る（ここからは jungle.ts を読まない）。
 
-export const FOREST_ON = typeof location !== 'undefined' && /[?&#]forest=(jungle|sample|new)\b/.test(location.search + location.hash)
+const QUERY = typeof location !== 'undefined' ? location.search + location.hash : ''
+/** 本格的な森を使う（ふだんから。?forest=old のときだけ前の森） */
+export const FOREST_ON = !/[?&#]forest=old\b/.test(QUERY)
+/** お試しのときの URL（?forest=jungle など）を付けたときは、森の入口から歩き始める */
+export const FOREST_START = /[?&#]forest=(jungle|sample|new)\b/.test(QUERY)
 
 /** 置き場所：(s, y)、向き、大きさの倍率、色などをずらすための 0〜1 の数、地面からの高さ m（着生の植物など） */
 export type Spot = { s: number; y: number; yaw: number; k: number; v: number; h?: number }

@@ -10,7 +10,7 @@ import { JUNGLE, JUNGLE_GATE, TRAIL_W, jungleForest, jungleLayout } from './jung
 import { KIT, POLE, TALL, type Forest, type KitName, type Spot } from './forestLayout'
 import { treeShape } from './forestTree'
 
-// 「本格的な森」のお試し（?forest=jungle のときだけ出る。置き場所は forestLayout.ts）。ラボの森の全体を作り直す。
+// 「本格的な森」（?forest=old のときは出ない。置き場所は forestLayout.ts）。ラボの森の全体を作り直す。
 // ・植物と小物：本物をスキャンした形（public/models/forest-kit.glb、Poly Haven CC0）。画像は何種類かを 1 枚にまとめてある
 // ・高い木と若木：幹と枝はその場で作り（forestTree.ts）、樹皮は写真、葉は本物の木の枝先を撮った絵の板
 // ・同じ画像を使う物は、BatchedMesh で 1 回の描画にまとめる。1 本ずつ、近くは細かい形・遠くは軽い形・もっと遠くは出さない

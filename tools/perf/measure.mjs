@@ -146,8 +146,8 @@ const SCENARIOS = {
       await sleep(8000)
     },
   },
-  // 「本格的な森」に作り直したラボの森（?forest=jungle）と、同じ場所・同じ向きの今までの森。この 2 つを比べる
-  forestOff: { hash: '#debug&sf', after: (page) => forestCorner(page) },
+  // 「本格的な森」に作り直したラボの森（?forest=jungle）と、同じ場所・同じ向きの前の森（?forest=old）。この 2 つを比べる
+  forestOff: { query: '?forest=old', hash: '#debug&sf', after: (page) => forestCorner(page) },
   forestOn: { query: '?forest=jungle', hash: '#debug&sf', after: (page) => forestCorner(page) },
 }
 

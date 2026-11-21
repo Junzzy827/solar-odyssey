@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useRef } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { ColonyModel } from '../sf/ColonyModel'
@@ -6,12 +6,12 @@ import { rootGeometry, rootShade, trunkRadius } from './treeRoots'
 import { AVENUE, M, colonyDay, treeInstancesWhere, sharedInstancedMesh, treeLiteGeometry, treeMaterial } from '../sf/colonyCity'
 import { Batch, place, seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
-import { EW_END, EW_Y, FADE, GROUND_LIFT, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, STREETS, STREET_W, frameAt, inBoundsTree, landPoint, parkLayout, streetRect, upAt } from './park'
+import { EW_END, EW_Y, FADE, G, GROUND_LIFT, HALF_L, LOOP, NS_S, PATCH, PATH_W, PLAY, PLAZA, POND, STREETS, STREET_W, frameAt, inBoundsTree, landPoint, parkLayout, streetRect, upAt } from './park'
 import { WalkTown } from './WalkTown'
 import { WalkJungle } from './WalkJungle'
 import { FOREST_ON } from './forestLayout'
 
-/** 「本格的な森」に作り直したラボの森（お試し。?forest=jungle / ?forest=sample のときだけ読み込む） */
+/** 「本格的な森」に作り直したラボの森（?forest=old のときは前の森のまま）。森に近づいたときに初めて読み込む */
 const WalkForest = lazy(() => import('./WalkForest'))
 import { JUNGLE, TRAIL_W, jungleLayout } from './jungle'
 import { WalkChunks } from './WalkChunks'
@@ -887,6 +887,26 @@ function Debug() {
   return null
 }
 
+/** 森の絵と形（約 1〜3 MB）は、森のふちから NEAR m 以内に来たときに読み込む。一度読んだら、離れても残す */
+const NEAR = 180
+function NearForest({ follow }: { follow: { current: THREE.Vector3 } }) {
+  const [near, setNear] = useState(false)
+  useFrame(() => {
+    if (near) return
+    const p = follow.current
+    const s = Math.atan2(p.x, p.z) * G
+    const y = p.y + HALF_L
+    const ds = Math.max(JUNGLE.s0 - s, 0, s - JUNGLE.s1)
+    const dy = Math.max(JUNGLE.y0 - y, 0, y - JUNGLE.y1)
+    if (Math.hypot(ds, dy) < NEAR) setNear(true)
+  })
+  return near ? (
+    <Suspense fallback={null}>
+      <WalkForest />
+    </Suspense>
+  ) : null
+}
+
 export function WalkWorld({ follow }: { follow: { current: THREE.Vector3 } }) {
   return (
     <>
@@ -902,11 +922,7 @@ export function WalkWorld({ follow }: { follow: { current: THREE.Vector3 } }) {
       <PlayAndPlaza />
       <WalkTown />
       <WalkJungle />
-      {FOREST_ON && (
-        <Suspense fallback={null}>
-          <WalkForest />
-        </Suspense>
-      )}
+      {FOREST_ON && <NearForest follow={follow} />}
     </>
   )
 }

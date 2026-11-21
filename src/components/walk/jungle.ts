@@ -34,7 +34,7 @@ export const TRAIL_W = 3
 let jungle: Jungle | null = null
 let forest: Forest | null = null
 
-/** 「本格的な森」のお試し（?forest=jungle）のときの置き場所（forestLayout.ts）。お試しでなければ null */
+/** 「本格的な森」の置き場所（forestLayout.ts）。?forest=old のときは null */
 export function jungleForest() {
   jungleLayout()
   return forest

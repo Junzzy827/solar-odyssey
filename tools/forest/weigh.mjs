@@ -1,6 +1,6 @@
 // 同じページの中で、森の見本を出したとき・隠したときの描画回数と三角形の数を比べる
 //   npm run build のあと：node tools/forest/weigh.mjs [--phone] [--old] [--at=s,y,yaw]
-//   --old：お試しなしの今までのラボの森を、同じやり方で（jungle-* を出す・隠す）
+//   --old：前の作りのラボの森（?forest=old）を、同じやり方で
 import { chromium, devices } from 'playwright'
 import { serve } from '../perf/serve.mjs'
 const phone = process.argv.includes('--phone')
@@ -48,7 +48,7 @@ const page = await ctx.newPage()
 const T0 = Date.now()
 const lap = (m) => console.log(`${Math.round((Date.now() - T0) / 1000)} s`, m)
 page.on('pageerror', (e) => console.error('pageerror', e.message))
-await page.goto(`http://localhost:${server.address().port}/${old ? '' : '?forest=jungle'}#debug&sf`)
+await page.goto(`http://localhost:${server.address().port}/${old ? '?forest=old' : '?forest=jungle'}#debug&sf`)
 await page.waitForFunction(() => !document.getElementById('boot') && window.__sv, null, { timeout: 180000, polling: 250 })
 lap('app ready')
 await page.evaluate(() => window.__sv.walk.start())
