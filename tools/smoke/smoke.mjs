@@ -302,7 +302,18 @@ const SCENARIOS = {
     hash: '#debug',
     run: async (page) => {
       await suitScene(page, 'phobos')
-      for (const sel of ['.sw-pad .sw-jump', '.sw-pad .sw-run']) await visibleButton(page, sel)
+      for (const sel of ['.sw-pad .sw-jump', '.sw-pad .sw-run', '.sw-pad .sw-stick']) await visibleButton(page, sel)
+      // スティックを指で上へ倒すと、前へ進む入力になる（画面の 3D に通り抜けない）
+      const b = await page.evaluate(() => {
+        const r = document.querySelector('.sw-stick').getBoundingClientRect()
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+      })
+      await page.mouse.move(b.x, b.y)
+      await page.mouse.down()
+      await page.mouse.move(b.x, b.y - 40, { steps: 4 })
+      const z = await page.evaluate(() => window.__sv.suitWalk.input.z)
+      await page.mouse.up()
+      if (!(z > 0.5)) throw new Error(`suit-phone: stick did not move the walker (input z ${z})`)
     },
   },
   // 水のコップ（月）：置くといきなり沸いて凍る。時刻バーの「日の出」で、日の出の案内が出る
