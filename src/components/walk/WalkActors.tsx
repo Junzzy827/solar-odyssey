@@ -12,7 +12,7 @@ import { DECK_TOP, HoverScooter, RIDER_Z } from './hoverScooter'
 import { JUNGLE, inJungle } from './jungle'
 import { FOREST_ON } from './forestLayout'
 import { BOUNDS, G, GROUND_LIFT, HALF_L, LOOP, NS_S, PLAY, POND, STREETS, STREET_W, WALK_W, frameAt, landPoint, loopPoint, parkLayout, pondValue, pushOutOfBoxes, inTown, upAt, type Bench } from './park'
-import { CIRC, inBuilding, pushWorld, standable, wetAt, worldArea, wrapS } from './cylinder'
+import { CIRC, inBuilding, pushWorld, roofAt, standable, wetAt, worldArea, wrapS } from './cylinder'
 import { CORE, DECK_END, OMEGA, RIDE_S, STATION, STATION_H, TOWER, elevCar, elevH, gAt, nearDoor, onStation, sMeters } from './axis'
 import { Wings } from './wings'
 
@@ -146,6 +146,8 @@ function Player() {
       fov: 62,
       /** 空を飛んでいる高さ m */
       alt: 0,
+      cruise: 0,
+      land: 0,
       /** 軸へのエレベーター：位置（0 = 地面、1 = 軸の駅）と、動く向き（0 = 乗っていない） */
       elevT: 0,
       elevDir: 0,
@@ -354,14 +356,27 @@ function Player() {
         st.wantOff = false
       }
       // 高さ：飛ぶときは上がり、降りるときは下がる
-      st.alt = flying ? Math.min(SKY_HEIGHT, st.alt + dt * 8) : Math.max(0, st.alt - dt * 7)
+      // 飛ぶ高さは 30 m より上で、行く先（3 秒先まで）のいちばん高いビルの屋根より 15 m 上。高いビルが来たら早めに上がる
+      if (flying) {
+        let roof = roofAt(walker.s, walker.y, 18)
+        const v = Math.hypot(st.vs, st.vy)
+        if (v > 1) {
+          const ahead = Math.min(320, v * 3)
+          for (let i = 1; i <= 6; i++) {
+            const t = (ahead * i) / 6
+            roof = Math.max(roof, roofAt(walker.s + (st.vs / v) * t, walker.y + (st.vy / v) * t, 18))
+          }
+        }
+        st.cruise = Math.max(SKY_HEIGHT, roof + 15)
+        st.alt = st.alt < st.cruise ? Math.min(st.cruise, st.alt + dt * (st.cruise - st.alt > 8 ? 40 : 8)) : Math.max(st.cruise, st.alt - dt * 6)
+      } else st.alt = Math.max(0, st.alt - dt * (st.alt > 40 ? 20 : 7))
       const high = st.alt > 3
       const throttle = st.wantOff && st.alt < 0.3 ? -1 : Math.max(-1, Math.min(1, fwd))
       // 降りるときは、地面のスクーターの速さまで強く減速する（遠くへ流されない）
       const landing = !flying && st.alt > 0.3
       const top = landing ? HOVER_BOOST : high ? (running ? SKY_BOOST : SKY_SPEED) : running ? HOVER_BOOST : HOVER_SPEED
       const tgt = throttle > 0.05 ? throttle * top : throttle < -0.05 ? (st.wantOff ? 0 : throttle * 3) : 0
-      const acc = landing && st.spd > tgt ? 30 : high ? (tgt > st.spd ? 14 : 12) : tgt > st.spd ? (st.spd < 0 ? 8 : running ? 6 : 4.5) : throttle < -0.05 && st.spd > 0 ? 10 : st.spd > HOVER_BOOST ? 12 : 2.4
+      const acc = landing && st.spd > tgt ? 30 : high ? (tgt > st.spd ? 14 : 12) : tgt > st.spd ? (st.spd < 0 ? 8 : running ? 12 : 9) : throttle < -0.05 && st.spd > 0 ? 14 : st.spd > HOVER_BOOST ? 12 : 2.4
       if (walker.rideSpeed !== null) {
         st.spd = walker.rideSpeed
         st.vs = -Math.sin(st.body) * st.spd
@@ -407,8 +422,8 @@ function Player() {
       }
       if (st.wantOff && Math.abs(st.spd) < 2 && st.alt < 0.3) dismount()
       // ホップ（スペース・ジャンプのボタン）
-      // 初速 4.5 m/s で、高さ約 1 m（v² / 2g）
-      if (walkInput.jump && st.onDeck && st.hop <= 0.001) st.hopV = 4.5
+      // 初速 6.4 m/s で、高さ約 2 m（v² / 2g）
+      if (walkInput.jump && st.onDeck && st.hop <= 0.001) st.hopV = 6.4
       walkInput.jump = false
       st.hopV -= GRAVITY * dt
       st.hop = Math.max(0, st.hop + st.hopV * dt)
@@ -479,6 +494,19 @@ function Player() {
           if (st.me instanceof VrmPerson) {
             st.sc.grips(gripL, gripR)
             st.me.grip(gripL, gripR)
+            // 両足を板に：左足は少し前、右足は少し後ろ、つま先は少し外向き。速いほど・跳んだあとほど、ひざを曲げる
+            const g = st.me.group
+            g.updateMatrixWorld(true)
+            g.getWorldQuaternion(rideQ)
+            footL.set(-0.11, 0, -0.05).applyMatrix4(g.matrixWorld)
+            footR.set(0.11, 0, 0.06).applyMatrix4(g.matrixWorld)
+            toeL.set(-0.2, 0, -1).normalize().applyQuaternion(rideQ)
+            toeR.set(0.28, 0, -1).normalize().applyQuaternion(rideQ)
+            const fast = Math.min(1, Math.abs(st.spd) / HOVER_BOOST)
+            st.land = Math.max(0, st.land - dt * 4)
+            if (st.hop > 0.05) st.land = 1
+            const crouch = 0.05 + fast * 0.05 + (st.hop > 0.05 ? 0.06 : Math.sin(Math.min(1, st.land) * Math.PI) * 0.08)
+            st.me.stance({ feet: [footL, footR], toes: [toeL, toeR], crouch, lean: 0.08 + fast * 0.14 })
           }
           motion = 'ride'
           deckPlaced = true
@@ -709,6 +737,11 @@ function Player() {
 }
 
 const gripL = new THREE.Vector3()
+const footL = new THREE.Vector3()
+const footR = new THREE.Vector3()
+const toeL = new THREE.Vector3()
+const toeR = new THREE.Vector3()
+const rideQ = new THREE.Quaternion()
 const gripR = new THREE.Vector3()
 
 /** 物を (s, y) に、地面から h、向き yaw で置く */

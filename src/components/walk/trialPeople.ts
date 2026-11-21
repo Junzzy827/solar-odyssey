@@ -337,6 +337,8 @@ export async function loadTrialModels(base: string, motions: MotionData): Promis
         headName: nm('head'),
         neckName: nm('neck'),
         arms: (['left', 'right'] as const).map((sd) => [nm(`${sd}UpperArm`), nm(`${sd}LowerArm`), nm(`${sd}Hand`)] as [string, string, string]),
+        legs: (['left', 'right'] as const).map((sd) => [nm(`${sd}UpperLeg`), nm(`${sd}LowerLeg`), nm(`${sd}Foot`), nm(`${sd}Toes`)] as [string, string, string, string]),
+        hipsName: nm('hips'),
       }
       return model
     }),

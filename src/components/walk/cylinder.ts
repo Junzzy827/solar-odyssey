@@ -135,6 +135,24 @@ export function itemsIn(k: number, kind: 'buildings' | 'trees', ps0: number, ps1
   return out
 }
 
+/** その場所のまわり r m の中で、いちばん高い建物の高さ（m）。窓の帯の上は 0。空を飛ぶスクーターが、ビルの上を越えるのに使う */
+export function roofAt(s: number, y: number, r: number) {
+  const w = stripAt(s)
+  if (!w) return 0
+  const ps = w.ps
+  let top = 0
+  roofs.length = 0
+  itemsIn(w.k, 'buildings', ps - r - 140, ps + r + 140, y - r - 140, y + r + 140, roofs)
+  for (const b of roofs) {
+    if (b.h <= top) continue
+    const ds = Math.max(0, Math.abs(ps - b.s) - b.w / 2)
+    const dy = Math.max(0, Math.abs(y - b.y) - b.d / 2)
+    if (ds * ds + dy * dy < r * r) top = b.h
+  }
+  return top
+}
+const roofs: Building[] = []
+
 /* ---------- 歩く人を押し出す・止める ---------- */
 
 const near: (Building | Tree)[] = []

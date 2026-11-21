@@ -18,9 +18,9 @@ export const RUN_SPEED = 4.2
 /** ジャンプの初速（m/s）。コロニーの地面では重力が 1G なので、地球と同じ高さまで跳べる */
 export const JUMP_SPEED = 3.6
 export const GRAVITY = 9.8
-/** ホバースクーターの速さ（m/s）：ふつう・ブースト（Shift／スマホの「ブースト」）。公園は 1 km ほどあるので、ブーストなら 1 分で端から端まで */
-export const HOVER_SPEED = 9
-export const HOVER_BOOST = 16
+/** ホバースクーターの速さ（m/s）：ふつう・ブースト（Shift／スマホの「ブースト」）。ブーストなら時速 115 km */
+export const HOVER_SPEED = 18
+export const HOVER_BOOST = 32
 /** 空を飛ぶ（高速）：高さ m と、速さ m/s（ふつう・ブースト）。ブーストなら円筒の 1 周（約 25 km）を 4 分ほどで回る */
 export const SKY_HEIGHT = 30
 export const SKY_SPEED = 45

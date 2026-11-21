@@ -50,6 +50,9 @@ export type VrmModel = {
   neckName: string
   /** 左右の腕の骨の名前（上腕・前腕・手）。ホバースクーターのハンドルを握るのに使う */
   arms: [string, string, string][]
+  /** 左右の脚の骨の名前（太もも・すね・足・つま先）と腰の骨。ホバースクーターの板に足をつけるのに使う */
+  legs?: [string, string, string, string][]
+  hipsName?: string
 }
 
 const int16 = (b64: string) => {
@@ -195,7 +198,8 @@ export function loadMobModels(): Promise<VrmModel[]> {
         if (MOB_STYLE === 'paint') await applyPaintTextures(vrm.scene, base)
         const raw = (b: string) => vrm.humanoid.getRawBoneNode(b as never)?.name ?? ''
         const arms = (['left', 'right'] as const).map((side) => [raw(`${side}UpperArm`), raw(`${side}LowerArm`), raw(`${side}Hand`)] as [string, string, string])
-        return { info, scene: vrm.scene, clips, hipsHeight, headName: raw('head'), neckName: raw('neck'), arms }
+        const legs = (['left', 'right'] as const).map((side) => [raw(`${side}UpperLeg`), raw(`${side}LowerLeg`), raw(`${side}Foot`), raw(`${side}Toes`)] as [string, string, string, string])
+        return { info, scene: vrm.scene, clips, hipsHeight, headName: raw('head'), neckName: raw('neck'), arms, legs, hipsName: raw('hips') }
       }),
     )
     return models
@@ -245,6 +249,17 @@ export class VrmPerson implements Person {
     this.mixer.timeScale = 0.92 + rand() * 0.16
     this.offset = rand() * 10
     this.arms = model.arms.map((names) => names.map((n) => (n ? (body.getObjectByName(n) ?? null) : null)) as ArmBones)
+    this.legs = (model.legs ?? []).map((names) => names.map((n) => (n ? (body.getObjectByName(n) ?? null) : null)) as LegBones)
+    this.hipsBone = model.hipsName ? (body.getObjectByName(model.hipsName) ?? null) : null
+    // 立った形で、足首の高さと、足首からつま先への下がり方を測る（板に足の裏をつけるため）
+    const [, , foot, toe] = this.legs[0] ?? []
+    if (foot && toe) {
+      this.group.updateMatrixWorld(true)
+      const f = foot.getWorldPosition(new THREE.Vector3())
+      const t = toe.getWorldPosition(new THREE.Vector3())
+      this.ankleH = f.y
+      this.toeDrop = (f.y - t.y) / Math.max(0.02, Math.hypot(t.x - f.x, t.z - f.z))
+    }
     // まばたきの形を持つ人（Rocketbox）
     body.traverse((o) => {
       const m = o as THREE.Mesh
@@ -285,6 +300,71 @@ export class VrmPerson implements Person {
   /** 両手を世界のこの位置へ伸ばす（ホバースクーターのハンドル）。null で動きのままにもどす */
   grip(left: THREE.Vector3 | null, right: THREE.Vector3 | null) {
     this.grips = left && right ? [left, right] : null
+  }
+
+  private legs: LegBones[] = []
+  private hipsBone: THREE.Object3D | null = null
+  private hipsRest: { p: THREE.Vector3; q: THREE.Quaternion } | null = null
+  private ankleH = 0.08
+  private toeDrop = 0.4
+  /** 板の上の立ち方：足の裏を置く先（世界の位置、左・右）、つま先の向き（世界、板にそった向き）、腰を落とす量 m、上体の前への傾き rad */
+  private stanceSet: { feet: [THREE.Vector3, THREE.Vector3]; toes: [THREE.Vector3, THREE.Vector3]; crouch: number; lean: number } | null = null
+
+  /** 両足を板の上のこの位置に置き、ひざを少し曲げる（ホバースクーター）。null で動きのままにもどす */
+  stance(s: { feet: [THREE.Vector3, THREE.Vector3]; toes: [THREE.Vector3, THREE.Vector3]; crouch: number; lean: number } | null) {
+    this.stanceSet = s
+  }
+
+  /** 腰を落として上体を少し前へ倒し、2 本の骨の脚で足を板に置く。ひざは前（少し外）へ。足の裏は板にそろえる */
+  private applyStance() {
+    const st = this.stanceSet
+    const hips = this.hipsBone
+    if (!st || !hips?.parent || this.legs.length < 2) return
+    this.group.updateMatrixWorld(true)
+    this.group.getWorldQuaternion(gq)
+    lgUp.set(0, 1, 0).applyQuaternion(gq)
+    // 腰を落とす（腰の骨を、体の上の向きに沿って下げる）
+    // 動きが腰の骨を動かさない人でも下がり続けないように、変える前を覚えておき、次の動きの前にもどす
+    this.hipsRest = { p: hips.position.clone(), q: hips.quaternion.clone() }
+    hips.getWorldPosition(ikT).addScaledVector(lgUp, -st.crouch)
+    hips.parent.worldToLocal(ikT)
+    hips.position.copy(ikT)
+    // 上体を前へ倒す（腰の骨を、体の横の軸で回す。脚はあとで足を置き直す）
+    if (st.lean) {
+      lgAx.set(1, 0, 0).applyQuaternion(gq)
+      ikQ.setFromAxisAngle(lgAx, -st.lean)
+      hips.getWorldQuaternion(bq).premultiply(ikQ)
+      hips.parent.getWorldQuaternion(pq)
+      hips.quaternion.copy(pq.invert().multiply(bq))
+    }
+    hips.updateMatrixWorld(true)
+    this.legs.forEach(([upper, lower, foot, toe], i) => {
+      if (!upper || !lower || !foot || !upper.parent) return
+      const target = lgT.copy(st.feet[i]).addScaledVector(lgUp, this.ankleH)
+      upper.getWorldPosition(ikS)
+      lower.getWorldPosition(ikE)
+      foot.getWorldPosition(ikH)
+      const a = ikS.distanceTo(ikE)
+      const b = ikE.distanceTo(ikH)
+      ikU.subVectors(target, ikS)
+      const d = THREE.MathUtils.clamp(ikU.length(), Math.abs(a - b) + 1e-3, a + b - 1e-3)
+      ikU.normalize()
+      // ひざの向き：前、少し外
+      ikP.set(i === 0 ? -0.2 : 0.2, 0, -1).applyQuaternion(gq)
+      ikP.addScaledVector(ikU, -ikP.dot(ikU)).normalize()
+      const cosA = (a * a + d * d - b * b) / (2 * a * d)
+      const knee = ikT.copy(ikS).addScaledVector(ikU, a * cosA).addScaledVector(ikP, a * Math.sqrt(Math.max(0, 1 - cosA * cosA)))
+      swing(upper, ikE.sub(ikS).normalize(), ikD.subVectors(knee, ikS).normalize())
+      lower.getWorldPosition(ikE)
+      foot.getWorldPosition(ikH)
+      swing(lower, ikH.sub(ikE).normalize(), ikD.subVectors(target, ikE).normalize())
+      // 足の裏を板にそろえる：足首からつま先への向きを、板の上のつま先の向きへ
+      if (toe) {
+        foot.getWorldPosition(ikH)
+        toe.getWorldPosition(ikE)
+        swing(foot, ikE.sub(ikH).normalize(), ikD.copy(st.toes[i]).addScaledVector(lgUp, -this.toeDrop).normalize())
+      }
+    })
   }
 
   /** 2 本の骨の腕を、手が目標に届くように曲げる。肘は外・下・後ろへ逃がす */
@@ -406,9 +486,15 @@ export class VrmPerson implements Person {
     else if (motion === 'wave') this.play(this.choice.wave)
     else if (motion === 'ride' || motion === 'glide') this.play('idleNeutral', 0.25)
     else this.play(this.choice.idle)
+    if (this.hipsRest && this.hipsBone) {
+      this.hipsBone.position.copy(this.hipsRest.p)
+      this.hipsBone.quaternion.copy(this.hipsRest.q)
+      this.hipsRest = null
+    }
     this.mixer.update(dt)
     this.applyLook(dt)
     this.blink(dt)
+    if (motion === 'ride') this.applyStance()
     if (motion === 'ride' || motion === 'glide') this.applyGrip()
   }
 
@@ -431,6 +517,10 @@ const AX_X = new THREE.Vector3(1, 0, 0)
 const AX_Y = new THREE.Vector3(0, 1, 0)
 
 type ArmBones = [THREE.Object3D | null, THREE.Object3D | null, THREE.Object3D | null]
+type LegBones = [THREE.Object3D | null, THREE.Object3D | null, THREE.Object3D | null, THREE.Object3D | null]
+const lgUp = new THREE.Vector3()
+const lgAx = new THREE.Vector3()
+const lgT = new THREE.Vector3()
 const ikS = new THREE.Vector3()
 const ikE = new THREE.Vector3()
 const ikH = new THREE.Vector3()
