@@ -28,8 +28,8 @@ import {
   type Stack,
 } from '../data/lunarDescent'
 import { FRAME, ground, loadLunarMaps, lunarMaps } from '../components/moonMission/lunarTerrain'
-import { autoCam, chapterHooks, endMission, missionNow, saveMissionRecord, setCaption, useMoonMission, MISSION_FADE, type CaptionKey } from './moonMission'
-import { startLanding, useLanding } from './landing'
+import { autoCam, chapterHooks, endMission, missionNow, saveChapter, saveMissionRecord, setCaption, useMoonMission, MISSION_FADE, type CaptionKey } from './moonMission'
+import { beginApolloEva } from './apolloEva'
 
 // 月ミッション第2弾：月の裏での減速（LOI）→ 着陸船の切り離し → 動力降下 → タウルス・リトロウ谷へ着陸。
 // 流れ（useMoonMission の phase）：coast（3 日の旅を短く）→ loi（月に近づき、裏で減速）→ undock（12 周後、着陸船が離れる）
@@ -398,13 +398,11 @@ export function retryDescent() {
   beginUndock()
 }
 
-/** 月面に出る：この場面を閉じて、タウルス・リトロウ谷の地表の場面（アポロ17号の史跡）へ */
+/** 月面に出る：この場面を閉じて、章7（タウルス・リトロー谷の船外活動。state/apolloEva.ts）へ */
 export function stepOutside() {
   endMission()
-  window.setTimeout(() => {
-    startLanding('moon')
-    if (useLanding.getState().bodyId === 'moon') useLanding.setState({ site: 'taurus' })
-  }, MISSION_FADE * 1000 + 120)
+  saveChapter(7)
+  window.setTimeout(() => beginApolloEva(), MISSION_FADE * 1000 + 120)
 }
 
 /** 着陸船が司令船から離れる：司令船は少し上（月から離れる向き）へ */

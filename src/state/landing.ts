@@ -141,6 +141,16 @@ export function skipDescent() {
   }
 }
 
+/** 着陸船で飛び立たずに、暗転して宇宙へもどる（アポロ17号の追体験の章7を終えるとき。着陸船はミッションの模型） */
+export function leaveSurface() {
+  if (useLanding.getState().phase !== 'surface') return
+  recallRover()
+  setPhase('fadeOut')
+  window.setTimeout(() => {
+    if (useLanding.getState().phase === 'fadeOut') useLanding.setState({ phase: 'idle', bodyId: null, site: null })
+  }, FADE * 1000)
+}
+
 export function startTakeoff() {
   if (useLanding.getState().phase !== 'surface') return
   useLanding.setState({ view: 'eye' })

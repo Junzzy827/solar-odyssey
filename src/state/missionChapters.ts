@@ -3,7 +3,7 @@
 // 5 月の裏でブレーキ、6 着陸、7 月面の探検、8 帰還）。まだ作っていない章は start がない。
 
 import { debugSkip, saveChapter, startMoonMission, useMoonMission, setCaption, type MissionPhase } from './moonMission'
-import { lunarSkip } from './moonLunar'
+import { lunarSkip, stepOutside } from './moonLunar'
 
 export type Chapter = {
   n: number
@@ -43,7 +43,8 @@ export const CHAPTERS: Chapter[] = [
   { n: 4 },
   { n: 5, start: () => begin('moon') },
   { n: 6, start: () => begin('moon', () => lunarSkip('undock', false)) },
-  { n: 7 },
+  // 月面の探検：ミッションの場面を閉じて、地表の場面（タウルス・リトロー谷）へ
+  { n: 7, start: () => stepOutside() },
   { n: 8 },
 ]
 

@@ -9,6 +9,9 @@ Cut from recordings published in the Apollo Flight Journal and the Apollo Lunar 
 - `tli.mp3`: "you are Go for TLI" (CapCom Overmyer) and Cernan's reply, GET 002:53:12 (AFJ clip `a17_0024900.mp3`, 249.3–262.8 s)
 - `aos.mp3`: "Houston, this is America… America has arrived on station" after the first pass behind the Moon, GET 089:21:18 (AFJ clip `a17_0891530.mp3`, 347.7–360.3 s)
 - `pdi.mp3`: powered descent ignition count and "Ignition, Houston", GET 112:49:51 (ALSJ clip `a17a_1124856_to_1130348.mp3`, 57.9–65.8 s)
+- `orange.mp3`: "Oh, hey! … It's orange!" — Schmitt finds the orange soil at Shorty crater (Station 4), GET 145:26:22 (ALSJ clip `A17A1452348.mp3`, 161.9–182.3 s)
+- `lastwords.mp3`: Cernan's last words on the Moon, "…as we came and, God willing, as we shall return, with peace and hope for all mankind", GET 170:41:36 (ALSJ TV clip `a17v.1703959.mpg`, audio 96.6–114.4 s)
+- `ascent.mp3`: ascent count, ignition and "we're on our way", GET 188:01:32 (ALSJ TV clip `a17v_1880127.mpg`, audio 5.0–18.0 s)
 
 ## planets/ — Gustav Holst, The Planets, Op. 32 (composed 1914–16, public domain)
 

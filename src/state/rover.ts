@@ -7,9 +7,10 @@ import { create } from 'zustand'
 export type RoverPhase = 'none' | 'drop' | 'deploy' | 'drive'
 /**
  * どの車を出しているか：orv7（無人探査ローバー）・crew（人が乗る与圧ローバー PR-2、月だけ。components/surface/CrewRover.tsx）。
- * crew の流れ：none → drop（着陸船のそばに先に届いていた車へ乗りこむ）→ drive。deploy は使わない
+ * crew の流れ：none → drop（着陸船のそばに先に届いていた車へ乗りこむ）→ drive。deploy は使わない。
+ * lrv（アポロの月面車、アポロ17号の追体験の船外活動だけ。components/surface/LunarRover.tsx）も crew と同じ流れ
  */
-export type RoverVehicle = 'orv7' | 'crew'
+export type RoverVehicle = 'orv7' | 'crew' | 'lrv'
 /** 運転中の見方：後ろから追う・マストのカメラから */
 export type RoverView = 'chase' | 'cam'
 
@@ -20,8 +21,13 @@ export const ROVER_RANGE = 100
 export const ROVER_TOP = 60 / 3.6
 /** 与圧ローバーの最高速度（m/s）。時速 20 km（重さ数トンの、人が中で暮らせる車） */
 export const CREW_TOP = 20 / 3.6
+/** アポロの月面車の最高速度（m/s）。時速 18 km（アポロ17号でサーナンが出した記録の速さ） */
+export const LRV_TOP = 18 / 3.6
 /** いま出している車の最高速度（m/s） */
-export const roverTop = () => (useRover.getState().vehicle === 'crew' ? CREW_TOP : ROVER_TOP)
+export const roverTop = () => {
+  const v = useRover.getState().vehicle
+  return v === 'crew' ? CREW_TOP : v === 'lrv' ? LRV_TOP : ROVER_TOP
+}
 /** 与圧ローバーに乗りこむ場面の長さ（秒） */
 export const BOARD_SEC = 3.2
 /** 月だけで出せる（実在の計画が月面用なので） */

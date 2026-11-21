@@ -3,8 +3,8 @@
 // セリフは作らない。字幕の文は src/i18n/moonMission.* の radio.lines にある（原文と訳）。
 
 export type RadioWho = 'pao' | 'cdr' | 'capcom' | 'lmp'
-export type RadioLineKey = 'count' | 'liftoff1' | 'liftoff2' | 'landed' | 'super' | 'goTli' | 'goTliAck' | 'arrived' | 'heardYou' | 'pdiCount' | 'pdiIgnition'
-export type RadioClipId = 'liftoff' | 'landed' | 'tli' | 'aos' | 'pdi'
+export type RadioLineKey = 'count' | 'liftoff1' | 'liftoff2' | 'landed' | 'super' | 'goTli' | 'goTliAck' | 'arrived' | 'heardYou' | 'pdiCount' | 'pdiIgnition' | 'ohHey' | 'what' | 'orangeSoil' | 'dontMove' | 'allOver' | 'leaveAsWeCame' | 'peaceHope' | 'ascentCount' | 'ascentIgnition' | 'onOurWay' | 'ratesGood'
+export type RadioClipId = 'liftoff' | 'landed' | 'tli' | 'aos' | 'pdi' | 'orange' | 'lastWords' | 'ascent'
 
 export type RadioLine = { from: number; to: number; who: RadioWho; key: RadioLineKey }
 export type RadioClip = {
@@ -66,6 +66,42 @@ export const RADIO: Record<RadioClipId, RadioClip> = {
     lines: [
       { from: 0.3, to: 4.4, who: 'cdr', key: 'landed' },
       { from: 5.2, to: 7.2, who: 'capcom', key: 'super' },
+    ],
+  },
+  // ショーティ・クレーターでオレンジの土を見つけた瞬間（経過時間 145:26:22、2 回目の船外活動の観測点4）
+  orange: {
+    file: 'audio/apollo17/orange.mp3',
+    length: 20.4,
+    get: '145:26:22',
+    lines: [
+      { from: 0.3, to: 2.9, who: 'lmp', key: 'ohHey' },
+      { from: 2.9, to: 4.4, who: 'cdr', key: 'what' },
+      { from: 4.4, to: 10.0, who: 'lmp', key: 'orangeSoil' },
+      { from: 10.0, to: 13.0, who: 'cdr', key: 'dontMove' },
+      { from: 13.0, to: 16.5, who: 'lmp', key: 'allOver' },
+      { from: 16.5, to: 20.4, who: 'cdr', key: 'dontMove' },
+    ],
+  },
+  // 月面に残る最後の言葉（経過時間 170:41、サーナン船長。長い言葉の終わりの部分）
+  lastWords: {
+    file: 'audio/apollo17/lastwords.mp3',
+    length: 17.8,
+    get: '170:41:36',
+    lines: [
+      { from: 0.2, to: 9.5, who: 'cdr', key: 'leaveAsWeCame' },
+      { from: 9.5, to: 17.8, who: 'cdr', key: 'peaceHope' },
+    ],
+  },
+  // 月からの離陸（経過時間 188:01:39 に点火。切り抜きの 7.0 秒）
+  ascent: {
+    file: 'audio/apollo17/ascent.mp3',
+    length: 13.0,
+    get: '188:01:32',
+    lines: [
+      { from: 0, to: 6.8, who: 'lmp', key: 'ascentCount' },
+      { from: 6.8, to: 8.0, who: 'lmp', key: 'ascentIgnition' },
+      { from: 8.0, to: 10.8, who: 'cdr', key: 'onOurWay' },
+      { from: 10.8, to: 13.0, who: 'lmp', key: 'ratesGood' },
     ],
   },
 }
