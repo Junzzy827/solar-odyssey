@@ -37,6 +37,7 @@ import { saveDataEn } from './saveData.en'
 import { sceneErrorEn } from './sceneError.en'
 import { probePanelEn } from './probePanel.en'
 import { probeSceneEn } from './probeScene.en'
+import { probeCamEn } from './probeCam.en'
 import { quizEn } from './quiz.en'
 import { quizPanelEn } from './quizPanel.en'
 import { raceEn } from './race.en'
@@ -206,6 +207,7 @@ export const en: Translation<typeof ja> = {
   sceneError: sceneErrorEn,
   probePanel: probePanelEn,
   probeScene: probeSceneEn,
+  probeCam: probeCamEn,
   quiz: quizEn,
   quizPanel: quizPanelEn,
   race: raceEn,
