@@ -46,9 +46,9 @@ export type MissionPhase =
   | 'leave'
 /**
  * pad：地上から見上げる、chase：ロケット・宇宙船のうしろから、onboard：ロケットにつけたカメラで後ろを見る、
- * window：着陸船の船長の窓から、wide：遠くから
+ * window：着陸船の船長の窓から、wide：遠くから、film：打ち上げの映画（曲に合わせて自動でカットを切りかえる）
  */
-export type MissionCam = 'pad' | 'chase' | 'onboard' | 'window' | 'wide'
+export type MissionCam = 'film' | 'pad' | 'chase' | 'onboard' | 'window' | 'wide'
 
 export const MISSION_FADE = 0.8
 /** カウントダウンを始める時刻（打ち上げの何秒前） */
@@ -176,7 +176,7 @@ export const missionNow = () => film.t ?? performance.now() / 1000
 export const useMoonMission = create<MissionState>(() => ({
   phase: 'none',
   since: 0,
-  cam: 'pad',
+  cam: 'film',
   camLocked: false,
   auto: false,
   countdown: COUNT_FROM,
@@ -287,7 +287,7 @@ export function startMoonMission(chapter: 'launch' | 'moon' = 'launch', after?: 
   useMoonMission.setState({
     phase: 'fadeIn',
     since: missionNow(),
-    cam: 'pad',
+    cam: 'film',
     camLocked: false,
     auto: false,
     countdown: COUNT_FROM,
@@ -379,7 +379,7 @@ export function setAuto(auto: boolean) {
   useMoonMission.setState({ auto })
 }
 
-const CAMS: MissionCam[] = ['pad', 'chase', 'onboard']
+const CAMS: MissionCam[] = ['film', 'pad', 'chase', 'onboard']
 /** 第2弾のカメラ（着陸船が離れてからは窓も） */
 const LUNAR_CAMS: MissionCam[] = ['chase', 'window', 'wide']
 /** 章3・4 のカメラ（state/moonDock.ts の DOCK_CAMS と同じ。読み込みの順のためここにも） */
@@ -399,7 +399,8 @@ export function cycleCam() {
     return
   }
   // 宇宙に出たら（地球を回る・月へ向かう）、司令船の窓からの眺めも選べる
-  const cams: MissionCam[] = s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound' ? [...CAMS, 'window'] : CAMS
+  // 映画のカメラは、発射台と上がっていくあいだだけ
+  const cams: MissionCam[] = s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound' ? [...CAMS.filter((c) => c !== 'film'), 'window'] : CAMS
   const i = cams.indexOf(s.cam)
   let next = cams[(i + 1) % cams.length]
   // 高く上がったら、地上のカメラからは小さな点にしか見えないので飛ばす
@@ -489,7 +490,9 @@ export function tickMission(dt: number) {
   sim.warp = warpFor(s.phase, a)
   // 機首
   const guide = s.phase === 'ascent' ? guidePitch(a) : progradePitch(a)
-  if (s.phase === 'ascent' && !s.auto && a.t > 12 && !a.cutoff) {
+  // 映画のカメラのあいだは、手本どおりに自動で飛ぶ（星の数には数えない）
+  const filmAuto = s.cam === 'film'
+  if (s.phase === 'ascent' && !s.auto && !filmAuto && a.t > 12 && !a.cutoff) {
     sim.pitch += missionInput.tilt * PITCH_RATE * dt
     // 第3段は誘導におまかせ（本物も最後は自動）
     if (a.stage === 2) sim.pitch += (guide - sim.pitch) * Math.min(1, dt * 2)
@@ -501,7 +504,7 @@ export function tickMission(dt: number) {
   }
   sim.pitch = Math.max(-10, Math.min(110, sim.pitch))
   // ずれの記録（操縦する第1・第2段だけ）
-  if (s.phase === 'ascent' && !s.auto && a.t > 14 && a.stage < 2 && a.thrust > 0) {
+  if (s.phase === 'ascent' && !s.auto && !filmAuto && a.t > 14 && a.stage < 2 && a.thrust > 0) {
     useMoonMission.setState({ errSum: s.errSum + Math.abs(sim.pitch - guide) * dt, errTime: s.errTime + dt })
   }
   // 物理

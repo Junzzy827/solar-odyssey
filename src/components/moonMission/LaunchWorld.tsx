@@ -3,11 +3,14 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { R_EARTH, PAD_LAT, OMEGA, altitude } from '../../data/saturnAscent'
-import { sim, tickMission, useMoonMission, autoCam } from '../../state/moonMission'
+import { sim, tickMission, useMoonMission, autoCam, COUNT_FROM } from '../../state/moonMission'
+import { musicTime } from '../../audio/missionMusic'
 import { lowMemory } from '../../state/quality'
 import { plumeGeometry, plumeMaterial, glowTexture } from './plume'
-import { Smoke } from './smoke'
+import { Smoke, STEAM, ICE } from './smoke'
 import { atmosphereMaterial, earthMaterial } from './earth'
+import { buildCabin } from './cmCabin'
+import { FILM_CUTS, FILM_END, filmCut, filmForce, filmRig, filmShake } from './launchFilm'
 
 // 打ち上げの場面の 3D：夜の発射台（移動発射台・発射塔・照明・海）、サターンV、炎と煙、地球、月、星。
 //
@@ -24,6 +27,15 @@ const GROUND_Y = -13.8
 const SPIN = OMEGA * Math.cos((PAD_LAT * Math.PI) / 180)
 /** 打ち上げの瞬間に地球の反対側にある太陽の向き（three の座標）。軌道に入って 20 分ほどで日の出になる向き */
 const SUN = new THREE.Vector3(-0.5, -0.866, 0.16).normalize()
+/** 液体酸素の換気口（機体の高さ m、半径 m、1 秒に出す湯気の数）。発射台では白い蒸気が流れ出て、ゆっくり沈む */
+const VENTS: [number, number, number][] = [
+  [38, 5.2, 7],
+  [63, 5.2, 6],
+  [83, 3.4, 5],
+]
+/** dt 秒に平均 rate 個（端数は確率で） */
+const count = (rate: number, dt: number) => Math.floor(rate * dt + Math.random())
+
 /** 月の向きと距離（月へ向かう燃焼の先の、遠い所の向きに置く） */
 const MOON_DIST = 384_400_000
 const MOON_R = 1_737_400
@@ -47,6 +59,9 @@ function toWorld(sx: number, sy: number, out: THREE.Vector3) {
 
 const _v = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
+const _v3 = new THREE.Vector3()
+/** 最後に投影行列を作ったときの near */
+let pcNear = 0.3
 const _q = new THREE.Quaternion()
 const Y = new THREE.Vector3(0, 1, 0)
 const Z = new THREE.Vector3(0, 0, 1)
@@ -90,7 +105,25 @@ export function LaunchWorld() {
     })
     return { root, byName }
   }, [rocket])
-  const pad = useMemo(() => padGltf.scene.clone(true), [padGltf])
+  const pad = useMemo(() => {
+    const root = padGltf.scene.clone(true)
+    // 甲板の灰色は、照明の真下で白く飛ばないよう、鋼の暗い灰色にする（読み込んだ素材は複製してから変える）
+    root.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh) return
+      const mats = (Array.isArray(m.material) ? m.material : [m.material]).map((x) => {
+        // 穴の底の板と押さえの腕：炎の明かりで白く飛ばないよう、光を受けない黒に
+        if (x.name === 'Dark') return new THREE.MeshBasicMaterial({ color: '#060606' })
+        if (x.name !== 'Grey') return x
+        const c = (x as THREE.MeshStandardMaterial).clone()
+        c.color.multiplyScalar(0.12)
+        c.roughness = 0.85
+        return c
+      })
+      m.material = Array.isArray(m.material) ? mats : mats[0]
+    })
+    return root
+  }, [padGltf])
 
   const plumes = useMemo(() => {
     const geo = plumeGeometry()
@@ -100,7 +133,9 @@ export function LaunchWorld() {
     const les = plumeMaterial({ core: '#fff0c0', edge: '#ff8a30', soft: 1.0 })
     return { geo, f1, big, j2, les }
   }, [])
-  const smoke = useMemo(() => new Smoke(small ? 520 : 1300), [small])
+  const cabin = useMemo(() => buildCabin(), [])
+  useEffect(() => () => cabin.dispose(), [cabin])
+  const smoke = useMemo(() => new Smoke(small ? 640 : 1800, GROUND_Y + 1), [small])
   useEffect(() => () => smoke.dispose(), [smoke])
 
   const earthMat = useMemo(() => earthMaterial(day, night, clouds), [day, night, clouds])
@@ -195,10 +230,14 @@ export function LaunchWorld() {
   const fill = useRef<THREE.DirectionalLight>(null)
   const camLight = useRef<THREE.PointLight>(null)
   const spots = useRef<THREE.Group>(null)
+  const hemi = useRef<THREE.HemisphereLight>(null)
+  const trenchFire = useRef<THREE.Mesh>(null)
   const debrisG = useRef<THREE.Group>(null)
   const debris = useRef<Debris[]>([])
   const ignite = useRef(0)
   const camState = useRef({ pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), fov: 40, init: false })
+  /** 映画のカメラ：いまのカット、秒読みを始めてからの秒（離昇の後は実際の秒で進める）、カットの始まり */
+  const filmS = useRef({ idx: 0, f: 0, cutAt: 0 })
 
   // 打ち上げのたびに、切り離した段をもとにもどす
   const phase = useMoonMission((s) => s.phase)
@@ -212,6 +251,7 @@ export function LaunchWorld() {
     debris.current = []
     for (const n of Object.keys(parts.byName)) parts.byName[n].visible = true
     camState.current.init = false
+    filmS.current = { idx: 0, f: 0, cutAt: 0 }
     ignite.current = 0
   }, [phase, parts])
 
@@ -355,9 +395,16 @@ export function LaunchWorld() {
     plumes.les.uniforms.uPower.value = 1.4
     if (flameLight.current) {
       flameLight.current.intensity = (s1On > 0 ? 2.5e6 * (0.85 + 0.15 * Math.sin(t * 37)) : 0) * (0.25 + 0.75 * ignite.current)
-      flameLight.current.position.set(0, -25, 0)
+      // 地上にいるあいだは、炎は溝の中を南北へ流れるので、明かりを低く置く（甲板の穴の壁が白く飛ばないように）
+      flameLight.current.position.set(0, h < 200 ? -25 - 30 * (1 - h / 200) : -25, 0)
     }
     if (spots.current) spots.current.visible = h < 20_000
+    if (trenchFire.current) {
+      // 溝の炎：点火から離昇のすぐ後まで（ロケットが高く上がると、溝にはもう届かない）
+      const k = s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 150, 0, 1) : 0
+      trenchFire.current.visible = k > 0.01
+      ;(trenchFire.current.material as THREE.MeshBasicMaterial).opacity = Math.min(1, k * 1.4) * (0.85 + 0.15 * Math.sin(t * 29))
+    }
     if (fill.current) {
       // 南の上から（three の z が南）。地球の向こうから照らさないよう、いつも局所の上寄り
       fill.current.position.copy(up).multiplyScalar(0.8).add(_v.set(0, 0, 0.6)).multiplyScalar(1000)
@@ -375,12 +422,41 @@ export function LaunchWorld() {
       ground.current.worldToLocal(flameGround.set(0, 0, 0).addScaledVector(nose, -20))
       smoke.material.uniforms.uFlame.value.copy(flameGround)
       smoke.material.uniforms.uFlamePower.value = s1On > 0 ? 1.4 * Math.max(0.15, 1 - h / 6000) : 0
+      smoke.material.uniforms.uAmb.value = h < 20_000 ? 1 : 0
+      // 液体酸素の冷たい蒸気：離昇まで、換気口から東西へ流れ出る
+      if (s.phase === 'pad') {
+        for (const [y, r, rate] of VENTS) {
+          for (let i = count(rate, dt); i > 0; i--) {
+            const side = Math.random() < 0.5 ? -1 : 1
+            smoke.emit(side * r, y + (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, side * (1.2 + Math.random() * 1.6), -0.3, (Math.random() - 0.5) * 1.2, 2 + Math.random() * 2, 6 + Math.random() * 3, 1.5, STEAM)
+          }
+        }
+      }
       if (s1On > 0 && h < 600) {
-        // 炎の溝から南北へ吹き出す
+        // 炎の溝から南北へ吹き出す。3 つに 1 つは、溝に撒く水の白い湯気
         const n = Math.ceil(dt * 70 * (1 - h / 600) * ignite.current)
         for (let i = 0; i < n; i++) {
           const side = Math.random() < 0.5 ? -1 : 1
-          smoke.emit((Math.random() - 0.5) * 30, GROUND_Y + 4, side * (40 + Math.random() * 20), (Math.random() - 0.5) * 14, 2 + Math.random() * 6, side * (45 + Math.random() * 40), 22 + Math.random() * 18, 16 + Math.random() * 10, 1.4)
+          const steam = Math.random() < 0.33
+          smoke.emit((Math.random() - 0.5) * 30, GROUND_Y + 4, side * (40 + Math.random() * 20), (Math.random() - 0.5) * 14, 2 + Math.random() * 6, side * (45 + Math.random() * 40), 22 + Math.random() * 18, 16 + Math.random() * 10, 1.4, steam ? STEAM : undefined)
+        }
+        // 甲板の穴のまわりからも、湯気が噴き上がる
+        if (h < 60) {
+          for (let i = count(14 * ignite.current, dt); i > 0; i--) {
+            const ang = Math.random() * Math.PI * 2
+            const r = 10 + Math.random() * 8
+            smoke.emit(Math.cos(ang) * r, 1.5, Math.sin(ang) * r, Math.cos(ang) * 6, 3 + Math.random() * 4, Math.sin(ang) * 6, 5 + Math.random() * 4, 7, 1.6, STEAM)
+          }
+        }
+      }
+      // 氷のかけら：点火の揺れで、冷えた機体の霜がはがれて落ちる（離昇して少しのあいだ）
+      if (s1On > 0 && ignite.current > 0.6 && h < 120) {
+        for (let i = count(45, dt); i > 0; i--) {
+          const ang = Math.random() * Math.PI * 2
+          const r = 5.15
+          _v2.copy(nose).multiplyScalar(6 + Math.random() * 70).addScaledVector(east, Math.cos(ang) * r).addScaledVector(Z, Math.sin(ang) * r)
+          ground.current.worldToLocal(_v2)
+          smoke.emit(_v2.x, _v2.y, _v2.z, Math.cos(ang) * (0.5 + Math.random() * 2), -1 - Math.random() * 3, Math.sin(ang) * (0.5 + Math.random() * 2), 0.5 + Math.random() * 0.6, 4, 0, ICE)
         }
       }
       if (s1On > 0 && h > 20 && h < 7000) {
@@ -401,13 +477,41 @@ export function LaunchWorld() {
       if (s.cam === 'pad' && h > 4500) autoCam('chase')
       if (s.cam === 'onboard' && sim.sepAt.s1 > 0 && a.t - sim.sepAt.s1 > 14) autoCam('chase')
     }
-    if ((s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound') && s.cam === 'pad') autoCam('chase')
+    if ((s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound') && (s.cam === 'pad' || s.cam === 'film')) autoCam('chase')
     const cs = camState.current
     const want = _v
     const look = _v2
     let fov = 50
     const south = new THREE.Vector3().crossVectors(east, up)
-    if (s.cam === 'pad' && ground.current) {
+    // 映画の時計：秒読みのあいだは秒読みから、離昇の後は実際の秒（早送りに引っぱられない）
+    const fs = filmS.current
+    if (s.phase === 'pad') fs.f = COUNT_FROM - s.countdown
+    else if (s.phase === 'ascent') fs.f = Math.max(fs.f, COUNT_FROM) + dt
+    // 曲の秒：流れていれば本当の位置、なければ点火からの秒
+    const ignF = s.ignitedAt === null ? null : COUNT_FROM - s.ignitedAt
+    const sinceIgn = ignF === null ? null : fs.f - ignF
+    const mt = sinceIgn === null ? null : musicTime('jupiterOpening') ?? sinceIgn
+    let filmShakeAng = 0
+    let inside = false
+    // 映画は曲の最初の区切りまで（途中から飛ばして来たときも、高く上がっていたら横からに）
+    if (s.cam === 'film' && s.phase === 'ascent' && !s.camLocked && ((mt ?? 0) > FILM_END || a.t > 60)) autoCam('chase')
+    if (s.cam === 'film' && ground.current) {
+      const next = filmCut(fs.idx, fs.f, mt)
+      if (next !== fs.idx) {
+        fs.idx = next
+        fs.cutAt = fs.f
+        cs.init = false
+      }
+      const rig = filmRig(filmForce.shot ?? FILM_CUTS[fs.idx].shot, { ground: ground.current, rocket: rocketG.current!, nose, up, south, h, u: fs.f - fs.cutAt, groundY: GROUND_Y }, want, look, cs.up)
+      fov = rig.fov
+      // 揺れは、地上のカメラには音の速さで遅れて届く
+      ground.current.getWorldPosition(_v3)
+      const dist = rig.onGround ? want.distanceTo(_v3) : 0
+      filmShakeAng = filmShake(sinceIgn, dist, h) * (rig.onGround ? 1 : 0.5)
+      inside = !!rig.inside
+      // 司令船の中は、機体ごと細かく震える（加速が強いほど）
+      if (inside && sinceIgn !== null) filmShakeAng = 0.0035 * THREE.MathUtils.smoothstep(sinceIgn, 0, 6) * (a.accel / 9.8 + (h < 2000 ? 0.8 : 0))
+    } else if (s.cam === 'pad' && ground.current) {
       // 1.2 km 先の見物の場所から、望遠で追いかける
       ground.current.localToWorld(want.set(-700, GROUND_Y + 30, 1050))
       look.copy(nose).multiplyScalar(52)
@@ -456,17 +560,35 @@ export function LaunchWorld() {
       cs.fov = fov
       cs.init = true
     }
-    const k = 1 - Math.exp(-dt * (s.cam === 'onboard' || s.cam === 'window' ? 20 : 4))
+    const k = 1 - Math.exp(-dt * (s.cam === 'onboard' || s.cam === 'window' ? 20 : s.cam === 'film' ? 10 : 4))
     cs.pos.lerp(want, k)
     cs.look.lerp(look, k)
     cs.fov += (fov - cs.fov) * k
     // 揺れ：加速が強いほど、地上に近いほど
-    const shake = (s.phase === 'ascent' || (s.phase === 'pad' && ignite.current > 0) ? 1 : 0) * (s.cam === 'pad' ? 0.02 : 0.25) * (a.accel / 9.8 + (h < 2000 ? 1 : 0)) * (s.phase === 'pad' ? ignite.current : 1)
+    const shake = s.cam === 'film' ? 0 : (s.phase === 'ascent' || (s.phase === 'pad' && ignite.current > 0) ? 1 : 0) * (s.cam === 'pad' ? 0.02 : 0.25) * (a.accel / 9.8 + (h < 2000 ? 1 : 0)) * (s.phase === 'pad' ? ignite.current : 1)
     camera.position.copy(cs.pos).add(_v.set(Math.sin(t * 53) * shake, Math.sin(t * 47 + 1) * shake, Math.sin(t * 59 + 2) * shake))
     camera.up.copy(cs.up)
-    camera.lookAt(cs.look)
+    if (filmShakeAng > 0) {
+      // 見る向きを、ふぞろいな速さで小さくゆらす（望遠でも近くでも、画面の上で同じくらいに見える）
+      const d = cs.pos.distanceTo(cs.look) * filmShakeAng
+      _v2.copy(cs.look).add(_v3.set((Math.sin(t * 31) + Math.sin(t * 17.3 + 2)) * d, (Math.sin(t * 27 + 1) + Math.sin(t * 13.7)) * d, (Math.sin(t * 23 + 3) + Math.sin(t * 19.1 + 1)) * d))
+      camera.lookAt(_v2)
+    } else camera.lookAt(cs.look)
     const pc = camera as THREE.PerspectiveCamera
-    if (Math.abs(pc.fov - cs.fov) > 0.01) {
+    // 司令船の中にいるあいだは、外の明かり（炎・照明・空）を消して、計器盤の明かりだけにする
+    cabin.show(inside)
+    if (inside) {
+      if (flameLight.current) flameLight.current.intensity = 0
+      if (fill.current) fill.current.intensity = 0
+    }
+    spots.current?.traverse((o) => {
+      const l = o as THREE.SpotLight
+      if (l.isSpotLight) l.intensity = inside ? 0 : 1.6e6
+    })
+    if (hemi.current) hemi.current.intensity = inside ? 0.05 : 1.1
+    pc.near = inside ? 0.05 : 0.3
+    if (Math.abs(pc.fov - cs.fov) > 0.01 || pc.near !== pcNear) {
+      pcNear = pc.near
       pc.fov = cs.fov
       pc.updateProjectionMatrix()
     }
@@ -476,7 +598,7 @@ export function LaunchWorld() {
   return (
     <>
       {/* 月の無い夜：ロケットの形がかすかに分かるくらいの、空からの光 */}
-      <hemisphereLight args={['#5a6a8a', '#120c08', 1.1]} />
+      <hemisphereLight ref={hemi} args={['#5a6a8a', '#120c08', 1.1]} />
       {/* 夜でも機体の形が読めるように、南の上から弱い青白い光（星明かり代わり） */}
       <directionalLight ref={fill} intensity={0.9} color="#9fb6e8" />
       <directionalLight position={SUN.clone().multiplyScalar(1000)} intensity={sunlit ? 2.2 : 0} />
@@ -508,6 +630,15 @@ export function LaunchWorld() {
           <planeGeometry args={[30000, 60000]} />
           <meshStandardMaterial color="#04070c" roughness={0.18} metalness={0.2} />
         </mesh>
+        {/* 炎の溝（南北に走る深い溝）：上から見ると暗い穴。点火すると炎で満たされる */}
+        <mesh rotation-x={-Math.PI / 2} position={[0, GROUND_Y + 0.12, 0]}>
+          <planeGeometry args={[18, 70]} />
+          <meshBasicMaterial color="#030303" />
+        </mesh>
+        <mesh ref={trenchFire} rotation-x={-Math.PI / 2} position={[0, GROUND_Y + 0.4, 0]} visible={false}>
+          <planeGeometry args={[34, 80]} />
+          <meshBasicMaterial map={glowTexture()} color="#ff9a3a" transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+        </mesh>
         {/* 発射台のコンクリートの広場 */}
         <mesh rotation-x={-Math.PI / 2} position={[0, GROUND_Y + 0.05, 0]}>
           <circleGeometry args={[180, 8]} />
@@ -531,6 +662,7 @@ export function LaunchWorld() {
       {/* ロケット */}
       <group ref={rocketG}>
         <primitive object={parts.root} />
+        <primitive object={cabin.group} />
         <pointLight ref={flameLight} color="#ff9a40" intensity={0} distance={0} decay={2} />
         <group ref={f1} position={[0, 0.2, 0]}>
           {[

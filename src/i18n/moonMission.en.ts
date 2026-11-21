@@ -30,7 +30,7 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
   manual: 'Fly it myself',
   camera: 'Camera',
   camLabel: (n: string) => `Camera: ${n}`,
-  camNames: { pad: 'From the ground', chase: 'Chase', onboard: 'Onboard camera', window: "Commander's window", wide: 'Wide' },
+  camNames: { film: 'Movie', pad: 'From the ground', chase: 'Chase', onboard: 'Onboard camera', window: "Commander's window", wide: 'Wide' },
   quit: 'Quit',
   warp: (w: number) => `Time ×${Math.round(w)}`,
   orbitInfo: (peri: number, apo: number) => `Orbit ${Math.round(peri / 1000)}–${Math.round(apo / 1000)} km`,
