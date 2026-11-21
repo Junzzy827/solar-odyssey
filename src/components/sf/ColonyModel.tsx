@@ -81,7 +81,9 @@ export function ColonyModel({ interior = true, cityTrees = true }: { interior?: 
       }),
       mirrorMat: new THREE.MeshStandardMaterial({ color: '#7f8ca2', metalness: 1, roughness: 0.12, envMap: env, envMapIntensity: 0.7, side: THREE.DoubleSide }),
       lands: [0, 2, 4].map((i) => ({
-        geometry: sector(R * 0.999, stripAngle(i), 60 * DEG),
+        // 細かく分ける：24 分割だと、平らな板の中ほどが外板の円より 1 m 近く内へ出て、
+        // 中を歩く場面で、地面（円にそって細かく曲げた板）の上へ出てしまい、足もとや道を隠していた
+        geometry: sector(R * 0.999, stripAngle(i), 60 * DEG, 192),
         material: new THREE.MeshBasicMaterial({ map: sharedLand(17 + i * 13, i / 2), side: THREE.BackSide, color: '#d8dcd0' }),
       })),
       // 夜の街の灯り：大地の少し上に、加算で重ねる（昼は見えない）
