@@ -490,7 +490,9 @@ export function tickMission(dt: number) {
   sim.warp = warpFor(s.phase, a)
   // 機首
   const guide = s.phase === 'ascent' ? guidePitch(a) : progradePitch(a)
-  if (s.phase === 'ascent' && !s.auto && a.t > 12 && !a.cutoff) {
+  // 映画のカメラのあいだは、手本どおりに自動で飛ぶ（星の数には数えない）
+  const filmAuto = s.cam === 'film'
+  if (s.phase === 'ascent' && !s.auto && !filmAuto && a.t > 12 && !a.cutoff) {
     sim.pitch += missionInput.tilt * PITCH_RATE * dt
     // 第3段は誘導におまかせ（本物も最後は自動）
     if (a.stage === 2) sim.pitch += (guide - sim.pitch) * Math.min(1, dt * 2)
@@ -502,7 +504,7 @@ export function tickMission(dt: number) {
   }
   sim.pitch = Math.max(-10, Math.min(110, sim.pitch))
   // ずれの記録（操縦する第1・第2段だけ）
-  if (s.phase === 'ascent' && !s.auto && a.t > 14 && a.stage < 2 && a.thrust > 0) {
+  if (s.phase === 'ascent' && !s.auto && !filmAuto && a.t > 14 && a.stage < 2 && a.thrust > 0) {
     useMoonMission.setState({ errSum: s.errSum + Math.abs(sim.pitch - guide) * dt, errTime: s.errTime + dt })
   }
   // 物理

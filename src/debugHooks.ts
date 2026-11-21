@@ -39,6 +39,7 @@ import { lunar, lunarGo, lunarSkip, manual as lunarManual, startLunar, tickLunar
 import { groundAt as lunarGround } from './components/moonMission/lunarTerrain'
 import { debugSkip as moonSkip, missionInput, pressGo, setAuto, sim as moonSim, startMoonMission, useMoonMission } from './state/moonMission'
 import { filmForce } from './components/moonMission/launchFilm'
+import { CABIN_EYE, CABIN_LOOK } from './components/moonMission/cmCabin'
 import { mobDebug, walker } from './components/walk/WalkActors'
 import { walkDebug } from './components/walk/WalkWorld'
 import { chunkDebug } from './components/walk/WalkChunks'
@@ -119,7 +120,7 @@ const sv = {
   wide: wideNow,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus, ctl: roverCtl, pose: roverPose },
   // 月ミッション（アポロ17号の追体験）
-  moonMission: { state: useMoonMission, sim: moonSim, input: missionInput, start: startMoonMission, go: pressGo, auto: setAuto, skip: moonSkip, filmForce },
+  moonMission: { state: useMoonMission, sim: moonSim, input: missionInput, start: startMoonMission, go: pressGo, auto: setAuto, skip: moonSkip, filmForce, cabinEye: CABIN_EYE, cabinLook: CABIN_LOOK },
   moonDock: { state: useMoonDock, sim: dockSim, skip: dockSkip, auto: setDockAuto, shutter: pressShutter, dock: startDock, marble: startMarble },
   moonReturn: { state: useMoonReturn, sim: returnSim, skip: returnSkip, auto: setReturnAuto, start: startReturn, tei: pressTei, retry: retryEntry, tick: tickReturn },
   apolloEva: { state: useApolloEva, begin: beginApolloEva, skip: skipDrive, take: takeSample, next: nextLeg, liftoff: watchLiftoff, pose: roverPoseRef, tv: tvDebug },

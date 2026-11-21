@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { CABIN_EYE, CABIN_LOOK, CABIN_Y } from './cmCabin'
 
 // 打ち上げの「映画」のカメラ：場面のカット割りと、それぞれのカメラの置き場所（LaunchWorld から使う）。
 //
@@ -10,15 +11,16 @@ import * as THREE from 'three'
 // 位置は「地面の組」の座標（打ち上げの瞬間は世界と同じ：x 東、y 上、z 南、ロケットの根元が原点）。
 // 狙う先は、地面の物なら地面の組の座標、ロケットなら世界の座標（ロケットはいつも原点）。
 
-export type Shot = 'press' | 'wide' | 'deck' | 'engine' | 'tower' | 'deckUp' | 'reveal' | 'chase'
+export type Shot = 'press' | 'cabin' | 'wide' | 'deck' | 'engine' | 'tower' | 'deckUp' | 'reveal' | 'chase'
 
 type Cue = { shot: Shot; /** film：秒読みを始めてからの秒、music：曲の始まり（点火）からの秒 */ clock: 'film' | 'music'; at: number }
 
 /** カット割り（順番どおり。前へはもどらない） */
 export const FILM_CUTS: Cue[] = [
-  // 点火の前：遠くの見物席 → 照明の下 → 甲板から見上げる
+  // 点火の前：遠くの見物席 → 司令船の中で待つ 3 人 → 照明の下 → 甲板から見上げる
   { shot: 'press', clock: 'film', at: 0 },
-  { shot: 'wide', clock: 'film', at: 5 },
+  { shot: 'cabin', clock: 'film', at: 3 },
+  { shot: 'wide', clock: 'film', at: 6 },
   { shot: 'deck', clock: 'film', at: 8.5 },
   // 点火：甲板の下、炎の溝へ火が落ちる
   { shot: 'engine', clock: 'music', at: 0 },
@@ -33,7 +35,8 @@ export const FILM_CUTS: Cue[] = [
   // 全部の楽器：引いて、煙の柱と発射台とロケットをいっぺんに
   { shot: 'reveal', clock: 'music', at: 25.9 },
   { shot: 'chase', clock: 'music', at: 29.22 },
-  { shot: 'press', clock: 'music', at: 33.74 },
+  // 主題の区切り：司令船の中、揺れる計器盤
+  { shot: 'cabin', clock: 'music', at: 33.74 },
   { shot: 'chase', clock: 'music', at: 38.53 },
 ]
 /** 確認用：カットを決めうちする（debugHooks から。ふだんは null） */
@@ -56,6 +59,8 @@ export function filmCut(idx: number, f: number, m: number | null) {
 
 export type FilmCtx = {
   ground: THREE.Object3D
+  /** ロケットの組（司令船の中のカメラ） */
+  rocket: THREE.Object3D
   nose: THREE.Vector3
   up: THREE.Vector3
   south: THREE.Vector3
@@ -66,7 +71,7 @@ export type FilmCtx = {
   groundY: number
 }
 
-export type FilmRig = { fov: number; /** 地上のカメラ（音と揺れが遅れて届く） */ onGround: boolean }
+export type FilmRig = { fov: number; /** 地上のカメラ（音と揺れが遅れて届く） */ onGround: boolean; /** 司令船の中 */ inside?: boolean }
 
 const _a = new THREE.Vector3()
 const _b = new THREE.Vector3()
@@ -92,6 +97,13 @@ export function filmRig(shot: Shot, ctx: FilmCtx, want: THREE.Vector3, look: THR
       look.copy(nose).multiplyScalar(h < 60 ? 52 : 40)
       const half = h < 60 ? 80 : 85 + h * 0.06
       return { fov: fovFor(half, want.distanceTo(look), 0.4, 30), onGround: true }
+    }
+    case 'cabin': {
+      // 司令船の中：足もとの上から、寝た姿勢の 3 人と計器盤
+      ctx.rocket.localToWorld(want.copy(CABIN_EYE).setY(CABIN_EYE.y + CABIN_Y))
+      ctx.rocket.localToWorld(look.copy(CABIN_LOOK).setY(CABIN_LOOK.y + CABIN_Y))
+      camUp.copy(nose)
+      return { fov: 72, onGround: false, inside: true }
     }
     case 'wide': {
       // 照明の足もと、約 350 m。ゆっくり横へ動く

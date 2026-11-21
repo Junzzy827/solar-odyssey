@@ -294,8 +294,10 @@ export function MoonMissionView() {
   const moon = lunarPhase(phase)
   const docking = phase === 'dock' || phase === 'marble'
   const home = phase === 'home'
+  // 映画のカメラのあいだは、数字や手本の目盛りをしまって、絵と字幕だけにする
+  const filmCam = useMoonMission((s) => s.cam === 'film')
   return (
-    <div className="mm-root" data-phase={phase}>
+    <div className="mm-root" data-phase={phase} data-film={filmCam ? '1' : undefined}>
       {shown && <MissionCanvas world={moon ? 'moon' : docking ? 'dock' : home ? 'home' : 'launch'} />}
       {shown && <CabinFrame />}
       {shown && <JourneyBar />}
