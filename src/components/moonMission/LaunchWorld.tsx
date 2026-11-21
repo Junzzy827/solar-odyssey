@@ -493,7 +493,8 @@ export function LaunchWorld() {
     const mt = sinceIgn === null ? null : musicTime('jupiterOpening') ?? sinceIgn
     let filmShakeAng = 0
     let inside = false
-    if (s.cam === 'film' && s.phase === 'ascent' && !s.camLocked && ((mt ?? 0) > FILM_END || a.t > 120)) autoCam('chase')
+    // 映画は曲の最初の区切りまで（途中から飛ばして来たときも、高く上がっていたら横からに）
+    if (s.cam === 'film' && s.phase === 'ascent' && !s.camLocked && ((mt ?? 0) > FILM_END || a.t > 60)) autoCam('chase')
     if (s.cam === 'film' && ground.current) {
       const next = filmCut(fs.idx, fs.f, mt)
       if (next !== fs.idx) {
