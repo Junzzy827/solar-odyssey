@@ -3,7 +3,7 @@
   position: absolute;
   top: 12px;
   left: 290px;
-  width: min(430px, calc(100vw - 290px - 560px));
+  width: min(430px, calc(100vw - 290px - 650px));
   padding: 7px 12px 6px;
   border-radius: 12px;
   background: linear-gradient(160deg, rgba(14, 22, 34, 0.62), rgba(6, 10, 16, 0.5));
@@ -75,7 +75,7 @@
   color: #8fa0b4;
 }
 /* 中くらいの画面：右上のボタンの下に小さく */
-@media (max-width: 1199px) {
+@media (max-width: 1279px) {
   .jb {
     left: auto;
     right: 14px;

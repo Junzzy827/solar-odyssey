@@ -37,6 +37,39 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
   tliBar: 'Window to the Moon',
   tliGo: 'Burn for the Moon',
   tliHint: 'Burn in the middle of the window for the shortest way',
+  factLabel: 'Did you know?',
+  // A fact for the scene, shown after its caption (figures from the Apollo 17 and Saturn V records)
+  facts: {
+    liftoff: 'At lift-off the Saturn V weighs about 2,900 tonnes. Nine tenths of that is propellant',
+    stage1Sep: 'The first stage burned about 2,000 tonnes of propellant in roughly 2 minutes 40 seconds',
+    orbit: 'You are moving at 7.8 km/s. That is once around the Earth every 90 minutes',
+    tliCutoff: 'About 10.8 km/s: fast enough to circle the Earth in about an hour',
+    coast: 'The Moon is about 380,000 km away, the same as nine and a half trips around the Earth',
+    los: 'Behind the Moon, the Moon itself blocks the radio. For about 45 minutes of every orbit nobody on Earth can hear you',
+    highGate: "The lunar module computer's program fits in about 72 kilobytes, less than a single photo",
+    touchdown: 'Apollo 17 stayed on the Moon for about 75 hours: so far, the last three days people have spent there',
+  } as Record<string, string>,
+  chapters: {
+    button: 'Chapters',
+    title: 'Choose a chapter',
+    next: 'Skip to the next chapter',
+    soon: 'Coming soon',
+    now: 'You are here',
+    resume: (name: string) => `Continue: ${name}`,
+    close: 'Close',
+    names: ['Launch pad at night', 'Ascent', 'Earth orbit and the burn for the Moon', 'Turnaround and docking', 'The Blue Marble and the three-day coast', 'Braking behind the Moon', 'Landing in Taurus-Littrow', 'Exploring the surface', 'Lift-off, rendezvous and the return to Earth'],
+    lines: [
+      "Countdown and ignition. Apollo's only night launch",
+      'Pitch over, drop the stages and reach space',
+      'Circle the Earth, then time the burn that sends you to the Moon',
+      'Pull the lunar module out of the third stage',
+      'Photograph the shrinking Earth. About 380,000 km to go',
+      'Out of radio contact behind the Moon, slow down into lunar orbit',
+      'Fly the lunar module down into the valley. The last part is yours',
+      'Drive the rover across the valley and collect rocks',
+      'Leave the Moon, rejoin the mother ship, re-enter and splash down',
+    ],
+  },
   journey: {
     earth: 'Earth',
     moon: 'Moon',
@@ -53,7 +86,7 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
     who: { pao: 'Kennedy Launch Control commentary', cdr: 'Commander Cernan', capcom: 'Houston (CapCom)' },
     // [original, translation]. The original is NASA's transcript; English needs no translation
     lines: {
-      count: ['(countdown)', ''],
+      count: ['', 'Countdown'],
       liftoff1: ["We have a lift-off, and it's lighting up the area.", ''],
       liftoff2: ["It's just like daylight here at Kennedy Space Center as the Saturn V is moving off the pad. It has now cleared the tower.", ''],
       landed: ['Okay, Houston. The Challenger has landed!', ''],

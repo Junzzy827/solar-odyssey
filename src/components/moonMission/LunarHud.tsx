@@ -19,6 +19,7 @@ import {
 } from '../../state/moonLunar'
 import { cycleCam, endMission, missionNow, useMoonMission } from '../../state/moonMission'
 import { journey } from '../../state/missionJourney'
+import { ChapterMenu } from './ChapterMenu'
 import './lunarHud.css'
 
 // 月ミッション第2弾の画面の計器。
@@ -257,6 +258,7 @@ export function LunarHud() {
             {s.auto ? T.autoOn : T.auto}
           </button>
         )}
+        <ChapterMenu />
         <button className="mm-quit" onClick={() => endMission()}>
           {T.quit}
         </button>

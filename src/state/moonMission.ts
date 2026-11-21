@@ -60,7 +60,7 @@ export const TLI_WINDOW = 600
 export const PITCH_RATE = 7
 
 /** 記録（いちばん良い星の数と、たどり着いた所。land：着陸のいちばん良い星） */
-type MissionRecord = { stars: number; reached: number; land?: number }
+type MissionRecord = { stars: number; reached: number; land?: number; chapter?: number }
 const record = saveSlot<MissionRecord>('moon-mission', { stars: 0, reached: 0 }, (v) =>
   typeof v === 'object' && v !== null && typeof (v as MissionRecord).stars === 'number' ? (v as MissionRecord) : null,
 )
@@ -232,7 +232,7 @@ export function bindMissionKeys() {
 export const chapterHooks = { startLunar: null as null | (() => void) }
 
 /** ナビから：発射台から始める。moon なら第2弾（月に近づくところ）から */
-export function startMoonMission(chapter: 'launch' | 'moon' = 'launch') {
+export function startMoonMission(chapter: 'launch' | 'moon' = 'launch', after?: () => void) {
   if (useMoonMission.getState().phase !== 'none') return
   sim.a = startAscent()
   sim.pitch = 0
@@ -273,7 +273,17 @@ export function startMoonMission(chapter: 'launch' | 'moon' = 'launch') {
     if (useMoonMission.getState().phase !== 'fadeIn') return
     if (chapter === 'moon' && chapterHooks.startLunar) chapterHooks.startLunar()
     else useMoonMission.setState({ phase: 'pad', since: missionNow() })
+    after?.()
   }, MISSION_FADE * 1000)
+}
+
+/** どの章まで進んだかを残す（次に開いたとき「続きから」を出す） */
+export function saveChapter(chapter: number) {
+  const b = useMoonMission.getState().best
+  if (b.chapter === chapter) return
+  const best = { ...b, chapter }
+  record.save(best)
+  useMoonMission.setState({ best })
 }
 
 /** 第1弾の終わりから、続けて月へ */
@@ -284,7 +294,7 @@ export function continueToMoon() {
 /** 記録を足す（星は良いほうを残す） */
 export function saveMissionRecord(r: { stars?: number; land?: number; reached: number }) {
   const b = useMoonMission.getState().best
-  const best = { stars: Math.max(b.stars, r.stars ?? 0), reached: Math.max(b.reached, r.reached), land: Math.max(b.land ?? 0, r.land ?? 0) }
+  const best = { ...b, stars: Math.max(b.stars, r.stars ?? 0), reached: Math.max(b.reached, r.reached), land: Math.max(b.land ?? 0, r.land ?? 0) }
   record.save(best)
   useMoonMission.setState({ best })
 }

@@ -37,6 +37,39 @@ export const moonMissionJa = {
   tliBar: '月への窓',
   tliGo: '月へ向けて点火',
   tliHint: '窓のまん中で点火すると、月へいちばん近道',
+  factLabel: '豆知識',
+  // 見出しのあとに出す、その場面の豆知識（数字はアポロ17号とサターンVの記録から）
+  facts: {
+    liftoff: '発射のときのサターンVは約2,900トン。その9割が燃料と酸化剤',
+    stage1Sep: '第1段は2分40秒ほどで、約2,000トンの燃料を使い切った',
+    orbit: 'いまの速さは秒速7.8 km。地球を約90分で1周する',
+    tliCutoff: '秒速約10.8 km。地球1周を1時間ほどで回れる速さ',
+    coast: '月までは約38万km。地球を9周半するのと同じ距離',
+    los: '月の裏では電波が月にさえぎられ、1周ごとに約45分、地球と話せない',
+    highGate: '着陸船のコンピューターのプログラムは約72キロバイト。写真1枚より小さい',
+    touchdown: 'アポロ17号は月面に約75時間いた。人が月で過ごした、いまのところ最後の3日間',
+  } as Record<string, string>,
+  chapters: {
+    button: '章',
+    title: '章を選ぶ',
+    next: '次の章へ進む',
+    soon: '準備中',
+    now: 'いまここ',
+    resume: (name: string) => `続きから：${name}`,
+    close: '閉じる',
+    names: ['夜の発射台', '上昇', '地球を回って、月へ点火', '向きを変えてドッキング', '青い地球と3日間の旅', '月の裏でブレーキ', 'タウルス・リットロウ谷へ着陸', '月面の探検', '離陸・再会・地球へ帰還'],
+    lines: [
+      '秒読みと点火。アポロでただ一度の夜の打ち上げ',
+      '機首を倒しながら、段を切り離して宇宙へ',
+      '地球を回り、タイミングを合わせて月へ向かう',
+      '第3段の中の着陸船を引き出す',
+      '小さくなっていく地球を撮る。月まで約38万km',
+      '交信の届かない月の裏で、減速して月を回る軌道へ',
+      '着陸船で谷に降りる。最後は自分の手で',
+      '月面車で谷を走り、石を集める',
+      '月を離れ、母船と再会し、大気圏に突入して海へ',
+    ],
+  },
   journey: {
     earth: '地球',
     moon: '月',
@@ -53,7 +86,7 @@ export const moonMissionJa = {
     who: { pao: 'ケネディ宇宙センターの実況', cdr: 'サーナン船長', capcom: 'ヒューストン（管制）' },
     // [原文, 訳]。原文は NASA の文字起こしのまま
     lines: {
-      count: ['(countdown)', '秒読み'],
+      count: ['', '秒読み'],
       liftoff1: ["We have a lift-off, and it's lighting up the area.", 'リフトオフ。あたり一面が明るく照らされています'],
       liftoff2: ["It's just like daylight here at Kennedy Space Center as the Saturn V is moving off the pad. It has now cleared the tower.", 'ここケネディ宇宙センターは、まるで昼間のようです。サターンVが発射台を離れ、いま発射塔を越えました'],
       landed: ['Okay, Houston. The Challenger has landed!', 'オーケー、ヒューストン。チャレンジャー号、着陸した！'],

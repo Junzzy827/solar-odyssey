@@ -32,6 +32,8 @@ import { LunarHud } from './LunarHud'
 import { bindLunarKeys, lunarPhase, startLunar } from '../../state/moonLunar'
 import { RadioSubtitle } from './RadioSubtitle'
 import { JourneyBar } from './JourneyBar'
+import { journey } from '../../state/missionJourney'
+import { ChapterMenu, ResumeButton } from './ChapterMenu'
 import './moonMission.css'
 
 // 月ミッション（アポロ17号の追体験）の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
@@ -128,7 +130,18 @@ function Caption() {
     const id = setInterval(() => tick((n) => n + 1), 250)
     return () => clearInterval(id)
   }, [])
-  if (!caption || missionNow() - caption.at > 5.5) return null
+  if (!caption) return null
+  const age = missionNow() - caption.at
+  // 見出しが消えたあと、その場面の豆知識をしばらく出す
+  const fact = ui().moonMission.facts[caption.key]
+  if (age > 5.5 && fact && age < 14)
+    return (
+      <div className="mm-caption mm-fact" key={`fact-${caption.at}`}>
+        <span className="mm-fact-label">{ui().moonMission.factLabel}</span>
+        <div className="mm-fact-line">{fact}</div>
+      </div>
+    )
+  if (age > 5.5) return null
   const [head, line] = ui().moonMission.captions[caption.key]
   return (
     <div className="mm-caption" key={caption.at}>
@@ -156,11 +169,7 @@ function Hud() {
               <div className="mm-intro-title">{t.title}</div>
               <div>{t.intro}</div>
               <div className="mm-intro-crew">{t.crew}</div>
-              {s.ignitedAt === null && (
-                <button className="mm-chapter" onClick={() => startLunar()}>
-                  {t.lunar.chapterMoon}
-                </button>
-              )}
+              {s.ignitedAt === null && <ResumeButton />}
             </div>
           )}
           <div className="mm-count">{t.tMinus(s.countdown)}</div>
@@ -178,7 +187,8 @@ function Hud() {
       )}
       {flying && (
         <div className="mm-panel">
-          <div className="mm-met">{t.met(r.t)}</div>
+          {/* 帯と同じ、本物の経過時間に合わせた時計 */}
+          <div className="mm-met">{t.met(journey()?.get ?? r.t)}</div>
           <div className="mm-stage">{t.stageName[r.stage]}</div>
           <div className="mm-row">
             <span>{t.altitude}</span>
@@ -230,6 +240,7 @@ function Hud() {
             {s.auto ? t.autoOn : t.auto}
           </button>
         )}
+        <ChapterMenu />
         <button className="mm-quit" onClick={() => endMission()}>
           {t.quit}
         </button>
