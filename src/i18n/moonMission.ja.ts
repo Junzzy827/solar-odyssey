@@ -37,6 +37,18 @@ export const moonMissionJa = {
   tliBar: '月への窓',
   tliGo: '月へ向けて点火',
   tliHint: '窓のまん中で点火すると、月へいちばん近道',
+  radio: {
+    source: '実際の交信音声（NASA）',
+    who: { pao: 'ケネディ宇宙センターの実況', cdr: 'サーナン船長', capcom: 'ヒューストン（管制）' },
+    // [原文, 訳]。原文は NASA の文字起こしのまま
+    lines: {
+      count: ['(countdown)', '秒読み'],
+      liftoff1: ["We have a lift-off, and it's lighting up the area.", 'リフトオフ。あたり一面が明るく照らされています'],
+      liftoff2: ["It's just like daylight here at Kennedy Space Center as the Saturn V is moving off the pad. It has now cleared the tower.", 'ここケネディ宇宙センターは、まるで昼間のようです。サターンVが発射台を離れ、いま発射塔を越えました'],
+      landed: ['Okay, Houston. The Challenger has landed!', 'オーケー、ヒューストン。チャレンジャー号、着陸した！'],
+      super: ["Roger, Challenger. That's super.", '了解、チャレンジャー。すばらしい'],
+    } as Record<string, [string, string]>,
+  },
   captions: {
     ignition: ['点火', '5基の F-1 エンジンに火が入る。地上の推力は 3,400 トン'],
     liftoff: ['リフトオフ！', '夜空が昼のように明るくなった'],

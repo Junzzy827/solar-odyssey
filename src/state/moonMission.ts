@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import { useStore } from './store'
 import { saveSlot } from './save'
+import { playRadio, preloadRadio, stopRadio } from '../audio/radio'
+import { LIFTOFF_AT } from '../data/apolloRadio'
+import { playMusic, preloadMusic, stopMusic, type MusicCue } from '../audio/missionMusic'
+import { holdBgm } from '../audio/music'
 import {
   altitude,
   guidePitch,
@@ -260,6 +264,11 @@ export function startMoonMission(chapter: 'launch' | 'moon' = 'launch') {
     best: record.load(),
   })
   useStore.getState().setMode('flight')
+  stopRadio()
+  stopMusic()
+  holdBgm(true)
+  preloadRadio(chapter === 'moon' ? 'landed' : 'liftoff')
+  preloadMusic(chapter === 'moon' ? 'mars' : 'jupiterOpening')
   setTimeout(() => {
     if (useMoonMission.getState().phase !== 'fadeIn') return
     if (chapter === 'moon' && chapterHooks.startLunar) chapterHooks.startLunar()
@@ -283,19 +292,37 @@ export function saveMissionRecord(r: { stars?: number; land?: number; reached: n
 export function endMission() {
   const s = useMoonMission.getState()
   if (s.phase === 'none' || s.phase === 'leave') return
+  stopRadio()
+  stopMusic(MISSION_FADE)
+  holdBgm(false)
   useMoonMission.setState({ phase: 'leave', since: missionNow() })
   setTimeout(() => useMoonMission.setState({ phase: 'none', since: missionNow() }), MISSION_FADE * 1000)
 }
 
 /** もう一度、発射台から */
 export function restartMission() {
+  stopRadio()
+  stopMusic()
   useMoonMission.setState({ phase: 'none' })
   startMoonMission()
   useMoonMission.setState({ phase: 'pad', since: missionNow() })
 }
 
+/** 見出しをきっかけに始める曲（ホルスト「惑星」）。着陸の瞬間は音楽を止めて、本物の声だけにする */
+const MUSIC_AT: Partial<Record<CaptionKey, MusicCue | 'stop'>> = {
+  ignition: 'jupiterOpening',
+  orbit: 'jupiterHymn',
+  lowGate: 'mars',
+  contact: 'stop',
+  touchdown: 'stop',
+  outOfFuel: 'stop',
+}
+
 export function setCaption(key: CaptionKey) {
   useMoonMission.setState({ caption: { key, at: missionNow() } })
+  const cue = MUSIC_AT[key]
+  if (cue === 'stop') stopMusic(0.6)
+  else if (cue) playMusic(cue)
 }
 
 export function setAuto(auto: boolean) {
@@ -385,6 +412,8 @@ export function tickMission(dt: number) {
       ignite(countdown)
       ignitedAt = countdown
     }
+    // 本物の実況：秒読み 10 秒前から流し、離昇の瞬間を合わせる
+    if (s.countdown > LIFTOFF_AT && countdown <= LIFTOFF_AT) playRadio('liftoff', LIFTOFF_AT - countdown)
     if (countdown <= 0) {
       useMoonMission.setState({ phase: 'ascent', since: missionNow(), countdown: 0 })
       setCaption('liftoff')

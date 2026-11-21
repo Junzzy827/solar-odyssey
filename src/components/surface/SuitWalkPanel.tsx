@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { endSuitWalk, suitInput, useSuitWalk } from '../../state/suitWalk'
+import { boardCrewRover, endSuitWalk, suitInput, useSuitWalk } from '../../state/suitWalk'
 import { useLanding } from '../../state/landing'
 import { isTouchDevice } from '../../state/input'
 import { gaitFor } from './SuitWalk'
@@ -58,6 +58,7 @@ export function SuitWalkPanel({ def }: { def: SurfaceDef }) {
   const edge = useSuitWalk((s) => s.edge)
   const run = useSuitWalk((s) => s.run)
   const steps = useSuitWalk((s) => s.steps)
+  const nearCrew = useSuitWalk((s) => s.nearCrew)
   const menu = useLanding((l) => l.menu)
   const touch = isTouchDevice()
   // 外へ出たときだけ、この星の歩き方を一言
@@ -92,7 +93,12 @@ export function SuitWalkPanel({ def }: { def: SurfaceDef }) {
         <button className={`secondary${menu ? ' on' : ''}`} onClick={() => useLanding.setState({ menu: !menu })} title={ui().surfaceView.landerMenuTip}>
           {menu ? ui().surfaceView.hideMenu : ui().surfaceView.menu}
         </button>
-        <button className="primary" onClick={endSuitWalk}>
+        {nearCrew && (
+          <button className="primary sw-board" onClick={boardCrewRover} title={touch ? undefined : t.boardCrewKey}>
+            {t.boardCrew}
+          </button>
+        )}
+        <button className={nearCrew ? 'secondary' : 'primary'} onClick={endSuitWalk}>
           {t.back}
         </button>
       </div>

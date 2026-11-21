@@ -7,6 +7,9 @@ export const suitWalkEn: Translation<typeof suitWalkJa> = {
   button: '👨‍🚀 Step outside',
   buttonTip: 'Leave the lander and walk on your own feet',
   back: 'Back to the lander',
+  /** Button next to the pressurized rover (E key on PC) */
+  boardCrew: '🚐 Board Michikake',
+  boardCrewKey: 'Or press E',
   run: 'Run',
   jump: 'Jump',
   hintPc: 'WASD to walk · Shift to run · Space to jump · drag to look around',
