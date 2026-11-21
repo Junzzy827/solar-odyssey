@@ -1,30 +1,36 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { isTouchDevice } from '../../state/input'
-import { GROUND_LIFT, landPoint, upAt } from './park'
+import { G, GROUND_LIFT, HALF_L, landPoint, upAt } from './park'
 import { standAt } from './WalkWorld'
-import { SAMPLE, SAMPLE_CENTER, SAMPLE_PATH, forestSample, kitLift, type KitName, type Spot } from './forestSample'
-import { forestTrees } from './forestTree'
+import { JUNGLE, JUNGLE_GATE, TRAIL_W, jungleForest, jungleLayout } from './jungle'
+import { KIT, POLE, TALL, type Forest, type KitName, type Spot } from './forestLayout'
+import { treeShape } from './forestTree'
 
-// 「本格的な森」の見本の一角（?forest=sample のときだけ出る。置き場所は forestSample.ts）。
-// ・植物と小物：本物をスキャンした形（public/models/forest-kit.glb、Poly Haven CC0）を、種類ごとに並べる
-// ・高い木：幹と枝はその場で作り（forestTree.ts）、樹皮は写真、葉は本物の木の枝先を撮った絵の板
-// ・地面：落ち葉・苔・ぬれた土の写真を混ぜた床を、今の地面の上に 1 枚重ねる。植物の根元は暗くする
+// 「本格的な森」のお試し（?forest=jungle のときだけ出る。置き場所は forestLayout.ts）。ラボの森の全体を作り直す。
+// ・植物と小物：本物をスキャンした形（public/models/forest-kit.glb、Poly Haven CC0）。画像は何種類かを 1 枚にまとめてある
+// ・高い木と若木：幹と枝はその場で作り（forestTree.ts）、樹皮は写真、葉は本物の木の枝先を撮った絵の板
+// ・同じ画像を使う物は、BatchedMesh で 1 回の描画にまとめる。1 本ずつ、近くは細かい形・遠くは軽い形・もっと遠くは出さない
+//   （出しはじめと消えぎわは、点々に溶かして、ぱっと出たり消えたりしないようにする）
+// ・地面：落ち葉・苔・ぬれた土の写真を混ぜた床を、今の地面の上に 1 枚重ねる。小道と植物の根元の暗がりは絵に描いておく
 // ・光：木もれ日は「動く模様の絵 1 枚」を日の向きに沿って落とす（葉の影は計算しない）。葉は日を透かして明るくなる
 // 読み込むのは、このファイルが使われたとき（お試しを付けて歩く場面に入ったとき）だけ。
 
 const BASE = import.meta.env.BASE_URL
-/** 日の向き（WalkWorld の Lights と同じ）：見本の一角の x = 東、y = 上、z = 北 */
+/** 日の向き（WalkWorld の Lights と同じ）：x = 東、y = 上、z = 北 */
 const SUN = new THREE.Vector3(Math.sin(0.6), Math.cos(0.6), 0.25).normalize()
 /** 床を、歩く地面よりどれだけ上に重ねるか m */
 const FLOOR_LIFT = 0.035
-/** 床の、範囲の外へのはみ出し m（ふちをまだらに溶かす） */
+/** 床の、森の外へのはみ出し m（ふちをまだらに溶かす） */
 const FLOOR_PAD = 3
+/** 床（と、根元の暗がり・小道の絵）の範囲 */
+const FLOOR = { s0: JUNGLE.s0 - FLOOR_PAD, y0: JUNGLE.y0 - FLOOR_PAD, w: JUNGLE.s1 - JUNGLE.s0 + FLOOR_PAD * 2, h: JUNGLE.y1 - JUNGLE.y0 + FLOOR_PAD * 2 }
+const f1 = (v: number) => v.toFixed(4)
 
-/* ---------- 光の模様（木もれ日）と、根元の暗がりの絵 ---------- */
+/* ---------- 光の模様（木もれ日）と、床の絵 ---------- */
 
 /** R = 木もれ日（明るい丸の集まり。くり返せる）、G = なだらかなまだら（苔の出方・ふちの崩し方に使う） */
 function cookieTexture() {
@@ -104,34 +110,60 @@ function cookieTexture() {
   return tex
 }
 
-/** 根元の暗がり：床の範囲（はみ出しを含む）を上から見た絵。白いほど暗くする */
-function shadeTexture(shade: { s: number; y: number; r: number; a: number }[]) {
-  const N = 256
-  const c = document.createElement('canvas')
-  c.width = c.height = N
-  const g = c.getContext('2d')!
-  g.fillStyle = '#000'
-  g.fillRect(0, 0, N, N)
-  g.globalCompositeOperation = 'lighter'
-  const span = SAMPLE.s1 - SAMPLE.s0 + FLOOR_PAD * 2
-  const k = N / span
-  for (const b of shade) {
-    const x = (b.s - SAMPLE.s0 + FLOOR_PAD) * k
-    // 絵は上が北（床の uv の v が北へ増える。flipY はしない）
-    const y = (b.y - SAMPLE.y0 + FLOOR_PAD) * k
-    const r = Math.max(2, b.r * k)
-    const grad = g.createRadialGradient(x, y, 0, x, y, r)
-    grad.addColorStop(0, `rgba(255,255,255,${b.a})`)
-    grad.addColorStop(0.6, `rgba(255,255,255,${b.a * 0.55})`)
-    grad.addColorStop(1, 'rgba(255,255,255,0)')
-    g.fillStyle = grad
-    g.beginPath()
-    g.arc(x, y, r, 0, Math.PI * 2)
-    g.fill()
+/** 床の絵：R = 根元の暗がり（白いほど暗い）、G = 小道。上が北（床の uv の v が北へ増える。flipY はしない） */
+function maskTexture(F: Forest, paths: { s: number; y: number }[][]) {
+  const PX = 5
+  const Wp = Math.round(FLOOR.w * PX)
+  const Hp = Math.round(FLOOR.h * PX)
+  const layer = (draw: (g: CanvasRenderingContext2D) => void, blur: number) => {
+    const c = document.createElement('canvas')
+    c.width = Wp
+    c.height = Hp
+    const g = c.getContext('2d')!
+    g.fillStyle = '#000'
+    g.fillRect(0, 0, Wp, Hp)
+    g.filter = `blur(${blur}px)`
+    draw(g)
+    return g.getImageData(0, 0, Wp, Hp).data
   }
-  const tex = new THREE.CanvasTexture(c)
-  tex.flipY = false
-  tex.colorSpace = THREE.NoColorSpace
+  const X = (s: number) => (s - FLOOR.s0) * PX
+  const Y = (y: number) => (y - FLOOR.y0) * PX
+  const shade = layer((g) => {
+    g.globalCompositeOperation = 'lighter'
+    for (const b of F.shade) {
+      const r = Math.max(2, b.r * PX)
+      const grad = g.createRadialGradient(X(b.s), Y(b.y), 0, X(b.s), Y(b.y), r)
+      grad.addColorStop(0, `rgba(255,255,255,${b.a})`)
+      grad.addColorStop(0.6, `rgba(255,255,255,${b.a * 0.55})`)
+      grad.addColorStop(1, 'rgba(255,255,255,0)')
+      g.fillStyle = grad
+      g.beginPath()
+      g.arc(X(b.s), Y(b.y), r, 0, Math.PI * 2)
+      g.fill()
+    }
+  }, 1)
+  const path = layer((g) => {
+    g.strokeStyle = '#fff'
+    g.lineCap = 'round'
+    g.lineJoin = 'round'
+    g.lineWidth = TRAIL_W * 0.85 * PX
+    for (const p of paths) {
+      g.beginPath()
+      p.forEach((q, i) => (i ? g.lineTo(X(q.s), Y(q.y)) : g.moveTo(X(q.s), Y(q.y))))
+      g.stroke()
+    }
+  }, PX * 0.45)
+  const data = new Uint8Array(Wp * Hp * 4)
+  for (let i = 0; i < Wp * Hp; i++) {
+    data[i * 4] = shade[i * 4]
+    data[i * 4 + 1] = path[i * 4]
+    data[i * 4 + 3] = 255
+  }
+  const tex = new THREE.DataTexture(data, Wp, Hp, THREE.RGBAFormat)
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.generateMipmaps = true
+  tex.needsUpdate = true
   return tex
 }
 
@@ -140,34 +172,35 @@ function shadeTexture(shade: { s: number; y: number; r: number; a: number }[]) {
 type Shared = {
   uFTime: { value: number }
   uFCookie: { value: THREE.Texture }
-  uFOrigin: { value: THREE.Vector3 }
-  uFEast: { value: THREE.Vector3 }
-  uFUp: { value: THREE.Vector3 }
-  uFNorth: { value: THREE.Vector3 }
+  /** 見える距離の倍率（画質・スマホ。BatchedMesh の出し入れと同じ数） */
+  uFSee: { value: number }
 }
 type Kind = 'leaf' | 'canopy' | 'bark' | 'prop' | 'floor'
 
 const V_PARS = /* glsl */ `
-uniform vec3 uFOrigin;
-uniform vec3 uFEast;
-uniform vec3 uFUp;
-uniform vec3 uFNorth;
 uniform float uFTime;
 uniform float uFSway;
+uniform float uFSee;
 varying vec3 vForest;
 #ifdef FOREST_SWAY_ATTR
 attribute vec2 aSway;
 #endif
-#ifdef FOREST_WIND
-attribute vec4 aWind;
+#ifdef FOREST_FADE
+attribute float aFade;
+varying float vFade;
 #endif`
 
-/** 風のゆれ：株ごと・板ごとに位相をずらして、ゆっくり揺らす。aWind = 株ごとの位相、株の中での高さ m、株のまん中からの距離 m、株の大きさの倍率 */
+/** 風のゆれ：株ごとに位相をずらして、ゆっくり揺らす（株の中の高さ・まん中からの距離で、根元は動かない） */
 const V_WIND = /* glsl */ `
 #ifdef FOREST_WIND
 {
-  float fAmp = uFSway * max(0.0, aWind.y) * (0.4 + aWind.z) * aWind.w;
-  transformed += uFEast * (sin(uFTime * 1.3 + aWind.x + aWind.y * 2.0) * fAmp) + uFNorth * (sin(uFTime * 1.7 + aWind.x * 1.3 + aWind.z * 2.5) * fAmp * 0.7);
+  float fPh = 0.0;
+  #ifdef USE_BATCHING
+  fPh = batchingMatrix[3].x * 0.37 + batchingMatrix[3].y * 0.23 + batchingMatrix[3].z * 0.31;
+  #endif
+  float fAmp = uFSway * max(0.0, transformed.y) * (0.4 + length(transformed.xz));
+  transformed.x += sin(uFTime * 1.3 + fPh + transformed.y * 2.0) * fAmp;
+  transformed.z += sin(uFTime * 1.7 + fPh * 1.3 + transformed.x * 2.5) * fAmp * 0.7;
 }
 #endif
 #ifdef FOREST_SWAY_ATTR
@@ -176,30 +209,50 @@ transformed.z += cos(uFTime * 0.7 + aSway.x * 1.7) * aSway.y;
 transformed.y += sin(uFTime * 1.1 + aSway.x * 2.3) * aSway.y * 0.5;
 #endif`
 
-/** 見本の一角の中での位置（x = 東、y = 高さ、z = 北。m） */
+/**
+ * 森の中での位置（x = 森の南西の角から東へ m、y = 地面からの高さ m、z = 北へ m）。円筒の内側なので、
+ * ワールドの位置から、円筒のまわりの長さ・半径・軸の向きの位置にそのまま戻す（森が広くても、ずれない）
+ */
 const V_MAIN = /* glsl */ `
 {
-  vec4 fW = modelMatrix * vec4(transformed, 1.0);
-  vec3 fR = fW.xyz - uFOrigin;
-  vForest = vec3(dot(fR, uFEast), dot(fR, uFUp), dot(fR, uFNorth));
+  vec4 fW = vec4(transformed, 1.0);
+  #ifdef USE_BATCHING
+  fW = batchingMatrix * fW;
+  #endif
+  fW = modelMatrix * fW;
+  vForest = vec3(atan(fW.x, fW.z) * ${f1(G)} - ${f1(FLOOR.s0)}, ${f1(G - GROUND_LIFT)} - length(fW.xz), fW.y + ${f1(HALF_L)} - ${f1(FLOOR.y0)});
+  #ifdef FOREST_FADE
+  {
+    vec4 fO = modelMatrix * batchingMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    float fR = aFade * length(batchingMatrix[0].xyz) * uFSee;
+    vFade = clamp((fR - distance(fO.xyz, cameraPosition)) / (fR * 0.2), 0.0, 1.0);
+  }
+  #endif
 }`
 
 const F_PARS = /* glsl */ `
 uniform sampler2D uFCookie;
 uniform float uFTime;
 varying vec3 vForest;
+#ifdef FOREST_FADE
+varying float vFade;
+#endif
 // 木もれ日：その点から日の向きに沿って地面まで下ろした場所の、光の模様を読む（幹や葉の上でも、光の筋がつながる）
 float forestDapple() {
-  vec2 g = vForest.xz - vForest.y * vec2(${(SUN.x / SUN.y).toFixed(4)}, ${(SUN.z / SUN.y).toFixed(4)});
+  vec2 g = vForest.xz - vForest.y * vec2(${f1(SUN.x / SUN.y)}, ${f1(SUN.z / SUN.y)});
   vec2 w = vec2(sin(uFTime * 0.6 + g.y * 0.21), cos(uFTime * 0.47 + g.x * 0.17)) * 0.14;
   float a = texture2D(uFCookie, (g + w) / 13.0).r;
   float b = texture2D(uFCookie, (g.yx - w * 0.7) / 5.3 + 0.37).r;
-  float d = clamp(a * (0.55 + 0.9 * b) * 1.5, 0.0, 1.0);
-  // 樹冠の上は日なた
-  return mix(d, 1.0, smoothstep(13.0, 21.0, vForest.y));
+  return clamp(a * (0.55 + 0.9 * b) * 1.5, 0.0, 1.0);
 }`
 
-/** 写真の色の明るさ合わせと、樹皮の根元の苔 */
+/** 出しはじめ・消えぎわ：点々に溶かす */
+const F_FADE = /* glsl */ `
+#ifdef FOREST_FADE
+if (vFade < 0.999 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) > vFade) discard;
+#endif`
+
+/** 写真の色の明るさ合わせと、根元の苔 */
 const F_BARK = /* glsl */ `
 #ifdef FOREST_GAIN
 // 写真から取った色は、本物どおりに暗い。このアプリの光（公園の木や芝と同じ光）で同じ明るさに見えるように持ち上げる
@@ -240,43 +293,120 @@ function patch<T extends THREE.Material>(mat: T, kind: Kind, shared: Shared, def
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, shared, own)
     sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>\n${V_PARS}`).replace('#include <begin_vertex>', `#include <begin_vertex>\n${V_WIND}`).replace('#include <project_vertex>', `#include <project_vertex>\n${V_MAIN}`)
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${F_PARS}`).replace('#include <color_fragment>', `#include <color_fragment>\n${F_BARK}`).replace('#include <lights_fragment_end>', `#include <lights_fragment_end>\n${F_LIGHT}`)
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>\n${F_PARS}`)
+      .replace('#include <alphatest_fragment>', `#include <alphatest_fragment>\n${F_FADE}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>\n${F_BARK}`)
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>\n${F_LIGHT}`)
     extra?.(sh)
   }
-  mat.customProgramCacheKey = () => `forest-${kind}-${Object.entries(defines).map(([k, v]) => k + v).sort().join('.')}`
+  mat.customProgramCacheKey = () => `forest2-${kind}-${Object.entries(defines).map(([k, v]) => k + v).sort().join('.')}`
   return mat
 }
 
-/* ---------- 読み込み ---------- */
+/* ---------- 形をまとめて並べる（BatchedMesh） ---------- */
 
-/** glb の形は量子化してあるので、部品の拡大・移動を形に焼きこんで、ふつうの数に戻す */
+/** glb の形は量子化してあるので、ふつうの数に戻す（部品の拡大・回転も焼きこむ）。色の無い形には白を入れる */
 function unpack(m: THREE.Mesh) {
   const geo = new THREE.BufferGeometry()
-  for (const [name, attr] of Object.entries(m.geometry.attributes)) {
-    const src = attr as THREE.BufferAttribute
-    const size = name === 'color' ? 3 : src.itemSize
-    const arr = new Float32Array(src.count * size)
-    const get = [src.getX, src.getY, src.getZ, src.getW].map((f) => f.bind(src))
-    for (let i = 0; i < src.count; i++) for (let k = 0; k < size; k++) arr[i * size + k] = get[k](i)
+  for (const name of ['position', 'normal', 'uv', 'color']) {
+    const src = m.geometry.attributes[name] as THREE.BufferAttribute | undefined
+    const size = name === 'uv' ? 2 : 3
+    const n = m.geometry.attributes.position.count
+    const arr = new Float32Array(n * size)
+    if (!src) arr.fill(1)
+    else {
+      const get = [src.getX, src.getY, src.getZ].map((f) => f.bind(src))
+      for (let i = 0; i < n; i++) for (let k = 0; k < size; k++) arr[i * size + k] = get[k](i)
+    }
     geo.setAttribute(name, new THREE.BufferAttribute(arr, size))
   }
   geo.setIndex(m.geometry.index)
   m.updateWorldMatrix(true, false)
   geo.applyMatrix4(m.matrixWorld)
-  geo.computeBoundingSphere()
   m.geometry.dispose()
   return geo
 }
 
-type Made = { objects: THREE.Object3D[]; dispose: () => void }
+/** 1 種類の物：近く用と遠く用の形、置き場所、地面からの高さ、見える距離（倍率 1 のとき m。Infinity = いつも）、近く用を使う割合 */
+type Item = { geos: THREE.BufferGeometry[]; spots: Spot[]; lift: number; see: number; near: number; tint: boolean }
 
-async function build(shared: Shared): Promise<Made> {
+/** 1 本ずつの出し入れの記録 */
+type Lod = { mesh: THREE.BatchedMesh; pos: Float32Array; far: Float32Array; near: Float32Array; g0: Int32Array; g1: Int32Array; state: Uint8Array }
+
+function makeBatch(name: string, mat: THREE.Material, items: Item[], see: number, fade: boolean, cast: boolean): Lod | null {
+  items = items.filter((it) => it.spots.length && it.geos.length)
+  const count = items.reduce((n, it) => n + it.spots.length, 0)
+  if (!count) return null
+  let nv = 0
+  let ni = 0
+  for (const it of items)
+    for (const g of it.geos) {
+      if (fade) g.setAttribute('aFade', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(Math.min(it.see, 1e4)), 1))
+      nv += g.attributes.position.count
+      ni += g.index!.count
+    }
+  const mesh = new THREE.BatchedMesh(count, nv, ni, mat)
+  const L: Lod = { mesh, pos: new Float32Array(count * 3), far: new Float32Array(count), near: new Float32Array(count), g0: new Int32Array(count), g1: new Int32Array(count), state: new Uint8Array(count) }
+  const m4 = new THREE.Matrix4()
+  const col = new THREE.Color()
+  for (const it of items) {
+    const ids = it.geos.map((g) => mesh.addGeometry(g))
+    for (const p of it.spots) {
+      const id = mesh.addInstance(ids[0])
+      standAt(p.s, p.y, it.lift * p.k + (p.h ?? 0), p.yaw, p.k, m4)
+      mesh.setMatrixAt(id, m4)
+      // 株ごとに、色を少しずつ変える
+      const b = it.tint ? 0.86 + p.v * 0.26 : 0.9 + p.v * 0.16
+      mesh.setColorAt(id, it.tint ? col.setRGB(b * (0.9 + ((p.v * 7) % 1) * 0.16), b, b * (0.84 + ((p.v * 13) % 1) * 0.2)) : col.setRGB(b, b, b))
+      L.pos[id * 3] = m4.elements[12]
+      L.pos[id * 3 + 1] = m4.elements[13]
+      L.pos[id * 3 + 2] = m4.elements[14]
+      L.far[id] = it.see * p.k * see
+      L.near[id] = L.far[id] * it.near
+      L.g0[id] = ids[0]
+      L.g1[id] = ids[1] ?? -1
+      L.state[id] = 1
+    }
+  }
+  for (const it of items) for (const g of it.geos) g.dispose()
+  mesh.castShadow = cast
+  mesh.receiveShadow = true
+  mesh.name = `forest-${name}`
+  return L
+}
+
+/** 自分からの距離で、1 本ずつ「近く用・遠く用・出さない」を決める */
+function updateLod(L: Lod, x: number, y: number, z: number) {
+  const { mesh, pos, far, near, g0, g1, state } = L
+  for (let i = 0; i < state.length; i++) {
+    const dx = pos[i * 3] - x
+    const dy = pos[i * 3 + 1] - y
+    const dz = pos[i * 3 + 2] - z
+    const d2 = dx * dx + dy * dy + dz * dz
+    const want = d2 > far[i] * far[i] ? 0 : g1[i] >= 0 && d2 > near[i] * near[i] ? 2 : 1
+    if (want === state[i]) continue
+    if (want === 0) mesh.setVisibleAt(i, false)
+    else {
+      if (state[i] === 0) mesh.setVisibleAt(i, true)
+      mesh.setGeometryIdAt(i, want === 1 ? g0[i] : g1[i])
+    }
+    state[i] = want
+  }
+}
+
+/* ---------- 読み込み ---------- */
+
+type Made = { objects: THREE.Object3D[]; lods: Lod[]; dispose: () => void }
+
+async function build(shared: Shared, see: number): Promise<Made> {
   const level = currentLevel()
   // 高画質：葉のつや・凹凸あり。スマホ・軽い画質：画像は半分の大きさ
   const fine = level === 'high' && !lowMemory() && !isTouchDevice()
   const half = lowMemory() || isTouchDevice() || level === 'low'
   const shadows = level !== 'low' && !lowMemory()
-  const F = forestSample()
+  const J = jungleLayout()
+  const F = jungleForest()!
   const loader = new THREE.TextureLoader()
   const textures: THREE.Texture[] = []
   const tex = async (name: string, opts: { color?: boolean; repeat?: boolean; small?: boolean } = {}) => {
@@ -288,18 +418,19 @@ async function build(shared: Shared): Promise<Made> {
     textures.push(t)
     return t
   }
-  const names = ['fern', 'calathea', 'anthurium', 'pachira_leaves', 'pachira_bark', 'roots', 'stump', 'log', 'rock', 'canopy'] as const
-  const [{ GLTFLoader }, { MeshoptDecoder }, maps, bark, floorLeaves, floorMoss, floorMud, normals] = await Promise.all([
+  const [{ GLTFLoader }, { MeshoptDecoder }, leavesA, leavesB, props, canopy, bark, floorLeaves, floorMoss, floorMud, normals] = await Promise.all([
     import('three/examples/jsm/loaders/GLTFLoader.js'),
     import('three/examples/jsm/libs/meshopt_decoder.module.js'),
-    Promise.all(names.map((n) => tex(n))),
+    tex('leavesA'),
+    tex('leavesB'),
+    tex('props'),
+    tex('canopy'),
     tex('bark', { repeat: true }),
     tex('floor_leaves', { repeat: true }),
     tex('floor_moss', { repeat: true }),
     tex('floor_mud', { repeat: true }),
-    fine ? Promise.all(['fern_n', 'calathea_n', 'anthurium_n', 'pachira_leaves_n', 'bark_n'].map((n) => tex(n, { color: false, repeat: n === 'bark_n', small: false }))) : Promise.resolve(null),
+    fine ? Promise.all([tex('leavesA_n', { color: false, small: false }), tex('bark_n', { color: false, repeat: true, small: false })]) : Promise.resolve(null),
   ])
-  const map = Object.fromEntries(names.map((n, i) => [n, maps[i]])) as Record<(typeof names)[number], THREE.Texture>
   const gl = new GLTFLoader()
   gl.setMeshoptDecoder(MeshoptDecoder)
   const gltf = await gl.loadAsync(`${BASE}models/forest-kit.glb`)
@@ -316,169 +447,92 @@ async function build(shared: Shared): Promise<Made> {
     const base = { map: m, alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: true, alphaToCoverage: fine }
     const mat = normal ? new THREE.MeshPhongMaterial({ ...base, normalMap: normal, normalScale: FLIP, specular: new THREE.Color(0.2, 0.22, 0.18), shininess: 34 }) : new THREE.MeshLambertMaterial(base)
     materials.push(mat)
-    return patch(mat, 'leaf', shared, { FOREST_GAIN: '2.4', FOREST_LEAF: '', FOREST_WIND: '', ...(normal ? { FOREST_SPEC: '' } : {}) }, sway)
+    return patch(mat, 'leaf', shared, { FOREST_GAIN: '2.4', FOREST_LEAF: '', FOREST_WIND: '', FOREST_FADE: '', ...(normal ? { FOREST_SPEC: '' } : {}) }, sway)
   }
-  const solid = (m: THREE.Texture, kind: Kind = 'prop', defines: Record<string, string> = {}, more: THREE.MeshLambertMaterialParameters = {}) => {
-    const mat = new THREE.MeshLambertMaterial({ map: m, side: THREE.DoubleSide, vertexColors: true, ...more })
-    materials.push(mat)
-    return patch(mat, kind, shared, defines)
-  }
-  const mats = {
-    fern: leaf(map.fern, normals?.[0] ?? null, 0.03),
-    calathea: leaf(map.calathea, normals?.[1] ?? null, 0.022),
-    anthurium: leaf(map.anthurium, normals?.[2] ?? null, 0.016),
-    pachiraLeaves: leaf(map.pachira_leaves, normals?.[3] ?? null, 0.012),
-    pachiraBark: solid(map.pachira_bark, 'prop', { FOREST_GAIN: '2.0' }),
-    roots: solid(map.roots, 'prop', { FOREST_GAIN: '1.6', FOREST_MOSS: '' }),
-    stump: solid(map.stump, 'prop', { FOREST_GAIN: '1.7' }),
-    log: solid(map.log, 'prop', { FOREST_GAIN: '1.7' }),
-    rock: solid(map.rock, 'prop', { FOREST_GAIN: '1.9' }),
-  }
+  const leafA = leaf(leavesA, normals?.[0] ?? null, 0.018)
+  const leafB = leaf(leavesB, null, 0.028)
+  const propMat = patch(new THREE.MeshLambertMaterial({ map: props, side: THREE.DoubleSide, vertexColors: true }), 'prop', shared, { FOREST_GAIN: '1.8', FOREST_MOSS: '', FOREST_FADE: '' })
+  const barkMat = patch(new THREE.MeshLambertMaterial({ map: bark, vertexColors: true, ...(normals ? { normalMap: normals[1], normalScale: FLIP } : {}) }), 'bark', shared, { FOREST_GAIN: '2.0', FOREST_MOSS: '' })
+  const canopyMat = patch(new THREE.MeshLambertMaterial({ map: canopy, alphaTest: 0.3, side: THREE.DoubleSide, vertexColors: true, alphaToCoverage: fine, color: new THREE.Color(0.78, 1, 0.66) }), 'canopy', shared, { FOREST_GAIN: '2.1', FOREST_LEAF: '', FOREST_SWAY_ATTR: '' })
+  materials.push(propMat, barkMat, canopyMat)
 
-  const objects: THREE.Object3D[] = []
-  const merged: THREE.BufferGeometry[] = []
-  const m4 = new THREE.Matrix4()
-  const n3 = new THREE.Matrix3()
-  const v = new THREE.Vector3()
-  /**
-   * 同じ材質の部品を、置き場所の数だけ並べて 1 つの形にまとめる（描画 1 回で済むように）。
-   * 株ごとの色のちがいと、風のゆれに使う数（aWind）は、頂点に書きこむ。
-   */
-  const plant = (name: string, mat: THREE.Material, parts: [geo: string, spots: Spot[], lift: number][], opts: { cast?: boolean; tint?: boolean; wind?: boolean } = {}) => {
-    let nv = 0
-    let ni = 0
-    for (const [g, spots] of parts) {
-      const geo = geos.get(g)
-      if (!geo) continue
-      nv += geo.attributes.position.count * spots.length
-      ni += geo.index!.count * spots.length
-    }
-    if (!nv) return
-    const pos = new Float32Array(nv * 3)
-    const nor = new Float32Array(nv * 3)
-    const uv = new Float32Array(nv * 2)
-    const col = new Float32Array(nv * 3)
-    const wind = opts.wind ? new Float32Array(nv * 4) : null
-    const idx = new Uint32Array(ni)
-    let o = 0
-    let io = 0
-    for (const [g, spots, lift] of parts) {
-      const geo = geos.get(g)
-      if (!geo) continue
-      const gp = geo.attributes.position as THREE.BufferAttribute
-      const gn = geo.attributes.normal as THREE.BufferAttribute
-      const gu = geo.attributes.uv as THREE.BufferAttribute
-      const gc = geo.attributes.color as THREE.BufferAttribute | undefined
-      const gi = geo.index!
-      for (const p of spots) {
-        standAt(p.s, p.y, lift * p.k + (p.h ?? 0), p.yaw, p.k, m4)
-        n3.setFromMatrix4(m4)
-        // 株ごとに、色を少しずつ変える
-        const b = opts.tint ? 0.86 + p.v * 0.26 : 0.9 + p.v * 0.16
-        const tr = opts.tint ? b * (0.9 + ((p.v * 7) % 1) * 0.16) : b
-        const tb = opts.tint ? b * (0.84 + ((p.v * 13) % 1) * 0.2) : b
-        const phase = p.s * 0.37 + p.y * 0.23
-        for (let i = 0; i < gp.count; i++) {
-          const k = o + i
-          const x = gp.getX(i)
-          const y = gp.getY(i)
-          const z = gp.getZ(i)
-          v.set(x, y, z).applyMatrix4(m4)
-          pos[k * 3] = v.x
-          pos[k * 3 + 1] = v.y
-          pos[k * 3 + 2] = v.z
-          v.set(gn.getX(i), gn.getY(i), gn.getZ(i)).applyMatrix3(n3).normalize()
-          nor[k * 3] = v.x
-          nor[k * 3 + 1] = v.y
-          nor[k * 3 + 2] = v.z
-          uv[k * 2] = gu.getX(i)
-          uv[k * 2 + 1] = gu.getY(i)
-          const ao = gc ? gc.getX(i) : 1
-          col[k * 3] = ao * tr
-          col[k * 3 + 1] = (gc ? gc.getY(i) : 1) * b
-          col[k * 3 + 2] = (gc ? gc.getZ(i) : 1) * tb
-          if (wind) {
-            wind[k * 4] = phase
-            wind[k * 4 + 1] = y
-            wind[k * 4 + 2] = Math.hypot(x, z)
-            wind[k * 4 + 3] = p.k
-          }
-        }
-        for (let i = 0; i < gi.count; i++) idx[io + i] = gi.getX(i) + o
-        o += gp.count
-        io += gi.count
-      }
-    }
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3))
-    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
-    if (wind) geo.setAttribute('aWind', new THREE.BufferAttribute(wind, 4))
-    geo.setIndex(new THREE.BufferAttribute(idx, 1))
-    geo.computeBoundingSphere()
-    merged.push(geo)
-    const mesh = new THREE.Mesh(geo, mat)
-    mesh.castShadow = !!opts.cast && shadows
-    mesh.receiveShadow = true
-    mesh.name = `forest-${name}`
-    objects.push(mesh)
-  }
+  // 部品：近く用（名前そのまま）と遠く用（.1）。同じ形を何度も使うので、使うたびに写しを渡す（BatchedMesh が中に写し取る）
+  const kitGeo = (n: string) => [geos.get(n), geos.get(`${n}.1`)].filter((g): g is THREE.BufferGeometry => !!g).map((g) => g.clone())
   const K = F.kit
-  const kit = (...names: KitName[]) => names.map((n) => [n, K[n], kitLift(n)] as [string, Spot[], number])
-  const leafy = { tint: true, wind: true }
-  plant('fern', mats.fern, kit('fern_a', 'fern_b'), leafy)
-  plant('calathea', mats.calathea, kit('calathea_a', 'calathea_b', 'calathea_c'), leafy)
-  plant('anthurium', mats.anthurium, kit('anthurium_a', 'anthurium_b', 'anthurium_c'), leafy)
-  const pachira = (part: string) => (['pachira_a', 'pachira_b'] as const).map((n) => [`${n}_${part}`, K[n], kitLift(n)] as [string, Spot[], number])
-  plant('pachira-bark', mats.pachiraBark, pachira('bark'), { cast: true })
-  plant('pachira-leaves', mats.pachiraLeaves, pachira('leaves'), leafy)
-  // 地面の小物の影は、床に描いた根元の暗がりで足りる（影の計算には入れない）
-  plant('roots', mats.roots, kit('roots'))
-  plant('stump', mats.stump, kit('stump'))
-  plant('log', mats.log, kit('log'), { cast: true })
-  plant('rock', mats.rock, kit('rock_a', 'rock_b'))
+  const item = (name: KitName, part = name as string): Item => ({ geos: kitGeo(part), spots: K[name], lift: KIT[name].lift, see: KIT[name].see, near: KIT[name].near, tint: true })
+  const solid = (name: KitName, part = name as string): Item => ({ ...item(name, part), tint: false })
+  const lods: (Lod | null)[] = [
+    makeBatch('leavesA', leafA, [item('calathea_a'), item('calathea_b'), item('calathea_c'), item('anthurium_a'), item('anthurium_b'), item('anthurium_c'), item('arrow'), item('pachira_a', 'pachira_a_leaves'), item('pachira_b', 'pachira_b_leaves')], see, true, false),
+    makeBatch('leavesB', leafB, [item('fern_a'), item('fern_b'), item('shrub'), item('creeper_a'), item('creeper_b')], see, true, false),
+    makeBatch(
+      'props',
+      propMat,
+      [solid('pachira_a', 'pachira_a_bark'), solid('pachira_b', 'pachira_b_bark'), solid('roots'), solid('stump'), solid('log'), solid('log_b'), solid('rock_a'), solid('rock_b'), solid('rock_c'), solid('rock_d')],
+      see,
+      true,
+      shadows,
+    ),
+  ]
   for (const g of geos.values()) g.dispose()
 
-  // 高い木と若木：幹・枝・つる（1 つの形）と、葉の房（1 つの形）
-  const trees = forestTrees(F.tall, F.poles, SAMPLE_CENTER)
-  const frame = standAt(SAMPLE_CENTER.s, SAMPLE_CENTER.y, 0, 0, 1, new THREE.Matrix4())
-  const barkMat = solid(bark, 'bark', { FOREST_GAIN: '2.0', FOREST_MOSS: '' }, { side: THREE.FrontSide, ...(normals ? { normalMap: normals[4], normalScale: FLIP } : {}) })
-  const canopyMat = new THREE.MeshLambertMaterial({ map: map.canopy, alphaTest: 0.3, side: THREE.DoubleSide, vertexColors: true, alphaToCoverage: fine, color: new THREE.Color(0.78, 1, 0.66) })
-  materials.push(canopyMat)
-  patch(canopyMat, 'canopy', shared, { FOREST_GAIN: '2.1', FOREST_LEAF: '', FOREST_SWAY_ATTR: '' })
-  const wood = new THREE.Mesh(trees.wood, barkMat)
-  wood.castShadow = shadows
-  const crown = new THREE.Mesh(trees.leaves, canopyMat)
-  for (const m of [wood, crown]) {
-    m.matrixAutoUpdate = false
-    m.matrix.copy(frame)
-    m.receiveShadow = true
-    objects.push(m)
+  // 高い木と若木：形の種類ごとに、近く用と遠く用を作って並べる。高い木はいつも出す
+  const trees = (kind: 'tall' | 'pole') => {
+    const list = kind === 'tall' ? TALL : POLE
+    const spots = kind === 'tall' ? F.tall : F.poles
+    const wood: Item[] = []
+    const crown: Item[] = []
+    list.forEach((shape, variant) => {
+      const near = shapeOf(kind, shape, 0)
+      const far = shapeOf(kind, shape, 1)
+      const mine = spots.filter((p) => p.variant === variant)
+      // 高い木は 30 m（倍率 1 のとき）より遠くで軽い形。若木は 120 m より遠くでは出さない
+      const see = kind === 'tall' ? Infinity : 120
+      const nearFrac = kind === 'tall' ? 0 : 0.2
+      wood.push({ geos: [near.wood, far.wood], spots: mine, lift: 0, see, near: nearFrac, tint: false })
+      crown.push({ geos: [near.leaves, far.leaves], spots: mine, lift: 0, see, near: nearFrac, tint: false })
+    })
+    return { wood, crown }
   }
-  wood.name = 'forest-wood'
-  crown.name = 'forest-crown'
+  const shapeOf = (kind: 'tall' | 'pole', shape: { r: number; h: number; seed: number }, lod: 0 | 1) => treeShape(kind, shape, lod)
+  const tall = trees('tall')
+  const pole = trees('pole')
+  const woodL = makeBatch('wood', barkMat, [...tall.wood, ...pole.wood], see, false, shadows)
+  const crownL = makeBatch('crown', canopyMat, [...tall.crown, ...pole.crown], see, false, false)
+  // 高い木：近く用を使うのは 32 m まで（いつも出すので、far は無限。near だけ決める）
+  for (const L of [woodL, crownL]) {
+    if (!L) continue
+    for (let i = 0; i < L.far.length; i++) if (!Number.isFinite(L.far[i])) L.near[i] = 32 * see
+  }
+  lods.push(woodL, crownL)
 
   // 床：落ち葉・苔・ぬれた土。今の地面のすぐ上に重ねて、ふちはまだらに溶かす
-  const shade = shadeTexture(F.shade)
-  textures.push(shade)
-  const seg = 18
-  const fg = new THREE.PlaneGeometry(1, 1, seg, seg)
+  const NS = JUNGLE_GATE.s
+  const loop = [...J.trail, J.trail[0]]
+  const mask = maskTexture(F, [
+    [
+      { s: NS, y: FLOOR.y0 - 2 },
+      { s: NS, y: FLOOR.y0 + FLOOR.h + 2 },
+    ],
+    loop,
+  ])
+  textures.push(mask)
+  const segX = 70
+  const segY = 48
+  const fg = new THREE.PlaneGeometry(1, 1, segX, segY)
   {
     const pos = fg.attributes.position as THREE.BufferAttribute
     const nor = fg.attributes.normal as THREE.BufferAttribute
     const uv = fg.attributes.uv as THREE.BufferAttribute
-    const span = SAMPLE.s1 - SAMPLE.s0 + FLOOR_PAD * 2
     const p = new THREE.Vector3()
     const n = new THREE.Vector3()
     for (let i = 0; i < pos.count; i++) {
-      const fs = (pos.getX(i) + 0.5) * span - FLOOR_PAD
-      const fy = (pos.getY(i) + 0.5) * span - FLOOR_PAD
-      landPoint(SAMPLE.s0 + fs, SAMPLE.y0 + fy, GROUND_LIFT + FLOOR_LIFT, p)
-      upAt(SAMPLE.s0 + fs, n)
+      const fs = (pos.getX(i) + 0.5) * FLOOR.w
+      const fy = (pos.getY(i) + 0.5) * FLOOR.h
+      landPoint(FLOOR.s0 + fs, FLOOR.y0 + fy, GROUND_LIFT + FLOOR_LIFT, p)
+      upAt(FLOOR.s0 + fs, n)
       pos.setXYZ(i, p.x, p.y, p.z)
       nor.setXYZ(i, n.x, n.y, n.z)
-      // uv = 範囲の南西の角からの m
+      // uv = 床の南西の角からの m
       uv.setXY(i, fs, fy)
     }
     // PlaneGeometry の面は +z 向きなので、円筒の内側（上）から見えるように面の向きを返す
@@ -492,11 +546,10 @@ async function build(shared: Shared): Promise<Made> {
   }
   const floorMat = new THREE.MeshLambertMaterial({ map: floorLeaves, transparent: true })
   materials.push(floorMat)
-  const floorU = { uFMoss: { value: floorMoss }, uFMud: { value: floorMud }, uFShade: { value: shade } }
+  const floorU = { uFMoss: { value: floorMoss }, uFMud: { value: floorMud }, uFMask: { value: mask } }
   patch(floorMat, 'floor', shared, {}, 0, (sh) => {
     Object.assign(sh.uniforms, floorU)
-    const size = (SAMPLE.s1 - SAMPLE.s0).toFixed(1)
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uFMoss;\nuniform sampler2D uFMud;\nuniform sampler2D uFShade;').replace(
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uFMoss;\nuniform sampler2D uFMud;\nuniform sampler2D uFMask;').replace(
       '#include <map_fragment>',
       /* glsl */ `
 vec2 fp = vMapUv;
@@ -506,33 +559,32 @@ float n2 = texture2D(uFCookie, fp / 23.0 + 0.53).g;
 vec3 fLit = mix(texture2D(map, fp / 2.6).rgb, texture2D(map, fp.yx / 6.7 + 0.31).rgb, 0.35);
 vec3 fMoss = texture2D(uFMoss, fp / 2.3).rgb;
 vec3 fMud = texture2D(uFMud, fp / 2.4).rgb;
+vec4 fMask = texture2D(uFMask, fp / vec2(${f1(FLOOR.w)}, ${f1(FLOOR.h)}));
 // 根元の暗がり（1 = 暗い）。暗く湿った所ほど苔が出る
-float fSh = texture2D(uFShade, (fp + ${FLOOR_PAD.toFixed(1)}) / ${(SAMPLE.s1 - SAMPLE.s0 + FLOOR_PAD * 2).toFixed(1)}).r;
+float fSh = fMask.r;
 float wMoss = smoothstep(0.38, 0.72, n2 * 0.9 + n1 * 0.35 + fSh * 0.4);
 vec3 fCol = mix(fLit, fMoss * vec3(0.8, 0.95, 0.7), wMoss * 0.8);
 // 小道：踏まれて落ち葉の少ない、ぬれた土
-float fPd = abs(fp.x - ${(SAMPLE_PATH.s - SAMPLE.s0).toFixed(1)}) + (n1 - 0.4) * 0.9;
-float wPath = 1.0 - smoothstep(${(SAMPLE_PATH.half * 0.7).toFixed(2)}, ${(SAMPLE_PATH.half * 1.35).toFixed(2)}, fPd);
+float wPath = smoothstep(0.3, 0.7, fMask.g + (n1 - 0.45) * 0.6);
 fCol = mix(fCol, mix(fMud * 3.2, fLit * 0.8, 0.45), wPath * 0.9);
 fCol *= 1.0 - 0.62 * fSh;
 diffuseColor.rgb *= fCol * 1.25;
 // ふち：まだらに崩して、今の地面へ溶かす
-vec2 fE = min(fp, ${size} - fp);
-diffuseColor.a *= smoothstep(-2.2, 1.2, min(fE.x, fE.y) + (n1 - 0.45) * 3.5 + (n2 - 0.45) * 2.0);`,
+vec2 fE = min(fp, vec2(${f1(FLOOR.w)}, ${f1(FLOOR.h)}) - fp);
+diffuseColor.a *= smoothstep(-2.2, 1.2, min(fE.x, fE.y) - ${f1(FLOOR_PAD)} + (n1 - 0.45) * 3.5 + (n2 - 0.45) * 2.0);`,
     )
   })
   const floor = new THREE.Mesh(fg, floorMat)
   floor.receiveShadow = true
   floor.renderOrder = 1
   floor.name = 'forest-floor'
-  objects.push(floor)
 
+  const live = lods.filter((l): l is Lod => !!l)
   return {
-    objects,
+    objects: [...live.map((l) => l.mesh), floor],
+    lods: live,
     dispose: () => {
-      for (const g of merged) g.dispose()
-      trees.wood.dispose()
-      trees.leaves.dispose()
+      for (const l of live) l.mesh.dispose()
       fg.dispose()
       for (const m of materials) m.dispose()
       for (const t of textures) t.dispose()
@@ -540,44 +592,54 @@ diffuseColor.a *= smoothstep(-2.2, 1.2, min(fE.x, fE.y) + (n1 - 0.45) * 3.5 + (n
   }
 }
 
+/** 見える距離の倍率：画質・スマホ・まとめ描き（WEBGL_multi_draw）の無いブラウザでは近くだけ */
+function seeScale(multiDraw: boolean) {
+  let k = 1
+  if (lowMemory() || currentLevel() === 'low') k = 0.6
+  else if (isTouchDevice()) k = 0.8
+  else if (currentLevel() === 'medium') k = 0.85
+  // まとめ描きが無いと、1 本ずつ描くことになるので、数を減らす
+  if (!multiDraw) k *= 0.65
+  return k
+}
+
 export default function WalkForest() {
   const group = useRef<THREE.Group>(null!)
-  const shared = useMemo<Shared>(() => {
-    const frame = standAt(SAMPLE_CENTER.s, SAMPLE_CENTER.y, 0, 0, 1, new THREE.Matrix4())
-    const east = new THREE.Vector3()
-    const up = new THREE.Vector3()
-    const north = new THREE.Vector3()
-    frame.extractBasis(east, up, north)
-    return {
-      uFTime: { value: 0 },
-      uFCookie: { value: cookieTexture() },
-      uFOrigin: { value: new THREE.Vector3().setFromMatrixPosition(frame) },
-      uFEast: { value: east },
-      uFUp: { value: up },
-      uFNorth: { value: north },
-    }
-  }, [])
+  const { gl, camera } = useThree()
+  const see = useMemo(() => seeScale(gl.extensions.has('WEBGL_multi_draw')), [gl])
+  const shared = useMemo<Shared>(() => ({ uFTime: { value: 0 }, uFCookie: { value: cookieTexture() }, uFSee: { value: see } }), [see])
+  const made = useRef<Made | null>(null)
   useEffect(() => {
     let dead = false
-    let made: Made | null = null
-    build(shared)
+    build(shared, see)
       .then((m) => {
         if (dead) return m.dispose()
-        made = m
+        made.current = m
         group.current?.add(...m.objects)
       })
-      .catch((e) => console.error('[walk] forest sample failed', e))
+      .catch((e) => console.error('[walk] forest failed', e))
     return () => {
       dead = true
-      if (made) {
-        for (const o of made.objects) o.removeFromParent()
-        made.dispose()
+      const m = made.current
+      if (m) {
+        for (const o of m.objects) o.removeFromParent()
+        m.dispose()
+        made.current = null
       }
       shared.uFCookie.value.dispose()
     }
-  }, [shared])
+  }, [shared, see])
+  const cam = useMemo(() => ({ p: new THREE.Vector3(), last: new THREE.Vector3(1e9, 0, 0), t: 0 }), [])
   useFrame(({ clock }) => {
     shared.uFTime.value = clock.elapsedTime
+    const m = made.current
+    if (!m) return
+    // 出し入れは、1 m 動いたか 0.5 秒たったときだけ決め直す
+    camera.getWorldPosition(cam.p)
+    if (cam.p.distanceToSquared(cam.last) < 1 && clock.elapsedTime - cam.t < 0.5) return
+    cam.last.copy(cam.p)
+    cam.t = clock.elapsedTime
+    for (const L of m.lods) updateLod(L, cam.p.x, cam.p.y, cam.p.z)
   })
   return <group ref={group} />
 }

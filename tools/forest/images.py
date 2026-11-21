@@ -35,17 +35,56 @@ def bleed(rgb, mask, rounds=24):
     return rgb.clip(0, 255).astype(np.uint8)
 
 
-for im in spec:
-    src = Image.open(os.path.join(raw, im['src'])).convert('RGB')
-    size = im['size']
-    if im.get('alpha'):
-        a = Image.open(os.path.join(raw, im['alpha'])).convert('L').resize(src.size, Image.LANCZOS)
+def load(item, size=None):
+    """色（と切り抜き）を 1 枚に。切り抜きの外の色は、ふちの色で埋める"""
+    src = Image.open(os.path.join(raw, item['src'])).convert('RGB')
+    if size:
+        src = src.resize((size, size), Image.LANCZOS)
+    if item.get('alpha'):
+        a = Image.open(os.path.join(raw, item['alpha'])).convert('L').resize(src.size, Image.LANCZOS)
         mask = np.asarray(a) > 96
         rgb = Image.fromarray(bleed(np.asarray(src), mask))
         src = Image.merge('RGBA', (*rgb.split(), a))
-    sizes = [(size, '')] + ([(size // 2, '.half')] if im.get('half', True) else [])
-    for s, tag in sizes:
-        img = src.resize((s, s), Image.LANCZOS) if src.size != (s, s) else src
+    return src
+
+
+def atlas(im):
+    """何枚かを、ます目に並べて 1 枚にする。ふちは INSET px ぶん、絵を縮めてあける（tools/forest/bake.mjs の toAtlas と同じ）"""
+    A = im['atlas']
+    cell = A['cell']
+    inset = 4
+    alpha = any(i.get('alpha') for i in im['items'])
+    out_img = Image.new('RGBA' if alpha else 'RGB', (A['cols'] * cell, A['rows'] * cell), (0, 0, 0, 0) if alpha else (128, 128, 255))
+    for k, item in enumerate(im['items']):
+        tile = load(item, cell - inset * 2)
+        if alpha and tile.mode != 'RGBA':
+            tile = tile.convert('RGBA')
+        # ふちのあきは、絵のふちの色をのばして埋める（縮めたときに、となりのますの色がまざらないように）
+        pad = Image.fromarray(np.pad(np.asarray(tile), ((inset, inset), (inset, inset), (0, 0)), mode='edge'))
+        if alpha:
+            px = np.asarray(pad).copy()
+            px[:inset, :, 3] = 0
+            px[-inset:, :, 3] = 0
+            px[:, :inset, 3] = 0
+            px[:, -inset:, 3] = 0
+            pad = Image.fromarray(px)
+        out_img.paste(pad, ((k % A['cols']) * cell, (k // A['cols']) * cell))
+    return out_img
+
+
+for im in spec:
+    if im.get('atlas'):
+        src = atlas(im)
+    else:
+        src = load(im)
+    W, H = src.size
+    if im.get('size') and (W, H) != (im['size'], im['size']):
+        src = src.resize((im['size'], im['size']), Image.LANCZOS)
+        W, H = src.size
+    sizes = [(1, '')] + ([(2, '.half')] if im.get('half', True) else [])
+    for d, tag in sizes:
+        s = W // d
+        img = src.resize((W // d, H // d), Image.LANCZOS) if d > 1 else src
         path = os.path.join(out, f"{im['out']}{tag}.webp")
         # 凹凸の画像は色がにじむと向きが狂うので、質を高めに
         img.save(path, 'WEBP', quality=90 if im.get('data') else 84, method=6, alpha_quality=92)
