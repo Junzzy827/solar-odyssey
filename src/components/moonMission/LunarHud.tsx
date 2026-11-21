@@ -20,6 +20,7 @@ import {
 import { cycleCam, endMission, missionNow, useMoonMission } from '../../state/moonMission'
 import { journey } from '../../state/missionJourney'
 import { ChapterMenu } from './ChapterMenu'
+import { startChapter } from '../../state/missionChapters'
 import './lunarHud.css'
 
 // 月ミッション第2弾の画面の計器。
@@ -271,6 +272,11 @@ export function LunarHud() {
           <div className="mm-end-note">{t.starsNote}</div>
           <div className="mm-end-next">{t.endNext}</div>
           <div className="mm-end-buttons">
+            {lm.touch && L.stars > 0 && (
+              <button className="mm-continue" onClick={() => startChapter(7)}>
+                {t.evaNext}
+              </button>
+            )}
             <button onClick={() => retryDescent()}>{t.again}</button>
             {lm.touch && <button onClick={() => stepOutside()}>{t.surface}</button>}
             <button onClick={() => endMission()}>{T.back}</button>

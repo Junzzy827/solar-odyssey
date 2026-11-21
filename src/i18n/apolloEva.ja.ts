@@ -1,8 +1,10 @@
 // アポロ17号の追体験・章7「月面の探検」と月からの離陸（state/apolloEva.ts、components/surface/LunarRover.tsx・EvaPanel.tsx）の文言（日本語）
 
 export const apolloEvaJa = {
-  chapter: '章7 月面の探検',
+  chapter: '章8 月面の探検',
   boarding: '月面車に乗りこんでいます…',
+  /** 章の始まりの幕（月面車の用意ができるまで） */
+  titleCard: ['月面の探検', '1972 年 12 月 11 日・タウルス・リトロー谷', 'サーナン船長とシュミット飛行士は、月面車で谷を走った'] as [string, string, string],
   keysHint: 'W/↑ 前進・S/↓ 後退・A D/← → 曲がる・V 船長の目／外から',
   toSeat: '◉ 船長の目で見る',
   toChase: '◎ 外から見る',
@@ -59,13 +61,13 @@ export const apolloEvaJa = {
   watch: '🚀 離陸を見る（17 時間後）',
   liftoffCap: '月面車のテレビカメラから。地球のヒューストンから、エド・フェンデルがカメラの首を振って追いかけました',
   liftoffNote: '上の段だけが、下の段を発射台にして飛び立ちます',
-  doneTitle: '章7 おわり',
+  doneTitle: '章8 おわり',
   doneLines: [
     '3 回の船外活動で、月面にいたのは合わせて約 22 時間。月面車で約 36 km を走りました。',
     '持ち帰った石と砂は約 111 kg。いまも研究に使われています。',
     'このあと、月を回る母船アメリカ号のエバンスが待っています。',
   ],
-  toReturn: '次へ：章8 母船と再会して地球へ',
+  toReturn: '次へ：章9 母船と再会して地球へ',
   again: 'もう一度',
   end: 'ミッションを終える',
 }

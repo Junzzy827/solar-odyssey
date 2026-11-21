@@ -61,6 +61,8 @@ export const AUTO_IGNITE = 6
 export const TLI_WINDOW_OPEN = 2400
 /** 窓の幅（軌道の秒）。窓の真ん中で押すと ★ */
 export const TLI_WINDOW = 600
+/** 月へ向かう燃焼が終わってから、絵の時計を止めるまで（秒）。本物の第3段からの切り離しは燃焼の約 24 分後 */
+export const OUTBOUND_STOP = 1440
 /** 機首を動かす速さ（度/秒） */
 export const PITCH_RATE = 7
 
@@ -453,7 +455,11 @@ function warpFor(phase: MissionPhase, a: Ascent) {
     return 140
   }
   if (phase === 'tli') return a.cutoff ? 20 : 10
-  if (phase === 'outbound') return 60 + Math.min(1600, (a.t - sim.tliEnd) * 4)
+  if (phase === 'outbound') {
+    // 章3（第3段からの切り離し・燃焼の 24 分後）の時刻で止める。終わりのカードのうしろで時計が進みすぎないように
+    const t = a.t - sim.tliEnd
+    return Math.max(0, Math.min(60 + Math.min(1600, t * 4), (OUTBOUND_STOP - t) * 0.6))
+  }
   return 1
 }
 

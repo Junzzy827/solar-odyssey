@@ -4,8 +4,9 @@ import type { Translation } from './translation'
 // The texts of the Apollo 17 chapter 7 (Moon walks and lift-off). Same keys as apolloEva.ja.ts
 
 export const apolloEvaEn: Translation<typeof apolloEvaJa> = {
-  chapter: 'Chapter 7 · Exploring the Moon',
+  chapter: 'Chapter 8 · Exploring the Moon',
   boarding: 'Climbing onto the Rover…',
+  titleCard: ['Exploring the Moon', 'December 11, 1972 · Taurus–Littrow valley', 'Commander Cernan and Dr. Schmitt drove the lunar rover across the valley'] as [string, string, string],
   keysHint: 'W/↑ drive · S/↓ reverse · A D/← → steer · V commander’s eyes / outside',
   toSeat: '◉ Commander’s eyes',
   toChase: '◎ View from outside',
@@ -61,13 +62,13 @@ export const apolloEvaEn: Translation<typeof apolloEvaJa> = {
   watch: '🚀 Watch the lift-off (17 hours later)',
   liftoffCap: 'Seen from the Rover’s TV camera. In Houston, Ed Fendell panned the camera from Earth to follow it',
   liftoffNote: 'Only the top half flies; the bottom half is its launch pad',
-  doneTitle: 'End of chapter 7',
+  doneTitle: 'End of chapter 8',
   doneLines: [
     'Over three moonwalks the crew spent about 22 hours outside and drove about 36 km in the Rover.',
     'They brought back about 111 kg of rock and soil, still used in research today.',
     'Next, Evans is waiting for them aboard the mothership America in lunar orbit.',
   ],
-  toReturn: 'Next: chapter 8, back to the mothership and home',
+  toReturn: 'Next: chapter 9, back to the mothership and home',
   again: 'Play again',
   end: 'End the mission',
 }

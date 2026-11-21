@@ -50,7 +50,7 @@ export const moonReturnEn: typeof moonReturnJa = {
     'A journey of 12 days, 13 hours and 52 minutes, bringing back about 111 kg of lunar rock and soil.',
     'Since Cernan, Schmitt and Evans, nobody has been to the Moon.',
   ],
-  again: 'Chapter 8 again',
+  again: 'Chapter 9 again',
   toStart: 'Again from the launch pad',
   back: 'Back to space',
 }

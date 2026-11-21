@@ -50,7 +50,9 @@ const oceanFrag = /* glsl */ `
     vec3 v = normalize(cameraPosition - vPw);
     float fres = 0.02 + 0.98 * pow(1.0 - max(0.0, dot(n, v)), 5.0);
     vec3 r = reflect(-v, n);
-    vec3 sky = mix(vec3(0.62, 0.76, 0.9), vec3(0.16, 0.38, 0.72), clamp(r.y * 1.6, 0.0, 1.0));
+    vec3 sky = mix(vec3(0.55, 0.69, 0.84), vec3(0.16, 0.38, 0.72), clamp(r.y * 4.0, 0.0, 1.0));
+    // 低い所から斜めに見ても、海が空の色一色にならないように（本物は波の陰で暗い所がまじる）
+    fres = min(fres, 0.55 + 0.45 * smoothstep(0.0, 1.0, dist / 9000.0));
     vec3 deep = vec3(0.015, 0.13, 0.27);
     // 太陽の照り返し（波の面ごとにきらきら）
     float glint = pow(max(0.0, dot(r, uSun)), 4000.0) * 1.6 + pow(max(0.0, dot(r, uSun)), 80.0) * 0.08;

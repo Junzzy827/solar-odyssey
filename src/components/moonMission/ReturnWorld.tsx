@@ -33,6 +33,8 @@ const SHIELD_Y = -3.42
 const CM_MID = -1.7
 const TRIM = THREE.MathUtils.degToRad(22)
 /** 着水のあと、主パラシュートが落ちる所（司令船から。カメラの向こう側） */
+/** 司令船の窓の視点（司令船の座標）。殻の外側すれすれ */
+const WINDOW_EYE = new THREE.Vector3(1.45, -1.65, 0)
 const FALLEN = [
   [-34, -52],
   [-62, -18],
@@ -599,8 +601,9 @@ function Scene() {
       }
     } else if (lunar || step === 'coast' || step === 'cmSep') {
       if (cam === 'window') {
-        want.set(0.6, -1.7, -0.6).applyQuaternion(csm.quaternion).add(csm.position)
-        look.copy(want).add(_b.set(0, -0.15, -1))
+        // 船長の窓のすぐ外（大気の中の窓と同じ所。殻の内側に入らないように）。横の窓から前を見る
+        want.copy(WINDOW_EYE).applyQuaternion(csm.quaternion).add(csm.position)
+        look.copy(want).add(_b.set(0.25, -0.1, -1).applyQuaternion(csm.quaternion))
         fov = 55
         near = 0.05
         snap = true
@@ -629,7 +632,7 @@ function Scene() {
       const side = tmp.side.crossVectors(vel, Y).normalize()
       if (cam === 'window') {
         // 窓から：横の窓の外を、火の玉の光が流れていく
-        want.set(1.45, -1.65, 0).applyQuaternion(csm.quaternion).add(csm.position)
+        want.copy(WINDOW_EYE).applyQuaternion(csm.quaternion).add(csm.position)
         // 横うしろ：熱よけから流れてくる光の尾が見える
         look.copy(want).add(_b.set(1, 1.3, 0).applyQuaternion(csm.quaternion))
         fov = 75
@@ -653,7 +656,7 @@ function Scene() {
       const shipEye = _u.copy(w.ship.group.position).add(_b.set(0, 22, 0))
       if (cam === 'window') {
         // 窓から上を見る：パラシュート
-        want.set(0.4, -1.5, 0).applyQuaternion(csm.quaternion).add(csm.position)
+        want.copy(WINDOW_EYE).applyQuaternion(csm.quaternion).add(csm.position)
         look.copy(c).add(_b.set(4, 40, 0))
         fov = 70
         near = 0.05
@@ -671,8 +674,9 @@ function Scene() {
         look.copy(c).add(_b.set(0, ret.mainAt >= 0 ? 22 - lowK * 14 : 6, 0))
         fov = 55
       } else {
-        want.copy(c).add(_b.set(16, 3.5, 24))
-        look.copy(c).add(_b.set(0, 1, 0))
+        // 少し高い所から：波の面が見える角度（低すぎると海が空の映りこみ一色になる）
+        want.copy(c).add(_b.set(18, 8, 28))
+        look.copy(c).add(_b.set(0, 0.5, 0))
         fov = 45
       }
       want.y = Math.max(want.y, water + 1.6)

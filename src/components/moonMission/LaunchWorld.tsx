@@ -443,8 +443,9 @@ export function LaunchWorld() {
       // 月へ向かうときは、ロケットの向こうに小さくなっていく地球をふりかえる
       if (s.phase === 'outbound') {
         const toEarth = toWorld(0, 0, new THREE.Vector3()).normalize()
-        want.copy(toEarth).multiplyScalar(-150).addScaledVector(south, 55).addScaledVector(up, 25)
-        look.copy(toEarth).multiplyScalar(400)
+        // 第3段と宇宙船のまん中（機首の向きに 88 m）を画面に入れ、その向こうに地球
+        want.copy(nose).multiplyScalar(88).addScaledVector(toEarth, -150).addScaledVector(south, 55).addScaledVector(up, 25)
+        look.copy(nose).multiplyScalar(88).addScaledVector(toEarth, 260)
       }
       fov = 50
       cs.up.copy(up)
