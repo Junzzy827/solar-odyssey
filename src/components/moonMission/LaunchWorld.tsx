@@ -121,7 +121,14 @@ export function LaunchWorld() {
       })
       m.material = Array.isArray(m.material) ? mats : mats[0]
     })
-    return root
+    // 動く部品：塔の腕（Arm1〜Arm9）と、ロケットの押さえの腕（Hold1〜Hold4）。原点が回る軸
+    const arms: THREE.Object3D[] = []
+    const holds: { obj: THREE.Object3D; axis: THREE.Vector3 }[] = []
+    root.traverse((o) => {
+      if (/^Arm\d$/.test(o.name)) arms[Number(o.name[3]) - 1] = o
+      if (/^Hold\d$/.test(o.name)) holds.push({ obj: o, axis: new THREE.Vector3(o.position.x, 0, o.position.z).normalize().cross(Y).negate() })
+    })
+    return { root, arms, holds }
   }, [padGltf])
 
   const plumes = useMemo(() => {
@@ -339,6 +346,22 @@ export function LaunchWorld() {
     lights.group.visible = h < 20_000
     // 光の柱：点火の炎がまぶしいあいだは、目がくらんで薄く見える（作業5で露出と合わせる）
     lights.update(1 - 0.7 * (s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 3000, 0, 1) : 0), t)
+    // 塔の腕：乗組員の通路（Arm9）は秒読みの 5 分前に退いている。第1段の腕（Arm1）は T-16.2 秒、
+    // 残りは離昇の瞬間に、塔の西の角を軸に 90 度回って塔の面に退く（およそ 5 秒）。押さえの腕は離昇で外へ倒れて開く
+    {
+      const sinceLift = s.phase === 'pad' ? -s.countdown : a.t
+      const ease = (x: number) => {
+        const k = THREE.MathUtils.clamp(x, 0, 1)
+        return k * k * (3 - 2 * k)
+      }
+      pad.arms.forEach((arm, i) => {
+        if (!arm) return
+        const k = i === 8 ? 1 : i === 0 ? ease((sinceLift + 16.2) / 5) : ease(sinceLift / 5)
+        arm.rotation.y = (Math.PI / 2) * k
+      })
+      const open = ease(sinceLift / 0.6)
+      for (const hd of pad.holds) hd.obj.quaternion.setFromAxisAngle(hd.axis, open * 0.5)
+    }
     // 霜：離昇の揺れと風で、上がるにつれてはがれ落ちる
     frostUniform.value = THREE.MathUtils.clamp(1 - h / 2500, 0, 1)
     // 炎のまぶしさ（露出を下げる量。カメラが決まったあとで使う）
@@ -515,7 +538,7 @@ export function LaunchWorld() {
       </mesh>
       {/* 地面の組 */}
       <group ref={ground}>
-        <primitive object={pad} />
+        <primitive object={pad.root} />
         <primitive object={site.group} />
         <primitive object={smoke.points} />
         <primitive object={lights.group} />
