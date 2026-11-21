@@ -11,10 +11,16 @@ import { loadSuit, makeSuitRig } from './suitModel'
 import { HIP_Y, SHIN, THIGH, makeAstronaut, type Rig } from './astronaut'
 import { Footprints } from './footprints'
 import { lowMemory } from '../../state/quality'
+import { Regolith } from './regolith'
+import { windFor } from './landerFx'
+import type { SkyNow } from './skyNow'
 
 // 宇宙服で地表を歩く。重力で歩き方が変わる：
 //   0.25 G 以上（地球・火星・金星・水星）… ふつうに歩く・走る
-//   0.05〜0.25 G（月・イオ・エウロパ・タイタンなど）… 両足でぴょんぴょん跳ねて進む（アポロの宇宙飛行士のように）
+//   0.05〜0.25 G（月・イオ・エウロパ・タイタンなど）… アポロの宇宙飛行士の歩き方。ゆっくりなら、ひざを曲げたまま小さくすり足。
+//     速くなると「ロープ」（lope）：片足ずつ交互にけって、低く長く弾むように進む（けった足は後ろに残り、
+//     前の足が次に着く）。体は少し前かがみ、腕は少し横に開いて前に出したまま、あまり振らない
+//     （与圧した宇宙服はひざも腕も曲げにくい）
 //   0.05 G より弱い（フォボスや小さな衛星）… 地面をけるとふわっと浮く。すべるように少しずつ進む
 // Space の大ジャンプは、重力ジャンプ（GravityJump）と同じ力。空中が長い星では早送りにする
 
@@ -29,6 +35,10 @@ const JUMP_TOP = 40
 const AIR_SHOWN = 5
 /** 着陸船の脚と胴の、近づけない半径（m） */
 const LANDER_R = 11
+/** これより速いと、ロープ（片足ずつ弾む歩き）になる（m/s） */
+const LOPE_FROM = 0.55
+/** ロープで足が地面についている時間（秒） */
+const CONTACT = 0.2
 
 const smooth = (x: number) => {
   const k = Math.min(1, Math.max(0, x))
@@ -59,6 +69,10 @@ type Walk = {
   touched: number
   /** 跳ぶボタンを押した時刻（空中なら着地を待つ） */
   jumpAt: number
+  /** ロープ：いま地面をけっている（次にける）足、空中の時間、その一歩の空中の長さ */
+  stance: number
+  airT: number
+  flight: number
 }
 
 /** 立ち姿・歩き・跳ねのポーズを関節の箱に書く */
@@ -82,15 +96,15 @@ function setPose(r: Rig, hip: [number, number], knee: [number, number], arm: [nu
   r.update?.()
 }
 
-export function SuitWalk({ terrain, landerYaw }: { terrain: Terrain; landerYaw: number }) {
+export function SuitWalk({ terrain, landerYaw, sky }: { terrain: Terrain; landerYaw: number; sky: SkyNow }) {
   const on = useSuitWalk((s) => s.on)
   // 地表を離れる（離陸・別の星）ときは、着陸船に戻ったことにする
   useEffect(() => () => endSuitWalk(), [])
   if (!on) return null
-  return <Walker terrain={terrain} landerYaw={landerYaw} />
+  return <Walker terrain={terrain} landerYaw={landerYaw} sky={sky} />
 }
 
-function Walker({ terrain }: { terrain: Terrain; landerYaw: number }) {
+function Walker({ terrain, sky }: { terrain: Terrain; landerYaw: number; sky: SkyNow }) {
   const { camera, gl } = useThree()
   const def = terrain.def
   const gG = def.gravity
@@ -119,6 +133,24 @@ function Walker({ terrain }: { terrain: Terrain; landerYaw: number }) {
   const range = roverRangeFor(terrain, ROVER_RANGE)
   const prints = useMemo(() => new Footprints(def.ground, lowMemory() ? 300 : 800), [def.ground])
   useEffect(() => () => prints.dispose(), [prints])
+  // けり上げる砂（空気の無い星では放物線、ある星では土けむり）
+  const hasAir = !!def.sky
+  const dust = useMemo(() => new Regolith(lowMemory() ? 260 : 520, new THREE.Color(def.ground), hasAir, g, windFor(def.id, hasAir)), [def, hasAir, g])
+  useEffect(() => () => dust.dispose(), [dust])
+  const dustBase = useMemo(() => new THREE.Color(def.ground).lerp(new THREE.Color('#ffffff'), 0.12), [def.ground])
+  /** 足 i の位置（体の横に ±0.13 m、along は前へ） */
+  const footAt = (s: Walk, i: number, along: number) => {
+    const off = i === 0 ? -0.13 : 0.13
+    return [s.x + Math.cos(s.heading) * off - Math.sin(s.heading) * along, s.z - Math.sin(s.heading) * off - Math.cos(s.heading) * along] as const
+  }
+  /** 足 i で砂をける。back は後ろへ飛ばすか（けり出し）、まわりへ散らすか（着地） */
+  const kick = (s: Walk, i: number, power: number, back: boolean, n: number) => {
+    if (!def.dust) return
+    const [x, z] = footAt(s, i, back ? -0.15 : 0.1)
+    const bx = Math.sin(s.heading)
+    const bz = Math.cos(s.heading)
+    dust.kick(x, groundAt(x, z), z, back ? bx : -bx, back ? bz : -bz, power, back ? 0.18 : 0.5, n)
+  }
 
   // いま立って見ていた場所（着陸船の少し手前）から出る。着陸船の方を向いて、カメラは後ろから
   const st = useRef<Walk | null>(null)
@@ -126,7 +158,7 @@ function Walker({ terrain }: { terrain: Terrain; landerYaw: number }) {
     const x = 0
     const z = 0
     const heading = Math.atan2(-(LANDER_POS.x - x), -(LANDER_POS.y - z))
-    st.current = { x, z, y: meshHeight(terrain, x, z), vy: 0, vx: 0, vz: 0, heading, grounded: true, crouch: -1, landed: 9, big: false, speedUp: 1, phase: 0, plant: [true, true], touched: -9, jumpAt: -9 }
+    st.current = { x, z, y: meshHeight(terrain, x, z), vy: 0, vx: 0, vz: 0, heading, grounded: true, crouch: -1, landed: 9, big: false, speedUp: 1, phase: 0, plant: [true, true], touched: -9, jumpAt: -9, stance: 0, airT: 0, flight: 0.6 }
     suitCam.yaw = heading + 0.5
     suitCam.pitch = 0.2
     suitCam.dist = 5
@@ -268,12 +300,18 @@ function Walker({ terrain }: { terrain: Terrain; landerYaw: number }) {
         s.grounded = false
         s.big = true
         s.speedUp = Math.max(1, (2 * v) / g / AIR_SHOWN)
+        // 両足でけった砂
+        kick(s, 0, 0.9, true, 14)
+        kick(s, 1, 0.9, true, 14)
       }
-    } else if (s.grounded && gait === 'hop' && speed > 0.35 && s.landed > 0.14) {
-      // 両足でけって、低く長く跳ねる（速いほど少し高く）
-      s.vy = Math.sqrt(2 * g * (0.12 + 0.1 * Math.min(1, speed / 2.3)))
+    } else if (s.grounded && gait === 'hop' && speed > LOPE_FROM && s.landed > CONTACT) {
+      // ロープ：地面についている足でけって、低く長く弾む（速いほど少し高く）。けった足は後ろに残る
+      s.vy = Math.sqrt(2 * g * (0.05 + 0.06 * Math.min(1, speed / 2.3)))
+      s.flight = (2 * s.vy) / g
+      s.airT = 0
       s.grounded = false
       s.big = false
+      kick(s, s.stance, 0.4 + 0.35 * Math.min(1, speed / 2.3), true, 12)
     } else if (s.grounded && gait === 'float' && speed > 0.15 && s.landed > 0.5) {
       // ほんの少しけっただけで浮く
       s.vy = Math.min(0.12, g * 1.4)
@@ -324,25 +362,43 @@ function Walker({ terrain }: { terrain: Terrain; landerYaw: number }) {
       } else s.y = gy
       s.landed += dtReal
     } else {
+      s.airT += dt
       s.vy -= g * dt
       s.y += s.vy * dt
       if (s.y <= gy && s.vy <= 0) {
         s.y = gy
         s.grounded = true
         s.landed = 0
+        const fall = Math.min(2, -s.vy)
         if (s.big) {
-          // 大ジャンプの着地：少しすべって止まる
+          // 大ジャンプの着地：少しすべって止まる。両足の足あとと、まわりに飛び散る砂
           s.vx *= 0.4
           s.vz *= 0.4
-        }
-        s.big = false
-        s.speedUp = 1
-        // 両足の足あと（跳ねる歩き・着地）
-        if (gait !== 'walk') {
           prints.add(s.x, s.z, s.heading, 0, groundAt)
           prints.add(s.x, s.z, s.heading, 1, groundAt)
-          useSuitWalk.setState({ steps: prints.total })
+          kick(s, 0, 0.5 + 0.3 * fall, false, 18)
+          kick(s, 1, 0.5 + 0.3 * fall, false, 18)
+        } else if (gait === 'hop') {
+          // ロープの着地：前に出していた足が着く（その足が次にける足）
+          s.stance = 1 - s.stance
+          const [fx2, fz2] = footAt(s, s.stance, 0.15)
+          prints.add(fx2 + Math.cos(s.heading) * (s.stance === 0 ? 0.13 : -0.13), fz2 - Math.sin(s.heading) * (s.stance === 0 ? 0.13 : -0.13), s.heading, s.stance, groundAt)
+          kick(s, s.stance, 0.25 + 0.2 * fall, false, 6)
+        } else if (gait === 'float') {
+          prints.add(s.x, s.z, s.heading, 0, groundAt)
+          prints.add(s.x, s.z, s.heading, 1, groundAt)
+          kick(s, 0, 0.2, false, 3)
+          kick(s, 1, 0.2, false, 3)
+        } else {
+          // ふつうの重力で跳んだ着地
+          prints.add(s.x, s.z, s.heading, 0, groundAt)
+          prints.add(s.x, s.z, s.heading, 1, groundAt)
+          kick(s, 0, 0.4, false, 8)
+          kick(s, 1, 0.4, false, 8)
         }
+        useSuitWalk.setState({ steps: prints.total })
+        s.big = false
+        s.speedUp = 1
       }
     }
     if (edge !== useSuitWalk.getState().edge) useSuitWalk.setState({ edge })
@@ -363,11 +419,37 @@ function Walker({ terrain }: { terrain: Terrain; landerYaw: number }) {
       const arm = -2.2 + 1.6 * fall
       const t = 0.3 + 0.2 * fall
       setPose(r, [-0.35 * t - 0.3 * fall, -0.35 * t - 0.3 * fall], [0.7 * t, 0.7 * t], [arm, arm], 0.35, -0.4, 0.05)
-    } else if (gait === 'walk' || (gait === 'float' && s.grounded)) {
-      // ふつうに歩く（ゆっくりな重力ほど、ゆったり大きく）
-      const amp = Math.min(1, speed / 1.35) * (gait === 'float' ? 0.45 : 1)
+    } else if (gait === 'hop' && (air || speed >= LOPE_FROM * 0.85 || s.landed < CONTACT)) {
+      // ロープ：けった足（stance）は後ろへ、もう一方は前へ出して次に着く。ひざは曲げたまま
+      const moving = Math.min(1, speed / 2.3)
+      const st2 = s.stance
+      const sw = 1 - st2
+      const hip: [number, number] = [0, 0]
+      const knee: [number, number] = [0, 0]
+      if (!air) {
+        // 地面についている：着いた足の上を体が通りすぎ、後ろの足が前へ振り出される。着いた瞬間にひざで受ける
+        const c = smooth(Math.min(1, s.landed / CONTACT))
+        hip[st2] = -0.5 + 0.9 * c
+        knee[st2] = 0.35 + 0.28 * Math.sin(Math.PI * Math.min(1, s.landed / CONTACT))
+        hip[sw] = 0.35 - 0.65 * c
+        knee[sw] = 0.9 - 0.3 * c
+      } else {
+        // 空中：けった足は後ろでひざを曲げ、前の足は着地へ向けて伸ばしていく
+        const p = smooth(Math.min(1, s.airT / Math.max(0.1, s.flight)))
+        hip[st2] = 0.4 - 0.05 * p
+        knee[st2] = 0.4 + 0.5 * p
+        hip[sw] = -0.3 - 0.2 * p
+        knee[sw] = 0.6 - 0.25 * p
+      }
+      // 腕：少し横に開いて前へ。脚と反対に小さく振る
+      const swing = 0.12 * (hip[0] - hip[1])
+      setPose(r, hip, knee, [-0.3 + swing, -0.3 - swing], 0.32, -0.95, 0.2 + 0.12 * moving, -0.04)
+    } else if (gait === 'walk' || gait === 'hop' || (gait === 'float' && s.grounded)) {
+      // ふつうに歩く（ゆっくりな重力ほど、ゆったり大きく）。月などの弱い重力では、ひざを曲げたままの小さなすり足
+      const low = gait === 'hop'
+      const amp = Math.min(1, speed / (low ? LOPE_FROM : 1.35)) * (gait === 'float' ? 0.45 : low ? 0.55 : 1)
       const runK = Math.min(1, Math.max(0, (speed - 1.6) / 1.2))
-      const stride = 1.1 + 0.5 * runK
+      const stride = low ? 0.55 : 1.1 + 0.5 * runK
       if (amp > 0.02) s.phase = (s.phase + (speed * dt) / (stride * 2)) % 1
       else s.phase += (Math.round(s.phase * 2) / 2 - s.phase) * Math.min(1, dt * 4)
       const th = s.phase * Math.PI * 2
@@ -378,17 +460,21 @@ function Walker({ terrain }: { terrain: Terrain; landerYaw: number }) {
         amp * (0.15 + (0.75 + 0.6 * runK) * Math.max(0, -Math.cos(th))),
       ]
       const arm: [number, number] = [(0.5 + 0.3 * runK) * amp * Math.sin(th), -(0.5 + 0.3 * runK) * amp * Math.sin(th)]
-      setPose(r, hip, knee, arm, 0.14, -0.3 - 0.6 * runK * amp, 0.06 * amp + 0.18 * runK)
+      if (low) {
+        // すり足：ひざはいつも少し曲げ、腕は横に開いて前へ（宇宙服で体の前が重い）
+        setPose(r, hip, [knee[0] + 0.25, knee[1] + 0.25], [-0.25 + arm[0] * 0.3, -0.25 + arm[1] * 0.3], 0.3, -0.85, 0.14)
+      } else setPose(r, hip, knee, arm, 0.14, -0.3 - 0.6 * runK * amp, 0.06 * amp + 0.18 * runK)
       // 足をついた瞬間に足あと（stance の始まり：hip が前で止まって戻り始めるところ）
       for (let i = 0; i < 2; i++) {
         const planted = (i === 0 ? Math.sin(th) : -Math.sin(th)) > 0.6
-        if (planted && !s.plant[i] && amp > 0.25) {
+        if (planted && !s.plant[i] && amp > (low ? 0.15 : 0.25)) {
           prints.add(s.x, s.z, s.heading, i, groundAt)
           useSuitWalk.setState({ steps: prints.total })
+          kick(s, i, low ? 0.15 : 0.12, true, low ? 2 : 3)
         }
         s.plant[i] = planted
       }
-    } else if (gait === 'hop' || gait === 'float') {
+    } else if (gait === 'float') {
       // 両足で跳ねる：着地でひざを曲げて受け、けり出す。空中ではひざを少し曲げ、腕は少し横へ
       const moving = Math.min(1, speed / 1.35)
       if (!air) {
@@ -407,6 +493,14 @@ function Walker({ terrain }: { terrain: Terrain; landerYaw: number }) {
     roverFocus.set(s.x, s.y, s.z)
     Object.assign(suitPose, { x: s.x, y: s.y, z: s.z, heading: s.heading, speed, grounded: s.grounded })
     prints.update(dtReal)
+    // 砂：大きさと、日の当たり方
+    dust.update(dtReal)
+    const cam0 = camera as THREE.PerspectiveCamera
+    dust.material.uniforms.uScale.value = (gl.domElement.height || 720) / (2 * Math.tan((cam0.fov * Math.PI) / 360))
+    const lit = Math.max(0.15, Math.min(1, sky.sunDir.y * 3 + 0.2))
+    dust.material.uniforms.uColor.value.copy(dustBase).multiplyScalar(lit)
+    dust.material.uniforms.uShadow.value.copy(dustBase).multiplyScalar(lit * 0.35 + 0.04)
+    dust.material.uniforms.uSunView.value.copy(sky.sunDir).transformDirection(cam0.matrixWorldInverse)
 
     // ---- カメラ：後ろから追う。手で動かしてしばらくは、そのまま ----
     if (want > 0.05 && now - s.touched > 1.5 && s.grounded) {
@@ -435,6 +529,7 @@ function Walker({ terrain }: { terrain: Terrain; landerYaw: number }) {
     <>
       <primitive object={rig.root} />
       <primitive object={prints.mesh} />
+      <primitive object={dust.points} />
     </>
   )
 }
