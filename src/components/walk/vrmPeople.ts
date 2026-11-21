@@ -123,11 +123,30 @@ export function bakeClips(scene: THREE.Object3D, raw: (name: string) => THREE.Ob
       b.quaternion.copy(q)
     }
   scene.updateMatrixWorld(true)
-  const bones = data.bones.map((name) => {
-    const node = raw(name)
+  // T ポーズでの骨の世界の向き。骨組みの親子が VRM と違う素材もある（Rocketbox は太ももの親が背骨、鎖骨の親が首）ので、
+  // VRM の親子で動きを積み上げた「世界の向き」を作り、それをこの素材の本当の親から見た向きに直す
+  const nodes = data.bones.map((name) => raw(name) ?? null)
+  const tw = new Map<THREE.Object3D, THREE.Quaternion>()
+  const twOf = (o: THREE.Object3D) => {
+    let w = tw.get(o)
+    if (!w) tw.set(o, (w = o.getWorldQuaternion(new THREE.Quaternion())))
+    return w
+  }
+  const index = new Map<THREE.Object3D, number>()
+  nodes.forEach((o, i) => o && index.set(o, i))
+  const vrmParent = data.bones.map((name) => {
+    let p = VRM_PARENT[name]
+    // この人にない骨（upperChest など）は飛ばして、その上の骨につなぐ
+    while (p && !raw(p)) p = VRM_PARENT[p]
+    return p ? data.bones.indexOf(p) : -1
+  })
+  const bones = nodes.map((node) => {
     if (!node || !node.parent) return null
-    const pw = node.parent.getWorldQuaternion(new THREE.Quaternion())
-    return { node, pw, pwInv: pw.clone().invert(), rest: node.quaternion.clone() }
+    // 本当の親から上へたどって、最初の動く骨（なければ動かない親）
+    let a: THREE.Object3D | null = node.parent
+    while (a && !index.has(a)) a = a.parent
+    const P = twOf(node.parent)
+    return { node, tw: twOf(node).clone(), anc: a ? index.get(a)! : -1, rel: a ? twOf(a).clone().invert().multiply(P) : P.clone() }
   })
   for (const [b, q] of saved) b.quaternion.copy(q)
   scene.updateMatrixWorld(true)
@@ -138,23 +157,38 @@ export function bakeClips(scene: THREE.Object3D, raw: (name: string) => THREE.Ob
   const clips = new Map<string, THREE.AnimationClip>()
   const q = new THREE.Quaternion()
   const v = new THREE.Vector3()
+  const acc = data.bones.map(() => new THREE.Quaternion())
+  const world = data.bones.map(() => new THREE.Quaternion())
   for (const [name, c] of Object.entries(data.clips)) {
     const rot = int16(c.rot)
     const pos = int16(c.pos)
     const n = c.frames + (c.loop ? 1 : 0)
     const times = new Float32Array(n)
     for (let f = 0; f < n; f++) times[f] = f / c.fps
-    const tracks: THREE.KeyframeTrack[] = []
-    bones.forEach((b, bi) => {
-      if (!b) return
-      const vals = new Float32Array(n * 4)
-      for (let f = 0; f < n; f++) {
+    const vals = bones.map((b) => (b ? new Float32Array(n * 4) : null))
+    for (let f = 0; f < n; f++) {
+      // VRM の親子で積み上げた回し方（data.bones は親が先に並んでいる）→ 骨の世界の向き
+      data.bones.forEach((_, bi) => {
         const o = ((f % c.frames) * data.bones.length + bi) * 4
         q.set(rot[o] / 32767, rot[o + 1] / 32767, rot[o + 2] / 32767, rot[o + 3] / 32767).normalize()
-        q.multiply(b.pw).premultiply(b.pwInv).multiply(b.rest)
-        q.toArray(vals, f * 4)
-      }
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${b.node.name}.quaternion`, times, vals))
+        const pi = vrmParent[bi]
+        if (pi >= 0) acc[bi].copy(acc[pi]).multiply(q)
+        else acc[bi].copy(q)
+        const b = bones[bi]
+        if (b) world[bi].copy(acc[bi]).multiply(b.tw)
+      })
+      bones.forEach((b, bi) => {
+        if (!b) return
+        // 親の世界の向き：動く骨の向き × そこから親までの動かない向き
+        if (b.anc >= 0) q.copy(world[b.anc]).multiply(b.rel)
+        else q.copy(b.rel)
+        q.invert().multiply(world[bi])
+        q.toArray(vals[bi]!, f * 4)
+      })
+    }
+    const tracks: THREE.KeyframeTrack[] = []
+    bones.forEach((b, bi) => {
+      if (b) tracks.push(new THREE.QuaternionKeyframeTrack(`${b.node.name}.quaternion`, times, vals[bi]!))
     })
     const pv = new Float32Array(n * 3)
     for (let f = 0; f < n; f++) {
@@ -167,6 +201,32 @@ export function bakeClips(scene: THREE.Object3D, raw: (name: string) => THREE.Ob
   }
   return { clips, hipsHeight: H }
 }
+
+/** VRM の骨の親（動きのデータはこの親子で書かれている） */
+const VRM_PARENT: Record<string, string> = (() => {
+  const p: Record<string, string> = { spine: 'hips', chest: 'spine', upperChest: 'chest', neck: 'upperChest', head: 'neck' }
+  for (const s of ['left', 'right']) {
+    Object.assign(p, {
+      [`${s}Shoulder`]: 'upperChest',
+      [`${s}UpperArm`]: `${s}Shoulder`,
+      [`${s}LowerArm`]: `${s}UpperArm`,
+      [`${s}Hand`]: `${s}LowerArm`,
+      [`${s}ThumbMetacarpal`]: `${s}Hand`,
+      [`${s}ThumbProximal`]: `${s}ThumbMetacarpal`,
+      [`${s}ThumbDistal`]: `${s}ThumbProximal`,
+      [`${s}UpperLeg`]: 'hips',
+      [`${s}LowerLeg`]: `${s}UpperLeg`,
+      [`${s}Foot`]: `${s}LowerLeg`,
+      [`${s}Toes`]: `${s}Foot`,
+    })
+    for (const f of ['Index', 'Middle', 'Ring', 'Little']) {
+      p[`${s}${f}Proximal`] = `${s}Hand`
+      p[`${s}${f}Intermediate`] = `${s}${f}Proximal`
+      p[`${s}${f}Distal`] = `${s}${f}Intermediate`
+    }
+  }
+  return p
+})()
 
 let loading: Promise<VrmModel[]> | null = null
 
@@ -235,6 +295,8 @@ export class VrmPerson implements Person {
     const hs = model.info.headScale ?? 1
     this.head = body.getObjectByName(model.headName) ?? null
     this.neck = model.neckName ? (body.getObjectByName(model.neckName) ?? null) : null
+    // 首に頭のほかの骨（Rocketbox の鎖骨）がつながっている人は、首を回すと肩・腕までつられるので頭だけで向く
+    if (this.neck && this.neck.children.some((c) => (c as THREE.Bone).isBone && c !== this.head)) this.neck = null
     if (hs !== 1) this.head?.scale.setScalar(hs)
     this.group.add(body)
     this.hips = model.hipsHeight * scale
