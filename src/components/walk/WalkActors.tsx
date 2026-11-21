@@ -10,7 +10,7 @@ import { PLAYER_MODEL, PLAYER_SCALE, VrmPerson, prepareVrmPeople, type VrmModel 
 import { LOOKS, applyLook } from './mobLooks'
 import { DECK_TOP, HoverScooter, RIDER_Z } from './hoverScooter'
 import { JUNGLE, inJungle } from './jungle'
-import { FOREST_SAMPLE_ON } from './forestSample'
+import { FOREST_ON } from './forestLayout'
 import { BOUNDS, G, GROUND_LIFT, HALF_L, LOOP, NS_S, PLAY, POND, STREETS, STREET_W, WALK_W, frameAt, landPoint, loopPoint, parkLayout, pondValue, pushOutOfBoxes, inTown, upAt, type Bench } from './park'
 import { CIRC, inBuilding, pushWorld, standable, wetAt, worldArea, wrapS } from './cylinder'
 import { CORE, DECK_END, OMEGA, RIDE_S, STATION, STATION_H, TOWER, elevCar, elevH, gAt, nearDoor, onStation, sMeters } from './axis'
@@ -39,8 +39,8 @@ function placePerson(p: Person, s: number, y: number, h: number, yaw: number) {
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
 const turn = (from: number, to: number, k: number) => from + wrap(to - from) * Math.min(1, k)
 
-/** 降りた所：南北の道の上、遊び場と池を右前に見る。森の見本のお試し（?forest=sample）のときは、森の入口の手前 */
-const START = FOREST_SAMPLE_ON ? { s: NS_S, y: 11751, yaw: Math.PI } : { s: NS_S + 2, y: 11285, yaw: -2.2 }
+/** 降りた所：南北の道の上、遊び場と池を右前に見る。本格的な森のお試し（?forest=jungle）のときは、森の入口の手前 */
+const START = FOREST_ON ? { s: NS_S, y: 11751, yaw: Math.PI } : { s: NS_S + 2, y: 11285, yaw: -2.2 }
 
 /** 池の散歩道のうち、公園の中にある所（西の岸）の角度。この間を行き来する */
 const LOOP_T0 = Math.PI + Math.asin((LOOP.y - BOUNDS.y1 + 12) / LOOP.ry)

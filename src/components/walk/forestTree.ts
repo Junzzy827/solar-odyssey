@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { seeded } from '../sf/batch'
-import type { Tree } from './forestSample'
+/** 木の形の数：胸の高さの幹の半径 m、幹の高さ m、形の種（根元の位置 s, y は形を作るときは 0） */
+type Tree = { s: number; y: number; r: number; h: number; seed: number }
 
 // 森の見本の一角の、高い木（板根のある巨木）と細い若木の形を作る。読み込みは無く、その場で作る。
 // 幹・枝・つるは「木の部分」、葉は「葉の房の板」（本物の木の枝先を撮った絵を貼る）の 2 つの形にまとめる。
@@ -51,11 +52,15 @@ const a = new THREE.Vector3()
 const b = new THREE.Vector3()
 const c = new THREE.Vector3()
 
+/** 遠く用の軽い形を作っているとき：管の区切りと葉の板の区切りを減らす（乱数の使い方は同じなので、形は近く用と同じになる） */
+let far = false
+
 /** 樹皮の絵 1 枚の大きさ m（横・縦） */
 const BARK = { u: 1.5, v: 2.1 }
 
 /** 点の列に沿った管（枝・幹の上の方・つる）。shade は頂点の色の明るさ */
 function tube(B: Build, pts: THREE.Vector3[], radii: number[], seg: number, shade = 1, uRep = 2) {
+  if (far) seg = Math.max(3, Math.ceil(seg / 2))
   const n = new THREE.Vector3()
   const t = new THREE.Vector3()
   const bi = new THREE.Vector3()
@@ -94,6 +99,7 @@ type Cell = 0 | 1 | 2 | 3
  * crown = 樹冠のまん中と上下（光と色を決める）
  */
 function card(B: Build, rand: () => number, centre: THREE.Vector3, u: THREE.Vector3, v: THREE.Vector3, size: number, cell: Cell, grid: number, sag: number, crown: { c: THREE.Vector3; y0: number; y1: number }) {
+  if (far) grid = 1
   const base = B.count
   const flip = rand() < 0.5
   const nrm = c.crossVectors(v, u).normalize().clone()
@@ -229,8 +235,9 @@ function tallTree(wood: Build, leaves: Build, t: Tree, ox: number, oz: number) {
   }
   // まわりの区切り：等間隔に、板根のまわりだけ細かく
   let ths: number[] = []
-  for (let i = 0; i < 22; i++) ths.push((i / 22) * Math.PI * 2)
-  for (const f of fins) for (const d of [-0.3, -0.16, -0.07, 0, 0.07, 0.16, 0.3]) ths.push((((f.th + d) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2))
+  const ring = far ? 10 : 22
+  for (let i = 0; i < ring; i++) ths.push((i / ring) * Math.PI * 2)
+  for (const f of fins) for (const d of far ? [-0.16, 0, 0.16] : [-0.3, -0.16, -0.07, 0, 0.07, 0.16, 0.3]) ths.push((((f.th + d) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2))
   ths.sort((p, q) => p - q)
   ths = ths.filter((v, i) => i === 0 || v - ths[i - 1] > 0.025)
   ths.push(ths[0] + Math.PI * 2)
@@ -241,7 +248,7 @@ function tallTree(wood: Build, leaves: Build, t: Tree, ox: number, oz: number) {
     const r2 = radius(ths[j], 0.9)
     us.push(us[j - 1] + Math.hypot(r2 * Math.cos(ths[j]) - r1 * Math.cos(ths[j - 1]), r2 * Math.sin(ths[j]) - r1 * Math.sin(ths[j - 1])) / BARK.u)
   }
-  const hs = [-0.4, 0, 0.2, 0.5, 0.9, 1.4, 2.1, 3, 4, 5, TOP]
+  const hs = far ? [-0.4, 0, 0.5, 1.4, 3, TOP] : [-0.4, 0, 0.2, 0.5, 0.9, 1.4, 2.1, 3, 4, 5, TOP]
   const base = wood.count
   const cen = new THREE.Vector3()
   hs.forEach((h, i) => {
@@ -434,11 +441,14 @@ function poleTree(wood: Build, leaves: Build, t: Tree, ox: number, oz: number) {
   }
 }
 
-/** 見本の一角の木をぜんぶ、2 つの形（木の部分・葉の房）にまとめる。origin = 原点にする (s, y) */
-export function forestTrees(tall: Tree[], poles: Tree[], origin: { s: number; y: number }) {
+/** 木 1 本の形（根元が原点、x = 東、y = 上、z = 北）。kind = 高い木か細い若木。lod = 1 で遠く用の軽い形 */
+export function treeShape(kind: 'tall' | 'pole', t: Pick<Tree, 'r' | 'h' | 'seed'>, lod: 0 | 1) {
   const wood = new Build()
   const leaves = new Build()
-  for (const t of tall) tallTree(wood, leaves, t, t.s - origin.s, t.y - origin.y)
-  for (const t of poles) poleTree(wood, leaves, t, t.s - origin.s, t.y - origin.y)
+  far = lod === 1
+  const tree = { ...t, s: 0, y: 0 }
+  if (kind === 'tall') tallTree(wood, leaves, tree, 0, 0)
+  else poleTree(wood, leaves, tree, 0, 0)
+  far = false
   return { wood: wood.geometry(true), leaves: leaves.geometry(false) }
 }

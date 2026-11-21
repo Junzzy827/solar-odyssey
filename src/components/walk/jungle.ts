@@ -1,7 +1,7 @@
 import { seeded } from '../sf/batch'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { isTouchDevice } from '../../state/input'
-import { FOREST_SAMPLE_ON, forestSample, inSample } from './forestSample'
+import { FOREST_ON, forestLayout, type Forest } from './forestLayout'
 
 // 公園の北の生け垣の外の、お試しのジャングル（コロニーの生き物の研究所が育てている森、という見立て）。
 // 植物はみな読み込みなしでその場で作る形（WalkJungle.tsx）。ここは置き場所だけを決める。
@@ -32,6 +32,28 @@ export type Jungle = {
 export const TRAIL_W = 3
 
 let jungle: Jungle | null = null
+let forest: Forest | null = null
+
+/** 「本格的な森」のお試し（?forest=jungle）のときの置き場所（forestLayout.ts）。お試しでなければ null */
+export function jungleForest() {
+  jungleLayout()
+  return forest
+}
+
+/** 小道（点の列。閉じていない）からの距離 */
+function polyDist(path: { s: number; y: number }[], s: number, y: number) {
+  let d = Infinity
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1]
+    const b = path[i]
+    const ds = b.s - a.s
+    const dy = b.y - a.y
+    const l2 = ds * ds + dy * dy || 1
+    const u = Math.max(0, Math.min(1, ((s - a.s) * ds + (y - a.y) * dy) / l2))
+    d = Math.min(d, Math.hypot(s - a.s - ds * u, y - a.y - dy * u))
+  }
+  return d
+}
 
 /** 数の倍率（スマホ・軽い画質は少なく） */
 function density() {
@@ -116,21 +138,27 @@ export function jungleLayout(): Jungle {
   // 入口のアーチの柱
   for (const ds of [-3.6, 3.6]) obstacles.push({ s: JUNGLE_GATE.s + ds, y: JUNGLE_GATE.y, r: 0.35 })
   jungle = { trail, giants, ferns, ears, bulbs, spirals, mushrooms, grass, obstacles }
-  if (FOREST_SAMPLE_ON) {
-    // 「本格的な森」の見本の一角（forestSample.ts）の中は、今までの植物をどけて、見本の植物に入れかえる。
-    // 置いたあとでどけるので、見本の外の森は、切りかえの前と 1 本も変わらない
-    const out = <T extends { s: number; y: number }>(a: T[], pad: number) => a.filter((p) => !inSample(p.s, p.y, pad))
-    jungle = {
-      trail,
-      giants: out(giants, 7),
-      ferns: out(ferns, 1.2),
-      ears: out(ears, 0.8),
-      bulbs: out(bulbs, 0.5),
-      spirals: out(spirals, 1),
-      mushrooms: out(mushrooms, 1.5),
-      grass: out(grass, 0.3),
-      obstacles: [...obstacles.filter((p) => !inSample(p.s, p.y, 1) || Math.abs(p.y - JUNGLE_GATE.y) < 0.1), ...forestSample().obstacles],
-    }
+  if (FOREST_ON) {
+    // 「本格的な森」のお試し：今までの木と下草はやめて、forestLayout.ts の植物に入れかえる。
+    // ふしぎな植物（光る球・らせんの角・大きなきのこ）は、半分だけ残して、森のアクセントにする
+    const half = <T,>(a: T[]) => a.filter((_, i) => i % 2 === 0)
+    const keep = { bulbs: half(bulbs), spirals: half(spirals), mushrooms: half(mushrooms) }
+    const accents = [...keep.mushrooms.map((p) => ({ s: p.s, y: p.y, r: 0.45 * p.k })), ...keep.spirals.map((p) => ({ s: p.s, y: p.y, r: 0.35 * p.k }))]
+    const loop = [...trail, trail[0]]
+    const ns = [
+      { s: NS, y: JUNGLE.y0 - 4 },
+      { s: NS, y: JUNGLE.y1 + 4 },
+    ]
+    forest = forestLayout({
+      rect: JUNGLE,
+      paths: [ns, loop],
+      trailDist: (s, y) => Math.min(Math.abs(s - NS), polyDist(loop, s, y)),
+      half: TRAIL_W / 2,
+      gate: JUNGLE_GATE,
+      avoid: [...accents.map((a) => ({ ...a, r: a.r * 2.5 })), ...keep.bulbs.map((p) => ({ s: p.s, y: p.y, r: 0.8 * p.k }))],
+    })
+    const gate = obstacles.filter((o) => Math.abs(o.y - JUNGLE_GATE.y) < 0.01 && Math.abs(Math.abs(o.s - JUNGLE_GATE.s) - 3.6) < 0.01)
+    jungle = { trail, giants: [], ferns: [], ears: [], grass: [], ...keep, obstacles: [...accents, ...gate, ...forest.obstacles] }
   }
   return jungle
 }

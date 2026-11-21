@@ -146,9 +146,9 @@ const SCENARIOS = {
       await sleep(8000)
     },
   },
-  // 「本格的な森」の見本の一角（?forest=sample）と、同じ場所・同じ向きの今までの森。この 2 つを比べる
+  // 「本格的な森」に作り直したラボの森（?forest=jungle）と、同じ場所・同じ向きの今までの森。この 2 つを比べる
   forestOff: { hash: '#debug&sf', after: (page) => forestCorner(page) },
-  forestOn: { query: '?forest=sample', hash: '#debug&sf', after: (page) => forestCorner(page) },
+  forestOn: { query: '?forest=jungle', hash: '#debug&sf', after: (page) => forestCorner(page) },
 }
 
 /** 森の入口から少し入った小道の上で、北（森の奥）を向く */
