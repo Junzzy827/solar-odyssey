@@ -21,7 +21,7 @@ const APOLLO_URL = `${base}models/apollo.glb`
 const EARTH_POS = new THREE.Vector3(384_400_000, 0, 0)
 const EARTH_R = 6_371_000
 /** LM の窓（船長の目）：LM の中の位置（m、glTF の向き：+Y 上、-Z 前） */
-const WINDOW_EYE = new THREE.Vector3(-0.5, 5.3, -1.4)
+const WINDOW_EYE = new THREE.Vector3(-0.55, 4.85, -1.25)
 /** ドッキングの口（LM のてっぺん） */
 const DROGUE = new THREE.Vector3(0, 6.16, 0.2)
 
@@ -90,7 +90,7 @@ const moonFragment = /* glsl */ `
   }
   float lmBlock(vec3 o, vec3 d) {
     float hit = hitBox(o, d, vec3(0.0, 2.22, 0.0), vec3(2.11, 0.83, 2.11));
-    hit = max(hit, hitBox(o, d, vec3(0.0, 4.5, 0.1), vec3(1.3, 1.2, 1.3)));
+    hit = max(hit, hitBox(o, d, vec3(0.0, 4.6, 0.43), vec3(1.7, 1.3, 2.03)));
     for (int i = 0; i < 4; i++) {
       float a = float(i) * 1.5707963;
       vec3 k = vec3(cos(a), 0.0, sin(a));
@@ -446,50 +446,6 @@ function Sky() {
 
 // ---- 宇宙船 -------------------------------------------------------------------------------
 
-/** 金色のフィルムの「しわ」（法線の地図）。乱数の折り目を重ねる */
-function crinkleTexture() {
-  const N = 256
-  const c = document.createElement('canvas')
-  c.width = c.height = N
-  const g = c.getContext('2d')!
-  const img = g.createImageData(N, N)
-  const h = new Float32Array(N * N)
-  let seed = 7
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-  for (let k = 0; k < 140; k++) {
-    // 折り目：ランダムな向きの、細い山
-    const a = rnd() * Math.PI
-    const ca = Math.cos(a)
-    const sa = Math.sin(a)
-    const o = rnd() * N
-    const w = 2 + rnd() * 6
-    const amp = (rnd() - 0.5) * 2
-    for (let y = 0; y < N; y++)
-      for (let x = 0; x < N; x++) {
-        let d = (x * ca + y * sa - o) % N
-        if (d < -N / 2) d += N
-        if (d > N / 2) d -= N
-        h[y * N + x] += amp * Math.exp(-(d * d) / (w * w))
-      }
-  }
-  for (let y = 0; y < N; y++)
-    for (let x = 0; x < N; x++) {
-      const hx = h[y * N + ((x + 1) % N)] - h[y * N + ((x + N - 1) % N)]
-      const hy = h[((y + 1) % N) * N + x] - h[((y + N - 1) % N) * N + x]
-      const v = new THREE.Vector3(-hx, -hy, 2).normalize()
-      const i = (y * N + x) * 4
-      img.data[i] = (v.x * 0.5 + 0.5) * 255
-      img.data[i + 1] = (v.y * 0.5 + 0.5) * 255
-      img.data[i + 2] = (v.z * 0.5 + 0.5) * 255
-      img.data[i + 3] = 255
-    }
-  g.putImageData(img, 0, 0)
-  const t = new THREE.CanvasTexture(c)
-  t.wrapS = t.wrapT = THREE.RepeatWrapping
-  t.repeat.set(2, 2)
-  return t
-}
-
 type Craft = {
   lm: THREE.Group
   csm: THREE.Group
@@ -500,16 +456,11 @@ function useCraft(): Craft {
   const { scene } = useGLTF(APOLLO_URL)
   return useMemo(() => {
     const src = scene.clone(true)
-    const crinkle = crinkleTexture()
     src.traverse((o) => {
       const mesh = o as THREE.Mesh
       if (!mesh.isMesh) return
-      const m = (mesh.material as THREE.MeshStandardMaterial).clone()
-      if (/Kapton|Mylar|Pad/.test(m.name)) {
-        m.normalMap = crinkle
-        m.normalScale.set(0.9, 0.9)
-      }
-      mesh.material = m
+      // しわや継ぎ目は glb に焼き込み済み（tools/blender/bake_mission.py）
+      mesh.material = (mesh.material as THREE.MeshStandardMaterial).clone()
     })
     const lm = new THREE.Group()
     lm.name = 'lm'
