@@ -4,6 +4,9 @@ export const suitWalkJa = {
   button: '👨‍🚀 宇宙服で外へ',
   buttonTip: '着陸船から出て、自分の足で歩いてみよう',
   back: '着陸船に戻る',
+  /** 与圧ローバーのそばで出るボタン（PC は E キーでも） */
+  boardCrew: '🚐 ミチカケに乗る',
+  boardCrewKey: 'E キーでも乗れます',
   run: '走る',
   jump: '跳ぶ',
   hintPc: 'WASD で歩く・Shift で走る・Space で跳ぶ・ドラッグで見回す',

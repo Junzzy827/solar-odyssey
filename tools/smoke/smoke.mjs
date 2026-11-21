@@ -312,6 +312,39 @@ const SCENARIOS = {
       await sleep(2000)
     },
   },
+  // 宇宙服で与圧ローバーへ：車体はすり抜けない。そばで「乗る」が出て、押すと運転できる
+  'crew-board': {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.landing.start('moon'))
+      await sleep(3000)
+      await page.evaluate(() => window.__sv.landing.skip())
+      await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface' && window.__sv.landing.state.getState().ready, null, { timeout: 180000, polling: 500 })
+      await sleep(2000)
+      await visibleButton(page, '.suit-out')
+      await page.evaluate(() => document.querySelector('.suit-out').click())
+      await page.waitForFunction(() => window.__sv.suitWalk.state.getState().on && window.__sv.suitWalk.pose && window.__sv.suitWalk.debug.place && window.__sv.suitWalk.crew.on, null, { timeout: 60000, polling: 500 })
+      // 車体の中（横 1.5 m）に置くと、車の外へ押し出される。そばなので「乗る」が出る
+      await page.evaluate(() => {
+        const c = window.__sv.suitWalk.crew
+        window.__sv.suitWalk.debug.place(c.x + Math.cos(c.heading) * 1.5, c.z - Math.sin(c.heading) * 1.5, c.heading)
+      })
+      await page.waitForFunction(() => window.__sv.suitWalk.state.getState().nearCrew, null, { timeout: 30000, polling: 500 })
+      await sleep(2000)
+      const d = await page.evaluate(() => {
+        const c = window.__sv.suitWalk.crew, p = window.__sv.suitWalk.pose
+        const fx = -Math.sin(c.heading), fz = -Math.cos(c.heading)
+        const dx = p.x - c.x, dz = p.z - c.z
+        return { f: dx * fx + dz * fz, s: dx * -fz + dz * fx }
+      })
+      if (Math.abs(d.s) < 2.5 && Math.abs(d.f) < 3.5) throw new Error(`crew-board: inside the rover (${JSON.stringify(d)})`)
+      await visibleButton(page, '.sw-board')
+      await page.evaluate(() => document.querySelector('.sw-board').click())
+      await page.waitForFunction(() => window.__sv.rover.state.getState().phase === 'drive' && window.__sv.rover.state.getState().vehicle === 'crew', null, { timeout: 60000, polling: 500 })
+    },
+  },
   // 宇宙服で歩く（月）：外へ出て歩ける
   suit: {
     ctx: desktop,

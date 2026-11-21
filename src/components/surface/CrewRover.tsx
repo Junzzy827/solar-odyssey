@@ -9,7 +9,7 @@ import { lowMemory, useLevel } from '../../state/quality'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { useLanding } from '../../state/landing'
 import { isWide, roverRangeFor, wideNow } from './wideGround'
-import { BOARD_SEC, CREW_TOP, ROVER_RANGE, driveInput, roverFocus, roverInput, roverNow, roverPose, setRoverPhase, useRover } from '../../state/rover'
+import { BOARD_SEC, CREW_TOP, ROVER_RANGE, driveInput, roverFocus, roverInput, roverNow, roverPose, setRoverPhase, useRover, crewPose } from '../../state/rover'
 import { WheelDust, meshHeight, drawnHeight, nearRocks, rockBodies } from './Rover'
 import { WheelTracks } from './wheelTracks'
 import { Sway } from './roverSway'
@@ -241,6 +241,7 @@ export function CrewRover({
 
   // 着陸船のそばに停めてある（降りても、そこに停まったまま）。着陸するたびに停めた場所から
   const st = useRef<Drive | null>(null)
+  useEffect(() => () => void (crewPose.on = false), [])
   useEffect(() => {
     const p = crewPark(landerYaw)
     st.current = {
@@ -458,6 +459,7 @@ export function CrewRover({
 
     // ---- 姿 ----
     grp.position.set(s.x, s.y, s.z)
+    Object.assign(crewPose, { on: true, x: s.x, y: s.y, z: s.z, heading: s.heading })
     grp.rotation.set(s.pitch + s.sway.pitch * 0.5, s.heading, s.roll + s.sway.roll * 0.5, 'YXZ')
     // サスペンション：車体は 6 つの車輪の平均の高さなので、でこぼこの上では車輪ごとに地面とずれる。
     // 車輪を上下に動かして（伸び 0.3 m・縮み 0.35 m まで）地面にのせる。縮みきってもめり込むなら車体ごと持ち上げる

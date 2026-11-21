@@ -22,7 +22,7 @@ import { probeClock, useProbes } from './state/probes'
 import { goToSite, skipDescent, startLanding, startTakeoff, useLanding } from './state/landing'
 import { quitRally, startRally, useRally } from './state/rally'
 import { useSurfaceLab } from './state/surfaceLab'
-import { launchRover, recallRover, roverCtl, roverDebug, roverFocus, roverInput, roverPose, useRover } from './state/rover'
+import { crewPose, launchRover, recallRover, roverCtl, roverDebug, roverFocus, roverInput, roverPose, useRover } from './state/rover'
 import { shipCol } from './components/eva/shipCollider'
 import { evaDebug, evaInput, recallEva, startEva, useEva } from './state/eva'
 import { evaJobsDebug, jobsRt, useEvaJobs } from './state/evaJobs'
@@ -95,7 +95,7 @@ const sv = {
   },
   waterCup: { state: useWaterCup, place: placeCup, remove: removeCup, aim: viewAim },
   sunrise: { state: useSunrise, watch: (id: string) => { const d = surfaceFor(id); if (d) watchSunrise(d) } },
-  suitWalk: { state: useSuitWalk, start: startSuitWalk, end: endSuitWalk, input: suitInput, debug: suitDebug, cam: suitCam, pose: suitPose },
+  suitWalk: { state: useSuitWalk, start: startSuitWalk, end: endSuitWalk, input: suitInput, debug: suitDebug, cam: suitCam, pose: suitPose, crew: crewPose },
   sizeCompare: { state: useSizeCompare, open: openSizeCompare, close: closeSizeCompare, focus: sizeFocus, pick: sizePick },
   delivery: { state: useDelivery, board: jobBoard, accept: acceptJob, cancel: cancelJob, handoff: handoffDone, lab: labPlace },
   colony: { state: useColony, begin: beginColony, build: buildColonyZone, catchUp: colonyCatchUp },
