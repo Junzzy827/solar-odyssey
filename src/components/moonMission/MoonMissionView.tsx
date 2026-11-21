@@ -27,6 +27,9 @@ import {
 
 const debugOn = typeof location !== 'undefined' && location.hash.includes('debug')
 import { LaunchWorld } from './LaunchWorld'
+import { LunarWorld } from './LunarWorld'
+import { LunarHud } from './LunarHud'
+import { bindLunarKeys, lunarPhase, startLunar } from '../../state/moonLunar'
 import './moonMission.css'
 
 // 月ミッション（アポロ17号の追体験）の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
@@ -55,14 +58,13 @@ function FilmHook() {
   return null
 }
 
-const MissionCanvas = memo(function MissionCanvas() {
+const MissionCanvas = memo(function MissionCanvas({ moon }: { moon: boolean }) {
   const dpr = useDpr(1.75)
   return (
     <Canvas dpr={dpr} gl={{ alpha: false, logarithmicDepthBuffer: true, antialias: true }} camera={{ fov: 40, near: 0.3, far: 2e10, position: [0, 20, 300] }}>
       <color attach="background" args={['#000']} />
-      <Suspense fallback={null}>
-        <LaunchWorld />
-      </Suspense>
+      {/* 第1弾（地球から月へ向かうまで）と第2弾（月のまわり）は、別の世界 */}
+      <Suspense fallback={null}>{moon ? <LunarWorld /> : <LaunchWorld />}</Suspense>
       <QualityGovernor />
       {debugOn && <FilmHook />}
     </Canvas>
@@ -152,6 +154,11 @@ function Hud() {
               <div className="mm-intro-title">{t.title}</div>
               <div>{t.intro}</div>
               <div className="mm-intro-crew">{t.crew}</div>
+              {s.ignitedAt === null && (
+                <button className="mm-chapter" onClick={() => startLunar()}>
+                  {t.lunar.chapterMoon}
+                </button>
+              )}
             </div>
           )}
           <div className="mm-count">{t.tMinus(s.countdown)}</div>
@@ -213,7 +220,7 @@ function Hud() {
       <Caption />
       <div className="mm-buttons">
         <button onClick={() => cycleCam()}>
-          {t.camera}：{t.camNames[s.cam]}
+          {t.camLabel(t.camNames[s.cam])}
         </button>
         {s.phase === 'ascent' && (
           <button className={s.auto ? 'on' : ''} onClick={() => setAuto(!s.auto)}>
@@ -231,6 +238,9 @@ function Hud() {
           <div className="mm-end-note">{t.starsNote}</div>
           <div className="mm-end-next">{t.endNext}</div>
           <div className="mm-end-buttons">
+            <button className="mm-continue" onClick={() => startLunar()}>
+              {t.lunar.continue}
+            </button>
             <button onClick={() => restartMission()}>{t.again}</button>
             <button onClick={() => endMission()}>{t.back}</button>
           </div>
@@ -251,6 +261,7 @@ function Fade() {
 export function MoonMissionView() {
   const phase = useMoonMission((s) => s.phase)
   useEffect(() => bindMissionKeys(), [])
+  useEffect(() => bindLunarKeys(), [])
   // スマホ：長押しの点火ボタンを離したとき
   useEffect(() => {
     const up = () => (missionInput.ignite = false)
@@ -258,10 +269,17 @@ export function MoonMissionView() {
     return () => window.removeEventListener('pointerup', up)
   }, [])
   const shown = phase !== 'none' && phase !== 'fadeIn'
+  const moon = lunarPhase(phase)
   return (
     <div className="mm-root" data-phase={phase}>
-      {shown && <MissionCanvas />}
-      {shown && <Hud />}
+      {shown && <MissionCanvas moon={moon} />}
+      {shown && !moon && <Hud />}
+      {shown && moon && (
+        <div className="mm-hud">
+          <LunarHud />
+          <Caption />
+        </div>
+      )}
       <Fade />
     </div>
   )

@@ -5,7 +5,6 @@ import {
   ignitePdi,
   orbitOf,
   orbitPlane,
-  R_MOON,
   siteFrame,
   startArrival,
   startDescent,

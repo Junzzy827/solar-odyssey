@@ -489,6 +489,33 @@ const SCENARIOS = {
       await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'none', null, { timeout: 30000 })
     },
   },
+  // 月ミッション第2弾：月の裏で減速 → 着陸船を切り離す → 降下 → 着陸 → 結果のカード
+  moonLunar: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      await page.evaluate(() => window.__sv.moonMission.start())
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'pad', null, { timeout: 60000 })
+      await page.evaluate(() => window.__sv.moonLunar.start())
+      await page.waitForFunction(() => window.__sv.moonLunar.state.getState().ready, null, { timeout: 120000 })
+      await page.evaluate(() => window.__sv.moonLunar.skip('loi'))
+      await sleep(4000)
+      await check3d(page, 'moonLunar loi')
+      await page.evaluate(() => window.__sv.moonLunar.skip('highGate'))
+      await sleep(4000)
+      await check3d(page, 'moonLunar descent')
+      await page.evaluate(() => window.__sv.moonLunar.skip('land'))
+      const r = await page.evaluate(() => ({ phase: window.__sv.moonMission.state.getState().phase, touch: window.__sv.moonLunar.lunar.desc?.touch }))
+      if (r.phase !== 'landed' || !r.touch || r.touch.vUp < -3) throw new Error(`moonLunar: ${JSON.stringify(r)}`)
+      await page.waitForSelector('.mm-end', { timeout: 60000 })
+      await visibleButton(page, '.mm-end-buttons button')
+    },
+    after: async (page) => {
+      await page.click('.mm-quit')
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'none', null, { timeout: 30000 })
+    },
+  },
   walk: {
     ctx: desktop,
     hash: '#debug&sf',

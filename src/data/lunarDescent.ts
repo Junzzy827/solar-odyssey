@@ -142,8 +142,8 @@ const [_r0, _v0, _a1, _r2, _v2, _a2, _r3, _v3, _a3, _r4, _v4, _a4] = Array.from(
 /** 月に近づく双曲線の軌道：近月点の高さ 110 km、そこでの速さ 2.48 km/s（月の裏側） */
 export const ARRIVE_PERI_ALT = 110_000
 export const ARRIVE_PERI_V = 2_480
-/** 近月点の θ（軌道の面の角度）：月の裏側のほぼ真ん中 */
-export const ARRIVE_PERI_TH = THREE.MathUtils.degToRad(205)
+/** 近月点の θ（軌道の面の角度）：月の裏側（地球からは見えない）で、日の当たっている所 */
+export const ARRIVE_PERI_TH = THREE.MathUtils.degToRad(235)
 /** 減速を止める：遠月点が 315 km まで下がったら（アポロ17号は 315 km × 97 km の軌道に入った） */
 export const LOI_APO = 315_000
 /** 本物の LOI は 393 秒、速さを 911 m/s 落とした */
@@ -258,6 +258,8 @@ export type Descent = {
   target: THREE.Vector3
   /** 本物のアポロ17号の着陸船の場所（目標をずらしても、ここからの距離で点をつける） */
   spot: THREE.Vector3
+  /** 本物の地面の高さで降りる場所を決めたか（地図を読む前は仮の高さ） */
+  groundOk?: boolean
   /** 探り棒が触れた時刻と、そのときの上下の速さ */
   contactAt: number | null
   contactV: number
@@ -455,16 +457,13 @@ const TURN = THREE.MathUtils.degToRad(10)
 
 /** dt 秒すすめる。出来事を out に足す */
 export function stepDescent(d: Descent, dt: number, input: DescentInput, ground: Ground, out: DescentEvent[] = []) {
-  if (d.mode === 'landed' || d.mode === 'abort') return out
-  const powered = d.mode !== 'coast'
-  const sub = powered ? 0.1 : 2
+  const done = () => d.mode === 'landed' || d.mode === 'abort'
   let left = dt
-  while (left > 1e-9) {
-    const h = Math.min(sub, left)
+  while (left > 1e-9 && !done()) {
+    // 推力なしは 2 秒刻み、燃えているあいだは 0.1 秒刻み
+    const h = Math.min(d.mode === 'coast' ? 2 : 0.1, left)
     left -= h
     stepOnce(d, h, input, ground, out)
-    if (d.mode === 'landed' || d.mode === 'abort') break
-    if (!powered && d.mode !== 'coast') break
   }
   return out
 }
@@ -687,9 +686,15 @@ export function targetOffset(d: Descent) {
 const _to = new THREE.Vector3()
 
 /** 着地の点数（0〜3）。おまかせなら 1 */
+/** 脚がこわれるほど強く着いたか（本物の脚は、たて 3 m/s・横 1.2 m/s ほどまで） */
+export function hardLanding(d: Descent) {
+  const t = d.touch
+  return !!t && (Math.abs(t.vUp) > 3.5 || t.vSide > 3 || t.tilt > 15)
+}
+
 export function landingStars(d: Descent) {
   const t = d.touch
-  if (!t) return 0
+  if (!t || hardLanding(d)) return 0
   if (d.auto || !d.manual) return 1
   let s = 3
   if (Math.abs(t.vUp) > 1.2 || t.vSide > 0.8 || t.miss > 250 || t.fuel < BINGO) s = 2
