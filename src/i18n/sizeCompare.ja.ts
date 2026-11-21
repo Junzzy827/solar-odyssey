@@ -6,14 +6,11 @@ export const sizeCompareJa = {
   title: '大きさくらべ',
   navButton: '大きさくらべ',
   open3d: '🌍 3Dでくらべる',
-  everest: 'エベレスト',
   /** 大きいほうの直径に、小さいほうがいくつならぶか */
   across: (big: string, small: string, count: number) => `${big}の直径に、${small}が約${n(count)}個ならぶ`,
-  /** エベレストとくらべる（とても小さい星） */
-  vsEverest: (body: string, times: number) => (times >= 1 ? `${body}の直径は、エベレストの高さの約${n(times)}倍` : `${body}より、エベレストのほうが高い！`),
+  picks: 'くらべる星',
   tapHint: 'さわると近づきます',
   back: '全体にもどる',
   close: '閉じる',
   diameter: (km: number) => (km >= 100 ? `${Math.round(km).toLocaleString('ja-JP')} km` : `${n(km)} km`),
-  height: (km: number) => `高さ ${n(km)} km`,
 }

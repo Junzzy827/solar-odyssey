@@ -1,5 +1,7 @@
 /* 大きさくらべ（ui/SizeCompare.tsx）：全画面の 3D の棚。うしろの宇宙はうっすら見える */
 .size-compare {
+  /* 右の、くらべる星のボタンの列の幅 */
+  --sc-col: 168px;
   position: fixed;
   inset: 0;
   z-index: 62;
@@ -14,7 +16,8 @@
 }
 .sc-canvas {
   position: absolute !important;
-  inset: 0;
+  inset: 0 var(--sc-col) 0 0;
+  width: auto !important;
 }
 .sc-head {
   position: absolute;
@@ -45,10 +48,10 @@
 }
 .sc-foot {
   position: absolute;
-  left: 50%;
+  left: calc((100vw - var(--sc-col)) / 2);
   bottom: calc(18px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
-  width: min(640px, calc(100vw - 24px));
+  width: min(640px, calc(100vw - var(--sc-col) - 24px));
   display: grid;
   justify-items: center;
   gap: 8px;
@@ -73,19 +76,38 @@
   margin: 0;
 }
 .sc-picks {
+  position: absolute;
+  top: calc(64px + env(safe-area-inset-top));
+  right: calc(10px + env(safe-area-inset-right));
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  width: calc(var(--sc-col) - 18px);
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 4px 2px 2px;
+  scrollbar-width: thin;
 }
 .sc-chip {
-  min-height: 36px;
-  padding: 4px 14px;
+  flex: none;
+  min-height: 34px;
+  padding: 4px 12px;
   border: 1px solid rgba(159, 212, 255, 0.4);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
   color: #cfe4ff;
   font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 衛星は、その惑星の下に少し下げて */
+.sc-chip.moon {
+  margin-left: 14px;
+  min-height: 30px;
+  font-size: 13px;
 }
 .sc-chip.on {
   border-color: #9fd4ff;
@@ -135,13 +157,22 @@
   box-shadow: 0 0 8px rgba(255, 210, 122, 0.8);
 }
 @media (max-width: 640px) {
+  .size-compare {
+    --sc-col: 128px;
+  }
   .sc-caption {
-    font-size: 17px;
+    font-size: 16px;
   }
   .sc-chip {
-    min-height: 34px;
-    padding: 3px 11px;
-    font-size: 13px;
+    min-height: 32px;
+    padding: 3px 9px;
+    font-size: 12px;
+  }
+  .sc-chip.moon {
+    margin-left: 8px;
+    min-height: 30px;
+    padding: 3px 7px;
+    font-size: 11px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

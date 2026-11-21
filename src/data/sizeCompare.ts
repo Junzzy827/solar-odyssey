@@ -1,40 +1,37 @@
-import { cardOf, hasCard } from './bodyCards'
+import { BODY_CARDS, cardOf, hasCard } from './bodyCards'
 
-// 大きさくらべ（A4）：いまの星と、地球・月・エベレストなどを、本当の大きさの比で横にならべる。
-// 単位は km。小さいものから左にならべて、下の端をそろえる（棚に置いたように）
+// 大きさくらべ（A4）：いまの星と、地球・月・太陽などを、本当の大きさの比で横にならべる。
+// 単位は km。小さいものから左にならべて、下の端をそろえる（棚に置いたように）。
+// くらべる相手は、天体カードのある星ならどれでも選べる（太陽・惑星・おもな衛星・冥王星など）
 
-/** エベレストの高さ（km） */
-export const EVEREST_KM = 8.849
-/** エベレストのすそ野の半径（km）。形を見せるための目安 */
-export const EVEREST_BASE_KM = 14
-
-/** くらべるのに選べるもの（いまの星のほか） */
-export const PICKS = ['everest', 'moon', 'earth', 'jupiter', 'sun'] as const
-export type Pick = (typeof PICKS)[number]
+/** くらべるのに選べるもの（太陽、惑星とその衛星の順） */
+export const PICKS: readonly string[] = BODY_CARDS.map((c) => c.id)
+export type Pick = string
 
 export type Item = {
   id: string
-  /** 山（エベレスト）か球か */
-  kind: 'ball' | 'mountain'
-  /** 横の幅（km）：球は直径、山はすその幅 */
+  /** 直径（km） */
   width: number
-  /** 高さ（km）：球は直径、山は高さ */
   height: number
   /** ならべたときのまん中の x（km） */
   x: number
 }
 
 /** 半径（km） */
-const r = (id: string) => (id === 'everest' ? EVEREST_KM : (cardOf(id)?.radiusKm ?? 0))
+const r = (id: string) => cardOf(id)?.radiusKm ?? 0
 
-/** はじめに出すもの：地球（地球なら月）。地球より小さい星には月も、とても小さい星にはエベレストも */
+/** はじめに出すもの：地球（地球なら月）。地球より小さい星には月も、とても小さい星には大きさの近い星も */
 export function defaultPicks(id: string): Pick[] {
   const km = r(id)
-  if (id === 'earth') return ['moon', 'everest']
+  if (id === 'earth') return ['moon']
   if (id === 'sun') return ['jupiter', 'earth']
   const picks: Pick[] = ['earth']
   if (km < 6_371 && id !== 'moon') picks.push('moon')
-  if (km < 400) picks.push('everest')
+  if (km < 400) {
+    // 大きさのいちばん近い星（比で見て）
+    const near = PICKS.filter((p) => p !== id && !picks.includes(p)).sort((a, b) => Math.abs(Math.log(r(a) / km)) - Math.abs(Math.log(r(b) / km)))[0]
+    if (near) picks.push(near)
+  }
   if (km > 50_000) picks.push('sun')
   return picks
 }
@@ -43,7 +40,7 @@ export function defaultPicks(id: string): Pick[] {
 export function lineup(id: string, picks: readonly string[]): Item[] {
   const ids = [id, ...picks.filter((p) => p !== id)]
   const items = ids
-    .map((i): Item => (i === 'everest' ? { id: i, kind: 'mountain', width: EVEREST_BASE_KM * 2, height: EVEREST_KM, x: 0 } : { id: i, kind: 'ball', width: r(i) * 2, height: r(i) * 2, x: 0 }))
+    .map((i): Item => ({ id: i, width: r(i) * 2, height: r(i) * 2, x: 0 }))
     .filter((i) => i.width > 0)
     .sort((a, b) => a.height - b.height)
   let cursor = 0

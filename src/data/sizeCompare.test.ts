@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { across, defaultPicks, lineup } from './sizeCompare'
+import { PICKS, across, defaultPicks, lineup } from './sizeCompare'
 
 describe('size compare', () => {
   it('lines things up from small to large without overlapping', () => {
@@ -12,12 +12,14 @@ describe('size compare', () => {
     expect(across(jupiter, earth)).toBe(11)
     expect(across(earth, moon)).toBe(3.5)
   })
-  it('shows Everest next to tiny moons, and the Moon next to small worlds', () => {
-    expect(defaultPicks('phobos')).toEqual(['earth', 'moon', 'everest'])
+  it('shows the Moon next to small worlds, and a similar-sized world next to tiny moons', () => {
+    expect(defaultPicks('phobos')).toEqual(['earth', 'moon', 'deimos'])
     expect(defaultPicks('mars')).toEqual(['earth', 'moon'])
     expect(defaultPicks('jupiter')).toContain('sun')
-    const [everest, phobos] = lineup('phobos', ['everest'])
-    expect(everest.kind).toBe('mountain')
-    expect(phobos.height / everest.height).toBeGreaterThan(2)
+  })
+  it('offers every body with a card, without Everest', () => {
+    expect(PICKS.length).toBeGreaterThan(25)
+    expect(PICKS).not.toContain('everest')
+    expect(PICKS).toContain('pluto')
   })
 })
