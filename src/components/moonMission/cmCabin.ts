@@ -14,6 +14,14 @@ export const CABIN_Y = 97.75
 export const CABIN_EYE = new THREE.Vector3(0.9, 1.15, -0.7)
 export const CABIN_LOOK = new THREE.Vector3(-0.5, 0.7, 0.2)
 
+/** 前を見る窓（ランデブーの窓）：+z の向きの壁、高さ WIN_Y のまわりに開ける。宇宙に出てからの「船長の窓」の眺めに使う */
+const WIN_Y = 1.36
+const WIN_A = 0.24
+const WIN_H = 0.2
+/** 窓のカメラ（CM の座標）と、見る向き（機首の向きに、少し外へ） */
+export const CM_WIN_EYE = new THREE.Vector3(0, 1.12, 0.66)
+export const CM_WIN_DIR = new THREE.Vector3(0, 0.6, 0.8).normalize()
+
 const R0 = 1.86
 const R1 = 0.55
 const HT = 2.25
@@ -254,7 +262,36 @@ export function buildCabin(): Cabin {
   // 円すいの壁（内側を見る）と床
   const lining = keep(liningTexture())
   const wallMat = keep(new THREE.MeshStandardMaterial({ map: lining, roughness: 0.85, side: THREE.BackSide }))
-  const wall = new THREE.Mesh(keep(new THREE.CylinderGeometry(R1, R0, HT, 48, 1, true)), wallMat)
+  // 壁は、窓のところだけ三角形を抜く
+  const wallGeo = keep(new THREE.CylinderGeometry(R1, R0, HT, 120, 40, true))
+  {
+    const pos = wallGeo.attributes.position as THREE.BufferAttribute
+    const idx = wallGeo.index!
+    const keepTri: number[] = []
+    const rimTri: number[] = []
+    const c = new THREE.Vector3()
+    const v = new THREE.Vector3()
+    // 網目の四角（三角形 2 つ）ごとに、その真ん中で決める
+    for (let i = 0; i < idx.count; i += 6) {
+      c.set(0, 0, 0)
+      for (let k = 0; k < 6; k++) c.add(v.fromBufferAttribute(pos, idx.getX(i + k)))
+      c.multiplyScalar(1 / 6)
+      const a = Math.atan2(c.x, c.z)
+      const dy = c.y + HT / 2 - WIN_Y
+      // 四角い窓（壁の網目にそろえるので、ふちがまっすぐ）と、そのまわりの黒い枠
+      const e = Math.max(Math.abs(a) / WIN_A, Math.abs(dy) / WIN_H)
+      if (e < 1) continue
+      const list = e < 1.35 ? rimTri : keepTri
+      for (let k = 0; k < 6; k++) list.push(idx.getX(i + k))
+    }
+    // 穴のまわりは、黒い窓枠の素材（グループ 1）
+    wallGeo.setIndex([...keepTri, ...rimTri])
+    wallGeo.clearGroups()
+    wallGeo.addGroup(0, keepTri.length, 0)
+    wallGeo.addGroup(keepTri.length, rimTri.length, 1)
+  }
+  const rimMat = keep(new THREE.MeshStandardMaterial({ color: '#1c1d20', roughness: 0.6, side: THREE.BackSide }))
+  const wall = new THREE.Mesh(wallGeo, [wallMat, rimMat])
   wall.position.y = HT / 2
   group.add(wall)
   const floorMat = keep(new THREE.MeshStandardMaterial({ color: '#77756e', roughness: 0.9 }))

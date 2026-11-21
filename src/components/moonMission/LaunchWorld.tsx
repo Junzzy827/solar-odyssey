@@ -9,7 +9,7 @@ import { lowMemory } from '../../state/quality'
 import { plumeGeometry, plumeMaterial, glowTexture } from './plume'
 import { Smoke, STEAM, ICE } from './smoke'
 import { atmosphereMaterial, earthMaterial } from './earth'
-import { buildCabin } from './cmCabin'
+import { buildCabin, CABIN_Y, CM_WIN_DIR, CM_WIN_EYE } from './cmCabin'
 import { FILM_CUTS, FILM_END, filmCut, filmForce, filmRig, filmShake } from './launchFilm'
 
 // 打ち上げの場面の 3D：夜の発射台（移動発射台・発射塔・照明・海）、サターンV、炎と煙、地球、月、星。
@@ -534,9 +534,13 @@ export function LaunchWorld() {
         const toEarth = toWorld(0, 0, new THREE.Vector3()).sub(want).normalize()
         look.copy(want).add(toEarth)
         fov = 40
-      } else {
-        look.copy(want).addScaledVector(nose, 1).addScaledVector(up, -0.2).addScaledVector(south, 0.25)
-        fov = 58
+      } else if (rocketG.current) {
+        // 地球を回るあいだ：司令船の中から、前の窓ごしに（窓の枠・内張りも見える）
+        rocketG.current.localToWorld(want.copy(CM_WIN_EYE).setY(CM_WIN_EYE.y + CABIN_Y))
+        _v3.copy(CM_WIN_DIR).applyQuaternion(rocketG.current.quaternion)
+        look.copy(want).add(_v3)
+        inside = true
+        fov = 74
       }
       cs.up.copy(up)
     } else {
@@ -577,6 +581,8 @@ export function LaunchWorld() {
     const pc = camera as THREE.PerspectiveCamera
     // 司令船の中にいるあいだは、外の明かり（炎・照明・空）を消して、計器盤の明かりだけにする
     cabin.show(inside)
+    // 中にいるあいだは、司令船の外側（両面の殻）が窓の外をふさがないように隠す
+    if (parts.byName.CSM) parts.byName.CSM.visible = !inside
     if (inside) {
       if (flameLight.current) flameLight.current.intensity = 0
       if (fill.current) fill.current.intensity = 0
