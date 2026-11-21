@@ -18,6 +18,12 @@ export type Encounter = {
   rel: number[]
   /** 惑星の、太陽中心の位置（天文単位）と速度（天文単位／日） */
   planet: number[]
+  /** 天体のそばにとどまる（はやぶさ2とリュウグウ）：ms から until まで。そのあいだは hover の位置 */
+  until?: number
+  /** とどまるあいだ：天体の中心から太陽の側へ km の上空にいて、dips の時刻に表面まで降りる（タッチダウン） */
+  hover?: { km: number; surfaceKm: number; dips: { ms: number; hours: number }[] }
+  /** 着く前・離れたあとの、天体から見た位置の表（Horizons の値、km）。start から step ごと、「x,y,z;…」 */
+  table?: { start: number; step: number; km: string }
 }
 
 export type Trajectory = {
@@ -111,7 +117,54 @@ export function encounterPlanet(e: Encounter, ms: number): State {
 
 /** 惑星中心から見た探査機（km、km/s）。最接近の値から、惑星の重力で進める */
 export function encounterRelative(e: Encounter, ms: number): State {
+  if (e.until !== undefined && e.hover && ms >= e.ms && ms <= e.until) return hoverRelative(e, ms)
+  const fromTable = e.table && tableAt(e, ms)
+  if (fromTable) return fromTable
   return propagate(e.rel.slice(0, 3) as Vec, e.rel.slice(3, 6) as Vec, (ms - e.ms) / 1000, e.gm)
+}
+
+const tables = new WeakMap<Encounter, Vec[]>()
+/** 表の位置（点と点のあいだは直線）。速度は、となりの点との差から */
+function tableAt(e: Encounter, ms: number): State | null {
+  const t = e.table!
+  let rows = tables.get(e)
+  if (!rows) {
+    rows = t.km.split(';').map((r) => r.split(',').map(Number) as Vec)
+    tables.set(e, rows)
+  }
+  const f = (ms - t.start) / t.step
+  if (f < 0 || f > rows.length - 1) return null
+  const i = Math.min(rows.length - 2, Math.floor(f))
+  const k = f - i
+  const a = rows[i]
+  const b = rows[i + 1]
+  const dt = t.step / 1000
+  return {
+    r: [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k],
+    v: [(b[0] - a[0]) / dt, (b[1] - a[1]) / dt, (b[2] - a[2]) / dt],
+  }
+}
+
+/** とどまるあいだの位置：太陽の側の上空。着いてすぐ・離れる前の5日は、表の位置からなめらかにつなぐ。タッチダウンでは表面まで降りる */
+function hoverRelative(e: Encounter, ms: number): State {
+  const h = e.hover!
+  const p = encounterPlanet(e, ms).r
+  const n = len(p)
+  const sun: Vec = [-p[0] / n, -p[1] / n, -p[2] / n]
+  let dip = 0
+  for (const d of h.dips) dip = Math.max(dip, Math.exp(-(((ms - d.ms) / (d.hours * 3_600_000)) ** 2)))
+  const height = h.surfaceKm + (h.km - h.surfaceKm) * (1 - dip)
+  const r: Vec = [sun[0] * height, sun[1] * height, sun[2] * height]
+  const blendDays = 5
+  const edge = Math.min((ms - e.ms) / DAY_MS, (e.until! - ms) / DAY_MS)
+  if (e.table && edge < blendDays) {
+    const at = tableAt(e, (ms - e.ms) / DAY_MS < blendDays ? e.ms : e.until!)
+    if (at) {
+      const w = smooth(0, blendDays, edge)
+      for (let i = 0; i < 3; i++) r[i] = at.r[i] + (r[i] - at.r[i]) * w
+    }
+  }
+  return { r, v: [0, 0, 0] }
 }
 
 const smooth = (a: number, b: number, x: number) => {
@@ -127,15 +180,26 @@ function cruise(t: Trajectory, ms: number): State {
   while (leg + 1 < enc.length && enc[leg + 1].ms <= ms) leg++
   const from = enc[leg]
   const to = enc[leg + 1]
-  const lo = from.ms + from.window * DAY_MS
+  const lo = (from.until ?? from.ms) + from.window * DAY_MS
   const hi = to ? to.ms - to.window * DAY_MS : Infinity
-  let best: Anchor | null = null
+  // 前と後ろの値の両方から太陽の重力で進め、なめらかにまぜる（イオンエンジンで加速しているときも、つなぎ目で飛ばない）
+  let before: Anchor | null = null
+  let after: Anchor | null = null
   for (const a of list) {
     if (a.ms < lo || a.ms > hi) continue
-    if (!best || Math.abs(a.ms - ms) < Math.abs(best.ms - ms)) best = a
+    if (a.ms <= ms && (!before || a.ms > before.ms)) before = a
+    if (a.ms > ms && (!after || a.ms < after.ms)) after = a
   }
-  if (!best) best = list.reduce((b, a) => (Math.abs(a.ms - ms) < Math.abs(b.ms - ms) ? a : b))
-  return propagate(best.r, best.v, (ms - best.ms) / DAY_MS, GM_SUN_AU_DAY)
+  const go = (a: Anchor) => propagate(a.r, a.v, (ms - a.ms) / DAY_MS, GM_SUN_AU_DAY)
+  if (before && after) {
+    const w = smooth(before.ms, after.ms, ms)
+    const a = go(before)
+    const b = go(after)
+    const mix = (x: Vec, y: Vec): Vec => [x[0] + (y[0] - x[0]) * w, x[1] + (y[1] - x[1]) * w, x[2] + (y[2] - x[2]) * w]
+    return { r: mix(a.r, b.r), v: mix(a.v, b.v) }
+  }
+  const best = before ?? after ?? list.reduce((b, a) => (Math.abs(a.ms - ms) < Math.abs(b.ms - ms) ? a : b))
+  return go(best)
 }
 
 /** 惑星のそばでの位置（太陽中心、天文単位・天文単位／日） */
@@ -151,8 +215,21 @@ function near(e: Encounter, ms: number): State {
 /** いちばん近い惑星の通過（打ち上げを含む）と、そこからの日数 */
 export function nearestEncounter(t: Trajectory, ms: number) {
   let best = t.encounters[0]
-  for (const e of t.encounters) if (Math.abs(e.ms - ms) < Math.abs(best.ms - ms)) best = e
-  return { encounter: best, days: (ms - best.ms) / DAY_MS }
+  let days = encounterDays(best, ms)
+  for (const e of t.encounters) {
+    const d = encounterDays(e, ms)
+    if (Math.abs(d) < Math.abs(days)) {
+      best = e
+      days = d
+    }
+  }
+  return { encounter: best, days }
+}
+
+/** 通過からの日数（とどまるあいだは 0、着く前は負、離れたあとは正） */
+export function encounterDays(e: Encounter, ms: number) {
+  if (ms < e.ms) return (ms - e.ms) / DAY_MS
+  return e.until !== undefined && ms <= e.until ? 0 : (ms - (e.until ?? e.ms)) / DAY_MS
 }
 
 /** その時刻の探査機の、太陽中心の位置（天文単位）と速度（天文単位／日）。黄道座標 */

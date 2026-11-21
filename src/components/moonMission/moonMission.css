@@ -8,7 +8,6 @@
 .mm-root[data-phase='none'] {
   display: none;
 }
-/* 3D の絵がまだ出ていない一瞬（章の切り替え・地形の読みこみ）に、うしろのアプリの画面が透けないように */
 /* 映画のカメラ：数字の板・手本の目盛り・豆知識・旅の線をしまう（見出しと本物の交信の字幕は残す） */
 .mm-root[data-film] .mm-panel,
 .mm-root[data-film] .mm-steer,
@@ -18,6 +17,7 @@
 .mm-root[data-film] .jb {
   display: none;
 }
+/* 3D の絵がまだ出ていない一瞬（章の切り替え・地形の読みこみ）に、うしろのアプリの画面が透けないように */
 .mm-root:not([data-phase='fadeIn']) {
   background: #000;
 }

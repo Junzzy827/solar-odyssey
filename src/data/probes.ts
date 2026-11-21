@@ -3,6 +3,7 @@
 
 import type { Trajectory } from './trajectory'
 import { VOYAGER2_TRAJECTORY } from './trajectories/voyager2'
+import { HAYABUSA2_TRAJECTORY } from './trajectories/hayabusa2'
 
 export type ProbeStop = {
   date: string
@@ -27,7 +28,7 @@ export type Probe = {
   events: { date: string }[]
   /** 本物の道すじ（JPL Horizons の値）。あるものは、弧のかわりにこれをたどり、右に探査機の模型を出す */
   trajectory?: Trajectory
-  /** 模型（public/models の glb）。NASA 3D Resources のもの */
+  /** 模型（public/models の glb）。ボイジャーは NASA 3D Resources のもの、はやぶさ2は写真をもとにしたオリジナルの再現 */
   model?: string
 }
 
@@ -138,8 +139,10 @@ export const PROBES: Probe[] = [
       { date: '2018-06-27', body: RYUGU_ID, until: '2019-11-13' },
       { date: '2020-12-06', body: 'earth' },
     ],
-    end: '2020-12-06',
+    end: '2020-12-09',
     pace: { slow: 0.25, fast: 0.25 },
+    trajectory: HAYABUSA2_TRAJECTORY,
+    model: 'probe-hayabusa2.glb',
     events: [
       { date: '2014-12-03' },
       { date: '2015-12-03' },
