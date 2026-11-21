@@ -1,6 +1,6 @@
 import { saveData } from './save'
 import { create } from 'zustand'
-import { launchRover, roverActive } from './rover'
+import { launchRover, recallRover, roverActive, useRover } from './rover'
 import { goToSite, useLanding } from './landing'
 import { TRACKS, tracksAt } from '../data/rallyTracks'
 import { coursePrint } from './rallyGhost'
@@ -222,6 +222,8 @@ export function setRallyColor(color: number) {
 /** レースを始める。ローバーがまだ出ていなければ降ろして展開してから、スタートの列へ */
 export function startRally() {
   useRally.setState({ gate: 0, time: 0, place: 1, toGate: null, split: null, result: null, lost: false, chase: null })
+  // レースは無人ローバーで走る（与圧ローバーに乗っていたら、乗りかえる）
+  if (roverActive() && useRover.getState().vehicle !== 'orv7') recallRover()
   if (!roverActive()) launchRover(true)
   setRallyPhase('deploy')
 }
