@@ -11,19 +11,17 @@ import { autoCam, useMoonMission } from '../../state/moonMission'
 import { FRAME, groundAt, loadLunarMaps, lunarMaps, SUN_DIR, valleyShadows, valleyWeight, type LunarMaps, type ShadowMap } from './lunarTerrain'
 import { earthMaterial, atmosphereMaterial } from './earth'
 import { plumeGeometry, plumeMaterial } from './plume'
+import { APOLLO_URL, DROGUE, useCraft, type Craft } from './craft'
 
 // 月ミッション第2弾の場面：月を丸ごと（月の中心が原点、向きは moonGlobe.ts と同じ）。
 // 月の地面は四分木のかけら（着陸地点のまわりは本物の谷の地形と、前もって計算した山の影）、空には星・太陽・地球。
 // 司令船・着陸船（apollo.glb）、エンジンの光、着陸の砂ぼこり、着陸船の影。カメラは場面ごとに。
 
 const base = import.meta.env.BASE_URL
-const APOLLO_URL = `${base}models/apollo.glb`
 const EARTH_POS = new THREE.Vector3(384_400_000, 0, 0)
 const EARTH_R = 6_371_000
 /** LM の窓（船長の目）：LM の中の位置（m、glTF の向き：+Y 上、-Z 前） */
 const WINDOW_EYE = new THREE.Vector3(-0.55, 4.85, -1.25)
-/** ドッキングの口（LM のてっぺん） */
-const DROGUE = new THREE.Vector3(0, 6.16, 0.2)
 
 // ---- 月の地面 ----------------------------------------------------------------------------
 
@@ -444,50 +442,7 @@ function Sky() {
   )
 }
 
-// ---- 宇宙船 -------------------------------------------------------------------------------
-
-type Craft = {
-  lm: THREE.Group
-  csm: THREE.Group
-  legs: { obj: THREE.Object3D; base: THREE.Quaternion; axis: THREE.Vector3 }[]
-}
-
-function useCraft(): Craft {
-  const { scene } = useGLTF(APOLLO_URL)
-  return useMemo(() => {
-    const src = scene.clone(true)
-    src.traverse((o) => {
-      const mesh = o as THREE.Mesh
-      if (!mesh.isMesh) return
-      // しわや継ぎ目は glb に焼き込み済み（tools/blender/bake_mission.py）
-      mesh.material = (mesh.material as THREE.MeshStandardMaterial).clone()
-    })
-    const lm = new THREE.Group()
-    lm.name = 'lm'
-    const csm = new THREE.Group()
-    csm.name = 'csm'
-    const legs: Craft['legs'] = []
-    const get = (n: string) => src.getObjectByName(n)
-    for (const n of ['LMDescent', 'LMAscent']) {
-      const o = get(n)
-      if (o) lm.add(o)
-    }
-    for (let j = 0; j < 4; j++) {
-      const o = get(`Leg${j}`)
-      if (!o) continue
-      lm.add(o)
-      // 脚をたたむ：付け根の、まわりの向き（脚の外向きと直交する水平の向き）のまわりに回す
-      const out = new THREE.Vector3(1, 0, 0).applyQuaternion(o.quaternion)
-      const axis = new THREE.Vector3(0, 1, 0).cross(out).normalize()
-      legs.push({ obj: o, base: o.quaternion.clone(), axis })
-    }
-    for (const n of ['CM', 'SM']) {
-      const o = get(n)
-      if (o) csm.add(o)
-    }
-    return { lm, csm, legs }
-  }, [scene])
-}
+// ---- 宇宙船（模型は craft.ts） ----
 
 /** 太陽のまるい光（まん中は白く、まわりへぼんやり） */
 function glowTexture() {
@@ -765,7 +720,28 @@ function CameraRig({ craft }: { craft: Craft }) {
     let snap = false
     // 窓から見るときは、自分の船は描かない（窓の枠は画面の上に重ねる）
     lm.visible = !(cam === 'window' && phase === 'descent')
-    if (phase === 'coast') {
+    // 司令船の窓（月への旅と月の裏）：自分の船は描かない
+    const cabin = cam === 'window' && (phase === 'coast' || phase === 'loi')
+    craft.csm.visible = craft.csm.visible && !cabin
+    if (cabin) lm.visible = false
+    if (cabin && phase === 'coast') {
+      // ふりかえって地球を見る。旅が進むほど小さくなる
+      want.copy(lm.position).add(_z.set(0, 3, 0))
+      look.copy(EARTH_POS)
+      up.set(0, 1, 0)
+      fov = 34
+      snap = true
+    } else if (cabin) {
+      // 月の裏：窓の下を流れる月面と、地平線
+      const s = lunar.stack
+      const r = _x.copy(s.r).normalize()
+      const v = _y.copy(s.v).normalize()
+      want.copy(s.r).addScaledVector(r, 3)
+      look.copy(want).addScaledVector(v, 1).addScaledVector(r, -0.45)
+      up.copy(r)
+      fov = 60
+      snap = true
+    } else if (phase === 'coast') {
       // 宇宙船の斜めうしろから、行く手の月を見る。後半は横から（地球が遠く小さく）
       const k = lunar.coast
       const side = _x.set(0, 0, 1)

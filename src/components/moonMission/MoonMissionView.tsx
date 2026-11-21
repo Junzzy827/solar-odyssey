@@ -28,9 +28,18 @@ import {
 const debugOn = typeof location !== 'undefined' && location.hash.includes('debug')
 import { LaunchWorld } from './LaunchWorld'
 import { LunarWorld } from './LunarWorld'
+import { DockWorld } from './DockWorld'
+import { DockHud } from './DockHud'
+import { ReturnWorld } from './ReturnWorld'
+import { ReturnHud } from './ReturnHud'
+import { startDock } from '../../state/moonDock'
 import { LunarHud } from './LunarHud'
-import { bindLunarKeys, lunarPhase, startLunar } from '../../state/moonLunar'
+import { bindLunarKeys, lunarPhase } from '../../state/moonLunar'
 import { RadioSubtitle } from './RadioSubtitle'
+import { JourneyBar } from './JourneyBar'
+import { journey } from '../../state/missionJourney'
+import { ChapterMenu, ResumeButton } from './ChapterMenu'
+import { CabinFrame } from './CabinFrame'
 import './moonMission.css'
 
 // 月ミッション（アポロ17号の追体験）の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
@@ -59,13 +68,15 @@ function FilmHook() {
   return null
 }
 
-const MissionCanvas = memo(function MissionCanvas({ moon }: { moon: boolean }) {
+type World = 'launch' | 'dock' | 'moon' | 'home'
+
+const MissionCanvas = memo(function MissionCanvas({ world }: { world: World }) {
   const dpr = useDpr(1.75)
   return (
     <Canvas dpr={dpr} gl={{ alpha: false, logarithmicDepthBuffer: true, antialias: true }} camera={{ fov: 40, near: 0.3, far: 2e10, position: [0, 20, 300] }}>
       <color attach="background" args={['#000']} />
       {/* 第1弾（地球から月へ向かうまで）と第2弾（月のまわり）は、別の世界 */}
-      <Suspense fallback={null}>{moon ? <LunarWorld /> : <LaunchWorld />}</Suspense>
+      <Suspense fallback={null}>{world === 'moon' ? <LunarWorld /> : world === 'dock' ? <DockWorld /> : world === 'home' ? <ReturnWorld /> : <LaunchWorld />}</Suspense>
       <QualityGovernor />
       {debugOn && <FilmHook />}
     </Canvas>
@@ -127,7 +138,18 @@ function Caption() {
     const id = setInterval(() => tick((n) => n + 1), 250)
     return () => clearInterval(id)
   }, [])
-  if (!caption || missionNow() - caption.at > 5.5) return null
+  if (!caption) return null
+  const age = missionNow() - caption.at
+  // 見出しが消えたあと、その場面の豆知識をしばらく出す
+  const fact = ui().moonMission.facts[caption.key]
+  if (age > 5.5 && fact && age < 14)
+    return (
+      <div className="mm-caption mm-fact" key={`fact-${caption.at}`}>
+        <span className="mm-fact-label">{ui().moonMission.factLabel}</span>
+        <div className="mm-fact-line">{fact}</div>
+      </div>
+    )
+  if (age > 5.5) return null
   const [head, line] = ui().moonMission.captions[caption.key]
   return (
     <div className="mm-caption" key={caption.at}>
@@ -155,11 +177,7 @@ function Hud() {
               <div className="mm-intro-title">{t.title}</div>
               <div>{t.intro}</div>
               <div className="mm-intro-crew">{t.crew}</div>
-              {s.ignitedAt === null && (
-                <button className="mm-chapter" onClick={() => startLunar()}>
-                  {t.lunar.chapterMoon}
-                </button>
-              )}
+              {s.ignitedAt === null && <ResumeButton />}
             </div>
           )}
           <div className="mm-count">{t.tMinus(s.countdown)}</div>
@@ -177,7 +195,8 @@ function Hud() {
       )}
       {flying && (
         <div className="mm-panel">
-          <div className="mm-met">{t.met(r.t)}</div>
+          {/* 帯と同じ、本物の経過時間に合わせた時計 */}
+          <div className="mm-met">{t.met(journey()?.get ?? r.t)}</div>
           <div className="mm-stage">{t.stageName[r.stage]}</div>
           <div className="mm-row">
             <span>{t.altitude}</span>
@@ -229,6 +248,7 @@ function Hud() {
             {s.auto ? t.autoOn : t.auto}
           </button>
         )}
+        <ChapterMenu />
         <button className="mm-quit" onClick={() => endMission()}>
           {t.quit}
         </button>
@@ -240,8 +260,8 @@ function Hud() {
           <div className="mm-end-note">{t.starsNote}</div>
           <div className="mm-end-next">{t.endNext}</div>
           <div className="mm-end-buttons">
-            <button className="mm-continue" onClick={() => startLunar()}>
-              {t.lunar.continue}
+            <button className="mm-continue" onClick={() => startDock()}>
+              {t.dockNext}
             </button>
             <button onClick={() => restartMission()}>{t.again}</button>
             <button onClick={() => endMission()}>{t.back}</button>
@@ -272,10 +292,28 @@ export function MoonMissionView() {
   }, [])
   const shown = phase !== 'none' && phase !== 'fadeIn'
   const moon = lunarPhase(phase)
+  const docking = phase === 'dock' || phase === 'marble'
+  const home = phase === 'home'
   return (
     <div className="mm-root" data-phase={phase}>
-      {shown && <MissionCanvas moon={moon} />}
-      {shown && !moon && <Hud />}
+      {shown && <MissionCanvas world={moon ? 'moon' : docking ? 'dock' : home ? 'home' : 'launch'} />}
+      {shown && <CabinFrame />}
+      {shown && <JourneyBar />}
+      {shown && !moon && !docking && !home && <Hud />}
+      {shown && home && (
+        <div className="mm-hud">
+          <ReturnHud />
+          <Caption />
+          <RadioSubtitle />
+        </div>
+      )}
+      {shown && docking && (
+        <div className="mm-hud">
+          <DockHud />
+          <Caption />
+          <RadioSubtitle />
+        </div>
+      )}
       {shown && moon && (
         <div className="mm-hud">
           <LunarHud />

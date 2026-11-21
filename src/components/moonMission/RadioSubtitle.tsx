@@ -30,7 +30,7 @@ export function RadioSubtitle() {
       {line && text && (
         <div className="radio-sub-line" key={line.key}>
           <div className="radio-sub-who">{T.who[line.who]}</div>
-          <div className="radio-sub-orig">{text[0]}</div>
+          {text[0] && <div className="radio-sub-orig">{text[0]}</div>}
           {text[1] && <div className="radio-sub-tr">{text[1]}</div>}
         </div>
       )}

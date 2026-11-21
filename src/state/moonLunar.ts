@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import { playRadio, preloadRadio } from '../audio/radio'
+import { playRadio, preloadRadio, stopRadio } from '../audio/radio'
+import { stopMusic } from '../audio/missionMusic'
+import { playStatic } from '../audio/sfx'
 import * as THREE from 'three'
 import {
   emptyInput,
@@ -26,8 +28,8 @@ import {
   type Stack,
 } from '../data/lunarDescent'
 import { FRAME, ground, loadLunarMaps, lunarMaps } from '../components/moonMission/lunarTerrain'
-import { autoCam, chapterHooks, endMission, missionNow, saveMissionRecord, setCaption, useMoonMission, MISSION_FADE, type CaptionKey } from './moonMission'
-import { startLanding, useLanding } from './landing'
+import { autoCam, chapterHooks, endMission, missionNow, saveChapter, saveMissionRecord, setCaption, useMoonMission, MISSION_FADE, type CaptionKey } from './moonMission'
+import { beginApolloEva } from './apolloEva'
 
 // 月ミッション第2弾：月の裏での減速（LOI）→ 着陸船の切り離し → 動力降下 → タウルス・リトロウ谷へ着陸。
 // 流れ（useMoonMission の phase）：coast（3 日の旅を短く）→ loi（月に近づき、裏で減速）→ undock（12 周後、着陸船が離れる）
@@ -97,6 +99,8 @@ export const lunarPhase = (p: string) => p === 'coast' || p === 'loi' || p === '
 /** 第2弾を始める（第1弾の終わりから、または発射台のカードから） */
 export function startLunar() {
   preloadRadio('landed')
+  preloadRadio('aos')
+  preloadRadio('pdi')
   void loadLunarMaps().then(
     () => useMoonLunar.setState({ ready: true }),
     () => useMoonLunar.setState({ ready: true }),
@@ -141,6 +145,7 @@ function beginPdi() {
   if (!ignitePdi(d)) return
   useMoonLunar.setState({ pdiTiming: d.t - PDI_IDEAL })
   setCaption('pdi')
+  playRadio('pdi', 3.6)
 }
 
 /** 手動（P66）に切り替える */
@@ -301,6 +306,12 @@ export function tickLunar(dt: number) {
     if (hid !== lunar.los) {
       lunar.los = hid
       setCaption(hid ? 'los' : 'aos')
+      // 月の裏：無線がザッと切れて、音楽も消える。表に出たら、ザッのあとに本物の声
+      playStatic(hid ? 1.4 : 0.6)
+      if (hid) {
+        stopRadio()
+        stopMusic(2.5)
+      } else if (s.burnEnd !== null) setTimeout(() => playRadio('aos'), 700)
     }
     if (before < LOI_OPEN && s.t >= LOI_OPEN) setCaption('loiWindow')
     if (!s.burning && s.burnEnd === null && s.t >= LOI_CLOSE) beginLoi()
@@ -387,13 +398,11 @@ export function retryDescent() {
   beginUndock()
 }
 
-/** 月面に出る：この場面を閉じて、タウルス・リトロウ谷の地表の場面（アポロ17号の史跡）へ */
+/** 月面に出る：この場面を閉じて、章7（タウルス・リトロー谷の船外活動。state/apolloEva.ts）へ */
 export function stepOutside() {
   endMission()
-  window.setTimeout(() => {
-    startLanding('moon')
-    if (useLanding.getState().bodyId === 'moon') useLanding.setState({ site: 'taurus' })
-  }, MISSION_FADE * 1000 + 120)
+  saveChapter(7)
+  window.setTimeout(() => beginApolloEva(), MISSION_FADE * 1000 + 120)
 }
 
 /** 着陸船が司令船から離れる：司令船は少し上（月から離れる向き）へ */

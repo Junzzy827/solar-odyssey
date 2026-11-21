@@ -6,7 +6,6 @@ import { LOI_IDEAL, PDI_EARLY, PDI_IDEAL, PDI_LATE } from '../../data/lunarDesce
 import {
   LOI_CLOSE,
   LOI_OPEN,
-  lunar,
   lunarGo,
   lunarPad,
   lunarReadout,
@@ -19,6 +18,8 @@ import {
   useMoonLunar,
 } from '../../state/moonLunar'
 import { cycleCam, endMission, missionNow, useMoonMission } from '../../state/moonMission'
+import { journey } from '../../state/missionJourney'
+import { ChapterMenu } from './ChapterMenu'
 import './lunarHud.css'
 
 // 月ミッション第2弾の画面の計器。
@@ -172,8 +173,8 @@ export function LunarHud() {
     <>
       {s.cam === 'window' && phase === 'descent' && <WindowFrame />}
       {phase === 'coast' && (
-        <div className="mm-panel">
-          <div className="mm-met">{t.distEarth(60_000 + lunar.coast * 320_000)}</div>
+        <div className="mm-panel jb-big">
+          <div className="mm-met">{t.distEarth((journey()?.fromEarth ?? 0) / 1000)}</div>
         </div>
       )}
       {st && phase === 'loi' && (
@@ -257,6 +258,7 @@ export function LunarHud() {
             {s.auto ? T.autoOn : T.auto}
           </button>
         )}
+        <ChapterMenu />
         <button className="mm-quit" onClick={() => endMission()}>
           {T.quit}
         </button>

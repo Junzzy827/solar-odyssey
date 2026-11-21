@@ -32,12 +32,17 @@ export type MissionPhase =
   | 'orbit'
   | 'tli'
   | 'outbound'
+  // 章3・4（state/moonDock.ts）
+  | 'dock'
+  | 'marble'
   // 第2弾（state/moonLunar.ts）
   | 'coast'
   | 'loi'
   | 'undock'
   | 'descent'
   | 'landed'
+  // 章8（state/moonReturn.ts）
+  | 'home'
   | 'leave'
 /**
  * pad：地上から見上げる、chase：ロケット・宇宙船のうしろから、onboard：ロケットにつけたカメラで後ろを見る、
@@ -60,7 +65,7 @@ export const TLI_WINDOW = 600
 export const PITCH_RATE = 7
 
 /** 記録（いちばん良い星の数と、たどり着いた所。land：着陸のいちばん良い星） */
-type MissionRecord = { stars: number; reached: number; land?: number }
+type MissionRecord = { stars: number; reached: number; land?: number; chapter?: number }
 const record = saveSlot<MissionRecord>('moon-mission', { stars: 0, reached: 0 }, (v) =>
   typeof v === 'object' && v !== null && typeof (v as MissionRecord).stars === 'number' ? (v as MissionRecord) : null,
 )
@@ -106,6 +111,35 @@ export type CaptionKey =
   | 'tliWindow'
   | 'tliIgnition'
   | 'tliCutoff'
+  // 章3・4
+  | 'tdSep'
+  | 'tdTurn'
+  | 'tdApproach'
+  | 'capture'
+  | 'hardDock'
+  | 'bounceFast'
+  | 'bounceOff'
+  | 'ejectLater'
+  | 'ejected'
+  | 'evade'
+  | 'marble'
+  // 章8
+  | 'rvApproach'
+  | 'rvDock'
+  | 'lmJettison'
+  | 'teiWait'
+  | 'tei'
+  | 'coastHome'
+  | 'cmSep'
+  | 'corridor'
+  | 'entryInterface'
+  | 'blackout'
+  | 'blackoutEnd'
+  | 'skipOut'
+  | 'tooSteep'
+  | 'drogue'
+  | 'mains'
+  | 'splash'
   // 第2弾
   | 'coast'
   | 'coastMoon'
@@ -232,7 +266,7 @@ export function bindMissionKeys() {
 export const chapterHooks = { startLunar: null as null | (() => void) }
 
 /** ナビから：発射台から始める。moon なら第2弾（月に近づくところ）から */
-export function startMoonMission(chapter: 'launch' | 'moon' = 'launch') {
+export function startMoonMission(chapter: 'launch' | 'moon' = 'launch', after?: () => void) {
   if (useMoonMission.getState().phase !== 'none') return
   sim.a = startAscent()
   sim.pitch = 0
@@ -268,12 +302,23 @@ export function startMoonMission(chapter: 'launch' | 'moon' = 'launch') {
   stopMusic()
   holdBgm(true)
   preloadRadio(chapter === 'moon' ? 'landed' : 'liftoff')
+  if (chapter !== 'moon') preloadRadio('tli')
   preloadMusic(chapter === 'moon' ? 'mars' : 'jupiterOpening')
   setTimeout(() => {
     if (useMoonMission.getState().phase !== 'fadeIn') return
     if (chapter === 'moon' && chapterHooks.startLunar) chapterHooks.startLunar()
     else useMoonMission.setState({ phase: 'pad', since: missionNow() })
+    after?.()
   }, MISSION_FADE * 1000)
+}
+
+/** どの章まで進んだかを残す（次に開いたとき「続きから」を出す） */
+export function saveChapter(chapter: number) {
+  const b = useMoonMission.getState().best
+  if (b.chapter === chapter) return
+  const best = { ...b, chapter }
+  record.save(best)
+  useMoonMission.setState({ best })
 }
 
 /** 第1弾の終わりから、続けて月へ */
@@ -284,7 +329,7 @@ export function continueToMoon() {
 /** 記録を足す（星は良いほうを残す） */
 export function saveMissionRecord(r: { stars?: number; land?: number; reached: number }) {
   const b = useMoonMission.getState().best
-  const best = { stars: Math.max(b.stars, r.stars ?? 0), reached: Math.max(b.reached, r.reached), land: Math.max(b.land ?? 0, r.land ?? 0) }
+  const best = { ...b, stars: Math.max(b.stars, r.stars ?? 0), reached: Math.max(b.reached, r.reached), land: Math.max(b.land ?? 0, r.land ?? 0) }
   record.save(best)
   useMoonMission.setState({ best })
 }
@@ -316,6 +361,9 @@ const MUSIC_AT: Partial<Record<CaptionKey, MusicCue | 'stop'>> = {
   contact: 'stop',
   touchdown: 'stop',
   outOfFuel: 'stop',
+  // 章8：火の玉のあいだは音楽を止めて、パラシュートが開いたら木星の賛歌
+  entryInterface: 'stop',
+  mains: 'jupiterHymn',
 }
 
 export function setCaption(key: CaptionKey) {
@@ -331,18 +379,27 @@ export function setAuto(auto: boolean) {
 
 const CAMS: MissionCam[] = ['pad', 'chase', 'onboard']
 /** 第2弾のカメラ（着陸船が離れてからは窓も） */
-const LUNAR_CAMS: MissionCam[] = ['chase', 'wide']
+const LUNAR_CAMS: MissionCam[] = ['chase', 'window', 'wide']
+/** 章3・4 のカメラ（state/moonDock.ts の DOCK_CAMS と同じ。読み込みの順のためここにも） */
+const DOCK_CAMS: MissionCam[] = ['window', 'chase', 'wide']
 const LM_CAMS: MissionCam[] = ['chase', 'window', 'wide']
 export function cycleCam() {
   const s = useMoonMission.getState()
+  if (s.phase === 'dock' || s.phase === 'marble' || s.phase === 'home') {
+    const i = DOCK_CAMS.indexOf(s.cam)
+    useMoonMission.setState({ cam: DOCK_CAMS[(i + 1) % DOCK_CAMS.length], camLocked: true })
+    return
+  }
   if (s.phase === 'coast' || s.phase === 'loi' || s.phase === 'undock' || s.phase === 'descent' || s.phase === 'landed') {
     const list = s.phase === 'descent' || s.phase === 'landed' ? LM_CAMS : LUNAR_CAMS
     const i = list.indexOf(s.cam)
     useMoonMission.setState({ cam: list[(i + 1) % list.length], camLocked: true })
     return
   }
-  const i = CAMS.indexOf(s.cam)
-  let next = CAMS[(i + 1) % CAMS.length]
+  // 宇宙に出たら（地球を回る・月へ向かう）、司令船の窓からの眺めも選べる
+  const cams: MissionCam[] = s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound' ? [...CAMS, 'window'] : CAMS
+  const i = cams.indexOf(s.cam)
+  let next = cams[(i + 1) % cams.length]
   // 高く上がったら、地上のカメラからは小さな点にしか見えないので飛ばす
   if (next === 'pad' && s.phase !== 'pad' && altitude(sim.a) > 30_000) next = 'chase'
   useMoonMission.setState({ cam: next, camLocked: true })
@@ -479,7 +536,11 @@ export function tickMission(dt: number) {
   if (useMoonMission.getState().phase === 'orbit') {
     const t = a.t - sim.orbitAt
     const before = t - dt * sim.warp
-    if (t >= TLI_WINDOW_OPEN && before < TLI_WINDOW_OPEN) setCaption('tliWindow')
+    if (t >= TLI_WINDOW_OPEN && before < TLI_WINDOW_OPEN) {
+      setCaption('tliWindow')
+      // 本物の「月へ行っていいぞ」
+      playRadio('tli')
+    }
     if (t >= TLI_WINDOW_OPEN + TLI_WINDOW) beginTli(TLI_WINDOW / 2)
   }
 }

@@ -697,6 +697,61 @@ const SCENARIOS = {
       await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'none', null, { timeout: 30000 })
     },
   },
+  moonDock: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      // 章3：ドッキング（おまかせでつなぎ、引き出しまで）
+      await page.evaluate(() => window.__sv.moonMission.start('launch', () => window.__sv.moonDock.dock()))
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'dock', null, { timeout: 60000 })
+      await page.evaluate(() => window.__sv.moonDock.skip('approach'))
+      await sleep(4000)
+      await check3d(page, 'moonDock approach')
+      await page.evaluate(() => window.__sv.moonDock.skip('dockEnd'))
+      const r = await page.evaluate(() => window.__sv.moonDock.state.getState())
+      if (r.step !== 'dockEnd' || !r.hit || r.stars < 1) throw new Error(`moonDock: ${JSON.stringify({ step: r.step, hit: r.hit, stars: r.stars })}`)
+      await page.waitForSelector('.dk-end', { timeout: 60000 })
+      // 章4：青い地球を撮って、本物の写真と見くらべる
+      await page.click('.dk-end .mm-continue')
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'marble', null, { timeout: 30000 })
+      await sleep(4000)
+      await check3d(page, 'moonDock marble')
+      await page.evaluate(() => window.__sv.moonDock.shutter())
+      await page.waitForSelector('.dk-compare img', { timeout: 60000 })
+      await visibleButton(page, '.dk-compare .mm-end-buttons button')
+    },
+    after: async (page) => {
+      await page.click('.mm-quit')
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'none', null, { timeout: 30000 })
+    },
+  },
+  moonReturn: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+      // 章8：地球へ帰る（突入の角度・火の玉・パラシュート・着水）
+      await page.evaluate(() => window.__sv.moonMission.start('launch', () => window.__sv.moonReturn.start()))
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'home', null, { timeout: 60000 })
+      await sleep(3000)
+      await check3d(page, 'moonReturn rdv')
+      await page.evaluate(() => window.__sv.moonReturn.skip('corridor'))
+      await page.waitForSelector('.rt-gauge', { timeout: 30000 })
+      await page.evaluate(() => window.__sv.moonReturn.skip('entry'))
+      await sleep(3000)
+      await check3d(page, 'moonReturn entry')
+      await page.evaluate(() => window.__sv.moonReturn.skip('end'))
+      const r = await page.evaluate(() => window.__sv.moonReturn.state.getState())
+      if (r.step !== 'end' || r.stars < 1) throw new Error(`moonReturn: ${JSON.stringify({ step: r.step, stars: r.stars })}`)
+      await page.waitForSelector('.rt-card', { timeout: 30000 })
+      await visibleButton(page, '.rt-card .mm-end-buttons button')
+    },
+    after: async (page) => {
+      await page.click('.mm-quit')
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'none', null, { timeout: 30000 })
+    },
+  },
   walk: {
     ctx: desktop,
     hash: '#debug&sf',

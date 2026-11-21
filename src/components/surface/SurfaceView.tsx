@@ -45,6 +45,10 @@ import { QualityGovernor } from '../QualityGovernor'
 import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 import { Rover } from './Rover'
 import { CrewRover } from './CrewRover'
+import { LunarRover } from './LunarRover'
+import { LunarModule } from './LunarModule'
+import { EvaPanel } from './EvaPanel'
+import { useApolloEva } from '../../state/apolloEva'
 import { CrewInfoCard } from './CrewInfoCard'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { RoverHud, RoverMap } from './RoverHud'
@@ -1163,6 +1167,8 @@ type Air = {
 const tmpDir = new THREE.Vector3()
 
 function Scene({ def }: { def: SurfaceDef }) {
+  // アポロ17号の追体験の章7：ふつうの着陸船と与圧ローバーのかわりに、本物の着陸船と月面車
+  const eva = useApolloEva((s) => s.step !== 'off') && def.site === 'taurus'
   /** このレース場で選んでいるコース（レース場でなければ null） */
   const rallyTrack = useRallyTrack(def.site)
   // ローバーなどの十数 cm より小さな部品は影を落とさない（影のための描画を減らす）
@@ -1390,14 +1396,22 @@ function Scene({ def }: { def: SurfaceDef }) {
       {/* 空と地面の照り返しの光は、まわりの景色の光（scene.environment）が受け持つ */}
       <Ground terrain={terrain} ap={A.ap} />
       {terrain.dem && <FarTerrain terrain={terrain} ap={A.ap} />}
-      <Suspense fallback={null}>
-        <Lander terrain={terrain} dustColor={def.sky ? def.hazeColor : def.ground} ap={A.ap} sky={sky} />
-      </Suspense>
+      {!eva && (
+        <Suspense fallback={null}>
+          <Lander terrain={terrain} dustColor={def.sky ? def.hazeColor : def.ground} ap={A.ap} sky={sky} />
+        </Suspense>
+      )}
+      {eva && (
+        <Suspense fallback={null}>
+          <LunarModule terrain={terrain} prepare={prepareRover} />
+          <LunarRover terrain={terrain} dustColor={def.ground} sky={sky} prepare={prepareRover} />
+        </Suspense>
+      )}
       <Suspense fallback={null}>
         <Rover terrain={terrain} dustColor={def.ground} sky={sky} landerYaw={LANDER_YAW} prepare={prepareRover} />
       </Suspense>
       {/* 人が乗る与圧ローバー：月だけ（レースの場所には置かない）。着陸船のそばに停めてある */}
-      {crewRoverOn(def.id) && !rallyTrack && (
+      {crewRoverOn(def.id) && !rallyTrack && !eva && (
         <Suspense fallback={null}>
           <CrewRover terrain={terrain} dustColor={def.ground} sky={sky} landerYaw={LANDER_YAW} prepare={prepareRover} />
         </Suspense>
@@ -1408,7 +1422,7 @@ function Scene({ def }: { def: SurfaceDef }) {
           <RallyGhost key={rallyTrack + ':ghost'} track={rallyTrack} />
         </Suspense>
       )}
-      {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} />}
+      {def.site === 'taurus' && <Apollo17 terrain={terrain} prepare={prepareRover} eva={eva} />}
       <Look terrain={terrain} />
       <GravityJump terrain={terrain} />
       <SuitWalk terrain={terrain} landerYaw={LANDER_YAW} sky={sky} />
@@ -1672,6 +1686,7 @@ function CrewPanel({ drive, edge, range, mouseDrive, menu, view, site, battery, 
 
 function SurfacePanel({ def }: { def: SurfaceDef }) {
   const rallyTrack = useRallyTrack(def.site)
+  const eva = useApolloEva((s) => s.step !== 'off') && def.site === 'taurus'
   useLang()
   const rover = useRover((r) => r.phase)
   // ローバーを出しているあいだは、説明と時刻・天気の表示をたたんで景色を広く（メニューのボタンで開く）
@@ -1703,7 +1718,8 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
         </div>
       )}
       {phase === 'ascent' && <div className="surface-caption">{ui().surfaceView.liftOff}</div>}
-      {phase === 'surface' && (
+      {phase === 'surface' && eva && <EvaPanel />}
+      {phase === 'surface' && !eva && (
         <>
           {/* 左上の列：説明・（スマホでは）時刻と天気・ミニマップを上から順に積む。重ならず、たたんだぶんだけ詰まる */}
           <div className={`surface-left${showInfo ? ' menu-open' : ''}${rover === 'none' ? '' : ' rover'}`}>

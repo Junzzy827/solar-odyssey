@@ -4,7 +4,7 @@ import { buildCourse } from './Rally'
 import { TRACKS } from '../../data/rallyTracks'
 import { APOLLO17, APOLLO17_TRAVERSE } from '../../data/apollo17'
 import { useHistoric } from '../../state/historic'
-import { jumpCharge, roverMouse, useRover, useRoverCruise, ROVER_RANGE, ROVER_TOP, CREW_TOP } from '../../state/rover'
+import { jumpCharge, roverMouse, useRover, useRoverCruise, ROVER_RANGE, ROVER_TOP, CREW_TOP, LRV_TOP } from '../../state/rover'
 import { LANDER_POS } from './terrain'
 import { useMapTerrain, useRelief, type ReliefLayer } from './mapRelief'
 import { useLang } from '../../i18n/lang'
@@ -16,6 +16,8 @@ import { ui } from '../../i18n'
 const TOP_KMH = Math.round(ROVER_TOP * 3.6)
 /** 与圧ローバーの速度計は 0〜20 km/h */
 const CREW_KMH = Math.round(CREW_TOP * 3.6)
+/** アポロの月面車は 0〜18 km/h */
+const LRV_KMH = Math.round(LRV_TOP * 3.6)
 const CX = 100
 const CY = 92
 const R = 78
@@ -42,9 +44,11 @@ export function RoverHud() {
   const kmh = useRover((r) => r.kmh)
   const hud = useRover((r) => r.hud)
   const next = useRover((r) => r.next)
-  const crew = useRover((r) => r.vehicle) === 'crew'
+  const vehicle = useRover((r) => r.vehicle)
+  // 人が乗る車（与圧ローバー・アポロの月面車）は、遅い速度計
+  const crew = vehicle !== 'orv7'
   const battery = useRover((r) => r.battery)
-  const TOP = crew ? CREW_KMH : TOP_KMH
+  const TOP = vehicle === 'lrv' ? LRV_KMH : crew ? CREW_KMH : TOP_KMH
   // 目盛り：無人ローバーは 5 km/h ごと（数字は 10 ごと）、与圧ローバーは 1 km/h ごと（数字は 5 ごと）
   const step = crew ? 1 : 5
   const major = crew ? 5 : 10
@@ -122,13 +126,15 @@ export function RoverHud() {
         </div>
         {crew ? (
           <>
-            <div className="rr-row">
-              <span className="rr-k">{ui().crewRover.pressure}</span>
-              <span className="rr-v small">{ui().crewRover.pressureValue}</span>
-            </div>
+            {vehicle === 'crew' && (
+              <div className="rr-row">
+                <span className="rr-k">{ui().crewRover.pressure}</span>
+                <span className="rr-v small">{ui().crewRover.pressureValue}</span>
+              </div>
+            )}
             <div className="rr-row">
               <span className="rr-k">{ui().crewRover.crew}</span>
-              <span className="rr-v small">{ui().crewRover.crewValue}</span>
+              <span className="rr-v small">{vehicle === 'lrv' ? ui().apolloEva.crewValue : ui().crewRover.crewValue}</span>
             </div>
             <div className="rr-airrow">
               <div className={`rr-fuel${battery < 0.2 ? ' low' : ''}`}>
@@ -164,7 +170,7 @@ export function RoverHud() {
           </>
         )}
       </div>
-      <div className="rover-badge">{crew ? ui().crewRover.badge : 'ORV-7'}</div>
+      <div className="rover-badge">{vehicle === 'lrv' ? ui().apolloEva.badge : crew ? ui().crewRover.badge : 'ORV-7'}</div>
       {hud.air && !crew && <AirGauge fuel={hud.fuel} />}
       <MouseDrive />
     </div>
