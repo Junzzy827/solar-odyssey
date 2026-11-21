@@ -5,7 +5,8 @@ import * as THREE from 'three'
 import { LANDER_POS, type Terrain } from './terrain'
 import { windFor } from './landerFx'
 import type { SkyNow } from './skyNow'
-import { useLevel } from '../../state/quality'
+import { lowMemory, useLevel } from '../../state/quality'
+import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { useLanding } from '../../state/landing'
 import { isWide, roverRangeFor, wideNow } from './wideGround'
 import { BOARD_SEC, CREW_TOP, ROVER_RANGE, driveInput, roverFocus, roverInput, roverNow, roverPose, setRoverPhase, useRover } from '../../state/rover'
@@ -183,8 +184,20 @@ export function CrewRover({
       if (!mats.has(src.uuid)) {
         if (src.name === 'Lamp') mats.set(src.uuid, lamp)
         else {
+          // 焼き込んだ質感（色・ラフネス/メタリック・ノーマル）。スマホではテクスチャを 1024 に縮める
           const m = src.clone()
           m.envMapIntensity = 1.2
+          if (lowMemory()) {
+            for (const key of MAP_KEYS) {
+              const tex = m[key]
+              if (!tex) continue
+              const small = shrinkTexture(tex, 1024)
+              if (small) {
+                m[key] = small
+                owned.push(small)
+              }
+            }
+          }
           prepare(m)
           owned.push(m)
           mats.set(src.uuid, m)
