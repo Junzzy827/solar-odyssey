@@ -102,6 +102,10 @@ export function launchRover(quick = false, vehicle: RoverVehicle = 'orv7') {
 /** 次の展開を飛ばすか（launchRover の quick） */
 export const roverQuick = { on: false }
 
+/** 与圧ローバー（ミチカケ）のいまの場所。CrewRover が毎フレーム書く（on = この星に出ている）。
+ * 宇宙服で歩くとき、車体にぶつかる・後ろのエアロックから乗りこむのに使う */
+export const crewPose = { on: false, x: 0, y: 0, z: 0, heading: 0 }
+
 export function recallRover() {
   useRover.setState({ phase: 'none', since: roverNow(), kmh: 0, canSample: false, sampling: false, result: null, next: null, edge: false })
 }

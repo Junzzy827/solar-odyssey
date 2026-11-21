@@ -4,9 +4,9 @@ import * as THREE from 'three'
 import { LANDER_POS, type Terrain } from './terrain'
 import { meshHeight, nearRocks, onRocks, rockBodies } from './Rover'
 import { isWide, roverRangeFor, wideNow, type RockBody } from './wideGround'
-import { ROVER_RANGE, roverFocus } from '../../state/rover'
+import { ROVER_RANGE, crewPose, roverFocus } from '../../state/rover'
 import { useLanding } from '../../state/landing'
-import { bindSuitKeys, endSuitWalk, suitCam, suitDebug, suitInput, suitPose, useSuitWalk } from '../../state/suitWalk'
+import { CREW_HALF_L, CREW_HALF_W, CREW_NEAR, CREW_TOP_Y, bindSuitKeys, endSuitWalk, suitCam, suitDebug, suitInput, suitPose, useSuitWalk } from '../../state/suitWalk'
 import { loadSuit, makeSuitRig } from './suitModel'
 import { HIP_Y, SHIN, THIGH, makeAstronaut, type Rig } from './astronaut'
 import { Footprints } from './footprints'
@@ -301,6 +301,30 @@ function Walker({ terrain }: { terrain: Terrain; landerYaw: number }) {
       nx = LANDER_POS.x + (lx / ld) * LANDER_R
       nz = LANDER_POS.y + (lz / ld) * LANDER_R
     }
+    // 与圧ローバー：車体（車の向きの箱）にはぶつかる。いちばん近い面の外へ押し出す
+    let nearCrew = false
+    if (crewPose.on && s.y < crewPose.y + CREW_TOP_Y) {
+      const cfx = -Math.sin(crewPose.heading)
+      const cfz = -Math.cos(crewPose.heading)
+      const dx = nx - crewPose.x
+      const dz = nz - crewPose.z
+      const f = dx * cfx + dz * cfz
+      const sd = dx * -cfz + dz * cfx
+      const hl = CREW_HALF_L + 0.35
+      const hw = CREW_HALF_W + 0.35
+      const pf = hl - Math.abs(f)
+      const ps = hw - Math.abs(sd)
+      if (pf > 0 && ps > 0) {
+        const f2 = pf < ps ? Math.sign(f || 1) * hl : f
+        const s2 = pf < ps ? sd : Math.sign(sd || 1) * hw
+        nx = crewPose.x + cfx * f2 - cfz * s2
+        nz = crewPose.z + cfz * f2 + cfx * s2
+      }
+      const ox = Math.max(0, Math.abs(f) - CREW_HALF_L)
+      const oz = Math.max(0, Math.abs(sd) - CREW_HALF_W)
+      nearCrew = Math.hypot(ox, oz) < CREW_NEAR
+    }
+    if (nearCrew !== useSuitWalk.getState().nearCrew) useSuitWalk.setState({ nearCrew })
     // 大きな岩（腰より高い）は、上から乗る以外は越えられない
     for (const r of rockList.current) {
       if (r.h < 0.8 || s.y > r.t - 0.15) continue
