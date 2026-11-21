@@ -37,6 +37,17 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
   tliBar: 'Window to the Moon',
   tliGo: 'Burn for the Moon',
   tliHint: 'Burn in the middle of the window for the shortest way',
+  journey: {
+    earth: 'Earth',
+    moon: 'Moon',
+    fromEarth: 'From Earth',
+    toMoon: 'To the Moon',
+    speed: 'Speed',
+    elapsed: 'Mission time',
+    dist: (m: number) => (m < 1000 ? `${Math.round(m)} m` : m < 100_000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 1000).toLocaleString('en-US')} km`),
+    speedOf: (v: number) => (v < 100 ? `${v.toFixed(1)} m/s` : `${(v / 1000).toFixed(2)} km/s`),
+    date: (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
+  },
   radio: {
     source: 'Actual mission audio (NASA)',
     who: { pao: 'Kennedy Launch Control commentary', cdr: 'Commander Cernan', capcom: 'Houston (CapCom)' },

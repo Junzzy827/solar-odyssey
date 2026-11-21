@@ -31,6 +31,7 @@ import { LunarWorld } from './LunarWorld'
 import { LunarHud } from './LunarHud'
 import { bindLunarKeys, lunarPhase, startLunar } from '../../state/moonLunar'
 import { RadioSubtitle } from './RadioSubtitle'
+import { JourneyBar } from './JourneyBar'
 import './moonMission.css'
 
 // 月ミッション（アポロ17号の追体験）の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
@@ -275,6 +276,7 @@ export function MoonMissionView() {
   return (
     <div className="mm-root" data-phase={phase}>
       {shown && <MissionCanvas moon={moon} />}
+      {shown && <JourneyBar />}
       {shown && !moon && <Hud />}
       {shown && moon && (
         <div className="mm-hud">

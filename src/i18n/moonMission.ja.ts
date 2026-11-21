@@ -37,6 +37,17 @@ export const moonMissionJa = {
   tliBar: '月への窓',
   tliGo: '月へ向けて点火',
   tliHint: '窓のまん中で点火すると、月へいちばん近道',
+  journey: {
+    earth: '地球',
+    moon: '月',
+    fromEarth: '地球から',
+    toMoon: '月まで',
+    speed: '速さ',
+    elapsed: '経過時間',
+    dist: (m: number) => (m < 1000 ? `${Math.round(m)} m` : m < 100_000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 1000).toLocaleString('ja-JP')} km`),
+    speedOf: (v: number) => (v < 100 ? `秒速 ${v.toFixed(1)} m` : `秒速 ${(v / 1000).toFixed(2)} km`),
+    date: (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
+  },
   radio: {
     source: '実際の交信音声（NASA）',
     who: { pao: 'ケネディ宇宙センターの実況', cdr: 'サーナン船長', capcom: 'ヒューストン（管制）' },
