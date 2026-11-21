@@ -30,7 +30,7 @@ export const moonMissionJa = {
   manual: '自分で操縦',
   camera: 'カメラ',
   camLabel: (n: string) => `カメラ：${n}`,
-  camNames: { pad: '地上から', chase: 'うしろから', onboard: '機体カメラ', window: '船長の窓', wide: '遠くから' } as Record<string, string>,
+  camNames: { film: '映画', pad: '地上から', chase: 'うしろから', onboard: '機体カメラ', window: '船長の窓', wide: '遠くから' } as Record<string, string>,
   quit: '終わる',
   warp: (w: number) => `早送り ×${Math.round(w)}`,
   orbitInfo: (peri: number, apo: number) => `軌道 ${Math.round(peri / 1000)}〜${Math.round(apo / 1000)} km`,

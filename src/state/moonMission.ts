@@ -46,9 +46,9 @@ export type MissionPhase =
   | 'leave'
 /**
  * pad：地上から見上げる、chase：ロケット・宇宙船のうしろから、onboard：ロケットにつけたカメラで後ろを見る、
- * window：着陸船の船長の窓から、wide：遠くから
+ * window：着陸船の船長の窓から、wide：遠くから、film：打ち上げの映画（曲に合わせて自動でカットを切りかえる）
  */
-export type MissionCam = 'pad' | 'chase' | 'onboard' | 'window' | 'wide'
+export type MissionCam = 'film' | 'pad' | 'chase' | 'onboard' | 'window' | 'wide'
 
 export const MISSION_FADE = 0.8
 /** カウントダウンを始める時刻（打ち上げの何秒前） */
@@ -176,7 +176,7 @@ export const missionNow = () => film.t ?? performance.now() / 1000
 export const useMoonMission = create<MissionState>(() => ({
   phase: 'none',
   since: 0,
-  cam: 'pad',
+  cam: 'film',
   camLocked: false,
   auto: false,
   countdown: COUNT_FROM,
@@ -287,7 +287,7 @@ export function startMoonMission(chapter: 'launch' | 'moon' = 'launch', after?: 
   useMoonMission.setState({
     phase: 'fadeIn',
     since: missionNow(),
-    cam: 'pad',
+    cam: 'film',
     camLocked: false,
     auto: false,
     countdown: COUNT_FROM,
@@ -379,7 +379,7 @@ export function setAuto(auto: boolean) {
   useMoonMission.setState({ auto })
 }
 
-const CAMS: MissionCam[] = ['pad', 'chase', 'onboard']
+const CAMS: MissionCam[] = ['film', 'pad', 'chase', 'onboard']
 /** 第2弾のカメラ（着陸船が離れてからは窓も） */
 const LUNAR_CAMS: MissionCam[] = ['chase', 'window', 'wide']
 /** 章3・4 のカメラ（state/moonDock.ts の DOCK_CAMS と同じ。読み込みの順のためここにも） */
@@ -399,7 +399,8 @@ export function cycleCam() {
     return
   }
   // 宇宙に出たら（地球を回る・月へ向かう）、司令船の窓からの眺めも選べる
-  const cams: MissionCam[] = s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound' ? [...CAMS, 'window'] : CAMS
+  // 映画のカメラは、発射台と上がっていくあいだだけ
+  const cams: MissionCam[] = s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound' ? [...CAMS.filter((c) => c !== 'film'), 'window'] : CAMS
   const i = cams.indexOf(s.cam)
   let next = cams[(i + 1) % cams.length]
   // 高く上がったら、地上のカメラからは小さな点にしか見えないので飛ばす

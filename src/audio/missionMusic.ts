@@ -23,6 +23,8 @@ const cache = new Map<MusicCue, Promise<AudioBuffer | null>>()
 let gain: GainNode | null = null
 let source: AudioBufferSourceNode | null = null
 let current: MusicCue | null = null
+/** 流れている曲を始めた時刻（AudioContext の秒） */
+let startedAt = 0
 /** 始める合図の通し番号（読み込み中に別の曲・停止が来たら古いほうは流さない） */
 let ticket = 0
 
@@ -79,6 +81,7 @@ export function playMusic(cue: MusicCue) {
     s.buffer = buffer
     s.connect(g)
     s.start()
+    startedAt = c.currentTime
     s.onended = () => {
       if (source === s) {
         source = null
@@ -89,6 +92,13 @@ export function playMusic(cue: MusicCue) {
     source = s
     gain = g
   })
+}
+
+/** 曲 cue が流れていれば、始まりからの秒（カメラのカットを曲に合わせる）。読み込み中・止まっていれば null */
+export function musicTime(cue: MusicCue): number | null {
+  const c = audio()
+  if (!c || c.state !== 'running' || !source || current !== cue) return null
+  return c.currentTime - startedAt
 }
 
 /** 曲を fade 秒で消して止める */
