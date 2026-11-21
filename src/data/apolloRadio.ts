@@ -2,9 +2,9 @@
 // 出典：Apollo Flight Journal / Apollo Lunar Surface Journal（apollojournals.org）の録音と文字起こし。
 // セリフは作らない。字幕の文は src/i18n/moonMission.* の radio.lines にある（原文と訳）。
 
-export type RadioWho = 'pao' | 'cdr' | 'capcom'
-export type RadioLineKey = 'count' | 'liftoff1' | 'liftoff2' | 'landed' | 'super'
-export type RadioClipId = 'liftoff' | 'landed'
+export type RadioWho = 'pao' | 'cdr' | 'capcom' | 'lmp'
+export type RadioLineKey = 'count' | 'liftoff1' | 'liftoff2' | 'landed' | 'super' | 'goTli' | 'goTliAck' | 'arrived' | 'heardYou' | 'pdiCount' | 'pdiIgnition'
+export type RadioClipId = 'liftoff' | 'landed' | 'tli' | 'aos' | 'pdi'
 
 export type RadioLine = { from: number; to: number; who: RadioWho; key: RadioLineKey }
 export type RadioClip = {
@@ -26,6 +26,36 @@ export const RADIO: Record<RadioClipId, RadioClip> = {
       { from: 0, to: 10, who: 'pao', key: 'count' },
       { from: 10, to: 14.2, who: 'pao', key: 'liftoff1' },
       { from: 14.2, to: 19.9, who: 'pao', key: 'liftoff2' },
+    ],
+  },
+  // 月へ向かう点火の許可（経過時間 002:53:12、ヒューストンのボブ・オーヴァマイヤー）
+  tli: {
+    file: 'audio/apollo17/tli.mp3',
+    length: 13.5,
+    get: '002:53:12',
+    lines: [
+      { from: 0.2, to: 6.4, who: 'capcom', key: 'goTli' },
+      { from: 7.4, to: 13.5, who: 'cdr', key: 'goTliAck' },
+    ],
+  },
+  // 月の裏でブレーキをかけたあと、表に出て交信が戻ったとき（経過時間 089:21:18）
+  aos: {
+    file: 'audio/apollo17/aos.mp3',
+    length: 12.6,
+    get: '089:21:18',
+    lines: [
+      { from: 0.3, to: 7.9, who: 'cdr', key: 'arrived' },
+      { from: 8.6, to: 12.6, who: 'capcom', key: 'heardYou' },
+    ],
+  },
+  // 降下の点火（経過時間 112:49:51。秒読みは着陸船パイロットのシュミット）
+  pdi: {
+    file: 'audio/apollo17/pdi.mp3',
+    length: 7.9,
+    get: '112:49:51',
+    lines: [
+      { from: 0, to: 4.3, who: 'lmp', key: 'pdiCount' },
+      { from: 4.3, to: 7.9, who: 'cdr', key: 'pdiIgnition' },
     ],
   },
   // 着陸の直後（経過時間 113:02:11）

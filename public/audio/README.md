@@ -6,6 +6,9 @@ Cut from recordings published in the Apollo Flight Journal and the Apollo Lunar 
 
 - `liftoff.mp3`: Kennedy launch commentary, T-10 s to tower clear (AFJ day 1 clip `a17_t-0000543.mp3`, 333.0–352.9 s)
 - `landed.mp3`: "Okay, Houston. The Challenger has landed!" and CapCom's reply, GET 113:02:11 (ALSJ clip `a17a_1124856_to_1130348.mp3`, 793.3–800.5 s)
+- `tli.mp3`: "you are Go for TLI" (CapCom Overmyer) and Cernan's reply, GET 002:53:12 (AFJ clip `a17_0024900.mp3`, 249.3–262.8 s)
+- `aos.mp3`: "Houston, this is America… America has arrived on station" after the first pass behind the Moon, GET 089:21:18 (AFJ clip `a17_0891530.mp3`, 347.7–360.3 s)
+- `pdi.mp3`: powered descent ignition count and "Ignition, Houston", GET 112:49:51 (ALSJ clip `a17a_1124856_to_1130348.mp3`, 57.9–65.8 s)
 
 ## planets/ — Gustav Holst, The Planets, Op. 32 (composed 1914–16, public domain)
 

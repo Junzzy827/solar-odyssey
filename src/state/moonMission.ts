@@ -268,6 +268,7 @@ export function startMoonMission(chapter: 'launch' | 'moon' = 'launch', after?: 
   stopMusic()
   holdBgm(true)
   preloadRadio(chapter === 'moon' ? 'landed' : 'liftoff')
+  if (chapter !== 'moon') preloadRadio('tli')
   preloadMusic(chapter === 'moon' ? 'mars' : 'jupiterOpening')
   setTimeout(() => {
     if (useMoonMission.getState().phase !== 'fadeIn') return
@@ -341,7 +342,7 @@ export function setAuto(auto: boolean) {
 
 const CAMS: MissionCam[] = ['pad', 'chase', 'onboard']
 /** 第2弾のカメラ（着陸船が離れてからは窓も） */
-const LUNAR_CAMS: MissionCam[] = ['chase', 'wide']
+const LUNAR_CAMS: MissionCam[] = ['chase', 'window', 'wide']
 const LM_CAMS: MissionCam[] = ['chase', 'window', 'wide']
 export function cycleCam() {
   const s = useMoonMission.getState()
@@ -351,8 +352,10 @@ export function cycleCam() {
     useMoonMission.setState({ cam: list[(i + 1) % list.length], camLocked: true })
     return
   }
-  const i = CAMS.indexOf(s.cam)
-  let next = CAMS[(i + 1) % CAMS.length]
+  // 宇宙に出たら（地球を回る・月へ向かう）、司令船の窓からの眺めも選べる
+  const cams: MissionCam[] = s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound' ? [...CAMS, 'window'] : CAMS
+  const i = cams.indexOf(s.cam)
+  let next = cams[(i + 1) % cams.length]
   // 高く上がったら、地上のカメラからは小さな点にしか見えないので飛ばす
   if (next === 'pad' && s.phase !== 'pad' && altitude(sim.a) > 30_000) next = 'chase'
   useMoonMission.setState({ cam: next, camLocked: true })
@@ -489,7 +492,11 @@ export function tickMission(dt: number) {
   if (useMoonMission.getState().phase === 'orbit') {
     const t = a.t - sim.orbitAt
     const before = t - dt * sim.warp
-    if (t >= TLI_WINDOW_OPEN && before < TLI_WINDOW_OPEN) setCaption('tliWindow')
+    if (t >= TLI_WINDOW_OPEN && before < TLI_WINDOW_OPEN) {
+      setCaption('tliWindow')
+      // 本物の「月へ行っていいぞ」
+      playRadio('tli')
+    }
     if (t >= TLI_WINDOW_OPEN + TLI_WINDOW) beginTli(TLI_WINDOW / 2)
   }
 }

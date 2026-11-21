@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import { playRadio, preloadRadio } from '../audio/radio'
+import { playRadio, preloadRadio, stopRadio } from '../audio/radio'
+import { stopMusic } from '../audio/missionMusic'
+import { playStatic } from '../audio/sfx'
 import * as THREE from 'three'
 import {
   emptyInput,
@@ -97,6 +99,8 @@ export const lunarPhase = (p: string) => p === 'coast' || p === 'loi' || p === '
 /** 第2弾を始める（第1弾の終わりから、または発射台のカードから） */
 export function startLunar() {
   preloadRadio('landed')
+  preloadRadio('aos')
+  preloadRadio('pdi')
   void loadLunarMaps().then(
     () => useMoonLunar.setState({ ready: true }),
     () => useMoonLunar.setState({ ready: true }),
@@ -141,6 +145,7 @@ function beginPdi() {
   if (!ignitePdi(d)) return
   useMoonLunar.setState({ pdiTiming: d.t - PDI_IDEAL })
   setCaption('pdi')
+  playRadio('pdi', 3.6)
 }
 
 /** 手動（P66）に切り替える */
@@ -301,6 +306,12 @@ export function tickLunar(dt: number) {
     if (hid !== lunar.los) {
       lunar.los = hid
       setCaption(hid ? 'los' : 'aos')
+      // 月の裏：無線がザッと切れて、音楽も消える。表に出たら、ザッのあとに本物の声
+      playStatic(hid ? 1.4 : 0.6)
+      if (hid) {
+        stopRadio()
+        stopMusic(2.5)
+      } else if (s.burnEnd !== null) setTimeout(() => playRadio('aos'), 700)
     }
     if (before < LOI_OPEN && s.t >= LOI_OPEN) setCaption('loiWindow')
     if (!s.burning && s.burnEnd === null && s.t >= LOI_CLOSE) beginLoi()

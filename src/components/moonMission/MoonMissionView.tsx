@@ -34,6 +34,7 @@ import { RadioSubtitle } from './RadioSubtitle'
 import { JourneyBar } from './JourneyBar'
 import { journey } from '../../state/missionJourney'
 import { ChapterMenu, ResumeButton } from './ChapterMenu'
+import { CabinFrame } from './CabinFrame'
 import './moonMission.css'
 
 // 月ミッション（アポロ17号の追体験）の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
@@ -287,6 +288,7 @@ export function MoonMissionView() {
   return (
     <div className="mm-root" data-phase={phase}>
       {shown && <MissionCanvas moon={moon} />}
+      {shown && <CabinFrame />}
       {shown && <JourneyBar />}
       {shown && !moon && <Hud />}
       {shown && moon && (

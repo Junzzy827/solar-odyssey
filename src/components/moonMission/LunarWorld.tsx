@@ -765,7 +765,28 @@ function CameraRig({ craft }: { craft: Craft }) {
     let snap = false
     // 窓から見るときは、自分の船は描かない（窓の枠は画面の上に重ねる）
     lm.visible = !(cam === 'window' && phase === 'descent')
-    if (phase === 'coast') {
+    // 司令船の窓（月への旅と月の裏）：自分の船は描かない
+    const cabin = cam === 'window' && (phase === 'coast' || phase === 'loi')
+    craft.csm.visible = craft.csm.visible && !cabin
+    if (cabin) lm.visible = false
+    if (cabin && phase === 'coast') {
+      // ふりかえって地球を見る。旅が進むほど小さくなる
+      want.copy(lm.position).add(_z.set(0, 3, 0))
+      look.copy(EARTH_POS)
+      up.set(0, 1, 0)
+      fov = 34
+      snap = true
+    } else if (cabin) {
+      // 月の裏：窓の下を流れる月面と、地平線
+      const s = lunar.stack
+      const r = _x.copy(s.r).normalize()
+      const v = _y.copy(s.v).normalize()
+      want.copy(s.r).addScaledVector(r, 3)
+      look.copy(want).addScaledVector(v, 1).addScaledVector(r, -0.45)
+      up.copy(r)
+      fov = 60
+      snap = true
+    } else if (phase === 'coast') {
       // 宇宙船の斜めうしろから、行く手の月を見る。後半は横から（地球が遠く小さく）
       const k = lunar.coast
       const side = _x.set(0, 0, 1)

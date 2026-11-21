@@ -423,6 +423,18 @@ export function LaunchWorld() {
       look.copy(nose).multiplyScalar(-90).addScaledVector(south, 16)
       fov = 62
       cs.up.copy(east)
+    } else if (s.cam === 'window' && s.phase !== 'ascent') {
+      // 司令船の窓：先端の少し下から外を見る。地球を回るときは地平線、月へ向かうときはふりかえって小さくなる地球
+      want.copy(nose).multiplyScalar(104).addScaledVector(south, 2.2)
+      if (s.phase === 'outbound') {
+        const toEarth = toWorld(0, 0, new THREE.Vector3()).sub(want).normalize()
+        look.copy(want).add(toEarth)
+        fov = 40
+      } else {
+        look.copy(want).addScaledVector(nose, 1).addScaledVector(up, -0.2).addScaledVector(south, 0.25)
+        fov = 58
+      }
+      cs.up.copy(up)
     } else {
       // 横から：軌道では少し離れて、地球が下に見えるように
       const far = s.phase === 'ascent' ? 190 : s.phase === 'outbound' ? 260 : 230
@@ -443,7 +455,7 @@ export function LaunchWorld() {
       cs.fov = fov
       cs.init = true
     }
-    const k = 1 - Math.exp(-dt * (s.cam === 'onboard' ? 20 : 4))
+    const k = 1 - Math.exp(-dt * (s.cam === 'onboard' || s.cam === 'window' ? 20 : 4))
     cs.pos.lerp(want, k)
     cs.look.lerp(look, k)
     cs.fov += (fov - cs.fov) * k

@@ -83,12 +83,18 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
   },
   radio: {
     source: 'Actual mission audio (NASA)',
-    who: { pao: 'Kennedy Launch Control commentary', cdr: 'Commander Cernan', capcom: 'Houston (CapCom)' },
+    who: { pao: 'Kennedy Launch Control commentary', cdr: 'Commander Cernan', capcom: 'Houston (CapCom)', lmp: 'Schmitt (Lunar Module Pilot)' },
     // [original, translation]. The original is NASA's transcript; English needs no translation
     lines: {
       count: ['', 'Countdown'],
       liftoff1: ["We have a lift-off, and it's lighting up the area.", ''],
       liftoff2: ["It's just like daylight here at Kennedy Space Center as the Saturn V is moving off the pad. It has now cleared the tower.", ''],
+      goTli: ["Guys, I've got the word you wanted to hear; you are Go for TLI - you're Go for the Moon.", ''],
+      goTliAck: ['Okay, Robert. Understand. America and Challenger with their S-IVB are Go for TLI.', ''],
+      arrived: ['Houston, this is America. You can breathe easier. America has arrived on station for the challenge ahead.', ''],
+      heardYou: ["Very good. We've been hearing you for a couple of minutes now.", ''],
+      pdiCount: ['Proceed on 99. It took. 2, 1, 0... Ignition.', ''],
+      pdiIgnition: ['Ignition, Houston. Attitude looks good.', ''],
       landed: ['Okay, Houston. The Challenger has landed!', ''],
       super: ["Roger, Challenger. That's super.", ''],
     } as Record<string, [string, string]>,

@@ -83,12 +83,18 @@ export const moonMissionJa = {
   },
   radio: {
     source: '実際の交信音声（NASA）',
-    who: { pao: 'ケネディ宇宙センターの実況', cdr: 'サーナン船長', capcom: 'ヒューストン（管制）' },
+    who: { pao: 'ケネディ宇宙センターの実況', cdr: 'サーナン船長', capcom: 'ヒューストン（管制）', lmp: 'シュミット（着陸船パイロット）' },
     // [原文, 訳]。原文は NASA の文字起こしのまま
     lines: {
       count: ['', '秒読み'],
       liftoff1: ["We have a lift-off, and it's lighting up the area.", 'リフトオフ。あたり一面が明るく照らされています'],
       liftoff2: ["It's just like daylight here at Kennedy Space Center as the Saturn V is moving off the pad. It has now cleared the tower.", 'ここケネディ宇宙センターは、まるで昼間のようです。サターンVが発射台を離れ、いま発射塔を越えました'],
+      goTli: ["Guys, I've got the word you wanted to hear; you are Go for TLI - you're Go for the Moon.", 'みんな、聞きたかった知らせだ。月への点火、ゴー。月へ行っていいぞ'],
+      goTliAck: ['Okay, Robert. Understand. America and Challenger with their S-IVB are Go for TLI.', '了解、ロバート。アメリカ号とチャレンジャー号と第3段、月への点火ゴー'],
+      arrived: ['Houston, this is America. You can breathe easier. America has arrived on station for the challenge ahead.', 'ヒューストン、こちらアメリカ号。安心してくれ。アメリカ号は持ち場に着いた。この先の挑戦に向けて'],
+      heardYou: ["Very good. We've been hearing you for a couple of minutes now.", 'よかった。数分前から声は聞こえていたよ'],
+      pdiCount: ['Proceed on 99. It took. 2, 1, 0... Ignition.', '99で進める。入った。2、1、0……点火'],
+      pdiIgnition: ['Ignition, Houston. Attitude looks good.', 'ヒューストン、点火した。姿勢よし'],
       landed: ['Okay, Houston. The Challenger has landed!', 'オーケー、ヒューストン。チャレンジャー号、着陸した！'],
       super: ["Roger, Challenger. That's super.", '了解、チャレンジャー。すばらしい'],
     } as Record<string, [string, string]>,
