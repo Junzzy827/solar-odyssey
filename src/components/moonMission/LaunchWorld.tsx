@@ -110,7 +110,7 @@ export function LaunchWorld() {
         if (x.name === 'Dark') return new THREE.MeshBasicMaterial({ color: '#060606' })
         if (x.name !== 'Grey') return x
         const c = (x as THREE.MeshStandardMaterial).clone()
-        c.color.multiplyScalar(0.12)
+        c.color.multiplyScalar(0.5)
         c.roughness = 0.85
         return c
       })

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { GROUND_Y } from './launchSite'
+import { moundHeight } from './launchSite'
 import { glowTexture } from './plume'
 import { OUT_CHUNK, encodeOutput } from './shaderOut'
 
@@ -38,7 +38,7 @@ function beamMaterial() {
         #include <common>
         #include <logdepthbuf_pars_vertex>
         attribute float aS;
-        varying float vS; varying vec3 vN; varying vec3 vV; varying vec3 vW;
+        varying float vS; varying vec3 vN; varying vec3 vV; varying vec3 vW; varying float vD;
         void main(){
           vS = aS;
           vec4 w = modelMatrix * vec4(position, 1.0);
@@ -46,14 +46,15 @@ function beamMaterial() {
           vec4 mv = viewMatrix * w;
           vN = normalize(normalMatrix * normal);
           vV = normalize(-mv.xyz);
+          vD = -mv.z;
           gl_Position = projectionMatrix * mv;
           #include <logdepthbuf_vertex>
         }`,
       fragmentShader: /* glsl */ `
         #include <common>
         #include <logdepthbuf_pars_fragment>
-        uniform float uPower; uniform float uTime; uniform float uLen; uniform vec3 uColor;
-        varying float vS; varying vec3 vN; varying vec3 vV; varying vec3 vW;
+        uniform float uPower; uniform float uTime; uniform float uLen; uniform vec3 uColor; uniform vec3 uAxis;
+        varying float vS; varying vec3 vN; varying vec3 vV; varying vec3 vW; varying float vD;
         float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
         float noise(vec3 p) {
           vec3 i = floor(p), f = fract(p);
@@ -71,11 +72,15 @@ function beamMaterial() {
           float ends = smoothstep(0.0, 0.015, vS) * smoothstep(1.0, 0.6, vS);
           // 霧のむら：ゆっくり流れる
           float haze = 0.55 + 0.45 * noise(vW * 0.018 + vec3(uTime * 0.03, 0.0, uTime * 0.02)) + 0.2 * noise(vW * 0.07);
-          float a = rim * along * ends * haze * 0.5 * uPower;
+          // カメラが光の柱のすぐそばにいるときは、目の前の柱を消す（大きな白い帯に見えないように）
+          float near = smoothstep(15.0, 70.0, vD);
+          // 柱を根元や先から縦に見通すと、内側の面が重なって白く飛ぶので、見通す向きほど薄く
+          near *= 1.0 - smoothstep(0.8, 0.97, abs(dot(normalize(vW - cameraPosition), uAxis)));
+          float a = rim * along * ends * haze * near * 0.5 * uPower;
           gl_FragColor = vec4(uColor * a, a);
           ${OUT_CHUNK}
         }`,
-      uniforms: { uPower: { value: 1 }, uTime: { value: 0 }, uLen: { value: 700 }, uColor: { value: BEAM_COLOR.clone() } },
+      uniforms: { uPower: { value: 1 }, uTime: { value: 0 }, uLen: { value: 700 }, uColor: { value: BEAM_COLOR.clone() }, uAxis: { value: new THREE.Vector3(0, 1, 0) } },
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -123,7 +128,7 @@ export function buildFloodlights(): Floodlights {
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
   for (const arr of ARRAYS) {
     const [cx, cz] = arr.at
-    const center = new THREE.Vector3(cx, GROUND_Y + 1.6, cz)
+    const center = new THREE.Vector3(cx, moundHeight(cx, cz) + 1.6, cz)
     // 列は、ロケットへの向きに直角に並べる
     const toRocket = new THREE.Vector3(-cx, 0, -cz).normalize()
     const side = new THREE.Vector3(-toRocket.z, 0, toRocket.x)
@@ -137,6 +142,7 @@ export function buildFloodlights(): Floodlights {
       const geo = coneGeometry(len, 0.7, Math.tan((2.6 + rnd() * 2.4) * THREE.MathUtils.DEG2RAD) * len)
       const mat = beamMaterial()
       mat.uniforms.uLen.value = len
+      mat.uniforms.uAxis.value.copy(dir)
       mat.uniforms.uPower.value = 0.75 + rnd() * 0.5
       mat.userData.base = mat.uniforms.uPower.value
       geos.push(geo)
@@ -159,9 +165,10 @@ export function buildFloodlights(): Floodlights {
       group.add(glow)
     }
     // 本当に照らす光は、列ごとに 1 つ
-    const spot = new THREE.SpotLight('#dfe8ff', SPOT_POWER, 0, 0.22, 0.6, 2)
+    // 広めに当てて、ロケットの根元・移動発射台・盛り土の斜面まで照らす（写真では台のまわりも明るい）
+    const spot = new THREE.SpotLight('#dfe8ff', SPOT_POWER, 0, 0.42, 0.55, 2)
     spot.position.copy(center).addScaledVector(Y, 1)
-    spot.target.position.copy(AIM)
+    spot.target.position.set(0, 28, 0)
     group.add(spot, spot.target)
     spots.push(spot)
   }

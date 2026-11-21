@@ -36,8 +36,8 @@ SAMPLES = int(os.environ.get('SAMPLES', '24'))
 
 # 材質の種類
 FOIL = {'Kapton', 'KaptonDark', 'Mylar', 'Pad'}  # しわのある断熱フィルム
-PANEL = {'Inconel', 'Aluminum', 'CMSilver', 'SMWhite', 'White', 'Silver', 'Grey', 'Red', 'Black', 'Panel'}  # 板・塗装
-PLAIN = {'Strut', 'Dish', 'Metal', 'Dark', 'Ablator', 'Nozzle', 'NozzleIn'}  # AO と細かなムラだけ
+PANEL = {'Inconel', 'Aluminum', 'CMSilver', 'SMWhite', 'White', 'Silver', 'Grey', 'Red', 'Black', 'Panel', 'Tank'}  # 板・塗装
+PLAIN = {'Strut', 'Dish', 'Metal', 'Dark', 'Ablator', 'Nozzle', 'NozzleIn', 'Deck', 'Concrete', 'Pipe'}  # AO と細かなムラだけ
 KEEP = {'Glass', 'Lamp', 'NavRed'}  # 焼かない（光る・透ける）
 
 MODELS = {
@@ -46,6 +46,9 @@ MODELS = {
     # サターン：レンガではなく、横の溶接の輪と縦の継ぎ目を薄く（本物は白い塗装でほぼ平ら）
     'saturn': dict(file='saturn.glb', ao=2.5, panel=0.42, crinkle=3.0, soot=True,
                    rings=dict(period=2.4, cols=16, width=0.008), seam_dark=0.16, seam_bump=0.25, panel_var=0.035),
+    # 発射台（build_launchpad.py）：鋼の板の継ぎ目、雨の筋、炎の穴のまわりの焦げ
+    'launchpad': dict(file='launchpad.glb', ao=3.0, panel=0.3, crinkle=2.0, soot=False, scorch=True,
+                      seam_dark=0.25, seam_bump=0.4, panel_var=0.12),
 }
 
 
@@ -213,6 +216,17 @@ def soot(n):
     return n.mul(n.math('POWER', base, 2.0), n.add(0.4, streak))
 
 
+def scorch(n):
+    """移動発射台の炎の穴のまわりの焦げ（甲板から下、穴に近いほど濃い。座標は m、ロケットの根元が 0）"""
+    p = n.pos()
+    xyz = n.node('ShaderNodeSeparateXYZ', Vector=p)
+    r = n.math('SQRT', n.add(n.mul(xyz.outputs['X'], xyz.outputs['X']), n.mul(xyz.outputs['Y'], xyz.outputs['Y'])))
+    near = n.math('SUBTRACT', 1.0, n.math('MULTIPLY', n.math('SUBTRACT', r, 6.0), 1 / 14.0), True)
+    low = n.math('SUBTRACT', 1.0, n.math('MULTIPLY', n.math('SUBTRACT', xyz.outputs['Z'], 4.0), 1 / 10.0), True)
+    streak = n.noise(0.35, 4, p)
+    return n.mul(n.mul(n.math('POWER', near, 1.5), low), n.add(0.45, streak))
+
+
 def ao(n, cfg):
     a = n.node('ShaderNodeAmbientOcclusion')
     a.samples = 16
@@ -289,6 +303,8 @@ def build_pass(mat, info, pass_name, cfg, image):
                 v = n.mul(v, n.add(0.9, n.mul(n.noise(cfg['crinkle'] * 2, 3), 0.2)))
             if cfg['soot'] and kind != 'keep':
                 v = n.mul(v, n.math('SUBTRACT', 1.0, n.mul(soot(n), 0.55), True))
+            if cfg.get('scorch'):
+                v = n.mul(v, n.math('SUBTRACT', 1.0, n.mul(scorch(n), 0.75), True))
             emit_out(n, n.rgb_mul(col, v))
     elif pass_name == 'rough':
         r = info['rough']

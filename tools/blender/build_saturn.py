@@ -42,7 +42,6 @@ COLORS = {
 }
 
 PARTS = ['S1', 'Ring', 'S2', 'S3', 'CSM', 'LES']
-PAD_PARTS = ['Tower', 'Pad']
 
 
 class Part:
@@ -399,73 +398,7 @@ def rocket_radius(z):
     return RS
 
 
-def tower(p):
-    w = TOWER_W / 2
-    top = 122.0
-    cs = [(-w, TOWER_Y - w), (w, TOWER_Y - w), (w, TOWER_Y + w), (-w, TOWER_Y + w)]
-    for (x, y) in cs:
-        tube(p, (x, y, DECK), (x, y, top), 0.32, 'Red', n=6)
-    levels = [DECK + 6.0 * i for i in range(int((top - DECK) / 6.0) + 1)]
-    for i, z in enumerate(levels):
-        for k in range(4):
-            a, b = cs[k], cs[(k + 1) % 4]
-            tube(p, (a[0], a[1], z), (b[0], b[1], z), 0.2, 'Red', n=6)
-            if i + 1 < len(levels):
-                z2 = levels[i + 1]
-                if i % 2 == 0:
-                    tube(p, (a[0], a[1], z), (b[0], b[1], z2), 0.12, 'Red', n=5)
-                else:
-                    tube(p, (b[0], b[1], z), (a[0], a[1], z2), 0.12, 'Red', n=5)
-        # 床（ところどころ）
-        if i % 3 == 0:
-            box(p, (0, TOWER_Y, z), (TOWER_W, TOWER_W, 0.25), 'Grey')
-        # 夜の明かり
-        if i % 2 == 1:
-            for x in (-w - 0.3, w + 0.3):
-                box(p, (x, TOWER_Y - w - 0.3, z + 0.8), (0.5, 0.2, 0.3), 'Lamp')
-    # てっぺんのクレーン（ハンマーヘッド）
-    box(p, (0, TOWER_Y, top + 1.2), (TOWER_W + 1, TOWER_W + 1, 2.4), 'Red')
-    box(p, (0, TOWER_Y - 4, top + 3.4), (2.2, 30, 2.0), 'Red')
-    box(p, (0, TOWER_Y, top + 6.0), (1.2, 1.2, 5.0), 'Red')
-    box(p, (0, TOWER_Y - 18, top + 4.6), (0.4, 0.4, 0.4), 'NavRed')
-    box(p, (0, TOWER_Y, top + 8.6), (0.5, 0.5, 0.5), 'NavRed')
-    # スイングアーム（ロケットへ伸びる腕）。いちばん上は司令船へ乗り込む通路（白い部屋）
-    arms = [18.0, 38.0, 45.0, 62.0, 72.0, 80.0, 88.0, 96.0]
-    for z in arms:
-        y0 = TOWER_Y - w
-        y1 = rocket_radius(z) + 0.6
-        box(p, (0, (y0 + y1) / 2, z), (2.6, y0 - y1, 1.8), 'Red')
-        box(p, (0, y1 + 0.4, z), (3.2, 0.8, 2.2), 'Grey')
-    zc = 99.0
-    y1 = RS + 1.6
-    box(p, (0, (TOWER_Y - w + y1) / 2, zc), (2.2, TOWER_Y - w - y1, 2.4), 'Grey')
-    box(p, (0, y1, zc), (3.4, 2.6, 3.0), 'White')
-    box(p, (0, y1 - 1.0, zc + 0.2), (1.6, 0.6, 1.4), 'Lamp')
-
-
-def pad(p):
-    # 移動発射台（ML）：厚い台の真ん中にエンジンの炎を逃がす穴
-    H = 7.6
-    hole = 9.0
-    L, W = 49.0, 41.0
-    zc = DECK - H / 2
-    box(p, (-(L / 2 + hole) / 2 / 1.0 + 0.0, 0, zc), (L / 2 - hole, W, H), 'Grey')
-    box(p, ((L / 2 + hole) / 2, 0, zc), (L / 2 - hole, W, H), 'Grey')
-    box(p, (0, -(W / 2 + hole) / 2, zc), (2 * hole, W / 2 - hole, H), 'Grey')
-    box(p, (0, (W / 2 + hole) / 2, zc), (2 * hole, W / 2 - hole, H), 'Grey')
-    box(p, (0, 0, DECK - H + 0.2), (2 * hole, 2 * hole, 0.4), 'Dark')
-    # 台を支える 6 本の脚
-    for x in (-18, 0, 18):
-        for y in (-14, 14):
-            box(p, (x, y, DECK - H - 3.0), (2.4, 2.4, 6.0), 'Grey')
-    # ロケットを押さえる 4 本の腕
-    for j in range(4):
-        a = j * math.pi / 2
-        box(p, ((R1 + 0.6) * math.cos(a), (R1 + 0.6) * math.sin(a), DECK + 1.6), (1.6, 1.6, 3.2), 'Dark', rz=a)
-    # 甲板の小さな明かり
-    for x in (-22, 22):
-        for y in (-18, 18):
-            box(p, (x, y, DECK + 0.3), (0.6, 0.6, 0.6), 'Lamp')
+# 発射塔と移動発射台は build_launchpad.py（launchpad.glb）。
 
 
 # ---- Blender へ -----------------------------------------------------------------
@@ -607,23 +540,17 @@ def main():
     stage3(P['S3'])
     csm(P['CSM'])
     les(P['LES'])
-    for n in PAD_PARTS:
-        P[n] = Part()
-    tower(P['Tower'])
-    pad(P['Pad'])
-    objs = [make_object(n, P[n]) for n in PARTS + PAD_PARTS]
+    objs = [make_object(n, P[n]) for n in PARTS]
     nf = sum(len(o.data.polygons) for o in objs)
     print(f'{nf} faces ({time.time() - t0:.1f}s)', flush=True)
     if os.environ.get('PREVIEW'):
         preview(objs)
     if os.environ.get('EXPORT', '1') == '1':
-        pad_out = os.path.join(os.path.dirname(OUT), 'launchpad.glb')
-        for names, path in ((PARTS, OUT), (PAD_PARTS, pad_out)):
-            for o in bpy.data.objects:
-                o.select_set(o.name in names)
-            bpy.ops.export_scene.gltf(filepath=os.path.abspath(path), export_format='GLB', use_selection=True,
-                                      export_yup=True, export_materials='EXPORT')
-            print('wrote', path, os.path.getsize(path) // 1024, 'KB', flush=True)
+        for o in bpy.data.objects:
+            o.select_set(o.name in PARTS)
+        bpy.ops.export_scene.gltf(filepath=os.path.abspath(OUT), export_format='GLB', use_selection=True,
+                                  export_yup=True, export_materials='EXPORT')
+        print('wrote', OUT, os.path.getsize(OUT) // 1024, 'KB', flush=True)
 
 
 if __name__ == '__main__':
