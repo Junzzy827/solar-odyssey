@@ -62,6 +62,22 @@ async function suitScene(page, body) {
   for (const sel of ['.sw-actions .primary']) await visibleButton(page, sel)
 }
 
+/** 水のコップ：地表で「水を置いてみる」を押すと、台にコップが出て、上のカードと「もう一度」「片づける」が出る */
+async function cupScene(page, body, until) {
+  await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+  await page.evaluate((b) => window.__sv.landing.start(b), body)
+  await sleep(3000)
+  await page.evaluate(() => window.__sv.landing.skip())
+  await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface', null, { timeout: 180000, polling: 500 })
+  await sleep(2000)
+  await visibleButton(page, '.cup-start')
+  await page.evaluate(() => document.querySelector('.cup-start').click())
+  await page.waitForFunction(() => document.querySelector('.cup-card .cup-head'), null, { timeout: 30000 })
+  // 水が、その星らしい姿になるまで（真空なら凍る、金星なら消える）
+  await page.waitForFunction(until, null, { timeout: 120000, polling: 500 })
+  for (const sel of ['.cup-card .cup-again', '.cup-card .secondary']) await visibleButton(page, sel)
+}
+
 /** 画面の 3D が描けているか（文字やボタンを消して撮る） */
 async function check3d(page, name, min = { std: 4, lit: 0.002 }) {
   await page.evaluate(() => document.documentElement.classList.add('clean-screen'))
@@ -287,6 +303,31 @@ const SCENARIOS = {
       await suitScene(page, 'phobos')
       for (const sel of ['.sw-pad .sw-jump', '.sw-pad .sw-run']) await visibleButton(page, sel)
     },
+  },
+  // 水のコップ（月）：置くといきなり沸いて凍る。時刻バーの「日の出」で、日の出の案内が出る
+  cup: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await cupScene(page, 'moon', () => {
+        const w = window.__sv.waterCup.state.getState().water
+        return w.liquid === 0 && w.ice > 0.5
+      })
+      await check3d(page, 'cup')
+      await page.evaluate(() => window.__sv.landing.state.setState({ menu: true }))
+      await page.waitForFunction(() => document.querySelector('.sunrise-go'), null, { timeout: 30000 })
+      await page.evaluate(() => document.querySelector('.sunrise-go').click())
+      await page.waitForFunction(() => document.querySelector('.sunrise-card .sunrise-head'), null, { timeout: 30000 })
+    },
+  },
+  // 水のコップ（スマホ・金星）：沸いて消える。カードのボタンが隠れない
+  'cup-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => cupScene(page, 'venus', () => {
+      const w = window.__sv.waterCup.state.getState().water
+      return w.liquid + w.ice < 0.002
+    }),
   },
   // 大きさくらべ：木星と地球・太陽が本当の比で棚にならび、ひとことと、ならべるもののボタンが出る。さわると寄る
   size: {

@@ -45,6 +45,10 @@ import { acceptJob, cancelJob, handoffDone, jobBoard, useDelivery } from './stat
 import { begin as beginColony, build as buildColonyZone, catchUp as colonyCatchUp, useColony } from './state/colony'
 import { labPlace } from './components/walk/WalkErrand'
 import { jumpDebug, startJump, stopJump, useJump } from './state/jump'
+import { placeCup, removeCup, useWaterCup } from './state/waterCup'
+import { useSunrise, watchSunrise } from './components/surface/sunrise'
+import { surfaceFor } from './data/surfaces'
+import { viewAim } from './components/surface/viewAim'
 import { arrivalDebug, closeArrival, showArrival, useArrival } from './state/arrival'
 import { eclipseClock, eclipseNow, eclipseUniforms, openEclipses, playEclipse, seekEclipse, useEclipse } from './state/eclipse'
 
@@ -87,6 +91,8 @@ const sv = {
       return false
     },
   },
+  waterCup: { state: useWaterCup, place: placeCup, remove: removeCup, aim: viewAim },
+  sunrise: { state: useSunrise, watch: (id: string) => { const d = surfaceFor(id); if (d) watchSunrise(d) } },
   suitWalk: { state: useSuitWalk, start: startSuitWalk, end: endSuitWalk, input: suitInput, debug: suitDebug, cam: suitCam, pose: suitPose },
   sizeCompare: { state: useSizeCompare, open: openSizeCompare, close: closeSizeCompare, focus: sizeFocus, pick: sizePick },
   delivery: { state: useDelivery, board: jobBoard, accept: acceptJob, cancel: cancelJob, handoff: handoffDone, lab: labPlace },
