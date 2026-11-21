@@ -54,6 +54,10 @@ import { bindRoverKeys, bindRoverMouse, crewRoverOn, launchRover, recallRover, r
 import { openRocks } from '../../state/rockBook'
 import { followOn, startSuitWalk, useSuitWalk } from '../../state/suitWalk'
 import { SuitWalk } from './SuitWalk'
+import { aiming, viewAim } from './viewAim'
+import { WaterCup } from './WaterCup'
+import { WaterCupButton, WaterCupCard } from './WaterCupPanel'
+import { HorizonCompass, SunriseCard } from './Sunrise'
 import { SuitWalkPanel } from './SuitWalkPanel'
 import { compLabel, samplesFor } from '../../data/rockSamples'
 import { ui } from '../../i18n'
@@ -1118,6 +1122,15 @@ function Look({ terrain }: { terrain: Terrain }) {
       dy = Math.atan2(Math.sin(dy), Math.cos(dy))
       s.yaw += dy * k
       s.pitch += (THREE.MathUtils.clamp(Math.asin(d.y), -1.3, 1.45) - s.pitch) * k
+    } else if (phase === 'surface' && aiming()) {
+      // 水のコップや日の出の方へ向き直す（viewAim.ts）
+      const d = viewAim.dir ? target.copy(viewAim.dir).normalize() : target.copy(viewAim.point).sub(cam.position).normalize()
+      const k = 1 - Math.exp(-dt * 4)
+      let dy = Math.atan2(d.x, -d.z) - s.yaw
+      dy = Math.atan2(Math.sin(dy), Math.cos(dy))
+      s.yaw += dy * k
+      s.pitch += (THREE.MathUtils.clamp(Math.asin(d.y), -1.3, 1.45) - s.pitch) * k
+      if (viewAim.fov) s.fov += (viewAim.fov - s.fov) * k
     }
     look.set(Math.sin(s.yaw) * Math.cos(s.pitch), Math.sin(s.pitch), -Math.cos(s.yaw) * Math.cos(s.pitch)).add(cam.position)
     cam.lookAt(look)
@@ -1399,6 +1412,8 @@ function Scene({ def }: { def: SurfaceDef }) {
       <Look terrain={terrain} />
       <GravityJump terrain={terrain} />
       <SuitWalk terrain={terrain} landerYaw={LANDER_YAW} />
+      <WaterCup terrain={terrain} />
+      <HorizonCompass def={def} />
       <WhenReady />
     </>
   )
@@ -1730,6 +1745,8 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
           <>
           {rallyTrack && <RallyStart track={rallyTrack} />}
           <JumpCard />
+          <WaterCupCard def={def} />
+          <SunriseCard def={def} />
           <div className="surface-hint">
             {view === 'eye'
               ? ui().surfaceView.lookAroundHint
@@ -1754,6 +1771,7 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
               {ui().suitWalk.button}
             </button>
             <JumpButton bodyId={def.id} />
+            <WaterCupButton bodyId={def.id} />
             {!def.site && trackForBody(def.id) && (
               <button className="secondary rally-site" onClick={() => goToSite(trackForBody(def.id))}>
                 🏁 {ui().surfaceView.toRaceTrack(ui().rallyTracks[trackAt(trackForBody(def.id)!)].button)}

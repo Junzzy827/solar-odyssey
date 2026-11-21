@@ -56,10 +56,27 @@ async function suitScene(page, body) {
   await page.evaluate(() => document.querySelector('.suit-out').click())
   await page.waitForFunction(() => window.__sv.suitWalk.state.getState().on, null, { timeout: 30000 })
   const from = await page.evaluate(() => ({ ...window.__sv.suitWalk.pose }))
+  // フォボスのような重力の小さい星では、ふわふわ進むので遅い（遅い CI では 2 分を超えることがある）
   await page.evaluate(() => (window.__sv.suitWalk.debug.move = [0, 1]))
-  await page.waitForFunction((f) => Math.hypot(window.__sv.suitWalk.pose.x - f.x, window.__sv.suitWalk.pose.z - f.z) > 1.5, from, { timeout: 120000, polling: 500 })
+  await page.waitForFunction((f) => Math.hypot(window.__sv.suitWalk.pose.x - f.x, window.__sv.suitWalk.pose.z - f.z) > 0.8, from, { timeout: 240000, polling: 500 })
   await page.evaluate(() => (window.__sv.suitWalk.debug.move = null))
   for (const sel of ['.sw-actions .primary']) await visibleButton(page, sel)
+}
+
+/** 水のコップ：地表で「水を置いてみる」を押すと、台にコップが出て、上のカードと「もう一度」「片づける」が出る */
+async function cupScene(page, body, until) {
+  await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+  await page.evaluate((b) => window.__sv.landing.start(b), body)
+  await sleep(3000)
+  await page.evaluate(() => window.__sv.landing.skip())
+  await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface', null, { timeout: 180000, polling: 500 })
+  await sleep(2000)
+  await visibleButton(page, '.cup-start')
+  await page.evaluate(() => document.querySelector('.cup-start').click())
+  await page.waitForFunction(() => document.querySelector('.cup-card .cup-head'), null, { timeout: 30000 })
+  // 水が、その星らしい姿になるまで（真空なら凍る、金星なら消える）
+  await page.waitForFunction(until, null, { timeout: 120000, polling: 500 })
+  for (const sel of ['.cup-card .cup-again', '.cup-card .secondary']) await visibleButton(page, sel)
 }
 
 /** 画面の 3D が描けているか（文字やボタンを消して撮る） */
@@ -307,8 +324,58 @@ const SCENARIOS = {
     hash: '#debug',
     run: async (page) => {
       await suitScene(page, 'phobos')
-      for (const sel of ['.sw-pad .sw-jump', '.sw-pad .sw-run']) await visibleButton(page, sel)
+      for (const sel of ['.sw-pad .sw-jump', '.sw-pad .sw-run', '.sw-pad .sw-stick']) await visibleButton(page, sel)
+      // スティックを指で上へ倒すと、前へ進む入力になる（画面の 3D に通り抜けない）
+      const b = await page.evaluate(() => {
+        const r = document.querySelector('.sw-stick').getBoundingClientRect()
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+      })
+      await page.mouse.move(b.x, b.y)
+      await page.mouse.down()
+      await page.mouse.move(b.x, b.y - 40, { steps: 4 })
+      const z = await page.evaluate(() => window.__sv.suitWalk.input.z)
+      await page.mouse.up()
+      if (!(z > 0.5)) throw new Error(`suit-phone: stick did not move the walker (input z ${z})`)
     },
+  },
+  // 水のコップ（月）：置くといきなり沸いて凍る。時刻バーの「日の出」で、日の出の案内が出る
+  cup: {
+    ctx: desktop,
+    hash: '#debug',
+    run: async (page) => {
+      await cupScene(page, 'moon', () => {
+        const w = window.__sv.waterCup.state.getState().water
+        return w.liquid === 0 && w.ice > 0.5
+      })
+      const info = () => page.evaluate(() => JSON.stringify({ clock: window.__sv.skyClock.getState().clock, cam: window.__sv.surfaceCam, sun: window.__sky?.sunDir, view: window.__sv.landing.state.getState().view, cup: window.__sv.waterCup.state.getState().water }))
+      await check3d(page, 'cup-ice').catch(async (e) => {
+        throw new Error(`${e.message} ${await info()}`)
+      })
+      await page.evaluate(() => window.__sv.landing.state.setState({ menu: true }))
+      await page.waitForFunction(() => document.querySelector('.sunrise-go'), null, { timeout: 30000 })
+      await page.evaluate(() => document.querySelector('.sunrise-go').click())
+      await page.waitForFunction(() => document.querySelector('.sunrise-card .sunrise-head'), null, { timeout: 30000 })
+      // 日の出の少し前まで時間が進んだのを待つ（月は昼に着くので、先に「昼」を押すと何もせずに終わる）
+      await page.waitForFunction(() => window.__sv.skyClock.getState().clock < 9, null, { timeout: 60000, polling: 300 })
+      // 日の出の前は暗いので、時間を止めて昼へ進めてから 3D を確かめる（早回しのままだと、遅い端末ではまた夜になる）
+      await page.evaluate(() => {
+        window.__sv.skyClock.getState().setRate(0)
+        document.querySelector('.time-jump .sunrise-go + button').click()
+      })
+      await page.waitForFunction(() => Math.abs(window.__sv.skyClock.getState().clock - 12) < 1.5, null, { timeout: 60000, polling: 500 })
+      await check3d(page, 'cup-noon').catch(async (e) => {
+        throw new Error(`${e.message} ${await info()}`)
+      })
+    },
+  },
+  // 水のコップ（スマホ・金星）：沸いて消える。カードのボタンが隠れない
+  'cup-phone': {
+    ctx: phone,
+    hash: '#debug',
+    run: async (page) => cupScene(page, 'venus', () => {
+      const w = window.__sv.waterCup.state.getState().water
+      return w.liquid + w.ice < 0.002
+    }),
   },
   // 大きさくらべ：木星と地球・太陽が本当の比で棚にならび、ひとことと、ならべるもののボタンが出る。さわると寄る
   size: {
