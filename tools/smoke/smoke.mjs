@@ -452,7 +452,7 @@ const SCENARIOS = {
       await page.waitForFunction(() => document.querySelector('.size-compare .sc-back'), null, { timeout: 10000 })
     },
   },
-  // 大きさくらべ（スマホ）：フォボスとエベレスト。ボタンが隠れない
+  // 大きさくらべ（スマホ）：フォボスと地球・月・ダイモス。たてにならんだボタンが隠れない
   'size-phone': {
     ctx: phone,
     hash: '#debug',

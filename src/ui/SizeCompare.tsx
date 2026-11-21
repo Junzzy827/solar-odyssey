@@ -4,7 +4,8 @@ import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { PLANETS, SUN } from '../data/bodies'
 import { textureUrl } from '../data/textures'
-import { EVEREST_KM, PICKS, across, lineup, type Item } from '../data/sizeCompare'
+import { PICKS, across, lineup, type Item } from '../data/sizeCompare'
+import { parentOf } from '../data/bodyCards'
 import { useOptionalTexture } from '../hooks/useOptionalTexture'
 import { closeSizeCompare, focusOn, togglePick, useSizeCompare } from '../state/sizeCompare'
 import { playBeep } from '../audio/sfx'
@@ -12,11 +13,11 @@ import { useLang } from '../i18n/lang'
 import { ui } from '../i18n'
 import './sizeCompare.css'
 
-// 大きさくらべ（A4）：いまの星と、地球・月・エベレストなどを本当の大きさの比で棚にならべる 3D の場面。
+// 大きさくらべ（A4）：いまの星と、地球・月・太陽などを本当の大きさの比で棚にならべる 3D の場面。
 // 小さいものから左へならべ、下の端をそろえる。さわるとそれに寄り（カメラが飛ぶ）、もう一度で全体にもどる。
-// 下のボタンで、ならべるものを足したり外したりできる
+// 右にたてにならべたボタンで、ならべるもの（天体カードのある星すべて）を足したり外したりできる
 
-const nameOf = (id: string) => (id === 'everest' ? ui().sizeCompare.everest : ui().bodies[id]?.name ?? id)
+const nameOf = (id: string) => ui().bodies[id]?.name ?? id
 
 function colorOf(id: string) {
   if (id === 'sun') return SUN.color
@@ -73,45 +74,12 @@ function pop(age: number) {
   return Math.max(0.0001, 1 + (back + 1) * x * x * x + back * x * x)
 }
 
-/** エベレスト：すそ野の広い山。上のほうは雪で白い */
-function useMountain() {
-  return useMemo(() => {
-    const g = new THREE.ConeGeometry(1, 1, 48, 12, false)
-    g.translate(0, 0.5, 0)
-    const pos = g.attributes.position as THREE.BufferAttribute
-    const colors: number[] = []
-    const v = new THREE.Vector3()
-    for (let i = 0; i < pos.count; i++) {
-      v.fromBufferAttribute(pos, i)
-      const h = v.y
-      // すそを広げて、尾根のでこぼこを足す（上ほど細く）
-      const a = Math.atan2(v.z, v.x)
-      const ridge = 1 + 0.18 * Math.sin(a * 3 + 0.6) + 0.1 * Math.sin(a * 7 + 1.3)
-      const spread = Math.pow(1 - h, 1.25)
-      const r = Math.hypot(v.x, v.z)
-      if (r > 1e-6) {
-        const k = (spread * ridge) / r
-        v.x *= k
-        v.z *= k
-      }
-      pos.setXYZ(i, v.x, h, v.z)
-      const snow = h > 0.72 + 0.06 * Math.sin(a * 5)
-      const c = snow ? [0.93, 0.95, 0.98] : h > 0.3 ? [0.36, 0.33, 0.31] : [0.3, 0.3, 0.25]
-      colors.push(...c)
-    }
-    g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-    g.computeVertexNormals()
-    return g
-  }, [])
-}
-
 function Thing({ item, index, isBody }: { item: Item; index: number; isBody: boolean }) {
   const group = useRef<THREE.Group>(null!)
   const spin = useRef<THREE.Mesh>(null!)
   const label = useRef<HTMLButtonElement>(null)
   const born = useRef(performance.now())
-  const map = useOptionalTexture(item.kind === 'ball' ? textureUrl(item.id) : undefined)
-  const mountain = useMountain()
+  const map = useOptionalTexture(textureUrl(item.id))
   const { camera, size } = useThree()
   useLang()
 
@@ -119,7 +87,7 @@ function Thing({ item, index, isBody }: { item: Item; index: number; isBody: boo
     const age = (performance.now() - born.current) / 1000 - index * 0.28
     const s = pop(age)
     group.current.scale.setScalar(s)
-    if (spin.current && item.kind === 'ball') spin.current.rotation.y += dt * 0.15
+    if (spin.current) spin.current.rotation.y += dt * 0.15
     // 名札：画面で小さすぎるものは、印だけ（ずらして重ならないように）
     const el = label.current
     if (!el) return
@@ -134,24 +102,18 @@ function Thing({ item, index, isBody }: { item: Item; index: number; isBody: boo
   const color = colorOf(item.id)
   return (
     <group ref={group} position={[item.x, 0, 0]}>
-      {item.kind === 'ball' ? (
-        <mesh ref={spin} position={[0, item.height / 2, 0]} onClick={(e) => (e.stopPropagation(), focusOn(item.id))}>
-          <sphereGeometry args={[item.height / 2, 64, 48]} />
-          {item.id === 'sun' ? (
-            <primitive object={sunMaterial()} attach="material" />
-          ) : (
-            <meshStandardMaterial key={map ? 'map' : 'color'} map={map} color={map ? '#ffffff' : color} roughness={1} />
-          )}
-        </mesh>
-      ) : (
-        <mesh geometry={mountain} scale={[item.width / 2, item.height, item.width / 2]} onClick={(e) => (e.stopPropagation(), focusOn(item.id))}>
-          <meshStandardMaterial vertexColors roughness={1} flatShading />
-        </mesh>
-      )}
+      <mesh ref={spin} position={[0, item.height / 2, 0]} onClick={(e) => (e.stopPropagation(), focusOn(item.id))}>
+        <sphereGeometry args={[item.height / 2, 64, 48]} />
+        {item.id === 'sun' ? (
+          <primitive object={sunMaterial()} attach="material" />
+        ) : (
+          <meshStandardMaterial key={map ? 'map' : 'color'} map={map} color={map ? '#ffffff' : color} roughness={1} />
+        )}
+      </mesh>
       <Html position={[0, 0, 0]} center zIndexRange={[20, 0]}>
         <button ref={label} className={`sc-label${isBody ? ' body' : ''}`} onClick={() => focusOn(item.id)}>
           <b>{nameOf(item.id)}</b>
-          <span>{item.kind === 'mountain' ? ui().sizeCompare.height(EVEREST_KM) : ui().sizeCompare.diameter(item.height)}</span>
+          <span>{ui().sizeCompare.diameter(item.height)}</span>
         </button>
       </Html>
     </group>
@@ -170,7 +132,7 @@ function Rig({ items, focus }: { items: Item[]; focus: string | null }) {
     const right = last.x + last.width / 2
     const big = Math.max(...items.map((i) => i.height))
     // 見せたい幅と高さ・まん中
-    const pad = size.width / Math.max(120, size.width - 170)
+    const pad = size.width / Math.max(120, size.width - 60)
     const w = f ? Math.max(f.width, f.height) * 3.2 : (right - left) * 1.04 * pad
     const h = f ? f.height * 2.6 : big * 1.9
     const cx = f ? f.x : (left + right) / 2
@@ -219,19 +181,16 @@ function Stage({ id }: { id: string }) {
     return () => timers.forEach(clearTimeout)
   }, [items])
 
-  // ひとこと：とても小さい星はエベレストと、ほかは地球（なければ最初に選んだもの）と
+  // ひとこと：地球と（なければ最初に選んだものと）くらべる
   const body = items.find((i) => i.id === id)!
-  const ever = items.find((i) => i.id === 'everest')
-  const other = items.find((i) => i.id === 'earth' && i.id !== id) ?? items.find((i) => i.id !== id && i.id !== 'everest')
+  const other = items.find((i) => i.id === 'earth' && i.id !== id) ?? items.find((i) => i.id !== id)
   const caption = focus
     ? null
-    : ever && body.height < 2000
-      ? t.vsEverest(nameOf(id), body.height / EVEREST_KM)
-      : other
-        ? body.height >= other.height
-          ? t.across(nameOf(id), nameOf(other.id), across(body, other))
-          : t.across(nameOf(other.id), nameOf(id), across(other, body))
-        : null
+    : other
+      ? body.height >= other.height
+        ? t.across(nameOf(id), nameOf(other.id), across(body, other))
+        : t.across(nameOf(other.id), nameOf(id), across(other, body))
+      : null
 
   return (
     <section className="size-compare" role="dialog" aria-label={t.title}>
@@ -258,14 +217,15 @@ function Stage({ id }: { id: string }) {
         ) : (
           <p className="sc-hint muted small">{t.tapHint}</p>
         )}
-        <div className="sc-picks">
-          {PICKS.filter((p) => p !== id).map((p) => (
-            <button key={p} className={`sc-chip${picks.includes(p) ? ' on' : ''}`} onClick={() => togglePick(p)} aria-pressed={picks.includes(p)}>
-              {nameOf(p)}
-            </button>
-          ))}
-        </div>
       </div>
+      {/* くらべるもの：たてにならべて、たくさん選べる（太陽・惑星と、その衛星を少し下げて） */}
+      <nav className="sc-picks" aria-label={t.picks}>
+        {PICKS.filter((p) => p !== id).map((p) => (
+          <button key={p} className={`sc-chip${picks.includes(p) ? ' on' : ''}${parentOf(p) ? ' moon' : ''}`} onClick={() => togglePick(p)} aria-pressed={picks.includes(p)}>
+            {nameOf(p)}
+          </button>
+        ))}
+      </nav>
     </section>
   )
 }
