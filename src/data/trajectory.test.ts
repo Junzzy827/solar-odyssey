@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { AU_KM, encounterRelative, heliocentric, propagate, speedKmS, GM_SUN_AU_DAY } from './trajectory'
+import { AU_KM, encounterRelative, heliocentric, nearestEncounter, propagate, speedKmS, GM_SUN_AU_DAY } from './trajectory'
+import { HAYABUSA2_TRAJECTORY as H2 } from './trajectories/hayabusa2'
 import { VOYAGER2_CHECKS, VOYAGER2_TRAJECTORY as V2 } from './trajectories/voyager2'
 
 const DAY = 86_400_000
@@ -56,5 +57,40 @@ describe('ボイジャー2号の道すじ', () => {
     expect(Math.round(Math.hypot(...V2.encounters[1].rel.slice(0, 3)) / 1000)).toBe(721)
     expect(Math.round(Math.hypot(...V2.encounters[4].rel.slice(0, 3)) / 1000)).toBe(29)
     expect(AU_KM).toBeGreaterThan(1e8)
+  })
+})
+
+describe('はやぶさ2の道すじ', () => {
+  const ryugu = H2.encounters[2]
+  it('1時間ごとに見て、巡航のどこにも飛び（つなぎ目のずれ）がない', () => {
+    // 地球のそば（±4日）は、模型の画面は地球から見た位置を使うので、ここでは見ない
+    const start = H2.encounters[0].ms + 3600_000
+    let prev = heliocentric(H2, start)
+    let worst = 0
+    for (let ms = start + 3600_000; ms < H2.encounters[3].ms + 2 * DAY; ms += 3600_000) {
+      const s = heliocentric(H2, ms)
+      // 1時間に動く距離を、速度から見積もった値と比べる
+      const nearEarth = [H2.encounters[1], H2.encounters[3]].some((e) => Math.abs(e.ms - ms) < 4.5 * DAY)
+      const step = nearEarth ? 0 : dist(s.r, prev.r) * AU_KM
+      const expect1h = (speedKmS(s) + speedKmS(prev)) * 1800
+      worst = Math.max(worst, step - expect1h)
+      prev = s
+    }
+    // 速さから見積もった距離（1時間に約10万km）より、5,000 km 以上よけいに動くことはない
+    // （Horizons の値どうしが、イオンエンジンの加速で太陽の重力だけの動きとずれる区間がある）
+    expect(worst).toBeLessThan(5000)
+  })
+
+  it('リュウグウにいるあいだは 20 km の上空、タッチダウンでは表面まで降りる', () => {
+    const at = (ms: number) => Math.hypot(...encounterRelative(ryugu, ms).r.slice(0, 3))
+    expect(at(Date.UTC(2018, 11, 1))).toBeCloseTo(20, 0)
+    expect(at(Date.UTC(2019, 1, 21, 22, 29))).toBeLessThan(0.5)
+    expect(at(Date.UTC(2019, 6, 11, 1, 20))).toBeLessThan(0.5)
+    expect(nearestEncounter(H2, Date.UTC(2019, 3, 1)).days).toBe(0)
+  })
+
+  it('地球スイングバイと帰還の最接近は本物どおり（中心から 9,521 km と 6,712 km）', () => {
+    expect(Math.hypot(...H2.encounters[1].rel.slice(0, 3))).toBeCloseTo(9521, -1)
+    expect(Math.hypot(...H2.encounters[3].rel.slice(0, 3))).toBeCloseTo(6712, -1)
   })
 })

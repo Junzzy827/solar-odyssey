@@ -45,35 +45,47 @@ function useReadout(probe: Probe): Readout {
 function Caption({ probe, r }: { probe: Probe; r: Readout }) {
   useLang()
   const t = probe.trajectory!
-  const numbers = useMemo(() => Object.fromEntries(t.encounters.slice(1).map((e) => [e.body, flybyNumbers(t, e)])), [t])
+  // 通過ごとの数字（道すじの何番目か。はやぶさ2は地球に2回来る）
+  const numbers = useMemo(() => t.encounters.map((e, i) => (i > 0 && e.until === undefined ? flybyNumbers(t, e) : null)), [t])
   const [tick, setTick] = useState(0)
-  const after = r.scene.kind === 'cruise' ? r.scene.after : null
+  // 数秒ごとに順に変える場面（巡航の豆知識、ホームポジションの話）
+  const rotating = r.scene.kind === 'cruise' ? `cruise${r.scene.after}` : r.scene.kind === 'stay' && r.scene.step === 'home' ? 'home' : null
   useEffect(() => {
-    if (!after) return
+    if (!rotating) return
     setTick(0)
     const id = setInterval(() => setTick((k) => k + 1), CRUISE_MS)
     return () => clearInterval(id)
-  }, [after])
+  }, [rotating])
   const c = ui().probeCam
+  const p = c.probes[probe.id] ?? c.probes.voyager2
   const s = r.scene
+  const radio = c.lightTime(r.earthKm / LIGHT_KM_PER_MIN)
   let text = ''
-  let key = s.kind
+  let key: string = s.kind
   if (s.kind === 'launch') {
     text = s.step === 0 ? c.launch.burnout(r.geoSpeed) : s.step === 1 ? c.launch.moon(c.distance(r.relKm ?? 0)) : c.launch.helio(r.speed)
     key += s.step
   } else if (s.kind === 'flyby') {
-    const name = c.planet[s.body] ?? s.body
-    const lines = c.flyby(name, numbers[s.body])
+    const last = s.index === t.encounters.length - 1
+    // はやぶさ2の地球への帰還は、カプセルの話
+    const lines = last && probe.id === 'hayabusa2' ? c.homecoming(numbers[s.index]!.altitudeKm) : c.flyby(c.planet[s.body] ?? s.body, numbers[s.index]!)
     text = lines[s.step]
-    key += s.body + s.step
+    key += s.index + '-' + s.step
+  } else if (s.kind === 'stay') {
+    if (s.step === 'home') {
+      const line = c.stay.home[tick % c.stay.home.length]
+      text = typeof line === 'function' ? line(radio) : line
+      key += tick % c.stay.home.length
+    } else text = s.step === 'dip' ? c.stay.dips[s.dip] : c.stay[s.step]
+    key += s.step + s.dip
   } else if (s.kind === 'cruise') {
-    // 通ったばかりの惑星の見どころ → 豆知識を順に
-    const facts = [...(c.extra[s.after] ? [c.extra[s.after]] : []), ...c.cruise]
+    // 通ったばかりの天体の見どころ → 豆知識を順に
+    const facts = [...(p.extra[s.after] ? [p.extra[s.after]] : []), ...p.cruise]
     const k = tick % facts.length
     const line = facts[k]
-    text = typeof line === 'function' ? line(c.distance(r.earthKm), c.lightTime(r.earthKm / LIGHT_KM_PER_MIN)) : line
-    key += s.after + k
-  } else text = c.beyond(r.speed)
+    text = typeof line === 'function' ? line(c.distance(r.earthKm), radio) : line
+    key += s.after + '-' + k
+  } else text = p.beyond(r.speed)
   return (
     <p className="pc-caption" key={key}>
       {text}
@@ -100,7 +112,14 @@ export function ProbeCamPane({ probe }: { probe: Probe }) {
   const playing = useProbes((s) => s.playing)
   const r = useReadout(probe)
   const c = ui().probeCam
-  const near = r.relKm !== null && r.body !== 'earth' ? c.toPlanet(c.planet[r.body] ?? r.body, c.distance(r.relKm)) : null
+  const name = c.planet[r.body] ?? r.body
+  // 小さな小惑星は、中心からではなく地面からの高さ
+  const near =
+    r.relKm === null || r.body === 'earth'
+      ? null
+      : r.body === 'ryugu'
+        ? c.toSurface(name, c.distance(Math.max(0, r.relKm - planetRadiusKm(r.body))))
+        : c.toPlanet(name, c.distance(r.relKm))
   const radii = r.relKm !== null ? r.relKm / planetRadiusKm(r.body) : 0
   return (
     <section className={`probe-cam${playing ? '' : ' paused'}`} aria-label={ui().probes[probe.id].name}>
@@ -110,14 +129,14 @@ export function ProbeCamPane({ probe }: { probe: Probe }) {
       <div className="pc-top">
         <SpeedGauge speed={r.speed} />
         {near ? (
-          <p className={`pc-near${radii < 12 ? ' close' : ''}`}>{near}</p>
+          <p className={`pc-near${radii < 12 || r.body === 'ryugu' ? ' close' : ''}`}>{near}</p>
         ) : (
           <p className="pc-near muted">{c.fromEarth(c.distance(r.earthKm), c.lightTime(r.earthKm / LIGHT_KM_PER_MIN))}</p>
         )}
       </div>
       <Caption probe={probe} r={r} />
       <p className="pc-credit">
-        {c.credit} · {c.dragHint}
+        {(c.probes[probe.id] ?? c.probes.voyager2).credit} · {c.dragHint}
       </p>
     </section>
   )

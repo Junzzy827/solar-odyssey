@@ -45,20 +45,20 @@ async function jumpScene(page) {
 }
 
 /** 探査機の旅：ボイジャー2号を選び、encounter 番目の通過の days 日前後で止める。模型の画面が出て、字幕と閉じるボタンが見える */
-async function probeScene(page, encounter, days) {
+async function probeScene(page, encounter, days, id = 'voyager2') {
   await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
-  await page.evaluate(() => {
+  await page.evaluate((id) => {
     window.__sv.probes.open()
-    window.__sv.probes.play('voyager2')
-  })
+    window.__sv.probes.play(id)
+  }, id)
   await page.waitForFunction(() => document.querySelector('.probe-cam canvas'), null, { timeout: 60000 })
   await page.evaluate(
-    ([k, d]) => {
+    ([k, d, id]) => {
       const { probes } = window.__sv
       probes.state.setState({ playing: false })
-      probes.clock.ms = window.__sv.probeTrajectory('voyager2').encounters[k].ms + d * 86_400_000
+      probes.clock.ms = window.__sv.probeTrajectory(id).encounters[k].ms + d * 86_400_000
     },
-    [encounter, days],
+    [encounter, days, id],
   )
   await sleep(6000)
   await page.waitForFunction(() => document.querySelector('.probe-cam .pc-caption')?.textContent, null, { timeout: 30000 })
@@ -214,6 +214,8 @@ const SCENARIOS = {
   'probe-voyager': { ctx: desktop, hash: '#debug', run: (page) => probeScene(page, 1, -0.3) },
   // スマホの縦：上に模型の画面、下に説明。閉じるボタンが隠れていない
   'probe-voyager-phone': { ctx: phone, hash: '#debug', run: (page) => probeScene(page, 1, -0.3) },
+  // はやぶさ2：1回目のタッチダウンの 17 分前。リュウグウの近くの細かい地面と、探査機の影
+  'probe-hayabusa2': { ctx: desktop, hash: '#debug', run: (page) => probeScene(page, 2, 239.925, 'hayabusa2') },
   // 発見スキャン：小惑星帯の岩のそばでスキャンすると、発見のカードが出る
   scan: {
     ctx: desktop,
