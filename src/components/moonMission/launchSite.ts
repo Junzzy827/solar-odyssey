@@ -181,29 +181,138 @@ function deflectorGeometry() {
   return g
 }
 
-/** 発射台のまわりの夜の明かり（町・道路）。西と南の陸に、ところどころ集まった町 */
+/** 海岸線（発射台から東へ m）。39A の東 1.4 km ほどが大西洋の砂浜 */
+const COAST_X = 1400
+
+/**
+ * まわりの夜の明かり。本物の地図の位置にだいたい合わせる（x 東、z 南、m）：
+ * - タイタスビルの町：西のインディアン川の向こう、南北に長い（オレンジのナトリウム灯）
+ * - ココアとココアビーチ：ずっと南
+ * - ケープカナベラルの発射場：南南東の海沿いに、白い照明の塊がぽつぽつ
+ * - 組み立て棟（VAB）のまわり：西南西 4.6 km
+ */
+const LIGHT_GROUPS: { x: number; z: number; rx: number; rz: number; n: number; warm: number }[] = [
+  { x: -18500, z: 2000, rx: 1800, rz: 11000, n: 520, warm: 1 },
+  { x: -15000, z: 30000, rx: 4000, rz: 5000, n: 260, warm: 1 },
+  { x: -2000, z: 36000, rx: 1500, rz: 6000, n: 220, warm: 0.8 },
+  { x: 2600, z: 11000, rx: 900, rz: 5000, n: 90, warm: 0.15 },
+  { x: 3800, z: 19000, rx: 900, rz: 3000, n: 70, warm: 0.2 },
+  { x: -4600, z: 2400, rx: 500, rz: 600, n: 80, warm: 0.4 },
+  { x: -6500, z: 8000, rx: 2500, rz: 2500, n: 60, warm: 0.9 },
+]
+
 function cityLightsGeometry(small: boolean) {
-  const n = small ? 500 : 1400
-  const pos = new Float32Array(n * 3)
-  const col = new Float32Array(n * 3)
-  for (let i = 0; i < n; i++) {
-    const town = i % 7
-    const cx = -9000 - town * 2600 + (town % 2) * 4000
-    const cz = -12000 + town * 5200
-    const r = 400 + Math.random() * (town === 3 ? 6000 : 2200)
-    const a = Math.random() * Math.PI * 2
-    pos[i * 3] = Math.min(-600, cx + Math.cos(a) * r)
-    pos[i * 3 + 1] = LAND_Y + 2
-    pos[i * 3 + 2] = cz + Math.sin(a) * r
-    const w = 0.7 + Math.random() * 0.3
-    col[i * 3] = w
-    col[i * 3 + 1] = w * (0.72 + Math.random() * 0.15)
-    col[i * 3 + 2] = w * 0.45
+  let seed = 11
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  const pts: number[] = []
+  const cols: number[] = []
+  for (const g of LIGHT_GROUPS) {
+    const n = Math.round(g.n * (small ? 0.4 : 1))
+    for (let i = 0; i < n; i++) {
+      // 町の中ほど密に（まん中に寄せる）
+      const r = Math.sqrt(rnd()) * (0.4 + 0.6 * rnd())
+      const a = rnd() * Math.PI * 2
+      const x = g.x + Math.cos(a) * r * g.rx
+      if (x > COAST_X - 40 && g.x < COAST_X) continue
+      pts.push(x, LAND_Y + 2 + rnd() * 6, g.z + Math.sin(a) * r * g.rz)
+      const w = 0.6 + rnd() * 0.4
+      const warm = g.warm * (0.7 + 0.3 * rnd())
+      cols.push(w, w * (1 - 0.3 * warm), w * (1 - 0.6 * warm))
+    }
   }
-  const g = new THREE.BufferGeometry()
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3))
-  return g
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3))
+  geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cols), 3))
+  return geo
+}
+
+/** 湿地の池と入り江（メリット島は水と草の湿地。写真では、手前の水に炎や照明が映る） */
+function marshWater(group: THREE.Group, mat: THREE.Material, geos: THREE.BufferGeometry[]) {
+  let seed = 5
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  const disc = new THREE.CircleGeometry(1, 40)
+  geos.push(disc)
+  const add = (x: number, z: number, sx: number, sz: number, rot: number) => {
+    const m = new THREE.Mesh(disc, mat)
+    m.rotation.set(-Math.PI / 2, 0, rot)
+    m.scale.set(sx, sz, 1)
+    m.position.set(x, LAND_Y + 0.02, z)
+    group.add(m)
+  }
+  // 西のバナナ川の入り江（南北に長い水面）と、インディアン川
+  add(-7800, 1000, 1400, 9000, 0.1)
+  add(-14500, 4000, 2200, 16000, 0.05)
+  // まわりの池：発射台の 0.7〜6 km、クローラーの道は避ける
+  for (let i = 0; i < 26; i++) {
+    const a = rnd() * Math.PI * 2
+    const d = 700 + rnd() * 5200
+    const x = Math.cos(a) * d
+    const z = Math.sin(a) * d
+    if (x > COAST_X - 200) continue
+    if (x < -300 && x > -4800 && Math.abs(z - x * -0.52) < 260) continue
+    add(x, z, 60 + rnd() * 260, 30 + rnd() * 140, rnd() * Math.PI)
+  }
+}
+
+/** 組み立て棟（VAB）と発射管制センター：西南西 4.6 km。高さ 160 m の箱は、夜も窓の明かりと赤い航空灯 */
+function vehicleAssemblyBuilding(group: THREE.Group, geos: THREE.BufferGeometry[], mats: THREE.Material[]) {
+  const vab = new THREE.Group()
+  vab.position.set(-4600, LAND_Y, 2400)
+  vab.rotation.y = -0.08
+  const box = new THREE.BoxGeometry(218, 160, 158)
+  box.translate(0, 80, 0)
+  const low = new THREE.BoxGeometry(130, 64, 135)
+  low.translate(-165, 32, 0)
+  const lcc = new THREE.BoxGeometry(110, 24, 55)
+  lcc.translate(70, 12, -160)
+  const wall = new THREE.MeshStandardMaterial({ color: '#4a4c4e', roughness: 0.85 })
+  geos.push(box, low, lcc)
+  mats.push(wall)
+  for (const g of [box, low, lcc]) vab.add(new THREE.Mesh(g, wall))
+  // 窓とドアの明かり、てっぺんの赤い航空灯
+  const pts: number[] = []
+  const cols: number[] = []
+  let seed = 3
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  for (let i = 0; i < 90; i++) {
+    const side = rnd() < 0.5 ? 1 : -1
+    pts.push(-100 + rnd() * 200, 4 + rnd() * 150, side * 79.5)
+    cols.push(0.9, 0.85, 0.7)
+  }
+  for (let i = 0; i < 30; i++) {
+    pts.push(105 + rnd() * 10, 4 + rnd() * 18, -170 + rnd() * 30)
+    cols.push(1, 0.95, 0.85)
+  }
+  for (const [x, z] of [[-109, -79], [109, -79], [-109, 79], [109, 79]]) {
+    pts.push(x, 161, z)
+    cols.push(1.6, 0.05, 0.02)
+  }
+  const lg = new THREE.BufferGeometry()
+  lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3))
+  lg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cols), 3))
+  const lm = new THREE.PointsMaterial({ vertexColors: true, size: 2.4, sizeAttenuation: false, map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+  geos.push(lg)
+  mats.push(lm)
+  vab.add(new THREE.Points(lg, lm))
+  group.add(vab)
+}
+
+/** クローラーの道：発射台の坂の下から、西南西の組み立て棟へ（砂利の 2 本の道） */
+function crawlerway(group: THREE.Group, mat: THREE.Material, geos: THREE.BufferGeometry[]) {
+  const from = new THREE.Vector2(-330, 0)
+  const to = new THREE.Vector2(-4500, 2300)
+  const len = from.distanceTo(to)
+  for (const off of [-12, 12]) {
+    const g = new THREE.PlaneGeometry(len, 12)
+    geos.push(g)
+    const m = new THREE.Mesh(g, mat)
+    const ang = Math.atan2(to.y - from.y, to.x - from.x)
+    m.rotation.set(-Math.PI / 2, 0, -ang)
+    const nx = -Math.sin(ang) * off
+    const nz = Math.cos(ang) * off
+    m.position.set((from.x + to.x) / 2 + nx, LAND_Y + 0.04, (from.y + to.y) / 2 + nz)
+    group.add(m)
+  }
 }
 
 export type LaunchSite = {
@@ -229,8 +338,18 @@ export function buildSite(small: boolean): LaunchSite {
     return m
   }
   // 陸（西）と海（東）。盛り土の網の下に少しもぐらせる
-  flat(new THREE.PlaneGeometry(30000, 60000), new THREE.MeshStandardMaterial({ color: '#1a1c16', roughness: 0.95 }), -15000 + 150, LAND_Y - 0.05, 0)
-  flat(new THREE.PlaneGeometry(30000, 60000), new THREE.MeshStandardMaterial({ color: '#04070c', roughness: 0.18, metalness: 0.2 }), 15600, LAND_Y - 0.5, 0)
+  flat(new THREE.PlaneGeometry(30000, 80000), new THREE.MeshStandardMaterial({ color: '#1a1c16', roughness: 0.95 }), COAST_X - 15000, LAND_Y - 0.05, 0)
+  // 砂浜
+  flat(new THREE.PlaneGeometry(60, 80000), new THREE.MeshStandardMaterial({ color: '#5a554a', roughness: 0.95 }), COAST_X - 30, LAND_Y - 0.03, 0)
+  // 大西洋。夜の海は黒く、炎や照明だけを映す
+  const water = new THREE.MeshStandardMaterial({ color: '#03060a', roughness: 0.14, metalness: 0.3 })
+  mats.push(water)
+  flat(new THREE.PlaneGeometry(40000, 80000), water, COAST_X + 20000, LAND_Y - 0.5, 0)
+  marshWater(group, water, geos)
+  const gravel = new THREE.MeshStandardMaterial({ color: '#3a3833', roughness: 0.95 })
+  mats.push(gravel)
+  crawlerway(group, gravel, geos)
+  vehicleAssemblyBuilding(group, geos, mats)
   // 発射台の盛り土・斜面・炎の溝・クローラーの道
   const moundGeo = moundGeometry()
   const concrete = concreteTexture()
