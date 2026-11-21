@@ -4,6 +4,7 @@
 
 import { debugSkip, saveChapter, startMoonMission, useMoonMission, setCaption, type MissionPhase } from './moonMission'
 import { lunarSkip, stepOutside } from './moonLunar'
+import { startDock, startMarble } from './moonDock'
 
 export type Chapter = {
   n: number
@@ -15,6 +16,11 @@ export type Chapter = {
 function begin(chapter: 'launch' | 'moon', after?: () => void) {
   useMoonMission.setState({ phase: 'none' })
   startMoonMission(chapter, after)
+}
+
+/** 章3・4：発射台の場面を用意してから、すぐドッキングの場面へ */
+function beginDeep(start: () => void) {
+  begin('launch', start)
 }
 
 export const CHAPTERS: Chapter[] = [
@@ -39,8 +45,8 @@ export const CHAPTERS: Chapter[] = [
         setCaption('orbit')
       }),
   },
-  { n: 3 },
-  { n: 4 },
+  { n: 3, start: () => beginDeep(startDock) },
+  { n: 4, start: () => beginDeep(startMarble) },
   { n: 5, start: () => begin('moon') },
   { n: 6, start: () => begin('moon', () => lunarSkip('undock', false)) },
   // 月面の探検：ミッションの場面を閉じて、地表の場面（タウルス・リトロー谷）へ
@@ -54,6 +60,8 @@ const OF_PHASE: Partial<Record<MissionPhase, number>> = {
   orbit: 2,
   tli: 2,
   outbound: 2,
+  dock: 3,
+  marble: 4,
   coast: 5,
   loi: 5,
   undock: 6,

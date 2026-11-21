@@ -28,8 +28,11 @@ import {
 const debugOn = typeof location !== 'undefined' && location.hash.includes('debug')
 import { LaunchWorld } from './LaunchWorld'
 import { LunarWorld } from './LunarWorld'
+import { DockWorld } from './DockWorld'
+import { DockHud } from './DockHud'
+import { startDock } from '../../state/moonDock'
 import { LunarHud } from './LunarHud'
-import { bindLunarKeys, lunarPhase, startLunar } from '../../state/moonLunar'
+import { bindLunarKeys, lunarPhase } from '../../state/moonLunar'
 import { RadioSubtitle } from './RadioSubtitle'
 import { JourneyBar } from './JourneyBar'
 import { journey } from '../../state/missionJourney'
@@ -63,13 +66,15 @@ function FilmHook() {
   return null
 }
 
-const MissionCanvas = memo(function MissionCanvas({ moon }: { moon: boolean }) {
+type World = 'launch' | 'dock' | 'moon'
+
+const MissionCanvas = memo(function MissionCanvas({ world }: { world: World }) {
   const dpr = useDpr(1.75)
   return (
     <Canvas dpr={dpr} gl={{ alpha: false, logarithmicDepthBuffer: true, antialias: true }} camera={{ fov: 40, near: 0.3, far: 2e10, position: [0, 20, 300] }}>
       <color attach="background" args={['#000']} />
       {/* 第1弾（地球から月へ向かうまで）と第2弾（月のまわり）は、別の世界 */}
-      <Suspense fallback={null}>{moon ? <LunarWorld /> : <LaunchWorld />}</Suspense>
+      <Suspense fallback={null}>{world === 'moon' ? <LunarWorld /> : world === 'dock' ? <DockWorld /> : <LaunchWorld />}</Suspense>
       <QualityGovernor />
       {debugOn && <FilmHook />}
     </Canvas>
@@ -253,8 +258,8 @@ function Hud() {
           <div className="mm-end-note">{t.starsNote}</div>
           <div className="mm-end-next">{t.endNext}</div>
           <div className="mm-end-buttons">
-            <button className="mm-continue" onClick={() => startLunar()}>
-              {t.lunar.continue}
+            <button className="mm-continue" onClick={() => startDock()}>
+              {t.dockNext}
             </button>
             <button onClick={() => restartMission()}>{t.again}</button>
             <button onClick={() => endMission()}>{t.back}</button>
@@ -285,12 +290,20 @@ export function MoonMissionView() {
   }, [])
   const shown = phase !== 'none' && phase !== 'fadeIn'
   const moon = lunarPhase(phase)
+  const docking = phase === 'dock' || phase === 'marble'
   return (
     <div className="mm-root" data-phase={phase}>
-      {shown && <MissionCanvas moon={moon} />}
+      {shown && <MissionCanvas world={moon ? 'moon' : docking ? 'dock' : 'launch'} />}
       {shown && <CabinFrame />}
       {shown && <JourneyBar />}
-      {shown && !moon && <Hud />}
+      {shown && !moon && !docking && <Hud />}
+      {shown && docking && (
+        <div className="mm-hud">
+          <DockHud />
+          <Caption />
+          <RadioSubtitle />
+        </div>
+      )}
       {shown && moon && (
         <div className="mm-hud">
           <LunarHud />

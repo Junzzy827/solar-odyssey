@@ -1,4 +1,5 @@
 import { endFlight, forgetLaps, startFlight, useSkyFlight } from './state/skyFlight'
+import { dock as dockSim, dockSkip, setDockAuto, pressShutter, startDock, startMarble, useMoonDock } from './state/moonDock'
 import { beginApolloEva, nextLeg, skipDrive, takeSample, useApolloEva, watchLiftoff } from './state/apolloEva'
 import { roverPose as roverPoseRef } from './state/rover'
 import { tvDebug } from './components/surface/LunarModule'
@@ -112,6 +113,7 @@ const sv = {
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus, ctl: roverCtl, pose: roverPose },
   // 月ミッション（アポロ17号の追体験）
   moonMission: { state: useMoonMission, sim: moonSim, input: missionInput, start: startMoonMission, go: pressGo, auto: setAuto, skip: moonSkip },
+  moonDock: { state: useMoonDock, sim: dockSim, skip: dockSkip, auto: setDockAuto, shutter: pressShutter, dock: startDock, marble: startMarble },
   apolloEva: { state: useApolloEva, begin: beginApolloEva, skip: skipDrive, take: takeSample, next: nextLeg, liftoff: watchLiftoff, pose: roverPoseRef, tv: tvDebug },
   moonLunar: { lunar, state: useMoonLunar, start: startLunar, go: lunarGo, manual: lunarManual, skip: lunarSkip, tick: tickLunar, ground: lunarGround },
   // コロニーの中を歩く。start('colony') でコロニーの中にいることにして始める（テスト用）

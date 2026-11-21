@@ -12,6 +12,12 @@ export const GET = {
   /** 月へ向かう点火と、その終わり */
   tli: hms(3, 12, 37),
   tliEnd: hms(3, 18, 28),
+  /** 司令船が第3段から離れる・つなぐ（キャプチャー）・着陸船を引き出す（AFJ Day 1: Transposition, Docking and Extraction） */
+  sep: hms(3, 42, 43),
+  softDock: hms(3, 57, 3),
+  ejection: hms(4, 45, 32),
+  /** 「ブルー・マーブル」の写真（AS17-148-22727 のあたり） */
+  marble: hms(5, 6, 24),
   /** 月の裏でのブレーキ（LOI） */
   loi: hms(86, 14, 23),
   /** 降下の点火（PDI）と着陸 */
@@ -28,7 +34,8 @@ const MU_MOON = 4.9028e12
 
 /** 月への旅の途中：進み具合（0〜1、時間）から、地球の中心からの距離（m）。放物線に近い軌道なので、距離は時間の 2/3 乗でのびる */
 export function coastDistance(progress: number) {
-  const r0 = R_EARTH + 320_000
+  // 「ブルー・マーブル」を撮ったあと（高さ約 3.5 万 km）から
+  const r0 = R_EARTH + 36_000_000
   const r1 = EARTH_MOON - R_MOON_M - 2_000_000
   return r0 + (r1 - r0) * Math.pow(Math.min(1, Math.max(0, progress)), 2 / 3)
 }

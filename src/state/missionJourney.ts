@@ -5,6 +5,7 @@ import { GET, EARTH_MOON, R_EARTH, R_MOON_M, coastDistance, coastSpeed } from '.
 import { PDI_IDEAL, LOI_IDEAL } from '../data/lunarDescent'
 import { TLI_WINDOW, TLI_WINDOW_OPEN, missionReadout, sim, useMoonMission } from './moonMission'
 import { lunar, lunarReadout } from './moonLunar'
+import { dockJourney } from './moonDock'
 
 export type Journey = {
   /** 打ち上げからの経過時間（秒。発射前は負） */
@@ -36,9 +37,13 @@ export function journey(): Journey | null {
     else get = Math.min(r.t, GET.orbit)
     return { get, fromEarth: r.alt, toMoon: Math.max(0, EARTH_MOON - R_EARTH - R_MOON_M - r.alt), speed: r.speed, near: 'earth' }
   }
+  if (p === 'dock' || p === 'marble') {
+    const d = dockJourney()
+    return { get: d.get, fromEarth: d.fromEarth, toMoon: EARTH_MOON - d.fromEarth - R_EARTH - R_MOON_M, speed: d.speed, near: 'earth' }
+  }
   if (p === 'coast') {
     const dist = coastDistance(lunar.coast)
-    return { get: lerp(GET.tliEnd + 600, GET.loi - 3600, lunar.coast), fromEarth: dist - R_EARTH, toMoon: EARTH_MOON - dist - R_MOON_M, speed: coastSpeed(dist), near: 'earth' }
+    return { get: lerp(GET.marble + 900, GET.loi - 3600, lunar.coast), fromEarth: dist - R_EARTH, toMoon: EARTH_MOON - dist - R_MOON_M, speed: coastSpeed(dist), near: 'earth' }
   }
   if (p === 'loi' || p === 'undock' || p === 'descent' || p === 'landed') {
     const r = lunarReadout()

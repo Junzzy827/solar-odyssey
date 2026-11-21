@@ -32,6 +32,9 @@ export type MissionPhase =
   | 'orbit'
   | 'tli'
   | 'outbound'
+  // 章3・4（state/moonDock.ts）
+  | 'dock'
+  | 'marble'
   // 第2弾（state/moonLunar.ts）
   | 'coast'
   | 'loi'
@@ -106,6 +109,18 @@ export type CaptionKey =
   | 'tliWindow'
   | 'tliIgnition'
   | 'tliCutoff'
+  // 章3・4
+  | 'tdSep'
+  | 'tdTurn'
+  | 'tdApproach'
+  | 'capture'
+  | 'hardDock'
+  | 'bounceFast'
+  | 'bounceOff'
+  | 'ejectLater'
+  | 'ejected'
+  | 'evade'
+  | 'marble'
   // 第2弾
   | 'coast'
   | 'coastMoon'
@@ -343,9 +358,16 @@ export function setAuto(auto: boolean) {
 const CAMS: MissionCam[] = ['pad', 'chase', 'onboard']
 /** 第2弾のカメラ（着陸船が離れてからは窓も） */
 const LUNAR_CAMS: MissionCam[] = ['chase', 'window', 'wide']
+/** 章3・4 のカメラ（state/moonDock.ts の DOCK_CAMS と同じ。読み込みの順のためここにも） */
+const DOCK_CAMS: MissionCam[] = ['window', 'chase', 'wide']
 const LM_CAMS: MissionCam[] = ['chase', 'window', 'wide']
 export function cycleCam() {
   const s = useMoonMission.getState()
+  if (s.phase === 'dock' || s.phase === 'marble') {
+    const i = DOCK_CAMS.indexOf(s.cam)
+    useMoonMission.setState({ cam: DOCK_CAMS[(i + 1) % DOCK_CAMS.length], camLocked: true })
+    return
+  }
   if (s.phase === 'coast' || s.phase === 'loi' || s.phase === 'undock' || s.phase === 'descent' || s.phase === 'landed') {
     const list = s.phase === 'descent' || s.phase === 'landed' ? LM_CAMS : LUNAR_CAMS
     const i = list.indexOf(s.cam)

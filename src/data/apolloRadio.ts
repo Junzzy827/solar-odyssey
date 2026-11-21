@@ -2,9 +2,9 @@
 // 出典：Apollo Flight Journal / Apollo Lunar Surface Journal（apollojournals.org）の録音と文字起こし。
 // セリフは作らない。字幕の文は src/i18n/moonMission.* の radio.lines にある（原文と訳）。
 
-export type RadioWho = 'pao' | 'cdr' | 'capcom' | 'lmp'
-export type RadioLineKey = 'count' | 'liftoff1' | 'liftoff2' | 'landed' | 'super' | 'goTli' | 'goTliAck' | 'arrived' | 'heardYou' | 'pdiCount' | 'pdiIgnition' | 'ohHey' | 'what' | 'orangeSoil' | 'dontMove' | 'allOver' | 'leaveAsWeCame' | 'peaceHope' | 'ascentCount' | 'ascentIgnition' | 'onOurWay' | 'ratesGood'
-export type RadioClipId = 'liftoff' | 'landed' | 'tli' | 'aos' | 'pdi' | 'orange' | 'lastWords' | 'ascent'
+export type RadioWho = 'pao' | 'cdr' | 'capcom' | 'lmp' | 'cmp'
+export type RadioLineKey = 'count' | 'liftoff1' | 'liftoff2' | 'landed' | 'super' | 'goTli' | 'goTliAck' | 'arrived' | 'heardYou' | 'pdiCount' | 'pdiIgnition' | 'ohHey' | 'what' | 'orangeSoil' | 'dontMove' | 'allOver' | 'leaveAsWeCame' | 'peaceHope' | 'ascentCount' | 'ascentIgnition' | 'onOurWay' | 'ratesGood' | 'captureHouston' | 'weCopy' | 'prime1' | 'markIt' | 'hereSheComes' | 'kachunk' | 'rippleFire' | 'onMyMark' | 'gotIt' | 'thereSheGoes' | 'stickForever' | 'rogerGene' | 'africa' | 'upperThird'
+export type RadioClipId = 'liftoff' | 'landed' | 'tli' | 'aos' | 'pdi' | 'orange' | 'lastWords' | 'ascent' | 'capture' | 'hardDock' | 'ejection' | 'earthView'
 
 export type RadioLine = { from: number; to: number; who: RadioWho; key: RadioLineKey }
 export type RadioClip = {
@@ -102,6 +102,52 @@ export const RADIO: Record<RadioClipId, RadioClip> = {
       { from: 6.8, to: 8.0, who: 'lmp', key: 'ascentIgnition' },
       { from: 8.0, to: 10.8, who: 'cdr', key: 'onOurWay' },
       { from: 10.8, to: 13.0, who: 'lmp', key: 'ratesGood' },
+    ],
+  },
+  // つないだ（ソフトドッキング）。経過時間 003:57:03（AFJ の録音 a17_0033704.mp3）
+  capture: {
+    file: 'audio/apollo17/capture.mp3',
+    length: 5.1,
+    get: '003:57:03',
+    lines: [
+      { from: 0.3, to: 2.6, who: 'cdr', key: 'captureHouston' },
+      { from: 2.8, to: 5.1, who: 'capcom', key: 'weCopy' },
+    ],
+  },
+  // 探り棒を引きこみ、12 個の留め金が閉まる（ハードドッキング）。003:57:20〜
+  hardDock: {
+    file: 'audio/apollo17/harddock.mp3',
+    length: 13.4,
+    get: '003:57:20',
+    lines: [
+      { from: 0, to: 1.3, who: 'cmp', key: 'prime1' },
+      { from: 1.3, to: 3.0, who: 'cdr', key: 'markIt' },
+      { from: 3.0, to: 4.2, who: 'cmp', key: 'hereSheComes' },
+      { from: 4.2, to: 6.8, who: 'cmp', key: 'kachunk' },
+      { from: 7.2, to: 13.4, who: 'cdr', key: 'rippleFire' },
+    ],
+  },
+  // 着陸船を第3段から引き出す。004:45:23〜
+  ejection: {
+    file: 'audio/apollo17/ejection.mp3',
+    length: 15.2,
+    get: '004:45:23',
+    lines: [
+      { from: 0.2, to: 6.4, who: 'cdr', key: 'onMyMark' },
+      { from: 6.4, to: 9.3, who: 'cdr', key: 'gotIt' },
+      { from: 9.3, to: 15.2, who: 'cmp', key: 'thereSheGoes' },
+    ],
+  },
+  // 丸い地球をながめて。005:22:59〜（AFJ の録音 a17_0051716.mp3）
+  earthView: {
+    file: 'audio/apollo17/earthview.mp3',
+    length: 27.0,
+    get: '005:22:59',
+    lines: [
+      { from: 0.4, to: 8.0, who: 'cdr', key: 'stickForever' },
+      { from: 8.0, to: 9.6, who: 'capcom', key: 'rogerGene' },
+      { from: 10.2, to: 16.4, who: 'cdr', key: 'africa' },
+      { from: 16.6, to: 27.0, who: 'cdr', key: 'upperThird' },
     ],
   },
 }
