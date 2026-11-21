@@ -166,7 +166,7 @@ function Cup({ terrain }: { terrain: Terrain }) {
     const froth = new THREE.MeshStandardMaterial({ color: '#f6fbff', roughness: 0.85, metalness: 0, emissive: '#8094a8', emissiveIntensity: 0.4 })
     const foam = new THREE.MeshStandardMaterial({ color: '#f4fbff', roughness: 0.7, transparent: true, opacity: 0, depthWrite: false })
     const bubble = new THREE.MeshStandardMaterial({ color: '#e8f6ff', roughness: 0.05, transparent: true, opacity: 0.55, depthWrite: false })
-    const metal = new THREE.MeshStandardMaterial({ color: '#3d434b', roughness: 0.55, metalness: 0.35 })
+    const metal = new THREE.MeshStandardMaterial({ color: '#2a2f36', roughness: 0.7, metalness: 0.15 })
     const dark = new THREE.MeshStandardMaterial({ color: '#40454d', roughness: 0.6, metalness: 0.5 })
     return { glass, marks, water, surface, ice, froth, foam, bubble, metal, dark }
   }, [tex])

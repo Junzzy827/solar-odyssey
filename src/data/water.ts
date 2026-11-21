@@ -21,8 +21,8 @@ export const TRIPLE_KPA = 0.611
 /** 温度 1℃ ぶんの熱で、何℃ぶんの水が… （比熱 4.18 J/g/K に対する潜熱） */
 const FUSE = 334 / 4.18
 const VAPOR = 2257 / 4.18
-/** 真空で日ざしを受けた氷の昇華（1 au の真上の太陽で、5 cm の氷が 1 日あまりで消える：1 秒あたりの割合） */
-const SUBLIME = 1.1e-5
+/** 真空で日ざしを受けた氷の昇華（1 au の真上の太陽で、ビーカーの氷が半日ほどで消える：1 秒あたりの割合。見やすく少し速め） */
+const SUBLIME = 3e-5
 
 export const pressureKPa = (id: string) => PRESSURE[id] ?? 0
 
@@ -103,8 +103,9 @@ export function stepWater(w: Water, env: Env, dtReal: number, sim: number): Wate
       }
       return o
     }
-    // 氷：まわりの温度へ近づく（0℃ より上にはならない。溶けずに昇華する）
-    o.temp = Math.min(0, env.temp + (o.temp - env.temp) * Math.exp(-dt / tau))
+    // 氷：まわりの温度へ近づく。日なたでも、昇華が熱をうばうので −55℃ くらいにとどまる（溶けずに気体になる）
+    const target = Math.min(env.temp, -55)
+    o.temp = Math.min(0, target + (o.temp - target) * Math.exp(-dt / (tau / 6)))
     // 昇華：日ざしの熱しだい。とても冷たい氷はほとんど気体にならない
     const warm = Math.min(1, Math.exp((env.temp + 60) / 12))
     const rate = SUBLIME * env.sun * warm * (env.id === 'mars' ? 0.3 : 1)

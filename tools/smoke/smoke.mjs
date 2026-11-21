@@ -318,6 +318,9 @@ const SCENARIOS = {
       await page.waitForFunction(() => document.querySelector('.sunrise-go'), null, { timeout: 30000 })
       await page.evaluate(() => document.querySelector('.sunrise-go').click())
       await page.waitForFunction(() => document.querySelector('.sunrise-card .sunrise-head'), null, { timeout: 30000 })
+      // 日の出の前は暗いので、昼へ進めてから 3D を確かめる
+      await page.evaluate(() => document.querySelector('.time-jump .sunrise-go + button').click())
+      await page.waitForFunction(() => Math.abs(window.__sv.skyClock.getState().clock - 12) < 1.5, null, { timeout: 60000, polling: 500 })
     },
   },
   // 水のコップ（スマホ・金星）：沸いて消える。カードのボタンが隠れない
