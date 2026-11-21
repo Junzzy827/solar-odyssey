@@ -28,6 +28,10 @@ const WHEELS: [number, number][] = [
   [-2.05, -1.95], [-2.05, 1.95],
 ]
 const WHEEL_R = 0.62
+/** 車輪が上下に動ける幅（m）：縮み・伸び */
+const SUS_UP = 0.35
+const SUS_DOWN = 0.3
+const wheelD = new Float32Array(6)
 const WHEEL_NAMES = ['FL', 'FR', 'ML', 'MR', 'RL', 'RR']
 /** これより高い岩にはぶつかって止まる（m）。大きな車輪なので、低い岩はそのまま乗りこえる（車体がゆれる） */
 const BIG_ROCK = 0.9
@@ -60,7 +64,7 @@ type Drive = {
   sway: Sway
 }
 
-const P = { cam: new THREE.Vector3(), look: new THREE.Vector3(), tmp: new THREE.Vector3(), q: new THREE.Quaternion() }
+const P = { cam: new THREE.Vector3(), look: new THREE.Vector3(), tmp: new THREE.Vector3(), wv: new THREE.Vector3(), q: new THREE.Quaternion() }
 
 /** 停めてある場所と向き（着陸船の向きから） */
 export function crewPark(landerYaw: number) {
@@ -207,9 +211,10 @@ export function CrewRover({
     })
     const wheels = WHEEL_NAMES.map((n) => model.getObjectByName('Wheel_' + n)!)
     for (const w of wheels) w.rotation.order = 'YXZ'
+    const restY = wheels.map((w) => w.position.y)
     const cockpit = buildCockpit()
     owned.push(...cockpit.owned)
-    return { model, wheels, owned, cockpit: cockpit.group }
+    return { model, wheels, restY, owned, cockpit: cockpit.group }
   }, [scene, prepare])
   useEffect(() => () => built.owned.forEach((m) => m.dispose()), [built])
 
@@ -275,7 +280,8 @@ export function CrewRover({
       const [wf, sd] = WHEELS[i]
       const wx = s.x + fx * wf + sx * sd
       const wz = s.z + fz * wf + sz * sd
-      let h = meshHeight(terrain, wx, wz)
+      // 描かれている地面（三角形）の高さ。meshHeight だとタイルの間で少しずれて、車輪がめり込んで見える
+      let h = drawnHeight(terrain, wx, wz)
       for (const r of nearRocks(bodies, wx, wz)) {
         if (r.h >= BIG_ROCK) continue
         // 岩の上を車輪がこえる：岩のまわり（岩の半径 ＋ 車輪の半径の半分）で、なだらかな丘として
@@ -453,7 +459,20 @@ export function CrewRover({
     // ---- 姿 ----
     grp.position.set(s.x, s.y, s.z)
     grp.rotation.set(s.pitch + s.sway.pitch * 0.5, s.heading, s.roll + s.sway.roll * 0.5, 'YXZ')
+    // サスペンション：車体は 6 つの車輪の平均の高さなので、でこぼこの上では車輪ごとに地面とずれる。
+    // 車輪を上下に動かして（伸び 0.3 m・縮み 0.35 m まで）地面にのせる。縮みきってもめり込むなら車体ごと持ち上げる
+    grp.updateMatrixWorld(true)
+    let lift = 0
     built.wheels.forEach((w, i) => {
+      P.wv.set(w.position.x, built.restY[i], w.position.z)
+      w.parent!.localToWorld(P.wv)
+      const d = wheelH[i] + WHEEL_R - P.wv.y
+      wheelD[i] = d
+      if (d - SUS_UP > lift) lift = d - SUS_UP
+    })
+    if (lift > 0) grp.position.y += lift
+    built.wheels.forEach((w, i) => {
+      w.position.y = built.restY[i] + Math.max(-SUS_DOWN, Math.min(SUS_UP, wheelD[i] - lift))
       w.rotation.x = s.spin
       const front = i < 2
       const rear = i >= 4
