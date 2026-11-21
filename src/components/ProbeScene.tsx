@@ -72,7 +72,7 @@ function visibleRegion(width: number, height: number) {
 }
 
 export function ProbeScene() {
-  const { open, probeId } = useProbes()
+  const { open, probeId, samples } = useProbes()
   const probe = open ? probeById(probeId) : null
   const layout = useLayout()
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
@@ -89,7 +89,8 @@ export function ProbeScene() {
     done.geometry.setDrawRange(0, 0)
     const reach = Math.max(...world.map((w) => w.length()))
     return { path, full, done, reach }
-  }, [probe, layout])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [probe, layout, samples])
 
   // 選んだら、道すじ全体が入るところまでカメラを引く（内側だけの旅は寄る）。
   // 右（スマホの縦では上）に模型の画面があるときは、残りの見える範囲に収まるように、もっと引く。

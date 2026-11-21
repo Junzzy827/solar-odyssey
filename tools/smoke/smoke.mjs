@@ -216,6 +216,8 @@ const SCENARIOS = {
   'probe-voyager-phone': { ctx: phone, hash: '#debug', run: (page) => probeScene(page, 1, -0.3) },
   // はやぶさ2：1回目のタッチダウンの 17 分前。リュウグウの近くの細かい地面と、探査機の影
   'probe-hayabusa2': { ctx: desktop, hash: '#debug', run: (page) => probeScene(page, 2, 239.925, 'hayabusa2') },
+  // カッシーニ：ホイヘンスを切りはなした20秒後（土星を回るあいだの値は別のファイルから読み込む）
+  'probe-cassini': { ctx: desktop, hash: '#debug', run: (page) => probeScene(page, 5, 176.97245, 'cassini') },
   // 発見スキャン：小惑星帯の岩のそばでスキャンすると、発見のカードが出る
   scan: {
     ctx: desktop,
