@@ -19,8 +19,8 @@ export function ChapterMenu() {
   }
   return (
     <>
-      <button className={`cm-open ${open ? 'on' : ''}`} onClick={() => setOpen(!open)}>
-        {T.button}
+      <button className={`cm-open ${open ? 'on' : ''}`} aria-expanded={open} aria-label={T.title} onClick={() => setOpen(!open)}>
+        {now === null ? T.button : <span className="cm-open-name">{T.buttonAt(now + 1, CHAPTERS.length, T.names[now])}</span>} ▾
       </button>
       {open && (
         <div className="cm-panel" role="dialog" aria-label={T.title}>
@@ -30,6 +30,11 @@ export function ChapterMenu() {
               ×
             </button>
           </div>
+          {next && (
+            <button className="cm-next" onClick={() => go(next.n)}>
+              {T.next} ▶
+            </button>
+          )}
           <ol className="cm-list">
             {CHAPTERS.map((c) => (
               <li key={c.n} className={`${c.n === now ? 'now' : ''} ${c.start ? '' : 'soon'}`}>
@@ -45,11 +50,6 @@ export function ChapterMenu() {
               </li>
             ))}
           </ol>
-          {next && (
-            <button className="cm-next" onClick={() => go(next.n)}>
-              {T.next} ▶
-            </button>
-          )}
         </div>
       )}
     </>

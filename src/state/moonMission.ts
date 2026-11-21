@@ -385,27 +385,27 @@ const LUNAR_CAMS: MissionCam[] = ['chase', 'window', 'wide']
 /** 章3・4 のカメラ（state/moonDock.ts の DOCK_CAMS と同じ。読み込みの順のためここにも） */
 const DOCK_CAMS: MissionCam[] = ['window', 'chase', 'wide']
 const LM_CAMS: MissionCam[] = ['chase', 'window', 'wide']
+/** いまの場面で選べるカメラ（順番どおり。先頭がおすすめ） */
+export function camChoices(): MissionCam[] {
+  const s = useMoonMission.getState()
+  if (s.phase === 'dock' || s.phase === 'marble' || s.phase === 'home') return DOCK_CAMS
+  if (s.phase === 'coast' || s.phase === 'loi' || s.phase === 'undock' || s.phase === 'descent' || s.phase === 'landed') return s.phase === 'descent' || s.phase === 'landed' ? LM_CAMS : LUNAR_CAMS
+  // 宇宙に出たら（地球を回る・月へ向かう）、司令船の窓からの眺めも選べる。自動のカメラは、発射台と上がっていくあいだだけ
+  const cams: MissionCam[] = s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound' ? [...CAMS.filter((c) => c !== 'film'), 'window'] : CAMS
+  // 高く上がったら、地上のカメラからは小さな点にしか見えないので出さない
+  return s.phase !== 'pad' && altitude(sim.a) > 30_000 ? cams.filter((c) => c !== 'pad') : cams
+}
+
+/** カメラを選ぶ（自分で選んだら、自動の切り替えはしない。自動のカメラを選んだときは、また自動にまかせる） */
+export function pickCam(cam: MissionCam) {
+  useMoonMission.setState({ cam, camLocked: cam !== 'film' })
+}
+
+/** 次のカメラへ（キーボードの C） */
 export function cycleCam() {
   const s = useMoonMission.getState()
-  if (s.phase === 'dock' || s.phase === 'marble' || s.phase === 'home') {
-    const i = DOCK_CAMS.indexOf(s.cam)
-    useMoonMission.setState({ cam: DOCK_CAMS[(i + 1) % DOCK_CAMS.length], camLocked: true })
-    return
-  }
-  if (s.phase === 'coast' || s.phase === 'loi' || s.phase === 'undock' || s.phase === 'descent' || s.phase === 'landed') {
-    const list = s.phase === 'descent' || s.phase === 'landed' ? LM_CAMS : LUNAR_CAMS
-    const i = list.indexOf(s.cam)
-    useMoonMission.setState({ cam: list[(i + 1) % list.length], camLocked: true })
-    return
-  }
-  // 宇宙に出たら（地球を回る・月へ向かう）、司令船の窓からの眺めも選べる
-  // 映画のカメラは、発射台と上がっていくあいだだけ
-  const cams: MissionCam[] = s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound' ? [...CAMS.filter((c) => c !== 'film'), 'window'] : CAMS
-  const i = cams.indexOf(s.cam)
-  let next = cams[(i + 1) % cams.length]
-  // 高く上がったら、地上のカメラからは小さな点にしか見えないので飛ばす
-  if (next === 'pad' && s.phase !== 'pad' && altitude(sim.a) > 30_000) next = 'chase'
-  useMoonMission.setState({ cam: next, camLocked: true })
+  const list = camChoices()
+  pickCam(list[(list.indexOf(s.cam) + 1) % list.length])
 }
 
 /** 自動のカメラの切り替え（自分で選んでいないとき） */

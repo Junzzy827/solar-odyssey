@@ -12,7 +12,6 @@ import {
   TLI_WINDOW,
   TLI_WINDOW_OPEN,
   bindMissionKeys,
-  cycleCam,
   endMission,
   missionInput,
   missionNow,
@@ -27,6 +26,7 @@ import {
 
 const debugOn = typeof location !== 'undefined' && location.hash.includes('debug')
 import { LaunchWorld } from './LaunchWorld'
+import { MissionPost } from './MissionPost'
 import { LunarWorld } from './LunarWorld'
 import { DockWorld } from './DockWorld'
 import { DockHud } from './DockHud'
@@ -41,6 +41,7 @@ import { journey } from '../../state/missionJourney'
 import { ChapterMenu, ResumeButton } from './ChapterMenu'
 import { CabinFrame } from './CabinFrame'
 import './moonMission.css'
+import { CamMenu } from './CamMenu'
 
 // 月ミッション（アポロ17号の追体験）の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 // 画面の上に、時刻・高さ・速さ・G、機首の手本の目盛り、出来事の字幕、終わりのカードを重ねる。
@@ -68,6 +69,31 @@ function FilmHook() {
   return null
 }
 
+/** on のあいだ、ms ミリ秒さわらなかったら true（画面にさわる・マウスを動かす・キーを押すと false にもどる） */
+function useIdle(on: boolean, ms: number) {
+  const [idle, setIdle] = useState(false)
+  useEffect(() => {
+    if (!on) {
+      setIdle(false)
+      return
+    }
+    let id = 0
+    const wake = () => {
+      setIdle(false)
+      clearTimeout(id)
+      id = window.setTimeout(() => setIdle(true), ms)
+    }
+    wake()
+    const evs = ['pointermove', 'pointerdown', 'keydown'] as const
+    for (const e of evs) window.addEventListener(e, wake)
+    return () => {
+      clearTimeout(id)
+      for (const e of evs) window.removeEventListener(e, wake)
+    }
+  }, [on, ms])
+  return idle
+}
+
 type World = 'launch' | 'dock' | 'moon' | 'home'
 
 const MissionCanvas = memo(function MissionCanvas({ world }: { world: World }) {
@@ -77,6 +103,8 @@ const MissionCanvas = memo(function MissionCanvas({ world }: { world: World }) {
       <color attach="background" args={['#000']} />
       {/* 第1弾（地球から月へ向かうまで）と第2弾（月のまわり）は、別の世界 */}
       <Suspense fallback={null}>{world === 'moon' ? <LunarWorld /> : world === 'dock' ? <DockWorld /> : world === 'home' ? <ReturnWorld /> : <LaunchWorld />}</Suspense>
+      {/* 後処理（露出・光のにじみ）：いまは打ち上げの世界だけ。ほかの章は質感を合わせてから広げる */}
+      {world === 'launch' && <MissionPost />}
       <QualityGovernor />
       {debugOn && <FilmHook />}
     </Canvas>
@@ -240,9 +268,7 @@ function Hud() {
       <Caption />
       <RadioSubtitle />
       <div className="mm-buttons">
-        <button onClick={() => cycleCam()}>
-          {t.camLabel(t.camNames[s.cam])}
-        </button>
+        <CamMenu />
         {s.phase === 'ascent' && (
           <button className={s.auto ? 'on' : ''} onClick={() => setAuto(!s.auto)}>
             {s.auto ? t.autoOn : t.auto}
@@ -296,8 +322,9 @@ export function MoonMissionView() {
   const home = phase === 'home'
   // 映画のカメラのあいだは、数字や手本の目盛りをしまって、絵と字幕だけにする
   const filmCam = useMoonMission((s) => s.cam === 'film')
+  const idle = useIdle(filmCam, 3000)
   return (
-    <div className="mm-root" data-phase={phase} data-film={filmCam ? '1' : undefined}>
+    <div className="mm-root" data-phase={phase} data-film={filmCam ? '1' : undefined} data-idle={idle ? '1' : undefined}>
       {shown && <MissionCanvas world={moon ? 'moon' : docking ? 'dock' : home ? 'home' : 'launch'} />}
       {shown && <CabinFrame />}
       {shown && <JourneyBar />}

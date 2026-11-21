@@ -17,6 +17,17 @@
 .mm-root[data-film] .jb {
   display: none;
 }
+/* 自動のカメラのあいだ、3 秒さわらなければ右上のボタンもしまう（さわると出る。動画のプレイヤーと同じ） */
+.mm-root .mm-buttons {
+  transition: opacity 0.5s;
+}
+.mm-root[data-film][data-idle] .mm-buttons:not(:has(.cam-panel, .cm-panel)) {
+  opacity: 0;
+  pointer-events: none;
+}
+.mm-root[data-film][data-idle] .mm-buttons:not(:has(.cam-panel, .cm-panel)) * {
+  pointer-events: none;
+}
 /* 3D の絵がまだ出ていない一瞬（章の切り替え・地形の読みこみ）に、うしろのアプリの画面が透けないように */
 .mm-root:not([data-phase='fadeIn']) {
   background: #000;

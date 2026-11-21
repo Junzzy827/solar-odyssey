@@ -17,11 +17,12 @@ import {
   stepOutside,
   useMoonLunar,
 } from '../../state/moonLunar'
-import { cycleCam, endMission, missionNow, useMoonMission } from '../../state/moonMission'
+import { endMission, missionNow, useMoonMission } from '../../state/moonMission'
 import { journey } from '../../state/missionJourney'
 import { ChapterMenu } from './ChapterMenu'
 import { startChapter } from '../../state/missionChapters'
 import './lunarHud.css'
+import { CamMenu } from './CamMenu'
 
 // 月ミッション第2弾の画面の計器。
 //  ・3 日の旅：地球からの距離
@@ -228,9 +229,7 @@ export function LunarHud() {
       {touch && (approach || manualOn) && <PadButtons approach={approach} />}
       {touch && manualOn && <RodButtons />}
       <div className="mm-buttons">
-        <button onClick={() => cycleCam()}>
-          {T.camLabel(T.camNames[s.cam])}
-        </button>
+        <CamMenu />
         {(phase === 'loi' || phase === 'descent') && (
           <button className={L.realTime ? 'on' : ''} onClick={() => useMoonLunar.setState({ realTime: !L.realTime })}>
             {t.realTime}

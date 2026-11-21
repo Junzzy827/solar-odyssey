@@ -2,12 +2,13 @@ import { useEffect, useState, type PointerEvent as RPointerEvent } from 'react'
 import { useLang } from '../../i18n/lang'
 import { ui } from '../../i18n'
 import { isTouchDevice } from '../../state/input'
-import { cycleCam, endMission, useMoonMission } from '../../state/moonMission'
+import { endMission, useMoonMission } from '../../state/moonMission'
 import { CORRIDOR, EI_ANGLE, blackout } from '../../data/reentry'
 import { CORRIDOR_TIME, ENTRY_WARP, TEI_BURN, TEI_WARP, bindReturnKeys, inCorridor, pressTei, ret, retryEntry, setReturnAuto, startReturn, useMoonReturn } from '../../state/moonReturn'
 import { startChapter } from '../../state/missionChapters'
 import { ChapterMenu } from './ChapterMenu'
 import './return.css'
+import { CamMenu } from './CamMenu'
 
 // 章8（離陸・再会・地球へ帰還）の画面：ランデブーの距離、地球へ向かう点火のボタン、突入の角度の目盛り、
 // 火の玉の中の高さ・速さ・G・揚力の向き、パラシュート、失敗と終わりのカード
@@ -246,7 +247,6 @@ export function ReturnHud() {
   useLang()
   const T = ui().moonReturn
   const M = ui().moonMission
-  const cam = useMoonMission((s) => s.cam)
   const auto = useMoonMission((s) => s.auto)
   const step = useMoonReturn((s) => s.step)
   useEffect(() => bindReturnKeys(), [])
@@ -261,7 +261,7 @@ export function ReturnHud() {
       {step === 'fail' && <Fail />}
       {step === 'end' && <End />}
       <div className="mm-buttons rt-buttons">
-        <button onClick={() => cycleCam()}>{M.camLabel(M.camNames[cam])}</button>
+        <CamMenu />
         {steer && (
           <button className={auto ? 'on' : ''} onClick={() => setReturnAuto(!auto)}>
             {auto ? T.autoOn : T.auto}

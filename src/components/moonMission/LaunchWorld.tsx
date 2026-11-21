@@ -6,8 +6,13 @@ import { R_EARTH, PAD_LAT, OMEGA, altitude } from '../../data/saturnAscent'
 import { sim, tickMission, useMoonMission, autoCam, COUNT_FROM } from '../../state/moonMission'
 import { musicTime } from '../../audio/missionMusic'
 import { lowMemory } from '../../state/quality'
-import { plumeGeometry, plumeMaterial, glowTexture } from './plume'
-import { Smoke, STEAM, ICE } from './smoke'
+import { plumeGeometry, plumeMaterial } from './plume'
+import { Smoke } from './smoke'
+import { buildSite, GROUND_Y } from './launchSite'
+import { buildFloodlights } from './launchLights'
+import { buildSky } from './launchSky'
+import { launchSmoke } from './launchFx'
+import { encodeOutput } from './shaderOut'
 import { atmosphereMaterial, earthMaterial } from './earth'
 import { buildCabin, CABIN_Y, CM_WIN_DIR, CM_WIN_EYE } from './cmCabin'
 import { FILM_CUTS, FILM_END, filmCut, filmForce, filmRig, filmShake } from './launchFilm'
@@ -21,21 +26,10 @@ import { FILM_CUTS, FILM_END, filmCut, filmForce, filmRig, filmShake } from './l
 const base = import.meta.env.BASE_URL
 const ROCKET_URL = `${base}models/saturn.glb`
 const PAD_URL = `${base}models/launchpad.glb`
-/** 移動発射台の甲板の下の、発射台の地面の高さ（m、ロケットの根元が 0） */
-const GROUND_Y = -13.8
 /** 発射台の地面の組の回る速さ（rad/s）：打ち上げの面の中での地球の自転 */
 const SPIN = OMEGA * Math.cos((PAD_LAT * Math.PI) / 180)
 /** 打ち上げの瞬間に地球の反対側にある太陽の向き（three の座標）。軌道に入って 20 分ほどで日の出になる向き */
 const SUN = new THREE.Vector3(-0.5, -0.866, 0.16).normalize()
-/** 液体酸素の換気口（機体の高さ m、半径 m、1 秒に出す湯気の数）。発射台では白い蒸気が流れ出て、ゆっくり沈む */
-const VENTS: [number, number, number][] = [
-  [38, 5.2, 7],
-  [63, 5.2, 6],
-  [83, 3.4, 5],
-]
-/** dt 秒に平均 rate 個（端数は確率で） */
-const count = (rate: number, dt: number) => Math.floor(rate * dt + Math.random())
-
 /** 月の向きと距離（月へ向かう燃焼の先の、遠い所の向きに置く） */
 const MOON_DIST = 384_400_000
 const MOON_R = 1_737_400
@@ -127,100 +121,39 @@ export function LaunchWorld() {
 
   const plumes = useMemo(() => {
     const geo = plumeGeometry()
-    const f1 = plumeMaterial({ core: '#fff4d0', edge: '#ff7a1c', soft: 0.9 })
-    const big = plumeMaterial({ core: '#ffd890', edge: '#ff5a10', soft: 1.4 })
-    const j2 = plumeMaterial({ core: '#b8c4ff', edge: '#3a48d8', soft: 1.8 })
-    const les = plumeMaterial({ core: '#fff0c0', edge: '#ff8a30', soft: 1.0 })
+    // 打ち上げの世界の自前のシェーダーは、後処理のあるなしで明るさがそろうように仕上げる（shaderOut.ts）
+    const f1 = encodeOutput(plumeMaterial({ core: '#fff4d0', edge: '#ff7a1c', soft: 0.9 }))
+    const big = encodeOutput(plumeMaterial({ core: '#ffd890', edge: '#ff5a10', soft: 1.4 }))
+    const j2 = encodeOutput(plumeMaterial({ core: '#b8c4ff', edge: '#3a48d8', soft: 1.8 }))
+    const les = encodeOutput(plumeMaterial({ core: '#fff0c0', edge: '#ff8a30', soft: 1.0 }))
     return { geo, f1, big, j2, les }
   }, [])
   const cabin = useMemo(() => buildCabin(), [])
   useEffect(() => () => cabin.dispose(), [cabin])
-  const smoke = useMemo(() => new Smoke(small ? 640 : 1800, GROUND_Y + 1), [small])
+  const smoke = useMemo(() => {
+    const sm = new Smoke(small ? 640 : 1800, GROUND_Y + 1)
+    encodeOutput(sm.material)
+    return sm
+  }, [small])
   useEffect(() => () => smoke.dispose(), [smoke])
 
-  const earthMat = useMemo(() => earthMaterial(day, night, clouds), [day, night, clouds])
-  const atmoMat = useMemo(() => atmosphereMaterial(), [])
+  const earthMat = useMemo(() => encodeOutput(earthMaterial(day, night, clouds)), [day, night, clouds])
+  const atmoMat = useMemo(() => encodeOutput(atmosphereMaterial()), [])
   const padQ = useMemo(() => padQuaternion(), [])
 
-  // 発射台のまわりの夜の明かり（町・道路）。地面の組の座標
-  const cityLights = useMemo(() => {
-    const n = small ? 500 : 1400
-    const pos = new Float32Array(n * 3)
-    const col = new Float32Array(n * 3)
-    for (let i = 0; i < n; i++) {
-      // 西と南の陸に、ところどころ集まった町
-      const town = i % 7
-      const cx = -9000 - town * 2600 + (town % 2) * 4000
-      const cz = -12000 + town * 5200
-      const r = 400 + Math.random() * (town === 3 ? 6000 : 2200)
-      const a = Math.random() * Math.PI * 2
-      pos[i * 3] = Math.min(-600, cx + Math.cos(a) * r)
-      pos[i * 3 + 1] = GROUND_Y + 2
-      pos[i * 3 + 2] = cz + Math.sin(a) * r
-      const w = 0.7 + Math.random() * 0.3
-      col[i * 3] = w
-      col[i * 3 + 1] = w * (0.72 + Math.random() * 0.15)
-      col[i * 3 + 2] = w * 0.45
-    }
-    const g = new THREE.BufferGeometry()
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3))
-    return g
-  }, [small])
-
-  // 照明の光の柱（地面から斜めにロケットを照らす）
-  const beams = useMemo(() => {
-    const out: { pos: THREE.Vector3; mid: THREE.Vector3; quat: THREE.Quaternion; len: number }[] = []
-    for (const [x, z] of [
-      [-260, 230],
-      [240, 260],
-      [-300, -200],
-    ]) {
-      const from = new THREE.Vector3(x, GROUND_Y + 2, z)
-      const to = new THREE.Vector3(0, 60, 0)
-      const d = to.clone().sub(from)
-      const len = d.length()
-      const quat = new THREE.Quaternion().setFromUnitVectors(Y, d.normalize())
-      // 円柱は真ん中が原点なので、光の柱の真ん中に置く（太い側がロケット）
-      out.push({ pos: from, mid: from.clone().addScaledVector(d, len / 2), quat, len })
-    }
-    return out
-  }, [])
-  const beamMat = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        vertexShader: /* glsl */ `
-          #include <common>
-          #include <logdepthbuf_pars_vertex>
-          varying float vS; varying vec3 vN; varying vec3 vV;
-          void main(){ vS = uv.y; vec4 mv = modelViewMatrix*vec4(position,1.0); vN = normalize(normalMatrix*normal); vV = normalize(-mv.xyz);
-            gl_Position = projectionMatrix*mv;
-            #include <logdepthbuf_vertex>
-          }`,
-        fragmentShader: /* glsl */ `
-          #include <common>
-          #include <logdepthbuf_pars_fragment>
-          uniform float uPower; varying float vS; varying vec3 vN; varying vec3 vV;
-          void main(){
-            #include <logdepthbuf_fragment>
-            float a = pow(abs(dot(normalize(vN), normalize(vV))), 2.0) * (1.0 - vS) * 0.05 * uPower;
-            gl_FragColor = vec4(vec3(0.75, 0.82, 1.0) * a, a);
-          }`,
-        uniforms: { uPower: { value: 1 } },
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
-      }),
-    [],
-  )
+  // 発射台のまわりの土地・投光器・空（作業ごとに別のファイル）
+  const site = useMemo(() => buildSite(small), [small])
+  useEffect(() => () => site.dispose(), [site])
+  const lights = useMemo(() => buildFloodlights(), [])
+  useEffect(() => () => lights.dispose(), [lights])
+  const sky = useMemo(() => buildSky(stars), [stars])
+  useEffect(() => () => sky.dispose(), [sky])
 
   const ground = useRef<THREE.Group>(null)
   const rocketG = useRef<THREE.Group>(null)
   const earthM = useRef<THREE.Mesh>(null)
   const atmoM = useRef<THREE.Mesh>(null)
   const moonM = useRef<THREE.Mesh>(null)
-  const starsM = useRef<THREE.Mesh>(null)
   const f1 = useRef<THREE.Group>(null)
   const bigPlume = useRef<THREE.Mesh>(null)
   const j2s = useRef<THREE.Group>(null)
@@ -229,9 +162,7 @@ export function LaunchWorld() {
   const flameLight = useRef<THREE.PointLight>(null)
   const fill = useRef<THREE.DirectionalLight>(null)
   const camLight = useRef<THREE.PointLight>(null)
-  const spots = useRef<THREE.Group>(null)
   const hemi = useRef<THREE.HemisphereLight>(null)
-  const trenchFire = useRef<THREE.Mesh>(null)
   const debrisG = useRef<THREE.Group>(null)
   const debris = useRef<Debris[]>([])
   const ignite = useRef(0)
@@ -336,7 +267,7 @@ export function LaunchWorld() {
       toWorld(Math.cos(ang) * MOON_DIST, Math.sin(ang) * MOON_DIST, moonM.current.position)
       moonM.current.visible = s.phase === 'outbound' || s.phase === 'tli'
     }
-    if (starsM.current) starsM.current.position.copy(camera.position)
+    sky.update(camera)
     // 日の出：太陽が地平線の上に出たとき
     if (!sim.sunrise && s.phase === 'orbit' && up.dot(SUN) > -0.06) {
       sim.sunrise = true
@@ -398,13 +329,9 @@ export function LaunchWorld() {
       // 地上にいるあいだは、炎は溝の中を南北へ流れるので、明かりを低く置く（甲板の穴の壁が白く飛ばないように）
       flameLight.current.position.set(0, h < 200 ? -25 - 30 * (1 - h / 200) : -25, 0)
     }
-    if (spots.current) spots.current.visible = h < 20_000
-    if (trenchFire.current) {
-      // 溝の炎：点火から離昇のすぐ後まで（ロケットが高く上がると、溝にはもう届かない）
-      const k = s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 150, 0, 1) : 0
-      trenchFire.current.visible = k > 0.01
-      ;(trenchFire.current.material as THREE.MeshBasicMaterial).opacity = Math.min(1, k * 1.4) * (0.85 + 0.15 * Math.sin(t * 29))
-    }
+    lights.group.visible = h < 20_000
+    // 溝の炎：点火から離昇のすぐ後まで（ロケットが高く上がると、溝にはもう届かない）
+    site.update(s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 150, 0, 1) : 0, t)
     if (fill.current) {
       // 南の上から（three の z が南）。地球の向こうから照らさないよう、いつも局所の上寄り
       fill.current.position.copy(up).multiplyScalar(0.8).add(_v.set(0, 0, 0.6)).multiplyScalar(1000)
@@ -417,57 +344,7 @@ export function LaunchWorld() {
     }
 
     // ---- 煙 ----
-    const flameGround = _v
-    if (ground.current) {
-      ground.current.worldToLocal(flameGround.set(0, 0, 0).addScaledVector(nose, -20))
-      smoke.material.uniforms.uFlame.value.copy(flameGround)
-      smoke.material.uniforms.uFlamePower.value = s1On > 0 ? 1.4 * Math.max(0.15, 1 - h / 6000) : 0
-      smoke.material.uniforms.uAmb.value = h < 20_000 ? 1 : 0
-      // 液体酸素の冷たい蒸気：離昇まで、換気口から東西へ流れ出る
-      if (s.phase === 'pad') {
-        for (const [y, r, rate] of VENTS) {
-          for (let i = count(rate, dt); i > 0; i--) {
-            const side = Math.random() < 0.5 ? -1 : 1
-            smoke.emit(side * r, y + (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, side * (1.2 + Math.random() * 1.6), -0.3, (Math.random() - 0.5) * 1.2, 2 + Math.random() * 2, 6 + Math.random() * 3, 1.5, STEAM)
-          }
-        }
-      }
-      if (s1On > 0 && h < 600) {
-        // 炎の溝から南北へ吹き出す。3 つに 1 つは、溝に撒く水の白い湯気
-        const n = Math.ceil(dt * 70 * (1 - h / 600) * ignite.current)
-        for (let i = 0; i < n; i++) {
-          const side = Math.random() < 0.5 ? -1 : 1
-          const steam = Math.random() < 0.33
-          smoke.emit((Math.random() - 0.5) * 30, GROUND_Y + 4, side * (40 + Math.random() * 20), (Math.random() - 0.5) * 14, 2 + Math.random() * 6, side * (45 + Math.random() * 40), 22 + Math.random() * 18, 16 + Math.random() * 10, 1.4, steam ? STEAM : undefined)
-        }
-        // 甲板の穴のまわりからも、湯気が噴き上がる
-        if (h < 60) {
-          for (let i = count(14 * ignite.current, dt); i > 0; i--) {
-            const ang = Math.random() * Math.PI * 2
-            const r = 10 + Math.random() * 8
-            smoke.emit(Math.cos(ang) * r, 1.5, Math.sin(ang) * r, Math.cos(ang) * 6, 3 + Math.random() * 4, Math.sin(ang) * 6, 5 + Math.random() * 4, 7, 1.6, STEAM)
-          }
-        }
-      }
-      // 氷のかけら：点火の揺れで、冷えた機体の霜がはがれて落ちる（離昇して少しのあいだ）
-      if (s1On > 0 && ignite.current > 0.6 && h < 120) {
-        for (let i = count(45, dt); i > 0; i--) {
-          const ang = Math.random() * Math.PI * 2
-          const r = 5.15
-          _v2.copy(nose).multiplyScalar(6 + Math.random() * 70).addScaledVector(east, Math.cos(ang) * r).addScaledVector(Z, Math.sin(ang) * r)
-          ground.current.worldToLocal(_v2)
-          smoke.emit(_v2.x, _v2.y, _v2.z, Math.cos(ang) * (0.5 + Math.random() * 2), -1 - Math.random() * 3, Math.sin(ang) * (0.5 + Math.random() * 2), 0.5 + Math.random() * 0.6, 4, 0, ICE)
-        }
-      }
-      if (s1On > 0 && h > 20 && h < 7000) {
-        // 上がっていく後ろに残る煙の柱
-        const n = Math.ceil(dt * 30)
-        for (let i = 0; i < n; i++) {
-          ground.current.worldToLocal(_v2.set((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10).addScaledVector(nose, -60 - Math.random() * 40))
-          smoke.emit(_v2.x, _v2.y, _v2.z, (Math.random() - 0.5) * 4, -2, (Math.random() - 0.5) * 4, 16 + h * 0.004, 24, 1.8)
-        }
-      }
-    }
+    if (ground.current) launchSmoke({ smoke, ground: ground.current, nose, east, h, s1On, ignite: ignite.current, onPad: s.phase === 'pad', dt })
     smoke.update(dt * Math.min(sim.warp, 3))
     smoke.material.uniforms.uPx.value = size.height / (2 * Math.tan(((camera as THREE.PerspectiveCamera).fov * Math.PI) / 360))
 
@@ -587,10 +464,7 @@ export function LaunchWorld() {
       if (flameLight.current) flameLight.current.intensity = 0
       if (fill.current) fill.current.intensity = 0
     }
-    spots.current?.traverse((o) => {
-      const l = o as THREE.SpotLight
-      if (l.isSpotLight) l.intensity = inside ? 0 : 1.6e6
-    })
+    lights.setInside(inside)
     if (hemi.current) hemi.current.intensity = inside ? 0.05 : 1.1
     pc.near = inside ? 0.05 : 0.3
     if (Math.abs(pc.fov - cs.fov) > 0.01 || pc.near !== pcNear) {
@@ -609,10 +483,7 @@ export function LaunchWorld() {
       <directionalLight ref={fill} intensity={0.9} color="#9fb6e8" />
       <directionalLight position={SUN.clone().multiplyScalar(1000)} intensity={sunlit ? 2.2 : 0} />
       {/* 星 */}
-      <mesh ref={starsM} renderOrder={-10}>
-        <sphereGeometry args={[5e9, 32, 16]} />
-        <meshBasicMaterial map={stars} side={THREE.BackSide} depthWrite={false} color="#555" />
-      </mesh>
+      <primitive object={sky.stars} />
       {/* 地球と大気 */}
       <mesh ref={earthM} material={earthMat}>
         <sphereGeometry args={[R_EARTH, small ? 96 : 192, small ? 48 : 96]} />
@@ -627,43 +498,9 @@ export function LaunchWorld() {
       {/* 地面の組 */}
       <group ref={ground}>
         <primitive object={pad} />
-        {/* 陸（西）と海（東） */}
-        <mesh rotation-x={-Math.PI / 2} position={[-15000, GROUND_Y, 0]}>
-          <planeGeometry args={[30000, 60000]} />
-          <meshStandardMaterial color="#1a1c16" roughness={0.95} />
-        </mesh>
-        <mesh rotation-x={-Math.PI / 2} position={[15600, GROUND_Y - 0.5, 0]}>
-          <planeGeometry args={[30000, 60000]} />
-          <meshStandardMaterial color="#04070c" roughness={0.18} metalness={0.2} />
-        </mesh>
-        {/* 炎の溝（南北に走る深い溝）：上から見ると暗い穴。点火すると炎で満たされる */}
-        <mesh rotation-x={-Math.PI / 2} position={[0, GROUND_Y + 0.12, 0]}>
-          <planeGeometry args={[18, 70]} />
-          <meshBasicMaterial color="#030303" />
-        </mesh>
-        <mesh ref={trenchFire} rotation-x={-Math.PI / 2} position={[0, GROUND_Y + 0.4, 0]} visible={false}>
-          <planeGeometry args={[34, 80]} />
-          <meshBasicMaterial map={glowTexture()} color="#ff9a3a" transparent depthWrite={false} blending={THREE.AdditiveBlending} />
-        </mesh>
-        {/* 発射台のコンクリートの広場 */}
-        <mesh rotation-x={-Math.PI / 2} position={[0, GROUND_Y + 0.05, 0]}>
-          <circleGeometry args={[180, 8]} />
-          <meshStandardMaterial color="#5a5a56" roughness={0.9} />
-        </mesh>
-        <points geometry={cityLights}>
-          <pointsMaterial vertexColors size={2.2} sizeAttenuation={false} map={glowTexture()} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
-        </points>
+        <primitive object={site.group} />
         <primitive object={smoke.points} />
-        <group ref={spots}>
-          {beams.map((b, i) => (
-            <group key={i}>
-              <mesh position={b.mid} quaternion={b.quat} material={beamMat}>
-                <cylinderGeometry args={[16, 1.2, b.len, 20, 1, true]} />
-              </mesh>
-              <spotLight position={b.pos} angle={0.3} penumbra={0.7} intensity={1.6e6} distance={0} decay={2} color="#dfe6ff" />
-            </group>
-          ))}
-        </group>
+        <primitive object={lights.group} />
       </group>
       {/* ロケット */}
       <group ref={rocketG}>
