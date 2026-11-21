@@ -51,6 +51,9 @@ import { discoveryEn } from './discovery.en'
 import { arrivalEn } from './arrival.en'
 import { jumpEn } from './jump.en'
 import { suitWalkEn } from './suitWalk.en'
+import { waterCupEn } from './waterCup.en'
+import { sunriseEn } from './sunrise.en'
+import { crewRoverEn } from './crewRover.en'
 import { roverHudEn } from './roverHud.en'
 import { scaleToggleEn } from './scaleToggle.en'
 import { sfEn } from './sf.en'
@@ -217,6 +220,9 @@ export const en: Translation<typeof ja> = {
   arrival: arrivalEn,
   jump: jumpEn,
   suitWalk: suitWalkEn,
+  waterCup: waterCupEn,
+  sunrise: sunriseEn,
+  crewRover: crewRoverEn,
   roverHud: roverHudEn,
   scaleToggle: scaleToggleEn,
   sf: sfEn,

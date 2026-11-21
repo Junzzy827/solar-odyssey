@@ -61,6 +61,8 @@ body.touch .sw-pad {
   touch-action: none;
   display: grid;
   place-items: center;
+  /* 地表の画面（.surface-ui）は、ボタン以外は触れても下の 3D に通す。スティックは受け取る */
+  pointer-events: auto;
 }
 
 .sw-knob {

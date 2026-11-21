@@ -49,6 +49,9 @@ import { discoveryJa } from './discovery.ja'
 import { arrivalJa } from './arrival.ja'
 import { jumpJa } from './jump.ja'
 import { suitWalkJa } from './suitWalk.ja'
+import { waterCupJa } from './waterCup.ja'
+import { sunriseJa } from './sunrise.ja'
+import { crewRoverJa } from './crewRover.ja'
 import { roverHudJa } from './roverHud.ja'
 import { scaleToggleJa } from './scaleToggle.ja'
 import { sfJa } from './sf.ja'
@@ -218,6 +221,9 @@ export const ja = {
   arrival: arrivalJa,
   jump: jumpJa,
   suitWalk: suitWalkJa,
+  waterCup: waterCupJa,
+  sunrise: sunriseJa,
+  crewRover: crewRoverJa,
   roverHud: roverHudJa,
   scaleToggle: scaleToggleJa,
   sf: sfJa,

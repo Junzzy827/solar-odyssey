@@ -51,6 +51,7 @@ export const walkEn: Translation<typeof walkJa> = {
   axisNote:
     'The axis station. You weigh almost nothing here. Real science: colony gravity is the spin pushing outward, so it grows with distance from the axis. 1 g on the ground 4 km out, only 0.006 g here 25 m from the axis. Jump and you float, and the spin pushes you sideways.',
   toAxis: 'To the colony axis (elevator)',
+  peopleLoading: 'Loading people…',
   wingsOn: 'Put on wings',
   wingsOff: 'Take off wings',
   wingsHint: 'W faster (while sinking) · S dive · A D / Mouse turn · Space flap · Shift even faster · R take off wings (after landing)',
