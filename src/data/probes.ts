@@ -1,6 +1,9 @@
 // 探査機の旅。日付と、通った天体は本物。あいだの道すじは、天体どうしを太陽のまわりの弧でつないだ、おおよその形。
 // 最後の天体のあとは、その日から本物の向きと速さでまっすぐ進む（太陽の重力をふり切ったあとは、ほぼまっすぐ飛ぶ）。
 
+import type { Trajectory } from './trajectory'
+import { VOYAGER2_TRAJECTORY } from './trajectories/voyager2'
+
 export type ProbeStop = {
   date: string
   /** そこにいた天体（惑星の id か 'ryugu'） */
@@ -22,6 +25,10 @@ export type Probe = {
   /** 今の、太陽からの本物の距離を求める基準（天文単位） */
   distance?: { date: string; au: number; auPerYear: number }
   events: { date: string }[]
+  /** 本物の道すじ（JPL Horizons の値）。あるものは、弧のかわりにこれをたどり、右に探査機の模型を出す */
+  trajectory?: Trajectory
+  /** 模型（public/models の glb）。NASA 3D Resources のもの */
+  model?: string
 }
 
 /** Probe の文言（日本語は src/i18n/probes.ja.ts、英語は probes.en.ts） */
@@ -50,6 +57,8 @@ export const PROBES: Probe[] = [
     escape: { lon: 290.7, lat: -35.8, auPerYear: 3.25 },
     pace: { slow: 0.55, fast: 3.5 },
     distance: { date: '2018-11-05', au: 119, auPerYear: 3.25 },
+    trajectory: VOYAGER2_TRAJECTORY,
+    model: 'probe-voyager.glb',
     events: [
       { date: '1977-08-20' },
       { date: '1979-07-09' },

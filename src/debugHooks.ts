@@ -18,7 +18,9 @@ import { shipZoom } from './state/zoom'
 import { dockAtPort, observeRun, startObserve, stopObserve, useObserve } from './state/observe'
 import { useQuality } from './state/quality'
 import { setGoal, toggleAuto, toggleCompare, useGallery, openGallery, closeGallery, selectPart } from './state/gallery'
-import { probeClock, useProbes } from './state/probes'
+import { PROBES } from './data/probes'
+import type { Trajectory } from './data/trajectory'
+import { encounterPace, openProbes, playProbe, probeClock, seekProbe, useProbes } from './state/probes'
 import { goToSite, skipDescent, startLanding, startTakeoff, useLanding } from './state/landing'
 import { quitRally, startRally, useRally } from './state/rally'
 import { useSurfaceLab } from './state/surfaceLab'
@@ -68,7 +70,10 @@ const sv = {
   missions: MISSIONS,
   bridge: useBridge,
   gallery: { state: useGallery, setGoal, toggleAuto, toggleCompare, openGallery, closeGallery, selectPart },
-  probes: { state: useProbes, clock: probeClock },
+  probes: { state: useProbes, clock: probeClock, open: openProbes, play: playProbe, seek: seekProbe },
+  probeTrajectory: (id: string) => PROBES.find((p) => p.id === id)?.trajectory,
+  /** 再生の速さ（日／秒）。動画のコマ撮り用 */
+  probePace: (t: Trajectory, ms: number) => encounterPace(t, ms, 0.55),
   bodyCards: { state: useBodyCards, open: openBodyCard, close: closeBodyCard, step: stepBodyCard },
   today: { state: useToday, open: openToday, close: closeToday },
   jump: { state: useJump, start: startJump, stop: stopJump, debug: jumpDebug },

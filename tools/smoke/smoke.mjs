@@ -44,6 +44,27 @@ async function jumpScene(page) {
   for (const sel of ['.jump-card .jump-again', '.jump-card .jump-actions .secondary']) await visibleButton(page, sel)
 }
 
+/** 探査機の旅：ボイジャー2号を選び、encounter 番目の通過の days 日前後で止める。模型の画面が出て、字幕と閉じるボタンが見える */
+async function probeScene(page, encounter, days) {
+  await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+  await page.evaluate(() => {
+    window.__sv.probes.open()
+    window.__sv.probes.play('voyager2')
+  })
+  await page.waitForFunction(() => document.querySelector('.probe-cam canvas'), null, { timeout: 60000 })
+  await page.evaluate(
+    ([k, d]) => {
+      const { probes } = window.__sv
+      probes.state.setState({ playing: false })
+      probes.clock.ms = window.__sv.probeTrajectory('voyager2').encounters[k].ms + d * 86_400_000
+    },
+    [encounter, days],
+  )
+  await sleep(6000)
+  await page.waitForFunction(() => document.querySelector('.probe-cam .pc-caption')?.textContent, null, { timeout: 30000 })
+  await visibleButton(page, '.probe-panel .close')
+}
+
 /** 宇宙服で歩く：着陸して外へ出て、前へ歩く。足あとが付き、戻るボタンが隠れない */
 async function suitScene(page, body) {
   await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
@@ -189,6 +210,10 @@ const SCENARIOS = {
       await visibleButton(page, '.today-panel .close')
     },
   },
+  // 探査機の旅（ボイジャー2号）：本物の道すじと、右の模型の画面。木星の最接近の少し前で止めて撮る
+  'probe-voyager': { ctx: desktop, hash: '#debug', run: (page) => probeScene(page, 1, -0.3) },
+  // スマホの縦：上に模型の画面、下に説明。閉じるボタンが隠れていない
+  'probe-voyager-phone': { ctx: phone, hash: '#debug', run: (page) => probeScene(page, 1, -0.3) },
   // 発見スキャン：小惑星帯の岩のそばでスキャンすると、発見のカードが出る
   scan: {
     ctx: desktop,
