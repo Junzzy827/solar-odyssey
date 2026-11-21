@@ -138,23 +138,6 @@ function RodButtons() {
   )
 }
 
-/** 船長の窓の枠（着陸船の窓は三角）。窓には、降りる場所を測る目盛り（LPD）が刻んであった */
-function WindowFrame() {
-  return (
-    <svg className="lh-window" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice" aria-hidden>
-      <path className="lh-window-wall" fillRule="evenodd" d="M-40 -40 H200 V130 H-40 Z M12 6 L150 6 L150 84 L104 84 Z" />
-      <path className="lh-window-edge" d="M12 6 L150 6 L150 84 L104 84 Z" />
-      <g className="lh-window-scale">
-        <line x1="98" y1="8" x2="98" y2="80" />
-        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-          <line key={i} x1={95} y1={14 + i * 9} x2={101} y2={14 + i * 9} />
-        ))}
-        <line x1="70" y1="40" x2="126" y2="40" />
-      </g>
-    </svg>
-  )
-}
-
 export function LunarHud() {
   useLang()
   const T = ui().moonMission
@@ -172,7 +155,6 @@ export function LunarHud() {
   const showEnd = phase === 'landed' && missionNow() - s.since > 7
   return (
     <>
-      {s.cam === 'window' && phase === 'descent' && <WindowFrame />}
       {phase === 'coast' && (
         <div className="mm-panel jb-big">
           <div className="mm-met">{t.distEarth((journey()?.fromEarth ?? 0) / 1000)}</div>

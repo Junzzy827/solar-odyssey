@@ -9,7 +9,8 @@ export function CabinFrame() {
   const step = useMoonReturn((s) => s.step)
   // 章8：ランデブーのあいだは照準の窓（枠なし）。それ以外は司令船の窓
   const home = phase === 'home' && step !== 'rdv' && step !== 'docked' && step !== 'lmGone'
-  const on = cam === 'window' && (phase === 'orbit' || phase === 'tli' || phase === 'outbound' || phase === 'coast' || phase === 'loi' || home)
+  // 地球を回るあいだ（orbit・tli）は、司令船の中を 3D で描く（cmCabin.ts）ので枠はいらない
+  const on = cam === 'window' && (phase === 'outbound' || phase === 'coast' || phase === 'loi' || home)
   if (!on) return null
   return (
     <div className="cabin-frame" aria-hidden="true">
