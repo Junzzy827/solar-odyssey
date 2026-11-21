@@ -8,6 +8,7 @@ import { isTouchDevice } from '../../state/input'
 import { WALK_FADE, bindWalkKeys, endWalk, toggleWalkView, useWalk, walkInput, walkNow, walkScene } from '../../state/walk'
 import { colonyDay } from '../sf/colonyCity'
 import { WalkWorld } from './WalkWorld'
+import './WalkView.css'
 import { WalkActors, walker } from './WalkActors'
 import { WalkErrand } from './WalkErrand'
 import { WalkErrandHud } from './WalkErrandHud'
@@ -102,6 +103,7 @@ function WalkPanel() {
   const elevNear = useWalk((w) => w.elevNear)
   const inElev = useWalk((w) => w.inElev)
   const axisNote = useWalk((w) => w.axisNote)
+  const peopleReady = useWalk((w) => w.peopleReady)
   const wings = useWalk((w) => w.wings)
   const wingsHere = useWalk((w) => w.wingsHere)
   // 翼をつけたとき、使い方を少し出す
@@ -166,6 +168,7 @@ function WalkPanel() {
       )}
       {inElev && <ElevNote />}
       {axisNote > 0 && !wings && <AxisNote at={axisNote} />}
+      {!peopleReady && <div className="walk-loading">{ui().walk.peopleLoading}</div>}
       {wingsAt > 0 && <TimedNote at={wingsAt} secs={12} text={ui().walk.wingsNote} />}
       {!elevNear && (benchNear || sitting) && (
         <button className="walk-sit" onPointerDown={stop} onClick={() => (walkInput.sit = true)}>
