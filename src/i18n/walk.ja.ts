@@ -3,7 +3,7 @@
 export const walkJa = {
   park: '池のほとりの公園',
   town: '公園のそばの住宅街',
-  jungle: 'ラボの森（お試しのジャングル）',
+  jungle: 'ラボの森（ジャングル）',
   parkZone: '池のほとりの公園の森',
   townZone: '小さな町',
   downtown: '駅前の都心',

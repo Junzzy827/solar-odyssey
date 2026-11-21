@@ -5,7 +5,7 @@ import type { Translation } from './translation'
 export const walkEn: Translation<typeof walkJa> = {
   park: 'Park by the pond',
   town: 'Houses by the park',
-  jungle: 'Lab jungle (trial)',
+  jungle: 'Lab jungle',
   parkZone: 'Woods around the lakeside park',
   townZone: 'A small town',
   downtown: 'Downtown by the station',
