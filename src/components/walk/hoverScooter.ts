@@ -174,11 +174,11 @@ export class HoverScooter {
     own(this.ringGeo)
   }
 
-  /** ハンドルのにぎり（世界の位置）。左・右 */
+  /** ハンドルのにぎり（世界の位置）。乗る人の左・右（前が -z なので、左手は -x の側） */
   grips(left: THREE.Vector3, right: THREE.Vector3) {
     this.body.updateMatrixWorld(true)
-    left.set(GRIP.x, GRIP.y, GRIP.z).applyMatrix4(this.body.matrixWorld)
-    right.set(-GRIP.x, GRIP.y, GRIP.z).applyMatrix4(this.body.matrixWorld)
+    left.set(-GRIP.x, GRIP.y, GRIP.z).applyMatrix4(this.body.matrixWorld)
+    right.set(GRIP.x, GRIP.y, GRIP.z).applyMatrix4(this.body.matrixWorld)
   }
 
   /**
