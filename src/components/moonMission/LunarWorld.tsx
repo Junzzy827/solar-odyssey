@@ -12,6 +12,7 @@ import { FRAME, groundAt, loadLunarMaps, lunarMaps, SUN_DIR, valleyShadows, vall
 import { earthMaterial, atmosphereMaterial } from './earth'
 import { plumeGeometry, plumeMaterial } from './plume'
 import { APOLLO_URL, DROGUE, useCraft, type Craft } from './craft'
+import { buildLmCabin, LM_EYE, LM_LOOK, type LmCabin } from './lmCabin'
 
 // 月ミッション第2弾の場面：月を丸ごと（月の中心が原点、向きは moonGlobe.ts と同じ）。
 // 月の地面は四分木のかけら（着陸地点のまわりは本物の谷の地形と、前もって計算した山の影）、空には星・太陽・地球。
@@ -20,8 +21,6 @@ import { APOLLO_URL, DROGUE, useCraft, type Craft } from './craft'
 const base = import.meta.env.BASE_URL
 const EARTH_POS = new THREE.Vector3(384_400_000, 0, 0)
 const EARTH_R = 6_371_000
-/** LM の窓（船長の目）：LM の中の位置（m、glTF の向き：+Y 上、-Z 前） */
-const WINDOW_EYE = new THREE.Vector3(-0.55, 4.85, -1.25)
 
 // ---- 月の地面 ----------------------------------------------------------------------------
 
@@ -703,7 +702,7 @@ function Lights() {
 
 // ---- カメラ ---------------------------------------------------------------------------------
 
-function CameraRig({ craft }: { craft: Craft }) {
+function CameraRig({ craft, cabin: lmc }: { craft: Craft; cabin: LmCabin }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const state = useMemo(() => ({ pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), init: false, groundCam: new THREE.Vector3(), phase: '' }), [])
   const tmp = useMemo(() => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), c: new THREE.Vector3(), q: new THREE.Quaternion() }), [])
@@ -720,6 +719,8 @@ function CameraRig({ craft }: { craft: Craft }) {
     let snap = false
     // 窓から見るときは、自分の船は描かない（窓の枠は画面の上に重ねる）
     lm.visible = !(cam === 'window' && phase === 'descent')
+    // 着陸船の中（立った 2 人と計器盤）：窓から見るときだけ
+    lmc.show(cam === 'window' && phase === 'descent')
     // 司令船の窓（月への旅と月の裏）：自分の船は描かない
     const cabin = cam === 'window' && (phase === 'coast' || phase === 'loi')
     craft.csm.visible = craft.csm.visible && !cabin
@@ -786,14 +787,14 @@ function CameraRig({ craft }: { craft: Craft }) {
           fov = 55
         }
       } else if (cam === 'window' && phase === 'descent') {
-        // 船長の窓：LM の前（窓の面）を、少し下向きに
+        // 着陸船の中：船長の目で、左の三角の窓から月面を見下ろす
         lm.updateMatrixWorld()
-        want.copy(WINDOW_EYE).applyMatrix4(lm.matrixWorld)
-        const fwd = tmp.q.copy(lm.quaternion)
-        const f = _a.set(0, -0.6, -1).normalize().applyQuaternion(fwd)
-        look.copy(want).add(f)
-        up.set(0, 1, 0).applyQuaternion(fwd)
-        fov = 62
+        lmc.group.matrix.copy(lm.matrixWorld)
+        lmc.group.matrixWorldNeedsUpdate = true
+        want.copy(LM_EYE).applyMatrix4(lm.matrixWorld)
+        look.copy(LM_LOOK).applyMatrix4(lm.matrixWorld)
+        up.set(0, 1, 0).applyQuaternion(tmp.q.copy(lm.quaternion))
+        fov = 72
         snap = true
       } else if (cam === 'wide' || phase === 'landed') {
         // 地面から見上げる（着陸地点の近く）。着陸したら、まわりをゆっくり回る
@@ -882,6 +883,8 @@ export function LunarWorld() {
     }
   }, [])
   const craft = useCraft()
+  const lmCabin = useMemo(() => buildLmCabin(), [])
+  useEffect(() => () => lmCabin.dispose(), [lmCabin])
   useFrame((_, dt) => tickLunar(dt))
   // 降下を始めたら、カメラはうしろから
   const phase = useMoonMission((s) => s.phase)
@@ -896,7 +899,8 @@ export function LunarWorld() {
       {maps && ready && <LunarGlobe maps={maps} craft={craft} />}
       <Spacecraft craft={craft} />
       <Dust />
-      <CameraRig craft={craft} />
+      <primitive object={lmCabin.group} />
+      <CameraRig craft={craft} cabin={lmCabin} />
     </>
   )
 }

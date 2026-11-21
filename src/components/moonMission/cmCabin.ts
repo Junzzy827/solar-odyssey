@@ -20,7 +20,7 @@ const HT = 2.25
 /** 円すいの壁の、高さ y での半径 */
 const wallR = (y: number) => R0 + (R1 - R0) * (y / HT)
 
-function canvas(w: number, h: number) {
+export function canvas(w: number, h: number) {
   const c = document.createElement('canvas')
   c.width = w
   c.height = h
@@ -28,7 +28,7 @@ function canvas(w: number, h: number) {
 }
 
 /** 壁の内張り（白っぽい布の板と、継ぎ目・留め具） */
-function liningTexture() {
+export function liningTexture() {
   const [c, g] = canvas(512, 512)
   g.fillStyle = '#b9b6ad'
   g.fillRect(0, 0, 512, 512)
@@ -57,7 +57,7 @@ function liningTexture() {
 }
 
 /** 計器盤（主表示盤）の絵：灰色の板に、スイッチの列・丸い計器・警告灯・誘導計算機の表示。光る所は別の絵（emissive） */
-function panelTextures() {
+export function panelTextures() {
   const W = 2048
   const H = 640
   const [c, g] = canvas(W, H)
@@ -201,7 +201,7 @@ function panelTextures() {
 }
 
 /** 姿勢の球（FDAI）：上が白、下が黒の球に、目盛りの線 */
-function ballTexture() {
+export function ballTexture() {
   const [c, g] = canvas(512, 256)
   g.fillStyle = '#e8e6de'
   g.fillRect(0, 0, 512, 128)
