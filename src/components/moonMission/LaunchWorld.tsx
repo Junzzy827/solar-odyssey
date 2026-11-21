@@ -330,12 +330,15 @@ export function LaunchWorld() {
       flameLight.current.position.set(0, h < 200 ? -25 - 30 * (1 - h / 200) : -25, 0)
     }
     lights.group.visible = h < 20_000
+    // 光の柱：点火の炎がまぶしいあいだは、目がくらんで薄く見える（作業5で露出と合わせる）
+    lights.update(1 - 0.7 * (s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 3000, 0, 1) : 0), t)
     // 溝の炎：点火から離昇のすぐ後まで（ロケットが高く上がると、溝にはもう届かない）
     site.update(s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 150, 0, 1) : 0, t)
     if (fill.current) {
       // 南の上から（three の z が南）。地球の向こうから照らさないよう、いつも局所の上寄り
       fill.current.position.copy(up).multiplyScalar(0.8).add(_v.set(0, 0, 0.6)).multiplyScalar(1000)
-      fill.current.intensity = s.phase === 'pad' ? 0.15 : 0.9
+      // 地上の近くは本当の暗闇（ロケットは投光器だけで浮かぶ）。高く上がると、星明かり代わりの弱い光
+      fill.current.intensity = THREE.MathUtils.lerp(0.06, 0.9, THREE.MathUtils.smoothstep(h, 3000, 20_000))
     }
     if (camLight.current) {
       // 機体カメラの見る先（切り離した段）を、少しだけ照らす
@@ -465,7 +468,7 @@ export function LaunchWorld() {
       if (fill.current) fill.current.intensity = 0
     }
     lights.setInside(inside)
-    if (hemi.current) hemi.current.intensity = inside ? 0.05 : 1.1
+    if (hemi.current) hemi.current.intensity = inside ? 0.05 : THREE.MathUtils.lerp(0.12, 1.1, THREE.MathUtils.smoothstep(h, 3000, 20_000))
     pc.near = inside ? 0.05 : 0.3
     if (Math.abs(pc.fov - cs.fov) > 0.01 || pc.near !== pcNear) {
       pcNear = pc.near
