@@ -56,8 +56,9 @@ async function suitScene(page, body) {
   await page.evaluate(() => document.querySelector('.suit-out').click())
   await page.waitForFunction(() => window.__sv.suitWalk.state.getState().on, null, { timeout: 30000 })
   const from = await page.evaluate(() => ({ ...window.__sv.suitWalk.pose }))
+  // フォボスのような重力の小さい星では、ふわふわ進むので遅い（遅い CI では 2 分を超えることがある）
   await page.evaluate(() => (window.__sv.suitWalk.debug.move = [0, 1]))
-  await page.waitForFunction((f) => Math.hypot(window.__sv.suitWalk.pose.x - f.x, window.__sv.suitWalk.pose.z - f.z) > 1.5, from, { timeout: 120000, polling: 500 })
+  await page.waitForFunction((f) => Math.hypot(window.__sv.suitWalk.pose.x - f.x, window.__sv.suitWalk.pose.z - f.z) > 0.8, from, { timeout: 240000, polling: 500 })
   await page.evaluate(() => (window.__sv.suitWalk.debug.move = null))
   for (const sel of ['.sw-actions .primary']) await visibleButton(page, sel)
 }
