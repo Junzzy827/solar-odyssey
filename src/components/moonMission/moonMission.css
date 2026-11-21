@@ -104,6 +104,15 @@
   color: #a9bbd0;
 }
 
+.mm-chapter {
+  margin-top: 14px;
+  pointer-events: auto;
+  font-size: 13px !important;
+}
+.mm-continue {
+  border-color: #ffb060 !important;
+}
+
 /* 計器 */
 .mm-panel {
   position: absolute;

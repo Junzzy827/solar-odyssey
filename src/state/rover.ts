@@ -5,6 +5,11 @@ import { create } from 'zustand'
 // 流れ：none → drop（落ちる）→ deploy（展開）→ drive（運転）。回収すると none にもどる。
 
 export type RoverPhase = 'none' | 'drop' | 'deploy' | 'drive'
+/**
+ * どの車を出しているか：orv7（無人探査ローバー）・crew（人が乗る与圧ローバー PR-2、月だけ。components/surface/CrewRover.tsx）。
+ * crew の流れ：none → drop（着陸船のそばに先に届いていた車へ乗りこむ）→ drive。deploy は使わない
+ */
+export type RoverVehicle = 'orv7' | 'crew'
 /** 運転中の見方：後ろから追う・マストのカメラから */
 export type RoverView = 'chase' | 'cam'
 
@@ -13,6 +18,14 @@ export const DEPLOY_SEC = 6
 export const ROVER_RANGE = 100
 /** 最高速度（m/s）。時速 60 km */
 export const ROVER_TOP = 60 / 3.6
+/** 与圧ローバーの最高速度（m/s）。時速 20 km（重さ数トンの、人が中で暮らせる車） */
+export const CREW_TOP = 20 / 3.6
+/** いま出している車の最高速度（m/s） */
+export const roverTop = () => (useRover.getState().vehicle === 'crew' ? CREW_TOP : ROVER_TOP)
+/** 与圧ローバーに乗りこむ場面の長さ（秒） */
+export const BOARD_SEC = 3.2
+/** 月だけで出せる（実在の計画が月面用なので） */
+export const crewRoverOn = (bodyId: string) => bodyId === 'moon'
 /**
  * 走りの版。運転のしかた・地面・岩など、レースのタイムが変わる変更をしたら、同じコミットで 1 増やす
  * （見た目だけ・コメントだけの変更では増やさない）。レースのハイスコア表・ゴースト・ゲームに入っている記録は、
@@ -22,6 +35,9 @@ export const DRIVE_VERSION = 7
 
 type RoverState = {
   phase: RoverPhase
+  vehicle: RoverVehicle
+  /** 与圧ローバー：電池の残り（0〜1）。走ると減り、昼は太陽電池で少しずつもどる */
+  battery: number
   since: number
   view: RoverView
   /** 画面に出す速さ（km/h）。毎フレームではなく、ときどき書き換える */
@@ -54,6 +70,8 @@ export const roverNow = () => performance.now() / 1000
 
 export const useRover = create<RoverState>((set) => ({
   phase: 'none',
+  vehicle: 'orv7',
+  battery: 1,
   since: 0,
   view: 'chase',
   mouse: false,
@@ -75,10 +93,10 @@ export const useRover = create<RoverState>((set) => ({
 export const roverActive = () => useRover.getState().phase !== 'none'
 
 /** quick：着陸船から降ろす場面を飛ばし、展開した姿ですぐ走れるように（レースのスタート） */
-export function launchRover(quick = false) {
+export function launchRover(quick = false, vehicle: RoverVehicle = 'orv7') {
   if (roverActive()) return
   roverQuick.on = quick === true
-  useRover.setState({ phase: 'drop', since: roverNow(), view: 'chase', kmh: 0, menu: false, canSample: false, sampling: false, result: null, next: null, edge: false })
+  useRover.setState({ vehicle, phase: 'drop', since: roverNow(), view: 'chase', kmh: 0, menu: false, canSample: false, sampling: false, result: null, next: null, edge: false })
 }
 
 /** 次の展開を飛ばすか（launchRover の quick） */
@@ -155,7 +173,7 @@ export function mouseSink() {
 export const useRoverCruise = create<{ cruise: number; last: number }>(() => ({ cruise: 0, last: 0 }))
 
 const setCruise = (kmh: number) => {
-  const cruise = Math.max(0, Math.min(Math.round(ROVER_TOP * 3.6), kmh))
+  const cruise = Math.max(0, Math.min(Math.round(roverTop() * 3.6), kmh))
   useRoverCruise.setState((c) => ({ cruise, last: cruise > 0 ? cruise : c.last }))
 }
 

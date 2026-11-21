@@ -20,9 +20,26 @@ import {
 //
 // 物理は data/saturnAscent.ts（本物の推力・重さ・燃える時間）。時間は場面ごとに早送りする（warp）。
 
-export type MissionPhase = 'none' | 'fadeIn' | 'pad' | 'ascent' | 'orbit' | 'tli' | 'outbound' | 'leave'
-/** pad：地上から見上げる、chase：ロケットの横から、onboard：ロケットにつけたカメラで後ろを見る */
-export type MissionCam = 'pad' | 'chase' | 'onboard'
+export type MissionPhase =
+  | 'none'
+  | 'fadeIn'
+  | 'pad'
+  | 'ascent'
+  | 'orbit'
+  | 'tli'
+  | 'outbound'
+  // 第2弾（state/moonLunar.ts）
+  | 'coast'
+  | 'loi'
+  | 'undock'
+  | 'descent'
+  | 'landed'
+  | 'leave'
+/**
+ * pad：地上から見上げる、chase：ロケット・宇宙船のうしろから、onboard：ロケットにつけたカメラで後ろを見る、
+ * window：着陸船の船長の窓から、wide：遠くから
+ */
+export type MissionCam = 'pad' | 'chase' | 'onboard' | 'window' | 'wide'
 
 export const MISSION_FADE = 0.8
 /** カウントダウンを始める時刻（打ち上げの何秒前） */
@@ -38,8 +55,8 @@ export const TLI_WINDOW = 600
 /** 機首を動かす速さ（度/秒） */
 export const PITCH_RATE = 7
 
-/** 記録（いちばん良い星の数と、たどり着いた所） */
-type MissionRecord = { stars: number; reached: number }
+/** 記録（いちばん良い星の数と、たどり着いた所。land：着陸のいちばん良い星） */
+type MissionRecord = { stars: number; reached: number; land?: number }
 const record = saveSlot<MissionRecord>('moon-mission', { stars: 0, reached: 0 }, (v) =>
   typeof v === 'object' && v !== null && typeof (v as MissionRecord).stars === 'number' ? (v as MissionRecord) : null,
 )
@@ -85,6 +102,32 @@ export type CaptionKey =
   | 'tliWindow'
   | 'tliIgnition'
   | 'tliCutoff'
+  // 第2弾
+  | 'coast'
+  | 'coastMoon'
+  | 'approach'
+  | 'los'
+  | 'aos'
+  | 'loiWindow'
+  | 'loiIgnition'
+  | 'loiCutoff'
+  | 'undock'
+  | 'legs'
+  | 'separation'
+  | 'pdiWindow'
+  | 'pdi'
+  | 'landLong'
+  | 'radar'
+  | 'throttleDown'
+  | 'highGate'
+  | 'lowGate'
+  | 'manual'
+  | 'lowFuel'
+  | 'call60'
+  | 'call30'
+  | 'contact'
+  | 'touchdown'
+  | 'outOfFuel'
 
 /** 確認用の動画を撮るときは、画面の時計をコマ送りの時計にする（film.t が null でなければそれを使う） */
 export const film = { t: null as number | null }
@@ -181,7 +224,11 @@ export function bindMissionKeys() {
 
 // ---- 流れ -----------------------------------------------------------------------------------
 
-export function startMoonMission() {
+/** 第2弾（月の近くから）を始める関数。state/moonLunar.ts が入れる（読み込みの順のため） */
+export const chapterHooks = { startLunar: null as null | (() => void) }
+
+/** ナビから：発射台から始める。moon なら第2弾（月に近づくところ）から */
+export function startMoonMission(chapter: 'launch' | 'moon' = 'launch') {
   if (useMoonMission.getState().phase !== 'none') return
   sim.a = startAscent()
   sim.pitch = 0
@@ -214,8 +261,23 @@ export function startMoonMission() {
   })
   useStore.getState().setMode('flight')
   setTimeout(() => {
-    if (useMoonMission.getState().phase === 'fadeIn') useMoonMission.setState({ phase: 'pad', since: missionNow() })
+    if (useMoonMission.getState().phase !== 'fadeIn') return
+    if (chapter === 'moon' && chapterHooks.startLunar) chapterHooks.startLunar()
+    else useMoonMission.setState({ phase: 'pad', since: missionNow() })
   }, MISSION_FADE * 1000)
+}
+
+/** 第1弾の終わりから、続けて月へ */
+export function continueToMoon() {
+  chapterHooks.startLunar?.()
+}
+
+/** 記録を足す（星は良いほうを残す） */
+export function saveMissionRecord(r: { stars?: number; land?: number; reached: number }) {
+  const b = useMoonMission.getState().best
+  const best = { stars: Math.max(b.stars, r.stars ?? 0), reached: Math.max(b.reached, r.reached), land: Math.max(b.land ?? 0, r.land ?? 0) }
+  record.save(best)
+  useMoonMission.setState({ best })
 }
 
 export function endMission() {
@@ -241,8 +303,17 @@ export function setAuto(auto: boolean) {
 }
 
 const CAMS: MissionCam[] = ['pad', 'chase', 'onboard']
+/** 第2弾のカメラ（着陸船が離れてからは窓も） */
+const LUNAR_CAMS: MissionCam[] = ['chase', 'wide']
+const LM_CAMS: MissionCam[] = ['chase', 'window', 'wide']
 export function cycleCam() {
   const s = useMoonMission.getState()
+  if (s.phase === 'coast' || s.phase === 'loi' || s.phase === 'undock' || s.phase === 'descent' || s.phase === 'landed') {
+    const list = s.phase === 'descent' || s.phase === 'landed' ? LM_CAMS : LUNAR_CAMS
+    const i = list.indexOf(s.cam)
+    useMoonMission.setState({ cam: list[(i + 1) % list.length], camLocked: true })
+    return
+  }
   const i = CAMS.indexOf(s.cam)
   let next = CAMS[(i + 1) % CAMS.length]
   // 高く上がったら、地上のカメラからは小さな点にしか見えないので飛ばす
@@ -391,9 +462,8 @@ function finish() {
   let stars = s.auto || s.errTime < 30 ? 1 : mean < 3 ? 3 : mean < 7 ? 2 : 1
   // 月へ向かう点火がぴったりなら、そのぶん 1 つ減らさない（ずれが大きいと 1 つ減る）
   if (s.tliTiming !== null && Math.abs(s.tliTiming) > TLI_WINDOW * 0.35) stars = Math.max(1, stars - 1)
-  const best = { stars: Math.max(s.best.stars, stars), reached: Math.max(s.best.reached, 1) }
-  record.save(best)
-  useMoonMission.setState({ stars, best })
+  useMoonMission.setState({ stars })
+  saveMissionRecord({ stars, reached: 1 })
 }
 
 /** HUD に出す数字（毎フレーム読む） */

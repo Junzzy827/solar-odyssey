@@ -44,11 +44,13 @@ import { Dust, Exhaust, Grit, LegRig, blastMark, TOUCHDOWN, legsDuringDescent, s
 import { QualityGovernor } from '../QualityGovernor'
 import { labEnabled, useSurfaceLab } from '../../state/surfaceLab'
 import { Rover } from './Rover'
+import { CrewRover } from './CrewRover'
+import { CrewInfoCard } from './CrewInfoCard'
 import { MAP_KEYS, shrinkTexture } from './shrinkTexture'
 import { RoverHud, RoverMap } from './RoverHud'
 import { useMapTerrain } from './mapRelief'
 import { isTouchDevice } from '../../state/input'
-import { bindRoverKeys, bindRoverMouse, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
+import { bindRoverKeys, bindRoverMouse, crewRoverOn, launchRover, recallRover, roverFocus, roverInput, useRover, useSampleLog } from '../../state/rover'
 import { openRocks } from '../../state/rockBook'
 import { followOn, startSuitWalk, useSuitWalk } from '../../state/suitWalk'
 import { SuitWalk } from './SuitWalk'
@@ -1394,6 +1396,12 @@ function Scene({ def }: { def: SurfaceDef }) {
       <Suspense fallback={null}>
         <Rover terrain={terrain} dustColor={def.ground} sky={sky} landerYaw={LANDER_YAW} prepare={prepareRover} />
       </Suspense>
+      {/* 人が乗る与圧ローバー：月だけ（レースの場所には置かない）。着陸船のそばに停めてある */}
+      {crewRoverOn(def.id) && !rallyTrack && (
+        <Suspense fallback={null}>
+          <CrewRover terrain={terrain} dustColor={def.ground} sky={sky} landerYaw={LANDER_YAW} prepare={prepareRover} />
+        </Suspense>
+      )}
       {rallyTrack && (
         <Suspense fallback={null}>
           <Rally key={rallyTrack} track={rallyTrack} terrain={terrain} prepare={prepareRover} dustColor={def.ground} sky={sky} />
@@ -1490,8 +1498,12 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
   const mouseDrive = useRover((r) => r.mouse)
   const menu = useRover((r) => r.menu)
   const setView = useRover((r) => r.setView)
+  const crew = useRover((r) => r.vehicle) === 'crew'
+  const battery = useRover((r) => r.battery)
+  const [info, setInfo] = useState(false)
   useEffect(() => bindRoverKeys(), [])
   const drive = phase === 'drive'
+  if (crew) return <CrewPanel drive={drive} edge={edge} range={range} mouseDrive={mouseDrive} menu={menu} view={view} site={site} battery={battery} info={info} setInfo={setInfo} />
   return (
     <>
       <div className="surface-hint rover-hint" hidden={racing}>
@@ -1575,6 +1587,81 @@ function RoverPanel({ bodyId, site }: { bodyId: string; site?: string }) {
             🏁 {ui().surfaceView.raceButton(ui().rallyTracks[trackAt(trackForBody(bodyId)!)].button)}
           </button>
         )}
+        <button className="primary" onClick={startTakeoff}>
+          {ui().surfaceView.backToShip}
+        </button>
+      </div>
+    </>
+  )
+}
+
+/** 与圧ローバーに乗っているときの操作：ジャンプと採集はなく、運転席の見方・この車の説明・降りる */
+function CrewPanel({ drive, edge, range, mouseDrive, menu, view, site, battery, info, setInfo }: {
+  drive: boolean
+  edge: boolean
+  range: number
+  mouseDrive: boolean
+  menu: boolean
+  view: string
+  site?: string
+  battery: number
+  info: boolean
+  setInfo: (v: boolean) => void
+}) {
+  useLang()
+  const t = ui().crewRover
+  return (
+    <>
+      <div className="surface-hint rover-hint">
+        {drive ? (
+          <>
+            {t.keysHint}
+            {!isTouchDevice() && <span className={`eva-lock${mouseDrive ? ' on' : ''}`}>{mouseDrive ? ui().roverHud.mouseOn : ui().roverHud.mouseOff}</span>}
+          </>
+        ) : (
+          t.boarding
+        )}
+      </div>
+      {drive && <RoverHud />}
+      {drive && edge && (
+        <div className="rover-edge">
+          {ui().surfaceView.cantGoFarther}
+          <small>{ui().surfaceView.roverRange(sizeLabel(range * 2))}</small>
+        </div>
+      )}
+      {drive && battery <= 0.02 && <div className="rover-edge">{t.batteryEmpty}</div>}
+      {drive && info && <CrewInfoCard onClose={() => setInfo(false)} />}
+      {drive && site === 'taurus' && !info && <HistoricCard />}
+      {drive && site === 'taurus' && <HistoricStatus />}
+      {drive && (
+        <div className="rover-pad">
+          <div className="rover-pad-left">
+            <button {...holdProps(() => (roverInput.steer = -1), () => (roverInput.steer = 0))}>◀</button>
+            <button {...holdProps(() => (roverInput.steer = 1), () => (roverInput.steer = 0))}>▶</button>
+          </div>
+          <div className="rover-pad-right">
+            <button {...holdProps(() => (roverInput.throttle = -1), () => (roverInput.throttle = 0))}>▼</button>
+            <button className="go" {...holdProps(() => (roverInput.throttle = 1), () => (roverInput.throttle = 0))}>▲</button>
+          </div>
+        </div>
+      )}
+      <div className="surface-buttons rover-actions">
+        <button className={`secondary${menu ? ' on' : ''}`} onClick={() => useRover.setState({ menu: !menu })} title={ui().surfaceView.roverMenuTip}>
+          {menu ? ui().surfaceView.hideMenu : ui().surfaceView.menu}
+        </button>
+        {drive && (
+          <button className="secondary" onClick={() => useRover.getState().setView(view === 'chase' ? 'cam' : 'chase')}>
+            {view === 'chase' ? t.toCockpit : t.toChase}
+          </button>
+        )}
+        {drive && (
+          <button className={`secondary${info ? ' on' : ''}`} onClick={() => setInfo(!info)}>
+            {t.info}
+          </button>
+        )}
+        <button className="secondary" onClick={recallRover}>
+          {t.getOff}
+        </button>
         <button className="primary" onClick={startTakeoff}>
           {ui().surfaceView.backToShip}
         </button>
@@ -1675,6 +1762,11 @@ function SurfacePanel({ def }: { def: SurfaceDef }) {
             <button className="secondary" onClick={() => launchRover()}>
               {ui().surfaceView.deployRover}
             </button>
+            {crewRoverOn(def.id) && !rallyTrack && (
+              <button className="secondary crew-rover-start" onClick={() => launchRover(false, 'crew')} title={ui().crewRover.buttonTip}>
+                {ui().crewRover.button}
+              </button>
+            )}
             <button className="secondary suit-out" onClick={startSuitWalk} title={ui().suitWalk.buttonTip}>
               {ui().suitWalk.button}
             </button>

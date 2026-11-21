@@ -853,7 +853,8 @@ export function Rover({
     }
   }, [sites, staticBodies, terrain])
   useEffect(() => {
-    if (phase !== 'drop') return
+    // 与圧ローバー（CrewRover.tsx）を出したときは、こちらは何もしない
+    if (phase !== 'drop' || useRover.getState().vehicle !== 'orv7') return
     const x = LANDER_POS.x
     const z = LANDER_POS.y
     st.current = {
@@ -899,10 +900,14 @@ export function Rover({
   useFrame((state, rawDt) => {
     const grp = group.current
     const s = st.current
-    const { phase, since, view } = useRover.getState()
+    const { phase, since, view, vehicle } = useRover.getState()
     if (!grp) return
-    grp.visible = phase !== 'none' && !!s
-    if (!grp.visible || !s) return
+    grp.visible = phase !== 'none' && !!s && vehicle === 'orv7'
+    if (!grp.visible || !s) {
+      // 採集の岩の光の柱は、無人ローバーで走っているときだけ
+      beacons.current.forEach((b) => b && (b.visible = false))
+      return
+    }
     const dt = Math.min(rawDt, 0.05)
     const T = roverNow() - since
     const rig = built.rig
