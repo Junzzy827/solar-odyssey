@@ -15,9 +15,8 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    # 場面が増えて 1 本で 30 分を超えるようになったので、4 つに分けて同時に走らせる（場面は smoke.mjs --shard で順に配る）
-    # 3 つでは 1 本が 29〜30 分かかり、遅い日に打ち切られていた（2026-11-21）。時間切れも少し余裕を持たせる
-    timeout-minutes: 40
+    # 場面が増えて 1 本で 30 分を超えるようになったので、4 つに分けて同時に走らせる（3 つでは 30 分ぎりぎりになった。場面は smoke.mjs --shard で順に配る）
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

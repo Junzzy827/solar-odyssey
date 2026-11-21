@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { AU_KM, encounterRelative, heliocentric, nearestEncounter, propagate, speedKmS, GM_SUN_AU_DAY } from './trajectory'
+import CASSINI_SATURN from '../../public/data/cassini-saturn.json'
+import { AU_KM, encounterRelative, heliocentric, nearestEncounter, propagate, sampleTracks, setSamples, speedKmS, trackAt, GM_SUN_AU_DAY } from './trajectory'
+import { CASSINI_TRAJECTORY as CA } from './trajectories/cassini'
 import { HAYABUSA2_TRAJECTORY as H2 } from './trajectories/hayabusa2'
 import { VOYAGER2_CHECKS, VOYAGER2_TRAJECTORY as V2 } from './trajectories/voyager2'
 
@@ -92,5 +94,55 @@ describe('はやぶさ2の道すじ', () => {
   it('地球スイングバイと帰還の最接近は本物どおり（中心から 9,521 km と 6,712 km）', () => {
     expect(Math.hypot(...H2.encounters[1].rel.slice(0, 3))).toBeCloseTo(9521, -1)
     expect(Math.hypot(...H2.encounters[3].rel.slice(0, 3))).toBeCloseTo(6712, -1)
+  })
+})
+
+describe('カッシーニの道すじ', () => {
+  const saturn = CA.encounters[5]
+  setSamples(saturn.samples!, CASSINI_SATURN)
+  const tracks = sampleTracks(saturn.samples!)!
+  const rel = (ms: number) => encounterRelative(saturn, ms).r
+  const at = (name: string, ms: number) => trackAt(tracks[name], ms, saturn.gm)!.r
+
+  it('1時間ごとに見て、打ち上げから土星に着くまで飛びがない', () => {
+    const start = CA.encounters[0].ms + 3600_000
+    let prev = heliocentric(CA, start)
+    let worst = 0
+    for (let ms = start + 3600_000; ms < saturn.ms + 30 * DAY; ms += 3600_000) {
+      const s = heliocentric(CA, ms)
+      const nearPlanet = CA.encounters.slice(1, 4).some((e) => Math.abs(e.ms - ms) < 4.5 * DAY)
+      const step = nearPlanet ? 0 : dist(s.r, prev.r) * AU_KM
+      worst = Math.max(worst, step - (speedKmS(s) + speedKmS(prev)) * 1800)
+      prev = s
+    }
+    expect(worst).toBeLessThan(5000)
+  })
+
+  it('土星を回るあいだも、1時間ごとに飛びがない（2日おきの値のあいだを、土星の重力で進めてつなぐ）', () => {
+    let prev = rel(saturn.ms)
+    let worst = 0
+    for (let ms = saturn.ms + 3600_000; ms < saturn.until!; ms += 3600_000) {
+      const r = rel(ms)
+      const s = encounterRelative(saturn, ms).v
+      worst = Math.max(worst, dist(r, prev) - Math.hypot(...s) * 3600 * 1.5 - 3000)
+      prev = r
+    }
+    expect(worst).toBeLessThanOrEqual(0)
+  })
+
+  it('最接近と見どころは本物どおり', () => {
+    // 金星2回・地球・木星の、中心からの距離
+    expect(CA.encounters.slice(1, 5).map((e) => Math.round(Math.hypot(...e.rel.slice(0, 3)) / 100) * 100)).toEqual([6300, 6700, 7600, 9794500])
+    // エンケラドゥス：中心から 252 + 175 km ほどまで近づく
+    let best = 1e9
+    for (let ms = Date.UTC(2005, 6, 14, 19); ms < Date.UTC(2005, 6, 14, 21); ms += 5000) best = Math.min(best, dist(rel(ms), at('enceladus', ms)))
+    expect(best).toBeGreaterThan(300)
+    expect(best).toBeLessThan(700)
+    // 最後：土星の雲のすぐ上（中心から6万2千km）
+    expect(Math.hypot(...rel(saturn.until!))).toBeLessThan(63_000)
+    // ホイヘンスは切りはなしから3週間で、タイタンの近くへ
+    const hu = tracks.huygens
+    const last = hu.t[hu.t.length - 1]
+    expect(dist(at('huygens', last), at('titan', last))).toBeLessThan(20_000)
   })
 })

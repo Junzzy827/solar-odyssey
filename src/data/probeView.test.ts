@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { captionScene, flybyNumbers, poleOf, probeNow } from './probeView'
 import { VOYAGER2_TRAJECTORY as V2 } from './trajectories/voyager2'
 import { HAYABUSA2_TRAJECTORY as H2 } from './trajectories/hayabusa2'
+import { CASSINI_TRAJECTORY as CA } from './trajectories/cassini'
 
 const DAY = 86_400_000
 
@@ -46,5 +47,17 @@ describe('模型の画面の数字', () => {
   it('土星の北極は黄道の北の側に、天王星の北極は黄道の面の近くに寝ている', () => {
     expect(poleOf('saturn')[2]).toBeGreaterThan(0.8)
     expect(Math.abs(poleOf('uranus')[2])).toBeLessThan(0.2)
+  })
+})
+
+describe('カッシーニの字幕の場面', () => {
+  const at = (ms: number) => captionScene(CA, probeNow(CA, ms))
+  const saturn = CA.encounters[5]
+  it('金星2回・地球・木星はスイングバイ、土星ではとどまって、見どころごとに字幕が変わる', () => {
+    expect(at(CA.encounters[1].ms)).toMatchObject({ kind: 'flyby', body: 'venus', index: 1, step: 2 })
+    expect(at(CA.encounters[4].ms)).toMatchObject({ kind: 'flyby', body: 'jupiter', step: 2 })
+    expect(at(saturn.ms + 3600_000)).toMatchObject({ kind: 'stay', step: 'approach' })
+    expect(at(Date.UTC(2010, 0, 1))).toMatchObject({ kind: 'stay', step: 'home' })
+    saturn.moments!.forEach((m, i) => expect(at(m.ms - 3600_000)).toMatchObject({ kind: 'stay', step: 'dip', dip: i }))
   })
 })

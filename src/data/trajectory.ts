@@ -24,7 +24,16 @@ export type Encounter = {
   hover?: { km: number; surfaceKm: number; dips: { ms: number; hours: number }[] }
   /** 着く前・離れたあとの、天体から見た位置の表（Horizons の値、km）。start から step ごと、「x,y,z;…」 */
   table?: { start: number; step: number; km: string }
+  /**
+   * 天体から見た探査機（と衛星）の本物の位置と速度（Horizons の値）。大きいので、別のファイル（public の下のパス）から、
+   * 旅を選んだときに読み込む（loadSamples）。読み込むまでは、とどまるあいだも rel の位置にいることにする
+   */
+  samples?: string
+  /** とどまるあいだの見どころ（ホイヘンスの切りはなしなど）：前後 days 日は字幕を出し、その瞬間に向けて pace（日／秒）までゆっくりに */
+  moments?: Moment[]
 }
+
+export type Moment = { ms: number; days: number; pace: number }
 
 export type Trajectory = {
   anchors: string
@@ -57,7 +66,7 @@ const dot = (a: Vec, b: Vec) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 const len = (a: Vec) => Math.sqrt(dot(a, a))
 
 /** ケプラーの法則で dt だけ進める（普遍変数の方法。単位は mu・r・v・dt でそろえる） */
-export function propagate(r0: Vec, v0: Vec, dt: number, mu: number): State {
+export function propagate(r0: Vec, v0: Vec, dt: number, mu: number, depth = 0): State {
   if (dt === 0) return { r: [...r0], v: [...v0] }
   const r0n = len(r0)
   const vr0 = dot(r0, v0) / r0n
@@ -72,6 +81,7 @@ export function propagate(r0: Vec, v0: Vec, dt: number, mu: number): State {
     x = sgn * Math.sqrt(-a) * Math.log((-2 * mu * alpha * dt) / (dot(r0, v0) + sgn * Math.sqrt(-mu * a) * (1 - r0n * alpha)))
   } else x = (sq * dt) / r0n
   if (!Number.isFinite(x)) x = (sq * dt) / r0n
+  let converged = false
   for (let i = 0; i < 60; i++) {
     const z = alpha * x * x
     const { C, S } = stumpff(z)
@@ -79,7 +89,15 @@ export function propagate(r0: Vec, v0: Vec, dt: number, mu: number): State {
     const dF = ((r0n * vr0) / sq) * x * (1 - z * S) + (1 - alpha * r0n) * x * x * C + r0n
     const step = F / dF
     x -= step
-    if (Math.abs(step) < 1e-12 * Math.max(1, Math.abs(x))) break
+    if (Math.abs(step) < 1e-12 * Math.max(1, Math.abs(x))) {
+      converged = true
+      break
+    }
+  }
+  // 遠くから近づく双曲線などで、最初の見当が悪くて解けないときは、半分ずつに分けて進める
+  if ((!converged || !Number.isFinite(x)) && depth < 12) {
+    const half = propagate(r0, v0, dt / 2, mu, depth + 1)
+    return propagate(half.r, half.v, dt / 2, mu, depth + 1)
   }
   const z = alpha * x * x
   const { C, S } = stumpff(z)
@@ -118,9 +136,89 @@ export function encounterPlanet(e: Encounter, ms: number): State {
 /** 惑星中心から見た探査機（km、km/s）。最接近の値から、惑星の重力で進める */
 export function encounterRelative(e: Encounter, ms: number): State {
   if (e.until !== undefined && e.hover && ms >= e.ms && ms <= e.until) return hoverRelative(e, ms)
+  const track = e.samples ? sampleTracks(e.samples)?.probe : undefined
+  const fromSamples = track && trackAt(track, ms, e.gm)
+  if (fromSamples) return fromSamples
   const fromTable = e.table && tableAt(e, ms)
   if (fromTable) return fromTable
+  // 本物の値を読み込むまで（とどまるあいだ）は、着いたときの位置のまま
+  if (e.until !== undefined && ms >= e.ms) return { r: e.rel.slice(0, 3) as Vec, v: [0, 0, 0] }
   return propagate(e.rel.slice(0, 3) as Vec, e.rel.slice(3, 6) as Vec, (ms - e.ms) / 1000, e.gm)
+}
+
+// ---- 別のファイルの、本物の位置と速度（samples） ----
+
+/** 時刻（ミリ秒）と、その時刻の位置（km）・速度（km/s）を6つずつ */
+export type Track = { t: Float64Array; s: Float64Array }
+const trackFiles = new Map<string, Record<string, Track>>()
+const loading = new Map<string, Promise<void>>()
+
+/**
+ * ファイルの形：{ 名前: "秒,x,y,z,vx,vy,vz;…" } か { 名前: { start: 秒, step: 秒, rows: "x,y,z,vx,vy,vz;…" } }。
+ * 位置は km、速度は m/s の整数（小さくするため）。探査機自身は probe、ほかは衛星など
+ */
+export function setSamples(url: string, json: Record<string, string | { start: number; step: number; rows: string }>) {
+  const out: Record<string, Track> = {}
+  for (const [name, v] of Object.entries(json)) {
+    const rows = (typeof v === 'string' ? v : v.rows).split(';')
+    const t = new Float64Array(rows.length)
+    const s = new Float64Array(rows.length * 6)
+    rows.forEach((row, i) => {
+      const n = row.split(',').map(Number)
+      const o = typeof v === 'string' ? 1 : 0
+      t[i] = (typeof v === 'string' ? n[0] : v.start + i * v.step) * 1000
+      for (let k = 0; k < 3; k++) {
+        s[i * 6 + k] = n[o + k]
+        s[i * 6 + 3 + k] = n[o + 3 + k] / 1000
+      }
+    })
+    out[name] = { t, s }
+  }
+  trackFiles.set(url, out)
+}
+
+/** 読み込んだ値（まだなら null） */
+export const sampleTracks = (url: string) => trackFiles.get(url) ?? null
+
+/** 道すじの samples を読み込む（済んでいれば、すぐ終わる） */
+export function loadSamples(t: Trajectory, base = ''): Promise<void> {
+  const urls = t.encounters.flatMap((e) => (e.samples && !trackFiles.has(e.samples) ? [e.samples] : []))
+  return Promise.all(
+    urls.map((url) => {
+      let p = loading.get(url)
+      if (!p) {
+        p = fetch(base + url)
+          .then((r) => r.json())
+          .then((json) => setSamples(url, json))
+          .catch(() => {
+            // 読めなかったら、次に選んだときにもう一度
+            loading.delete(url)
+          })
+        loading.set(url, p)
+      }
+      return p!
+    }),
+  ).then(() => undefined)
+}
+
+/** その時刻の位置と速度：前と後ろの値の両方から、天体の重力（gm）で進めて、なめらかにまぜる。範囲の外は null */
+export function trackAt(track: Track, ms: number, gm: number): State | null {
+  const { t, s } = track
+  if (ms < t[0] || ms > t[t.length - 1]) return null
+  let lo = 0
+  let hi = t.length - 1
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1
+    if (t[mid] <= ms) lo = mid
+    else hi = mid
+  }
+  const go = (i: number) => propagate([s[i * 6], s[i * 6 + 1], s[i * 6 + 2]], [s[i * 6 + 3], s[i * 6 + 4], s[i * 6 + 5]], (ms - t[i]) / 1000, gm)
+  if (ms === t[lo]) return go(lo)
+  const a = go(lo)
+  const b = go(hi)
+  const w = smooth(t[lo], t[hi], ms)
+  const mix = (x: Vec, y: Vec): Vec => [x[0] + (y[0] - x[0]) * w, x[1] + (y[1] - x[1]) * w, x[2] + (y[2] - x[2]) * w]
+  return { r: mix(a.r, b.r), v: mix(a.v, b.v) }
 }
 
 const tables = new WeakMap<Encounter, Vec[]>()
