@@ -313,7 +313,10 @@ const SCENARIOS = {
         const w = window.__sv.waterCup.state.getState().water
         return w.liquid === 0 && w.ice > 0.5
       })
-      await check3d(page, 'cup')
+      const info = () => page.evaluate(() => JSON.stringify({ clock: window.__sv.skyClock.getState().clock, cam: window.__sv.surfaceCam, sun: window.__sky?.sunDir, view: window.__sv.landing.state.getState().view, cup: window.__sv.waterCup.state.getState().water }))
+      await check3d(page, 'cup-ice').catch(async (e) => {
+        throw new Error(`${e.message} ${await info()}`)
+      })
       await page.evaluate(() => window.__sv.landing.state.setState({ menu: true }))
       await page.waitForFunction(() => document.querySelector('.sunrise-go'), null, { timeout: 30000 })
       await page.evaluate(() => document.querySelector('.sunrise-go').click())
@@ -324,6 +327,9 @@ const SCENARIOS = {
         document.querySelector('.time-jump .sunrise-go + button').click()
       })
       await page.waitForFunction(() => Math.abs(window.__sv.skyClock.getState().clock - 12) < 1.5, null, { timeout: 60000, polling: 500 })
+      await check3d(page, 'cup-noon').catch(async (e) => {
+        throw new Error(`${e.message} ${await info()}`)
+      })
     },
   },
   // 水のコップ（スマホ・金星）：沸いて消える。カードのボタンが隠れない
