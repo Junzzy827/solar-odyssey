@@ -318,8 +318,11 @@ const SCENARIOS = {
       await page.waitForFunction(() => document.querySelector('.sunrise-go'), null, { timeout: 30000 })
       await page.evaluate(() => document.querySelector('.sunrise-go').click())
       await page.waitForFunction(() => document.querySelector('.sunrise-card .sunrise-head'), null, { timeout: 30000 })
-      // 日の出の前は暗いので、昼へ進めてから 3D を確かめる
-      await page.evaluate(() => document.querySelector('.time-jump .sunrise-go + button').click())
+      // 日の出の前は暗いので、時間を止めて昼へ進めてから 3D を確かめる（早回しのままだと、遅い端末ではまた夜になる）
+      await page.evaluate(() => {
+        window.__sv.skyClock.getState().setRate(0)
+        document.querySelector('.time-jump .sunrise-go + button').click()
+      })
       await page.waitForFunction(() => Math.abs(window.__sv.skyClock.getState().clock - 12) < 1.5, null, { timeout: 60000, polling: 500 })
     },
   },
