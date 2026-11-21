@@ -108,10 +108,19 @@ export function advanceProbe(delta: number): number | null {
 /** 惑星のそばでは、ゆっくり進める速さ（日／秒）。最接近までの日数に比べて進み、近いほど遅く（近づくのにも離れるのにも十数秒） */
 const RAMP_SECONDS = 2.2
 const MIN_DAYS_PER_SECOND: Record<string, number> = { earth: 0.03, neptune: 0.04 }
+/** 小惑星の表面へ降りる瞬間の速さ（日／秒）。1秒に約6分 */
+const DIP_DAYS_PER_SECOND = 0.004
 export function encounterPace(t: Trajectory, ms: number, yearsPerSecond: number) {
   const { encounter, days } = nearestEncounter(t, ms)
   const base = yearsPerSecond * 365.25
   const min = MIN_DAYS_PER_SECOND[encounter.body] ?? 0.08
+  if (encounter.until !== undefined && days === 0) {
+    // とどまるあいだ（はやぶさ2とリュウグウ）：着いたとき・離れるときの前後はゆっくり、表面へ降りるときは、もっとゆっくり
+    const edge = Math.min(ms - encounter.ms, encounter.until - ms) / DAY_MS
+    let pace = Math.max(min, edge / RAMP_SECONDS)
+    for (const d of encounter.hover?.dips ?? []) pace = Math.min(pace, Math.max(DIP_DAYS_PER_SECOND, Math.abs(ms - d.ms) / DAY_MS / RAMP_SECONDS))
+    return Math.min(base, pace)
+  }
   return Math.min(base, Math.max(min, Math.abs(days) / RAMP_SECONDS))
 }
 
@@ -122,7 +131,9 @@ export function seekProbe(ms: number) {
   if (!probe) return
   const t = probe.trajectory
   const enc = t ? nearestEncounter(t, ms) : null
-  const at = enc && Math.abs(enc.days) < 1.5 ? enc.encounter.ms - 25 * DAY_MS : ms
+  // とどまるあいだのできごと（タッチダウンなど）は、その2日前から
+  const stay = enc && enc.encounter.until !== undefined && enc.days === 0 && ms - enc.encounter.ms > 2 * DAY_MS
+  const at = stay ? ms - 2 * DAY_MS : enc && Math.abs(enc.days) < 1.5 ? enc.encounter.ms - 25 * DAY_MS : ms
   probeClock.ms = Math.max(t ? trajectoryStart(t) : dateMs(probe.stops[0].date), Math.min(at, endMs(probe)))
   probeClock.hold = 0
   let event = -1
@@ -248,7 +259,10 @@ const offsets = new WeakMap<Trajectory, { ms: number; d: THREE.Vector3 }[]>()
 function offsetAt(t: Trajectory, ms: number, out: THREE.Vector3) {
   let list = offsets.get(t)
   if (!list) {
-    list = t.encounters.map((e) => ({ ms: e.ms, d: bodyAu(e.body, e.ms).sub(eclipticToScreen(encounterPlanet(e, e.ms).r)) }))
+    // とどまる天体（リュウグウ）は、着いた日と離れた日の両方で合わせる
+    list = t.encounters.flatMap((e) =>
+      [e.ms, ...(e.until !== undefined ? [e.until] : [])].map((ms) => ({ ms, d: bodyAu(e.body, ms).sub(eclipticToScreen(encounterPlanet(e, ms).r)) })),
+    )
     offsets.set(t, list)
   }
   if (ms <= list[0].ms) return out.copy(list[0].d)

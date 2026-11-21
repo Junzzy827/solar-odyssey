@@ -27,7 +27,15 @@ const POLES: Record<string, [number, number]> = {
   uranus: [257.311, -15.175],
   neptune: [299.36, 43.46],
 }
-export const poleOf = (id: string): Vec => equatorialToEcliptic(...(POLES[id] ?? [0, 90]))
+/** リュウグウの自転軸（黄経 179.3°・黄緯 −87.4°、Watanabe ほか 2019）。ほぼ黄道の南を向き、逆向きに回る */
+const RYUGU_POLE: Vec = (() => {
+  const lon = 179.3 * DEG
+  const lat = -87.4 * DEG
+  return [Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)]
+})()
+/** リュウグウの自転の周期（時間） */
+export const RYUGU_ROTATION_HOURS = 7.63
+export const poleOf = (id: string): Vec => (id === 'ryugu' ? RYUGU_POLE : equatorialToEcliptic(...(POLES[id] ?? [0, 90])))
 
 /** 地球の本初子午線（経度0）の向き（黄道座標）。グリニッジ恒星時から。打ち上げの日の地球の向きを本物にするため */
 export function earthPrimeMeridian(ms: number): Vec {
@@ -63,7 +71,8 @@ export function earthHelio(ms: number): Vec {
   return [Math.cos(a) * r, Math.sin(a) * r, 0]
 }
 
-export const planetRadiusKm = (id: string) => PLANETS.find((p) => p.id === id)?.radiusKm ?? 1000
+/** 天体の半径（km）。リュウグウは、はやぶさ2が表面まで降りたときの中心からの距離（赤道のあたり） */
+export const planetRadiusKm = (id: string) => (id === 'ryugu' ? 0.46 : (PLANETS.find((p) => p.id === id)?.radiusKm ?? 1000))
 
 /** その時刻の、模型の画面に要る数字 */
 export type ProbeNow = {
@@ -131,29 +140,43 @@ export function flybyNumbers(t: Trajectory, e: Encounter) {
   }
 }
 
-/** 字幕の場面 */
+/** 字幕の場面。index は道すじの encounters の何番目か */
 export type CaptionScene =
   | { kind: 'launch'; step: 0 | 1 | 2 }
-  | { kind: 'flyby'; body: string; step: 0 | 1 | 2 | 3 | 4 }
-  | { kind: 'cruise'; after: string }
+  | { kind: 'flyby'; body: string; index: number; step: 0 | 1 | 2 | 3 | 4 }
+  | { kind: 'stay'; body: string; step: 'approach' | 'home' | 'dip' | 'depart'; dip: number }
+  | { kind: 'cruise'; after: number }
   | { kind: 'beyond' }
 
 /** 最接近の前後で、字幕を変える境目（日）。惑星の大きさと速さで、ちょうど見どころに合うように */
 const CLOSE_DAYS: Record<string, number> = { jupiter: 0.35, saturn: 0.2, uranus: 0.15, neptune: 0.08 }
+/** とどまるあいだ、降りていく前後の何日を「タッチダウンの場面」にするか */
+const DIP_DAYS = 1.2
+/** 着いてから何日を「到着の場面」にするか */
+const ARRIVE_DAYS = 4
 
 export function captionScene(t: Trajectory, now: ProbeNow): CaptionScene {
   const e = now.encounter
   const d = now.days
-  if (e === t.encounters[0] && d < 6) return { kind: 'launch', step: d < 0.35 ? 0 : d < 2 ? 1 : 2 }
-  if (e !== t.encounters[0] && Math.abs(d) < e.window) {
+  const index = t.encounters.indexOf(e)
+  if (index === 0 && d < 6) return { kind: 'launch', step: d < 0.35 ? 0 : d < 2 ? 1 : 2 }
+  if (e.until !== undefined && Math.abs(d) < e.window) {
+    if (d < 0 || (d === 0 && now.ms - e.ms < ARRIVE_DAYS * DAY_MS)) return { kind: 'stay', body: e.body, step: 'approach', dip: -1 }
+    if (d > 0 || e.until - now.ms < 2 * DAY_MS) return { kind: 'stay', body: e.body, step: 'depart', dip: -1 }
+    const dip = (e.hover?.dips ?? []).findIndex((x) => Math.abs(x.ms - now.ms) < DIP_DAYS * DAY_MS)
+    return { kind: 'stay', body: e.body, step: dip >= 0 ? 'dip' : 'home', dip }
+  }
+  if (index > 0 && Math.abs(d) < e.window) {
     const c = CLOSE_DAYS[e.body] ?? 0.2
     const step = d < -c * 8 ? 0 : d < -c ? 1 : d <= c ? 2 : d < c * 10 ? 3 : 4
-    return { kind: 'flyby', body: e.body, step }
+    return { kind: 'flyby', body: e.body, index, step }
   }
   const last = t.encounters[t.encounters.length - 1]
   if (now.ms > last.ms) return { kind: 'beyond' }
-  // 惑星と惑星のあいだ（字幕は、画面の側で数秒ごとに順に変える）。after は最後に通った惑星（その見どころを最初に出す）
-  let after = t.encounters[0].body
-  for (const x of t.encounters) if (x.ms < now.ms) after = x.body
+  // 惑星と惑星のあいだ（字幕は、画面の側で数秒ごとに順に変える）。after は最後に通った天体の番号（その見どころを最初に出す）
+  let after = 0
+  t.encounters.forEach((x, i) => {
+    if (x.ms < now.ms) after = i
+  })
   return { kind: 'cruise', after }
 }
