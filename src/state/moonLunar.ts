@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { playRadio, preloadRadio } from '../audio/radio'
 import * as THREE from 'three'
 import {
   emptyInput,
@@ -95,6 +96,7 @@ export const lunarPhase = (p: string) => p === 'coast' || p === 'loi' || p === '
 
 /** 第2弾を始める（第1弾の終わりから、または発射台のカードから） */
 export function startLunar() {
+  preloadRadio('landed')
   void loadLunarMaps().then(
     () => useMoonLunar.setState({ ready: true }),
     () => useMoonLunar.setState({ ready: true }),
@@ -425,6 +427,8 @@ function land() {
   if ((L.loiTiming !== null && Math.abs(L.loiTiming) > 30) || (L.pdiTiming !== null && Math.abs(L.pdiTiming) > 15)) stars = stars > 0 ? Math.max(1, stars - 1) : 0
   useMoonLunar.setState({ stars })
   useMoonMission.setState({ phase: 'landed', since: missionNow() })
+  // 無事に着いたときだけ、本物の「チャレンジャー号、着陸した」を流す
+  if (stars > 0) setTimeout(() => useMoonMission.getState().phase === 'landed' && playRadio('landed'), 900)
   saveMissionRecord({ land: stars, reached: 2 })
 }
 

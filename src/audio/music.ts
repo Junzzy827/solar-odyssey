@@ -14,7 +14,17 @@ const MP3_DELAY = 1105 / 44100
 let gain: GainNode | null = null
 let started = false
 
-const level = () => (useStore.getState().settings.music ? volume() * LEVEL : 0)
+/** 場面が自分の音楽を流している間は true（月ミッションなど）。その間、この BGM は消す */
+let held = false
+
+const level = () => (useStore.getState().settings.music && !held ? volume() * LEVEL : 0)
+
+/** 場面の音楽に場所をゆずる・もどす */
+export function holdBgm(on: boolean) {
+  held = on
+  const c = audio()
+  if (c && gain) gain.gain.setTargetAtTime(level(), c.currentTime, 0.6)
+}
 
 async function start() {
   if (started) return

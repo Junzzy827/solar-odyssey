@@ -304,7 +304,8 @@ const SCENARIOS = {
       await page.evaluate(() => document.querySelector('.crew-rover-start').click())
       await page.waitForFunction(() => window.__sv.rover.state.getState().phase === 'drive', null, { timeout: 60000, polling: 500 })
       await page.evaluate(() => (window.__sv.rover.input.throttle = 1))
-      await sleep(4000)
+      // 決まった秒数ではなく、進んだ距離で待つ（CI の遅いコマでは 4 秒では 1 コマも進まないことがある）
+      await page.waitForFunction(() => window.__sv.rover.state.getState().hud.dist > 3, null, { timeout: 40000, polling: 250 }).catch(() => {})
       await page.evaluate(() => (window.__sv.rover.input.throttle = 0))
       const st = await page.evaluate(() => window.__sv.rover.state.getState())
       if (st.vehicle !== 'crew' || !(st.hud.dist > 3)) throw new Error(`crewrover: did not drive (${st.vehicle}, ${st.hud.dist} m)`)
