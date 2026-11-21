@@ -48,13 +48,15 @@ export function launchSmoke(c: FxCtx) {
       }
     }
   }
-  if (s1On > 0 && h < 600) {
-    // 炎の溝から南北へ吹き出す。3 つに 1 つは、溝に撒く水の白い湯気
-    const n = Math.ceil(dt * 70 * (1 - h / 600) * ignite)
+  if (s1On > 0 && h < 900) {
+    // 炎の溝から南北へ吹き出す。本物の写真（S72-55070）では、煙は地面をはって数百 m 広がり、
+    // 炎に照らされた大きな入道雲のように、ロケットの高さを越えてもくもく立ち上がる。3 つに 1 つは、溝に撒く水の白い湯気
+    const n = count(60 * (1 - h / 900) * ignite, dt)
     for (let i = 0; i < n; i++) {
       const side = Math.random() < 0.5 ? -1 : 1
-      const steam = Math.random() < 0.33
-      smoke.emit((Math.random() - 0.5) * 30, GROUND_Y + 4, side * (40 + Math.random() * 20), (Math.random() - 0.5) * 14, 2 + Math.random() * 6, side * (45 + Math.random() * 40), 22 + Math.random() * 18, 16 + Math.random() * 10, 1.4, steam ? STEAM : undefined)
+      const steam = Math.random() < 0.3
+      const out = 90 + Math.random() * 120
+      smoke.emit((Math.random() - 0.5) * 24, GROUND_Y + 3, side * (50 + Math.random() * 40), (Math.random() - 0.5) * 30, 4 + Math.random() * 16, side * out, 28 + Math.random() * 22, 30 + Math.random() * 12, 1.8, steam ? STEAM : undefined)
     }
     // 甲板の穴のまわりからも、湯気が噴き上がる
     if (h < 60) {
@@ -75,11 +77,11 @@ export function launchSmoke(c: FxCtx) {
       smoke.emit(_v.x, _v.y, _v.z, Math.cos(ang) * (0.5 + Math.random() * 2), -1 - Math.random() * 3, Math.sin(ang) * (0.5 + Math.random() * 2), 0.5 + Math.random() * 0.6, 4, 0, ICE)
     }
   }
-  if (s1On > 0 && h > 20 && h < 7000) {
-    // 上がっていく後ろに残る煙の柱
+  if (s1On > 0 && h > 60 && h < 7000) {
+    // 上がっていく後ろに残る煙の柱。炎（長さ 100 m ほど）の先から下に残る（炎を隠さないように）
     const n = Math.ceil(dt * 30)
     for (let i = 0; i < n; i++) {
-      ground.worldToLocal(_v.set((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10).addScaledVector(nose, -60 - Math.random() * 40))
+      ground.worldToLocal(_v.set((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10).addScaledVector(nose, -115 - Math.random() * 50))
       smoke.emit(_v.x, _v.y, _v.z, (Math.random() - 0.5) * 4, -2, (Math.random() - 0.5) * 4, 16 + h * 0.004, 24, 1.8)
     }
   }

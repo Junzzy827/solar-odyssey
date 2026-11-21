@@ -13,6 +13,7 @@ import { buildFloodlights } from './launchLights'
 import { buildSky } from './launchSky'
 import { launchSmoke } from './launchFx'
 import { encodeOutput } from './shaderOut'
+import { missionLook } from './MissionPost'
 import { atmosphereMaterial, earthMaterial } from './earth'
 import { buildCabin, CABIN_Y, CM_WIN_DIR, CM_WIN_EYE } from './cmCabin'
 import { FILM_CUTS, FILM_END, filmCut, filmForce, filmRig, filmShake } from './launchFilm'
@@ -122,8 +123,8 @@ export function LaunchWorld() {
   const plumes = useMemo(() => {
     const geo = plumeGeometry()
     // 打ち上げの世界の自前のシェーダーは、後処理のあるなしで明るさがそろうように仕上げる（shaderOut.ts）
-    const f1 = encodeOutput(plumeMaterial({ core: '#fff4d0', edge: '#ff7a1c', soft: 0.9 }))
-    const big = encodeOutput(plumeMaterial({ core: '#ffd890', edge: '#ff5a10', soft: 1.4 }))
+    const f1 = encodeOutput(plumeMaterial({ core: '#fffaf0', edge: '#ffc070', soft: 0.9 }))
+    const big = encodeOutput(plumeMaterial({ core: '#fff4dc', edge: '#ffa448', soft: 1.2 }))
     const j2 = encodeOutput(plumeMaterial({ core: '#b8c4ff', edge: '#3a48d8', soft: 1.8 }))
     const les = encodeOutput(plumeMaterial({ core: '#fff0c0', edge: '#ff8a30', soft: 1.0 }))
     return { geo, f1, big, j2, les }
@@ -131,8 +132,9 @@ export function LaunchWorld() {
   const cabin = useMemo(() => buildCabin(), [])
   useEffect(() => () => cabin.dispose(), [cabin])
   const smoke = useMemo(() => {
-    const sm = new Smoke(small ? 640 : 1800, GROUND_Y + 1)
+    const sm = new Smoke(small ? 900 : 2800, GROUND_Y + 1)
     encodeOutput(sm.material)
+    sm.points.renderOrder = 1
     return sm
   }, [small])
   useEffect(() => () => smoke.dispose(), [smoke])
@@ -289,16 +291,17 @@ export function LaunchWorld() {
       })
     }
     plumes.f1.uniforms.uTime.value = t
-    plumes.f1.uniforms.uPower.value = 1.6 * s1On
+    // 本物の F-1 の炎は、夜の写真ではほとんど白く飛ぶほどまぶしい（露出を下げても白く残る明るさ）
+    plumes.f1.uniforms.uPower.value = 4 * s1On
     plumes.f1.uniforms.uExpand.value = expand * 0.4
     if (bigPlume.current) {
       bigPlume.current.visible = s1On > 0
-      const len = 70 + 230 * expand
-      bigPlume.current.scale.set(5.5 + 4 * expand, len * (s.phase === 'pad' ? 0.25 + 0.75 * ignite.current : 1), 5.5 + 4 * expand)
+      const len = 105 + 200 * expand
+      bigPlume.current.scale.set(6.5 + 4 * expand, len * (s.phase === 'pad' ? 0.25 + 0.75 * ignite.current : 1), 5.5 + 4 * expand)
       bigPlume.current.position.y = -2
     }
     plumes.big.uniforms.uTime.value = t
-    plumes.big.uniforms.uPower.value = (1.0 - 0.5 * expand) * s1On
+    plumes.big.uniforms.uPower.value = (3 - 1.8 * expand) * s1On
     plumes.big.uniforms.uExpand.value = expand * 2.2
     const s2On = a.stage === 1 && a.thrust > 0
     const s3On = a.stage === 2 && a.thrust > 0
@@ -332,6 +335,8 @@ export function LaunchWorld() {
     lights.group.visible = h < 20_000
     // 光の柱：点火の炎がまぶしいあいだは、目がくらんで薄く見える（作業5で露出と合わせる）
     lights.update(1 - 0.7 * (s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 3000, 0, 1) : 0), t)
+    // 炎のまぶしさ（露出を下げる量。カメラが決まったあとで使う）
+    const glare = s1On > 0 ? ignite.current * (1 - THREE.MathUtils.smoothstep(h, 4000, 30_000)) : 0
     // 溝の炎：点火から離昇のすぐ後まで（ロケットが高く上がると、溝にはもう届かない）
     site.update(s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 150, 0, 1) : 0, t)
     if (fill.current) {
@@ -468,6 +473,10 @@ export function LaunchWorld() {
       if (fill.current) fill.current.intensity = 0
     }
     lights.setInside(inside)
+    // 露出：点火すると炎がまぶしいので、カメラの露出が下がる（本物の夜の打ち上げの写真のように、まわりは暗く沈み、
+    // 炎と、炎に照らされた煙だけが浮かぶ）。高く上がって炎が遠く小さくなると戻る。カメラの自動露出らしく、少し遅れて追う
+    const wantExp = inside ? 1 : THREE.MathUtils.lerp(1, 0.32, glare)
+    missionLook.exposure += (wantExp - missionLook.exposure) * Math.min(1, dt * (wantExp < missionLook.exposure ? 2.5 : 0.8))
     if (hemi.current) hemi.current.intensity = inside ? 0.05 : THREE.MathUtils.lerp(0.12, 1.1, THREE.MathUtils.smoothstep(h, 3000, 20_000))
     pc.near = inside ? 0.05 : 0.3
     if (Math.abs(pc.fov - cs.fov) > 0.01 || pc.near !== pcNear) {
@@ -518,10 +527,11 @@ export function LaunchWorld() {
             [-2.157, -2.157],
             [2.157, -2.157],
           ].map(([x, z], i) => (
-            <mesh key={i} geometry={plumes.geo} material={plumes.f1} position={[x, 0, z]} />
+            <mesh key={i} geometry={plumes.geo} material={plumes.f1} position={[x, 0, z]} renderOrder={4} />
           ))}
         </group>
-        <mesh ref={bigPlume} geometry={plumes.geo} material={plumes.big} />
+        {/* 炎は煙のあとに描く（煙よりずっと明るいので、煙の手前・中でも光って見える） */}
+        <mesh ref={bigPlume} geometry={plumes.geo} material={plumes.big} renderOrder={4} />
         <group ref={j2s} position={[0, 46.6, 0]} visible={false}>
           {[
             [0, 0],

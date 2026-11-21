@@ -70,7 +70,7 @@ export function MissionPost() {
   return (
     <EffectComposer key={`${quality.msaa}`} multisampling={quality.msaa} enableNormalPass={false}>
       <primitive object={ex.pass} />
-      <Bloom intensity={0.6} luminanceThreshold={2} luminanceSmoothing={0.4} mipmapBlur />
+      <Bloom intensity={0.5} luminanceThreshold={2.5} luminanceSmoothing={0.4} mipmapBlur />
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
     </EffectComposer>
   )
