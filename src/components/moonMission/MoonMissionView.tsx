@@ -30,6 +30,7 @@ import { LaunchWorld } from './LaunchWorld'
 import { LunarWorld } from './LunarWorld'
 import { LunarHud } from './LunarHud'
 import { bindLunarKeys, lunarPhase, startLunar } from '../../state/moonLunar'
+import { RadioSubtitle } from './RadioSubtitle'
 import './moonMission.css'
 
 // 月ミッション（アポロ17号の追体験）の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
@@ -218,6 +219,7 @@ function Hud() {
         </div>
       )}
       <Caption />
+      <RadioSubtitle />
       <div className="mm-buttons">
         <button onClick={() => cycleCam()}>
           {t.camLabel(t.camNames[s.cam])}
@@ -278,6 +280,7 @@ export function MoonMissionView() {
         <div className="mm-hud">
           <LunarHud />
           <Caption />
+      <RadioSubtitle />
         </div>
       )}
       <Fade />

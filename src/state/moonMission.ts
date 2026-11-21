@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { useStore } from './store'
 import { saveSlot } from './save'
+import { playRadio, preloadRadio, stopRadio } from '../audio/radio'
+import { LIFTOFF_AT } from '../data/apolloRadio'
 import {
   altitude,
   guidePitch,
@@ -260,6 +262,8 @@ export function startMoonMission(chapter: 'launch' | 'moon' = 'launch') {
     best: record.load(),
   })
   useStore.getState().setMode('flight')
+  stopRadio()
+  preloadRadio(chapter === 'moon' ? 'landed' : 'liftoff')
   setTimeout(() => {
     if (useMoonMission.getState().phase !== 'fadeIn') return
     if (chapter === 'moon' && chapterHooks.startLunar) chapterHooks.startLunar()
@@ -283,12 +287,14 @@ export function saveMissionRecord(r: { stars?: number; land?: number; reached: n
 export function endMission() {
   const s = useMoonMission.getState()
   if (s.phase === 'none' || s.phase === 'leave') return
+  stopRadio()
   useMoonMission.setState({ phase: 'leave', since: missionNow() })
   setTimeout(() => useMoonMission.setState({ phase: 'none', since: missionNow() }), MISSION_FADE * 1000)
 }
 
 /** もう一度、発射台から */
 export function restartMission() {
+  stopRadio()
   useMoonMission.setState({ phase: 'none' })
   startMoonMission()
   useMoonMission.setState({ phase: 'pad', since: missionNow() })
@@ -385,6 +391,8 @@ export function tickMission(dt: number) {
       ignite(countdown)
       ignitedAt = countdown
     }
+    // 本物の実況：秒読み 10 秒前から流し、離昇の瞬間を合わせる
+    if (s.countdown > LIFTOFF_AT && countdown <= LIFTOFF_AT) playRadio('liftoff', LIFTOFF_AT - countdown)
     if (countdown <= 0) {
       useMoonMission.setState({ phase: 'ascent', since: missionNow(), countdown: 0 })
       setCaption('liftoff')

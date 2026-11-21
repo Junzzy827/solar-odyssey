@@ -37,6 +37,18 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
   tliBar: 'Window to the Moon',
   tliGo: 'Burn for the Moon',
   tliHint: 'Burn in the middle of the window for the shortest way',
+  radio: {
+    source: 'Actual mission audio (NASA)',
+    who: { pao: 'Kennedy Launch Control commentary', cdr: 'Commander Cernan', capcom: 'Houston (CapCom)' },
+    // [original, translation]. The original is NASA's transcript; English needs no translation
+    lines: {
+      count: ['(countdown)', ''],
+      liftoff1: ["We have a lift-off, and it's lighting up the area.", ''],
+      liftoff2: ["It's just like daylight here at Kennedy Space Center as the Saturn V is moving off the pad. It has now cleared the tower.", ''],
+      landed: ['Okay, Houston. The Challenger has landed!', ''],
+      super: ["Roger, Challenger. That's super.", ''],
+    } as Record<string, [string, string]>,
+  },
   captions: {
     ignition: ['Ignition', 'Five F-1 engines light up: 3,400 tonnes of thrust'],
     liftoff: ['Liftoff!', 'The night sky turns bright as day'],
