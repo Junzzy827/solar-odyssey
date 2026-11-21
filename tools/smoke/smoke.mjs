@@ -321,6 +321,8 @@ const SCENARIOS = {
       await page.waitForFunction(() => document.querySelector('.sunrise-go'), null, { timeout: 30000 })
       await page.evaluate(() => document.querySelector('.sunrise-go').click())
       await page.waitForFunction(() => document.querySelector('.sunrise-card .sunrise-head'), null, { timeout: 30000 })
+      // 日の出の少し前まで時間が進んだのを待つ（月は昼に着くので、先に「昼」を押すと何もせずに終わる）
+      await page.waitForFunction(() => window.__sv.skyClock.getState().clock < 9, null, { timeout: 60000, polling: 300 })
       // 日の出の前は暗いので、時間を止めて昼へ進めてから 3D を確かめる（早回しのままだと、遅い端末ではまた夜になる）
       await page.evaluate(() => {
         window.__sv.skyClock.getState().setRate(0)
