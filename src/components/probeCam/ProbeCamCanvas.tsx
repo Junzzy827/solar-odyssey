@@ -10,6 +10,7 @@ import { encounterRelative, type Encounter, type Trajectory } from '../../data/t
 import { earthHelio, earthPrimeMeridian, moonGeocentric, poleOf, probeNow, type ProbeNow } from '../../data/probeView'
 import { groundKm, groundNormal, PATCH_LIFT_KM, RyuguBody, ryuguSpin } from './ryugu'
 import { roomEnvironment } from '../telescope/parts'
+import { moonFocus, OrbitTrail, SaturnMoons } from './saturn'
 import { probeClock } from '../../state/probes'
 
 // 探査機の模型の画面（右側）。探査機を真ん中に置き、まわりは本物の向きで並べる：
@@ -49,6 +50,11 @@ type ModelSetup = {
   arrow: number
   /** カメラ：はじめの位置と、近づける・離れる限り（m） */
   camera: { start: [number, number, number]; min: number; max: number }
+  /**
+   * 途中で切りはなす部品（カッシーニのホイヘンス）：名前が suffix で終わる部品を、ms の時刻に、
+   * 模型の axis の向きへ speed（m/s）で押し出し、spinRpm で回しながら離していく（far m より離れたら隠す）
+   */
+  detach?: { suffix: string; ms: number; axis: THREE.Vector3; speed: number; spinRpm: number; far: number }
 }
 
 const MODELS: Record<string, ModelSetup> = {
@@ -73,6 +79,17 @@ const MODELS: Record<string, ModelSetup> = {
     env: true,
     arrow: 0.3,
     camera: { start: [9, 4, 8], min: 4, max: 120 },
+  },
+  // NASA の模型（Cassini-Huygens (A)）：大きなアンテナの開いた側が +Y、磁力計のさお（11 m）が -Z、ホイヘンスが +X の側
+  'probe-cassini.glb': {
+    dish: new THREE.Vector3(0, 1, 0),
+    boom: new THREE.Vector3(0, 0, -1),
+    env: true,
+    recenter: (root) => root.position.set(0, 0.6, 0),
+    arrow: 0.7,
+    camera: { start: [30, 12, 26], min: 10, max: 140 },
+    // 2004年12月25日 02:00（世界時）、ばねで秒速 35 cm で押し出し、毎分7回転させて切りはなした
+    detach: { suffix: '_h', ms: Date.UTC(2004, 11, 25, 2, 0), axis: new THREE.Vector3(1, 0, 0), speed: 0.35, spinRpm: 7, far: 3000 },
   },
 }
 const setupOf = (model: string): ModelSetup => MODELS[model] ?? MODELS['probe-voyager.glb']
@@ -100,7 +117,32 @@ function ProbeModel({ url, setup }: { url: string; setup: ModelSetup }) {
       }
     })
     setup.recenter?.(root)
-    return root
+    // 切りはなす部品：元の場所のものと、離れていく写し（回す中心は、部品の真ん中）
+    const parts: THREE.Object3D[] = []
+    let flying: THREE.Group | null = null
+    let spinner: THREE.Group | null = null
+    if (setup.detach) {
+      const suffix = setup.detach.suffix
+      root.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh && o.name.endsWith(suffix)) parts.push(o)
+      })
+      root.updateMatrixWorld(true)
+      const box = new THREE.Box3()
+      parts.forEach((o) => box.expandByObject(o))
+      const center = box.getCenter(new THREE.Vector3())
+      flying = new THREE.Group()
+      spinner = new THREE.Group()
+      flying.position.copy(center)
+      flying.add(spinner)
+      for (const o of parts) {
+        const copy = o.clone()
+        copy.matrixAutoUpdate = false
+        copy.matrix.copy(o.matrixWorld).premultiply(new THREE.Matrix4().makeTranslation(-center.x, -center.y, -center.z))
+        spinner.add(copy)
+      }
+      flying.visible = false
+    }
+    return { root, parts, flying, spinner, home: flying?.position.clone() ?? null }
   }, [scene, setup, gl])
   const m = new THREE.Matrix4()
   const toEarth = new THREE.Vector3()
@@ -127,10 +169,23 @@ function ProbeModel({ url, setup }: { url: string; setup: ModelSetup }) {
     m.makeBasis(side, toEarth, up).multiply(local)
     q.setFromRotationMatrix(m)
     group.current.quaternion.slerp(q, 0.2)
+    const dt = setup.detach
+    if (dt && model.flying && model.spinner && model.home) {
+      const sec = (now.ms - dt.ms) / 1000
+      const gone = sec >= 0
+      model.parts.forEach((o) => (o.visible = !gone))
+      const dist = dt.speed * sec
+      model.flying.visible = gone && dist < dt.far
+      if (model.flying.visible) {
+        model.flying.position.copy(model.home).addScaledVector(dt.axis, dist)
+        model.spinner.quaternion.setFromAxisAngle(dt.axis, ((sec * dt.spinRpm) / 60) * Math.PI * 2)
+      }
+    }
   })
   return (
     <group ref={group}>
-      <primitive object={model} />
+      <primitive object={model.root} />
+      {model.flying && <primitive object={model.flying} />}
     </group>
   )
 }
@@ -288,6 +343,8 @@ function Encounter({ encounter, launch }: { encounter: Encounter; launch: boolea
   const group = useRef<THREE.Group>(null!)
   const spin = useRef<THREE.Group>(null!)
   const isRyugu = encounter.body === 'ryugu'
+  // 土星を回るカッシーニ：道すじは今の前後だけを作る（13年分は描かない）
+  const orbiting = !!encounter.samples
   const dips = useMemo(() => encounter.hover?.dips ?? [], [encounter])
   // 表面へ降りる場所（リュウグウの模型の向き）：降りる時刻の、探査機の真下
   const sites = useMemo(
@@ -308,9 +365,9 @@ function Encounter({ encounter, launch }: { encounter: Encounter; launch: boolea
     const n = 600
     // 最接近（とどまる天体なら、着いた日と離れた日）のまわりほど細かく
     for (let i = 0; i <= n; i++) times.push(encounter.ms - (1 - i / n) ** 3 * span)
-    if (encounter.until !== undefined) for (let ms = encounter.ms + 3_600_000; ms < encounter.until; ms += 3_600_000) times.push(ms)
+    if (encounter.until !== undefined && !orbiting) for (let ms = encounter.ms + 3_600_000; ms < encounter.until; ms += 3_600_000) times.push(ms)
     const end = encounter.until ?? encounter.ms
-    for (let i = 1; i <= n; i++) times.push(end + (i / n) ** 3 * span)
+    if (!orbiting) for (let i = 1; i <= n; i++) times.push(end + (i / n) ** 3 * span)
     // 打ち上げの道すじは、打ち上げのあとだけ
     const list = launch ? times.filter((ms) => ms >= encounter.ms) : times
     const pts = list.map((ms) => toScreen(encounterRelative(encounter, ms).r))
@@ -323,7 +380,7 @@ function Encounter({ encounter, launch }: { encounter: Encounter; launch: boolea
     const done = new THREE.Line(geometry, mat(0.95))
     full.frustumCulled = done.frustumCulled = false
     return { full, done, tail, times: list, pts }
-  }, [encounter, span, launch])
+  }, [encounter, span, launch, orbiting])
   useEffect(
     () => () => {
       full.geometry.dispose()
@@ -376,6 +433,7 @@ function Encounter({ encounter, launch }: { encounter: Encounter; launch: boolea
       else hi = mid
     }
     done.geometry.setDrawRange(0, lo)
+    tail.visible = !orbiting || now.ms < encounter.ms
     const end = tail.geometry.attributes.position as THREE.BufferAttribute
     const from = pts[Math.max(0, lo - 1)]
     rel.setLength(len)
@@ -383,16 +441,22 @@ function Encounter({ encounter, launch }: { encounter: Encounter; launch: boolea
     end.setXYZ(1, rel.x, rel.y, rel.z)
     end.needsUpdate = true
   })
+  const live = () => (probeLive.now?.encounter === encounter && probeLive.now.rel ? probeLive.now.ms : null)
+  const liveRel = () => (probeLive.now?.encounter === encounter && probeLive.now.rel ? { ms: probeLive.now.ms, rel: probeLive.now.rel } : null)
   return (
+    <>
+    {orbiting && <SaturnMoons encounter={encounter} now={liveRel} />}
     <group ref={group} visible={false}>
       <primitive object={full} />
       <primitive object={done} />
       <primitive object={tail} />
+      {orbiting && <OrbitTrail encounter={encounter} now={live} />}
       <Suspense fallback={null}>
         {isRyugu ? <RyuguBody spin={spin} sites={sites} active={active} burst={burst} /> : <PlanetSphere id={encounter.body} ms={encounter.ms} />}
         {encounter.body === 'earth' && <Moon />}
       </Suspense>
     </group>
+    </>
   )
 }
 
@@ -421,7 +485,14 @@ function CameraRig({ controls }: { controls: React.RefObject<OrbitControlsImpl |
     if (!now || performance.now() - touched.current < 6000) return
     const dist = camera.position.length()
     upWant.copy(north)
-    if (now.rel) {
+    if (now.rel && moonFocus.dir && now.encounter.samples) {
+      // 近くの衛星（エンケラドゥスなど）があれば、その衛星が探査機の少し奥に見える位置から
+      a.copy(moonFocus.dir).negate()
+      b.crossVectors(a, north)
+      if (b.lengthSq() < 1e-6) b.set(1, 0, 0)
+      b.normalize()
+      want.copy(a).addScaledVector(b, 0.3).addScaledVector(north, 0.18)
+    } else if (now.rel) {
       // 惑星の反対側の、少し横・上から（惑星が探査機の少し奥に見える。真うしろだと小さい惑星が模型に隠れる）
       toScreen(now.rel, a).normalize()
       b.crossVectors(a, north)

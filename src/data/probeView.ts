@@ -21,6 +21,7 @@ export function equatorialToEcliptic(raDeg: number, decDeg: number): Vec {
 
 /** 惑星の北極の向き（IAU の値、J2000 の赤経・赤緯） */
 const POLES: Record<string, [number, number]> = {
+  venus: [272.76, 67.16],
   earth: [0, 90],
   jupiter: [268.057, 64.495],
   saturn: [40.589, 83.537],
@@ -162,8 +163,10 @@ export function captionScene(t: Trajectory, now: ProbeNow): CaptionScene {
   if (index === 0 && d < 6) return { kind: 'launch', step: d < 0.35 ? 0 : d < 2 ? 1 : 2 }
   if (e.until !== undefined && Math.abs(d) < e.window) {
     if (d < 0 || (d === 0 && now.ms - e.ms < ARRIVE_DAYS * DAY_MS)) return { kind: 'stay', body: e.body, step: 'approach', dip: -1 }
-    if (d > 0 || e.until - now.ms < 2 * DAY_MS) return { kind: 'stay', body: e.body, step: 'depart', dip: -1 }
-    const dip = (e.hover?.dips ?? []).findIndex((x) => Math.abs(x.ms - now.ms) < DIP_DAYS * DAY_MS)
+    // 見どころ：タッチダウン（前後 DIP_DAYS 日）か、とどまるあいだの見どころ（前後 days 日）
+    const marks = e.hover ? e.hover.dips.map((x) => ({ ms: x.ms, days: DIP_DAYS })) : (e.moments ?? [])
+    const dip = marks.findIndex((x) => Math.abs(x.ms - now.ms) < x.days * DAY_MS)
+    if (dip < 0 && (d > 0 || (!e.moments && e.until - now.ms < 2 * DAY_MS))) return { kind: 'stay', body: e.body, step: 'depart', dip: -1 }
     return { kind: 'stay', body: e.body, step: dip >= 0 ? 'dip' : 'home', dip }
   }
   if (index > 0 && Math.abs(d) < e.window) {

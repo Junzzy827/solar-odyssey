@@ -59,6 +59,7 @@ function Caption({ probe, r }: { probe: Probe; r: Readout }) {
   const c = ui().probeCam
   const p = c.probes[probe.id] ?? c.probes.voyager2
   const s = r.scene
+  const stay = p.stay ?? c.stay
   const radio = c.lightTime(r.earthKm / LIGHT_KM_PER_MIN)
   let text = ''
   let key: string = s.kind
@@ -73,10 +74,10 @@ function Caption({ probe, r }: { probe: Probe; r: Readout }) {
     key += s.index + '-' + s.step
   } else if (s.kind === 'stay') {
     if (s.step === 'home') {
-      const line = c.stay.home[tick % c.stay.home.length]
+      const line = stay.home[tick % stay.home.length]
       text = typeof line === 'function' ? line(radio) : line
-      key += tick % c.stay.home.length
-    } else text = s.step === 'dip' ? c.stay.dips[s.dip] : c.stay[s.step]
+      key += tick % stay.home.length
+    } else text = s.step === 'dip' ? stay.dips[s.dip] : stay[s.step]
     key += s.step + s.dip
   } else if (s.kind === 'cruise') {
     // 通ったばかりの天体の見どころ → 豆知識を順に

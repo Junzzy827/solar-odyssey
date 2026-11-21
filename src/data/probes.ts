@@ -4,6 +4,7 @@
 import type { Trajectory } from './trajectory'
 import { VOYAGER2_TRAJECTORY } from './trajectories/voyager2'
 import { HAYABUSA2_TRAJECTORY } from './trajectories/hayabusa2'
+import { CASSINI_TRAJECTORY } from './trajectories/cassini'
 
 export type ProbeStop = {
   date: string
@@ -99,7 +100,8 @@ export const PROBES: Probe[] = [
       { date: '2000-12-30', body: 'jupiter' },
       { date: '2004-07-01', body: 'saturn', until: '2017-09-15' },
     ],
-    end: '2017-09-15',
+    // 土星の大気へ飛びこんだ時刻（Horizons の値の最後）
+    end: '2017-09-15T10:30:50Z',
     pace: { slow: 0.37, fast: 2 },
     events: [
       { date: '1997-10-15' },
@@ -108,9 +110,14 @@ export const PROBES: Probe[] = [
       { date: '1999-08-18' },
       { date: '2000-12-30' },
       { date: '2004-07-01' },
+      { date: '2004-12-25' },
       { date: '2005-01-14' },
       { date: '2005-07-14' },
+      { date: '2017-04-26' },
+      { date: '2017-09-15' },
     ],
+    trajectory: CASSINI_TRAJECTORY,
+    model: 'probe-cassini.glb',
   },
   {
     id: 'newhorizons',
@@ -157,4 +164,5 @@ export const PROBES: Probe[] = [
 /** リュウグウの軌道要素（2011年12月12日の値） */
 export const RYUGU = { epoch: '2011-12-12', a: 1.1896, e: 0.1902, i: 5.8837, node: 251.62, peri: 211.43, M: 3.9832, periodDays: 474 }
 
-export const dateMs = (iso: string) => Date.parse(`${iso}T12:00:00Z`)
+/** 日付（その日の正午、世界時）。時刻まであるもの（2017-09-15T10:30:50Z）は、その時刻 */
+export const dateMs = (iso: string) => Date.parse(iso.includes('T') ? iso : `${iso}T12:00:00Z`)

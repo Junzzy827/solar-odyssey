@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { PLANETS } from '../data/bodies'
 import { dateMs, PROBES, RYUGU, RYUGU_ID, type Probe } from '../data/probes'
 import { daysAt, EPOCH_MS, planetPosition, simTimeAt, trueAnomaly } from '../data/ephemeris'
-import { encounterPlanet, heliocentric, nearestEncounter, trajectoryStart, type Trajectory } from '../data/trajectory'
+import { encounterPlanet, heliocentric, loadSamples, nearestEncounter, trajectoryStart, type Trajectory } from '../data/trajectory'
 import { sim } from './registry'
 import { useStore } from './store'
 import { useQuiz } from './quiz'
@@ -24,9 +24,11 @@ type ProbeState = {
   /** 最後に過ぎたできごと（-1 はまだ） */
   event: number
   finished: boolean
+  /** 道すじの本物の値（別のファイル）を読み込んだ回数。増えたら道すじを描き直す */
+  samples: number
 }
 
-export const useProbes = create<ProbeState>(() => ({ open: false, probeId: null, playing: false, event: -1, finished: false }))
+export const useProbes = create<ProbeState>(() => ({ open: false, probeId: null, playing: false, event: -1, finished: false, samples: 0 }))
 
 /** 再生中の時計（毎フレーム進めるので React の外） */
 export const probeClock = { ms: 0, hold: 0 }
@@ -60,6 +62,9 @@ export function playProbe(id: string) {
   probeClock.ms = probe.trajectory ? trajectoryStart(probe.trajectory) : dateMs(probe.stops[0].date)
   probeClock.hold = 0
   useProbes.setState({ probeId: id, playing: true, event: -1, finished: false })
+  // 土星を回ったカッシーニの13年分などは別のファイル。打ち上げから着くまでのあいだに読み込む
+  if (probe.trajectory?.encounters.some((e) => e.samples))
+    loadSamples(probe.trajectory, import.meta.env.BASE_URL).then(() => useProbes.setState((s) => ({ samples: s.samples + 1 })))
 }
 
 export function togglePlay() {
@@ -110,6 +115,7 @@ const RAMP_SECONDS = 2.2
 const MIN_DAYS_PER_SECOND: Record<string, number> = { earth: 0.03, neptune: 0.04 }
 /** 小惑星の表面へ降りる瞬間の速さ（日／秒）。1秒に約6分 */
 const DIP_DAYS_PER_SECOND = 0.004
+const MOMENT_RAMP_SECONDS = 1.2
 export function encounterPace(t: Trajectory, ms: number, yearsPerSecond: number) {
   const { encounter, days } = nearestEncounter(t, ms)
   const base = yearsPerSecond * 365.25
@@ -119,6 +125,8 @@ export function encounterPace(t: Trajectory, ms: number, yearsPerSecond: number)
     const edge = Math.min(ms - encounter.ms, encounter.until - ms) / DAY_MS
     let pace = Math.max(min, edge / RAMP_SECONDS)
     for (const d of encounter.hover?.dips ?? []) pace = Math.min(pace, Math.max(DIP_DAYS_PER_SECOND, Math.abs(ms - d.ms) / DAY_MS / RAMP_SECONDS))
+    // 見どころ（ホイヘンスの切りはなしなど）は、もっと早くからゆっくりにはしない（13年を見せるので、近づくのは手早く）
+    for (const m of encounter.moments ?? []) pace = Math.min(pace, Math.max(m.pace, Math.abs(ms - m.ms) / DAY_MS / MOMENT_RAMP_SECONDS))
     return Math.min(base, pace)
   }
   return Math.min(base, Math.max(min, Math.abs(days) / RAMP_SECONDS))
@@ -288,8 +296,12 @@ function realPath(probe: Probe, t: Trajectory): PathPoint[] {
   let ms = trajectoryStart(t)
   while (ms < end) {
     out.push({ ms, p: realProbeAu(t, ms) })
-    const days = Math.abs(nearestEncounter(t, ms).days)
-    const step = days < 3 ? 0.05 : days < 40 ? 1 : ms < last + YEAR_MS ? 4 : 30
+    const near = nearestEncounter(t, ms)
+    const days = Math.abs(near.days)
+    // とどまるあいだ：降りていく小惑星は細かく、土星を回るあいだは1日おき
+    const enc = near.encounter
+    const stay = days === 0 && enc.until !== undefined && !enc.hover
+    const step = stay ? 1 : days < 3 ? 0.05 : days < 40 ? 1 : ms < last + YEAR_MS ? 4 : 30
     ms += step * DAY_MS
   }
   out.push({ ms: end, p: realProbeAu(t, end) })

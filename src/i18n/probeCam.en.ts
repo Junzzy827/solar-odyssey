@@ -3,7 +3,7 @@ import type { Translation } from './translation'
 
 // The texts of ui/ProbeCamPane.tsx (English). Same keys as probeCam.ja.ts. Captions stay within two lines
 
-const planet: Record<string, string> = { earth: 'Earth', jupiter: 'Jupiter', saturn: 'Saturn', uranus: 'Uranus', neptune: 'Neptune', ryugu: 'Ryugu' }
+const planet: Record<string, string> = { venus: 'Venus', earth: 'Earth', jupiter: 'Jupiter', saturn: 'Saturn', uranus: 'Uranus', neptune: 'Neptune', ryugu: 'Ryugu' }
 const km = (v: number) =>
   v >= 1e9
     ? `${(v / 1e9).toFixed(1)} billion km`
@@ -83,6 +83,41 @@ export const probeCamEn: Translation<typeof probeCamJa> = {
         'It points its two solar wings at the Sun to make electricity.',
       ],
       beyond: () => 'Leaving Earth for its next asteroid. It should reach 1998 KY26, about 30 m across, in 2031.',
+    },
+    cassini: {
+      credit: 'Model: NASA 3D Resources / Trajectory: NASA JPL Horizons',
+      extra: [
+        'It weighs 5.6 tonnes: too heavy for any rocket to send straight to Saturn.',
+        "Venus's gravity sped it up. A year later it comes back to Venus again.",
+        'Venus for the second time. Next is Earth, only two months later.',
+        'It passes very close to Earth and gains a lot of speed. Next stop: Jupiter.',
+        'At Jupiter it worked together with Galileo, the probe orbiting Jupiter.',
+        '',
+      ],
+      cruise: [
+        '6.8 m tall and 5.6 tonnes, built together by the USA, Europe and Italy.',
+        (d: string, t: string) => `${d} from Earth. Radio from Earth takes ${t} to get here.`,
+        'Three nuclear batteries (RTGs) make its power. Sunlight at Saturn is only about 1/100 as bright as at Earth.',
+        'The disc on its side is Huygens, a European probe it carries to drop on the moon Titan.',
+      ],
+      beyond: () => "Cassini's journey ended in Saturn's atmosphere.",
+      stay: {
+        approach: 'Saturn! It crossed a gap in the rings and fired its engine for 96 minutes to go into orbit.',
+        home: [
+          'It went around Saturn 294 times in 13 years, using the moons’ gravity to keep changing its orbit.',
+          "It flew past the big moon Titan more than 100 times. Titan's gravity was its steering wheel.",
+          (t: string) => `Commands from Earth take ${t} to reach Cassini.`,
+          'Saturn is so light it would float in water. Its rings are mostly grains of ice.',
+        ],
+        dips: [
+          'It let go of Huygens, which spins as it drifts toward Titan for three weeks.',
+          'Huygens landed on Titan! The most distant landing ever made from Earth.',
+          'It passed 175 km above Enceladus and found water vapour spraying from its south pole.',
+          'The Grand Finale begins: a dive through the gap, about 2,000 km wide, between Saturn and its rings.',
+          'Before its fuel ran out, it dove into Saturn, sending data to Earth until the very last moment.',
+        ],
+        depart: 'Before its fuel ran out, it dove into Saturn, sending data to Earth until the very last moment.',
+      },
     },
   },
   stay: {
