@@ -346,7 +346,7 @@ export function startMoonMission(chapter: 'launch' | 'moon' = 'launch', after?: 
   useStore.getState().setMode('flight')
   stopRadio()
   stopMusic()
-  holdBgm(true)
+  holdBgm('mission', true)
   preloadRadio(chapter === 'moon' ? 'landed' : 'liftoff')
   if (chapter !== 'moon') preloadRadio('tli')
   preloadMusic(chapter === 'moon' ? 'mars' : 'jupiterOpening')
@@ -385,7 +385,7 @@ export function endMission() {
   if (s.phase === 'none' || s.phase === 'leave') return
   stopRadio()
   stopMusic(MISSION_FADE)
-  holdBgm(false)
+  holdBgm('mission', false)
   useMoonMission.setState({ phase: 'leave', since: missionNow() })
   setTimeout(() => useMoonMission.setState({ phase: 'none', since: missionNow() }), MISSION_FADE * 1000)
 }

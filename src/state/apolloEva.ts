@@ -70,7 +70,7 @@ const set = (step: EvaStep, more: Partial<EvaState> = {}) => useApolloEva.setSta
 /** 章7 を始める（地表の場面に入ったあと） */
 export function startApolloEva() {
   set('board', { leg: 0, got: [], dist: 0, turn: 0 })
-  holdBgm(true)
+  holdBgm('eva', true)
   preloadRadio('orange')
   preloadRadio('lastWords')
   preloadRadio('ascent')
@@ -83,7 +83,7 @@ export function endApolloEva() {
   if (!evaOn()) return
   stopRadio()
   stopMusic(1)
-  holdBgm(false)
+  holdBgm('eva', false)
   lrvTeleport.to = null
   useApolloEva.setState({ step: 'off' })
 }
