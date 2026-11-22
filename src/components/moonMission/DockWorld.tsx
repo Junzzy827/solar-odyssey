@@ -24,6 +24,7 @@ import {
   useMoonDock,
 } from '../../state/moonDock'
 import { earthMaterial, atmosphereMaterial } from './earth'
+import { s4bAft, skinParts } from './rocketSkin'
 import { glowTexture } from './plume'
 import { setLegs, useCraft, type Craft } from './craft'
 
@@ -221,43 +222,18 @@ function useStage() {
     stage.name = 'sivb'
     const s3 = rocket.scene.getObjectByName('S3')?.clone(true)
     if (s3) {
-      // 第2段とつなぐ下のスカート（広がった部分）は第2段といっしょに捨てたので、まっすぐな胴にそろえる
-      s3.traverse((o) => {
-        const mesh = o as THREE.Mesh
-        if (!mesh.isMesh) return
-        const g = mesh.geometry.clone()
-        const p = g.getAttribute('position') as THREE.BufferAttribute
-        for (let i = 0; i < p.count; i++) {
-          const y = p.getY(i)
-          if (y >= 70) continue
-          const r = Math.hypot(p.getX(i), p.getZ(i))
-          const k = r > 1e-4 ? 3.3 / r : 0
-          p.setXYZ(i, p.getX(i) * k, 70, p.getZ(i) * k)
-        }
-        p.needsUpdate = true
-        g.computeVertexNormals()
-        mesh.geometry = g
-        owned.push(g)
-        const m = (mesh.material as THREE.MeshStandardMaterial).clone()
-        m.envMapIntensity = 0.5
-        mesh.material = m
-        owned.push(m)
-      })
+      // 第2段とつなぐ下のスカート（広がった部分、70 m より下）は第2段といっしょに捨てたので描かない。
+      // 外板の細かさ（継ぎ目・リベット・筋）と照りは、打ち上げの場面と同じ（rocketSkin.ts）
+      const skin = skinParts([s3], { keep: [70, 1e9], surface: true })
+      for (const m of skin.made) (m as THREE.MeshStandardMaterial).envMapIntensity = 0.5
+      owned.push(skin)
+      // 第3段のうしろ：J-2 エンジン・支える梁・ヘリウムの球・タンクの底（展示の実機の写真に合わせた形）
+      const aft = s4bAft()
+      s3.add(aft.engine)
+      owned.push(aft)
       s3.position.y = -85.6
       stage.add(s3)
     }
-    // 第3段のうしろ：燃料タンクの底と、J-2 エンジン
-    const dark = new THREE.MeshStandardMaterial({ color: '#2a2b2e', roughness: 0.6, metalness: 0.6 })
-    const bell = new THREE.MeshStandardMaterial({ color: '#3b3a38', roughness: 0.45, metalness: 0.8, side: THREE.DoubleSide })
-    owned.push(dark, bell)
-    const aft = new THREE.Mesh(new THREE.CylinderGeometry(3.28, 3.0, 0.4, 48), dark)
-    aft.position.y = -15.8
-    const thrust = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 0.5, 1.4, 24), dark)
-    thrust.position.y = -16.7
-    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 1.0, 2.6, 32, 1, true), bell)
-    nozzle.position.y = -18.7
-    stage.add(aft, thrust, nozzle)
-    for (const m of [aft, thrust, nozzle]) owned.push(m.geometry)
 
     // アダプタ：外は白、内がわは銀（アルミのハニカム）
     const white = new THREE.MeshStandardMaterial({ color: '#d9d9d4', roughness: 0.75, metalness: 0.05, side: THREE.FrontSide })

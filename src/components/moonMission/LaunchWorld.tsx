@@ -21,7 +21,7 @@ import { liveSky, skyNow } from './launchClock'
 import { bindOrbit, explorerCamera, resetOrbit } from './explorerCam'
 import { SaturnHotspots, SizeFigure } from './SaturnHotspots'
 import { atmosphereMaterial, earthMaterial } from './earth'
-import { s4bAft, skinParts } from './rocketSkin'
+import { ROCKET_SURFACE, s4bAft, skinParts } from './rocketSkin'
 import { buildCabin, CABIN_EYE, CABIN_LOOK, CABIN_Y, CM_WIN_DIR, CM_WIN_EYE } from './cmCabin'
 import { CARD_SEC } from './AscentCards'
 import { FILM_CUTS, FILM_END, filmCut, filmForce, filmRig, filmShake } from './launchFilm'
@@ -104,15 +104,6 @@ function ascentShot(s: { phase: string; cam: string; camLocked: boolean; auto: b
   // 段を切り離す前後は、横から見せる
   if ((sim.sepAt.s2 > 0 && sim.a.t - sim.sepAt.s2 < 8) || (stage === 1 && prop < STAGES[1].prop * 0.04)) return 'side'
   return ASCENT_SHOTS[k % ASCENT_SHOTS.length]
-}
-
-/** 材質の名前 → [粗さ, 金属らしさ]（glb の粗さの地図に掛ける） */
-const SURFACE: Record<string, [number, number]> = {
-  White: [0.42, 0],
-  Black: [0.95, 0],
-  Grey: [0.62, 0.15],
-  Silver: [0.16, 1],
-  Metal: [0.38, 1],
 }
 
 /** 宇宙で機体に映りこむまわり：下は昼の地球（青白い）、地平線のかすみ、上はまっ黒な宇宙。下（-y）を地球へ向けて回して使う */
@@ -204,7 +195,7 @@ export function LaunchWorld() {
         const m = x as THREE.MeshStandardMaterial
         if (done.has(m) || !('roughness' in m)) continue
         done.add(m)
-        const look = SURFACE[m.name]
+        const look = ROCKET_SURFACE[m.name]
         if (!look) continue
         m.roughness = look[0]
         m.metalness = look[1]

@@ -108,22 +108,46 @@ export function patchSkin(shader: THREE.WebGLProgramParametersWithUniforms, meta
     )
 }
 
-/** 霜を付けない部品（司令船・機械船）の材質を、外板の細かさつきの複製に替える */
-export function skinParts(parts: THREE.Object3D[]) {
+/** 材質の名前 → [粗さ, 金属らしさ]：白い塗装は半つや、黒い帯は艶消し、司令船の外は磨いた金属（junji 2026-11-22） */
+export const ROCKET_SURFACE: Record<string, [number, number]> = {
+  White: [0.42, 0],
+  Black: [0.95, 0],
+  Grey: [0.62, 0.15],
+  Silver: [0.16, 1],
+  Metal: [0.38, 1],
+}
+
+/**
+ * 霜を付けない部品の材質を、外板の細かさつきの複製に替える。
+ * keep：描く高さの範囲（m）。ドッキングの場面の第3段は、第2段と離れた下の広がった筒（70 m より下）を描かない。
+ * surface：照りを ROCKET_SURFACE にそろえる
+ */
+export function skinParts(parts: THREE.Object3D[], opt: { keep?: [number, number]; surface?: boolean } = {}) {
   const made: THREE.Material[] = []
   const cache = new Map<THREE.Material, THREE.Material>()
+  const keep = opt.keep
   for (const part of parts) {
     part.traverse((o) => {
       const mesh = o as THREE.Mesh
       if (!mesh.isMesh) return
       const swap = (x: THREE.Material) => {
-        if (!(x instanceof THREE.MeshStandardMaterial) || !['White', 'Silver', 'Metal', 'Grey'].includes(x.name)) return x
+        if (!(x instanceof THREE.MeshStandardMaterial) || !['White', 'Silver', 'Metal', 'Grey', 'Black'].includes(x.name)) return x
         let m = cache.get(x)
         if (!m) {
           const c = x.clone()
+          const look = ROCKET_SURFACE[x.name]
+          if (opt.surface && look) [c.roughness, c.metalness] = look
           const metal = x.name === 'Silver' ? 1 : 0
-          c.onBeforeCompile = (shader) => patchSkin(shader, metal)
-          c.customProgramCacheKey = () => `skin-${metal}`
+          const keepY = keep ? { value: new THREE.Vector2(keep[0], keep[1]) } : null
+          c.onBeforeCompile = (shader) => {
+            patchSkin(shader, metal)
+            if (!keepY) return
+            shader.uniforms.uKeepY = keepY
+            shader.fragmentShader = shader.fragmentShader
+              .replace('#include <common>', '#include <common>\nuniform vec2 uKeepY;')
+              .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (vSkinP.y < uKeepY.x || vSkinP.y > uKeepY.y) discard;')
+          }
+          c.customProgramCacheKey = () => `skin-${metal}${keepY ? '-keep' : ''}`
           cache.set(x, c)
           made.push(c)
           m = c
