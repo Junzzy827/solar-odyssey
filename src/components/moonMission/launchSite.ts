@@ -255,7 +255,7 @@ function marshWater(group: THREE.Group, mat: THREE.Material, geos: THREE.BufferG
 }
 
 /** 組み立て棟（VAB）と発射管制センター：西南西 4.6 km。高さ 160 m の箱は、夜も窓の明かりと赤い航空灯 */
-function vehicleAssemblyBuilding(group: THREE.Group, geos: THREE.BufferGeometry[], mats: THREE.Material[]) {
+function vehicleAssemblyBuilding(group: THREE.Group, geos: THREE.BufferGeometry[], mats: THREE.Material[]): THREE.PointsMaterial {
   const vab = new THREE.Group()
   vab.position.set(-4600, LAND_Y, 2400)
   vab.rotation.y = -0.08
@@ -295,6 +295,7 @@ function vehicleAssemblyBuilding(group: THREE.Group, geos: THREE.BufferGeometry[
   mats.push(lm)
   vab.add(new THREE.Points(lg, lm))
   group.add(vab)
+  return lm
 }
 
 /** クローラーの道：発射台の坂の下から、西南西の組み立て棟へ（砂利の 2 本の道） */
@@ -319,6 +320,8 @@ export type LaunchSite = {
   group: THREE.Group
   /** 溝の炎の強さ k（0〜1）と時刻 t */
   update(k: number, t: number): void
+  /** 夕方の明るさ（day 0 夜〜1 昼）と、町の明かりがついた割合 */
+  setDusk(day: number, lights: number): void
   dispose(): void
 }
 
@@ -349,7 +352,7 @@ export function buildSite(small: boolean): LaunchSite {
   const gravel = new THREE.MeshStandardMaterial({ color: '#3a3833', roughness: 0.95 })
   mats.push(gravel)
   crawlerway(group, gravel, geos)
-  vehicleAssemblyBuilding(group, geos, mats)
+  const vabLights = vehicleAssemblyBuilding(group, geos, mats)
   // 発射台の盛り土・斜面・炎の溝・クローラーの道
   const moundGeo = moundGeometry()
   const concrete = concreteTexture()
@@ -372,9 +375,18 @@ export function buildSite(small: boolean): LaunchSite {
   geos.push(cityGeo)
   mats.push(cityMat)
   group.add(new THREE.Points(cityGeo, cityMat))
+  // 夕方の海は空を映して青灰色、夜は黒い
+  const waterNight = water.color.clone()
+  const waterDay = new THREE.Color('#2c3a4c')
 
   return {
     group,
+    setDusk(day, lights) {
+      water.color.copy(waterNight).lerp(waterDay, day)
+      cityMat.opacity = lights
+      cityMat.visible = lights > 0.01
+      vabLights.opacity = 0.3 + 0.7 * lights
+    },
     update(k, t) {
       trenchFire.visible = k > 0.01
       fireMat.opacity = Math.min(1, k * 1.4) * (0.85 + 0.15 * Math.sin(t * 29))

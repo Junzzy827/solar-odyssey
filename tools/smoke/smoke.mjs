@@ -648,13 +648,28 @@ const SCENARIOS = {
       if (await page.$('.pioneer-hud')) throw new Error('pioneer: still shown after quitting')
     },
   },
-  // 月ミッション（アポロ17号の追体験）：夜の発射台 → 打ち上げ → 地球を回る → 月へ向けて点火 → 終わりのカード
+  // 月ミッション（アポロ17号の追体験）：夕方の発射台のサターンV 図鑑（印・断面）→ タイムラプス → 夜の発射台 → 打ち上げ →
+  // 地球を回る → 月へ向けて点火 → 終わりのカード
   moonMission: {
     ctx: desktop,
     hash: '#debug',
     run: async (page) => {
       await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
-      await page.evaluate(() => window.__sv.moonMission.start())
+      await page.evaluate(() => window.__sv.moonMission.start('launch', window.__sv.moonMission.observe))
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'observe', null, { timeout: 60000 })
+      await page.waitForSelector('.se-dot', { timeout: 120000 })
+      await sleep(3000)
+      await check3d(page, 'moonMission observe')
+      // 印にさわると説明のカード、断面のボタン、打ち上げの夜へ → タイムラプスをとばす
+      await page.evaluate(() => document.querySelectorAll('.se-dot')[6].click())
+      await page.waitForSelector('.se-card', { timeout: 10000 })
+      await visibleButton(page, '.se-buttons button')
+      await page.evaluate(() => document.querySelector('.se-buttons button').click())
+      await sleep(1500)
+      await page.evaluate(() => document.querySelector('.se-go').click())
+      await page.waitForSelector('.se-skip', { timeout: 10000 })
+      await sleep(1500)
+      await page.evaluate(() => document.querySelector('.se-skip').click())
       await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'pad', null, { timeout: 60000 })
       await page.waitForSelector('.mm-count', { timeout: 120000 })
       await sleep(4000)

@@ -20,13 +20,16 @@ import {
 
 // 月ミッション（アポロ17号の追体験）。第1弾は「打ち上げ」：夜の発射台 → 上昇 → 地球を回る → 月へ向けて点火。
 // 宇宙の場面を止めて、別の Canvas（components/moonMission/MoonMissionView）で描く。
-// 流れ：none → fadeIn → pad（カウントダウン）→ ascent（上昇）→ orbit（地球を回る）→ tli（月へ向かう燃焼）→ outbound（地球が遠ざかる）→ leave → none
+// 流れ：none → fadeIn →（observe 観察 → timelapse）→ pad（カウントダウン）→ ascent（上昇）→ orbit（地球を回る）→ tli（月へ向かう燃焼）→ outbound（地球が遠ざかる）→ leave → none
 //
 // 物理は data/saturnAscent.ts（本物の推力・重さ・燃える時間）。時間は場面ごとに早送りする（warp）。
 
 export type MissionPhase =
   | 'none'
   | 'fadeIn'
+  // 章0 の始まり（state/saturnExplorer.ts）：夕方の発射台でサターンV を見る → タイムラプスで打ち上げの夜へ
+  | 'observe'
+  | 'timelapse'
   | 'pad'
   | 'ascent'
   | 'orbit'
@@ -51,6 +54,8 @@ export type MissionPhase =
 export type MissionCam = 'film' | 'pad' | 'chase' | 'onboard' | 'window' | 'wide'
 
 export const MISSION_FADE = 0.8
+/** 観察パートから打ち上げの夜へのタイムラプスの長さ（秒） */
+export const TIMELAPSE = 12
 /** カウントダウンを始める時刻（打ち上げの何秒前） */
 export const COUNT_FROM = 20
 /** 点火の手順を始める時刻（本物は T-8.9 秒） */
@@ -469,6 +474,10 @@ export function tickMission(dt: number) {
   const s = useMoonMission.getState()
   const a = sim.a
   dt = Math.min(dt, 0.1)
+  if (s.phase === 'timelapse') {
+    if (missionNow() - s.since >= TIMELAPSE) useMoonMission.setState({ phase: 'pad', since: missionNow(), countdown: COUNT_FROM })
+    return
+  }
   if (s.phase === 'pad') {
     const countdown = s.countdown - dt
     let ignitedAt = s.ignitedAt

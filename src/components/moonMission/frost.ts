@@ -51,7 +51,7 @@ export function withFrost(src: THREE.Material): THREE.Material {
   return m
 }
 
-/** ロケットの段（S1・S2・S3）の中のメッシュの材質を、霜つきの複製に替える */
+/** ロケットの段（S1・S2・S3）の中のメッシュの材質を、霜つきの複製に替える（made は作った複製） */
 export function frostRocket(stages: THREE.Object3D[]) {
   const made: THREE.Material[] = []
   for (const st of stages) {
@@ -68,5 +68,5 @@ export function frostRocket(stages: THREE.Object3D[]) {
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map(swap) : swap(mesh.material)
     })
   }
-  return () => made.forEach((m) => m.dispose())
+  return { made: new Set(made), dispose: () => made.forEach((m) => m.dispose()) }
 }

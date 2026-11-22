@@ -42,6 +42,7 @@ import { ChapterMenu, ResumeButton } from './ChapterMenu'
 import { CabinFrame } from './CabinFrame'
 import './moonMission.css'
 import { CamMenu } from './CamMenu'
+import { SaturnExplorer } from './SaturnExplorer'
 
 // 月ミッション（アポロ17号の追体験）の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
 // 画面の上に、時刻・高さ・速さ・G、機首の手本の目盛り、出来事の字幕、終わりのカードを重ねる。
@@ -198,6 +199,7 @@ function Hud() {
   const windowPos = (orbitT - TLI_WINDOW_OPEN + 300) / (TLI_WINDOW + 600)
   return (
     <div className="mm-hud">
+      {(s.phase === 'observe' || s.phase === 'timelapse') && <SaturnExplorer />}
       {s.phase === 'pad' && (
         <div className="mm-pad">
           {s.countdown > COUNT_FROM - 5 && (
@@ -268,7 +270,7 @@ function Hud() {
       <Caption />
       <RadioSubtitle />
       <div className="mm-buttons">
-        <CamMenu />
+        {s.phase !== 'observe' && s.phase !== 'timelapse' && <CamMenu />}
         {s.phase === 'ascent' && (
           <button className={s.auto ? 'on' : ''} onClick={() => setAuto(!s.auto)}>
             {s.auto ? t.autoOn : t.auto}
@@ -321,7 +323,7 @@ export function MoonMissionView() {
   const docking = phase === 'dock' || phase === 'marble'
   const home = phase === 'home'
   // 映画のカメラのあいだは、数字や手本の目盛りをしまって、絵と字幕だけにする
-  const filmCam = useMoonMission((s) => s.cam === 'film')
+  const filmCam = useMoonMission((s) => s.cam === 'film' && s.phase !== 'observe' && s.phase !== 'timelapse')
   const idle = useIdle(filmCam, 3000)
   return (
     <div className="mm-root" data-phase={phase} data-film={filmCam ? '1' : undefined} data-idle={idle ? '1' : undefined}>
