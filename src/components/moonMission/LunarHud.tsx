@@ -22,6 +22,7 @@ import { journey } from '../../state/missionJourney'
 import { ChapterMenu } from './ChapterMenu'
 import { startChapter } from '../../state/missionChapters'
 import { useAutoNext } from './autoNext'
+import { LoiCard } from './LoiCard'
 import './lunarHud.css'
 import { CamMenu } from './CamMenu'
 
@@ -256,6 +257,7 @@ export function LunarHud() {
           {!L.ready && <div className="mm-warp">{t.loading}</div>}
         </div>
       )}
+      {phase === 'loi' && st && <LoiCard r={st} />}
       {phase === 'loi' && st && !st.burning && st.burnEnd === null && st.t > LOI_OPEN - 150 && (
         <WindowBar t={st.t} open={LOI_OPEN} close={LOI_CLOSE} ideal={LOI_IDEAL} label={t.loiBar} go={t.loiGo} hint={t.loiHint} can={st.t >= LOI_OPEN} />
       )}

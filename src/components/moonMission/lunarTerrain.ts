@@ -1,7 +1,7 @@
 import * as THREE from 'three'
-import { heightAt as globalHeight, loadMoonMap, type GlobalMap } from '../flight/moonGlobe'
-import { detailAt, heightAt as demHeight, loadDem, type Dem } from '../surface/dem'
-import { localXZ, siteFrame, R_MOON } from '../../data/lunarDescent'
+import { fineRelief, heightAt as globalHeight, loadMoonMap, type GlobalMap } from '../flight/moonGlobe'
+import { detailAt, heightAt as demHeight, loadDem, pixels, type Dem } from '../surface/dem'
+import { localXZ, orbitPlane, siteFrame, R_MOON } from '../../data/lunarDescent'
 
 // 月ミッション第2弾の地面の高さ。月全体は LOLA の標高地図（moonGlobe.ts）、着陸地点のまわり 100 km 四方は
 // タウルス・リトロウ谷の本物の地形（地表の場面と同じ moon_taurus：遠く 100 km・近く 16 km・細かい 3.2 km）に差しかえる。
@@ -15,17 +15,34 @@ const FAR_BLEND = 9_000
 const NEAR_HALF = 8_000
 const NEAR_BLEND = 1_200
 
-export type LunarMaps = { global: GlobalMap; dem: Dem | null; /** 着陸地点（地図の原点）の、月全体の地図での高さ */ base: number }
+/**
+ * 降下の道すじに沿った帯（tools/terrain/pack_moon_track.py）：着陸地点の 1,350 km 手前から 100 km 先まで、幅 240 km。
+ * 本物の高さ（LRO の LOLA）と明るさ（かぐやの MI。影を含まない）、着陸の日の太陽の日なた・影。1 画素 238 m。
+ * 座標は軌道の面（data/lunarDescent.ts orbitPlane）：th = 軌道に沿った角度（0 が着陸地点の真上、負が手前＝東）、ph = 横の角度
+ */
+export const TRACK = { th0: -0.78, th1: 0.06, ph: 0.07, w: 6144, h: 1024, step: 1, offset: 9200, albedoScale: 0.3750603497028351 }
+export const TRACK_PLANE = orbitPlane(FRAME)
+/** 帯の地図が持っている起伏の細かさ（m）。これより細かいぶんは、決まった乱数で足す */
+const TRACK_WAVE = 700
+export type TrackMap = { heights: Float32Array; sun: Uint8Array }
+
+export type LunarMaps = {
+  global: GlobalMap
+  dem: Dem | null
+  track: TrackMap | null
+  /** 着陸地点（地図の原点）の、まわりの地図（帯、なければ月全体）での高さ */
+  base: number
+}
 
 let maps: LunarMaps | null = null
 let loading: Promise<LunarMaps> | null = null
 
 /** 地図を読む（読み終わったら ground() が本物の高さを返す）。谷の地図が読めなくても、月全体の地図で続ける */
 export function loadLunarMaps() {
-  loading ??= Promise.all([loadMoonMap(), loadDem('moon_taurus').catch(() => null)]).then(([global, dem]) => {
+  loading ??= Promise.all([loadMoonMap(), loadDem('moon_taurus').catch(() => null), loadTrack().catch(() => null)]).then(([global, dem, track]) => {
     const u = FRAME.up
-    const base = globalHeight(global, u.x, u.y, u.z, 20_000)
-    maps = { global, dem, base }
+    const base = track ? (trackHeight(track, u) ?? 0) : globalHeight(global, u.x, u.y, u.z, 20_000)
+    maps = { global, dem, track, base }
     return maps
   })
   loading.catch(() => (loading = null))
@@ -33,6 +50,63 @@ export function loadLunarMaps() {
 }
 
 export const lunarMaps = () => maps
+
+async function loadTrack(): Promise<TrackMap> {
+  const px = await pixels(`${import.meta.env.BASE_URL}terrain/moon_track_h.webp`)
+  const n = TRACK.w * TRACK.h
+  const heights = new Float32Array(n)
+  const sun = new Uint8Array(n)
+  for (let i = 0; i < n; i++) {
+    heights[i] = (px[i * 4] * 256 + px[i * 4 + 1]) * TRACK.step - TRACK.offset
+    sun[i] = px[i * 4 + 2]
+  }
+  return { heights, sun }
+}
+
+/** 向き → 帯の上の位置（0〜1、0〜1）。帯の外も値を返す */
+export function trackUV(d: THREE.Vector3) {
+  const th = Math.atan2(d.dot(TRACK_PLANE.Q), d.dot(TRACK_PLANE.P))
+  const ph = Math.asin(Math.max(-1, Math.min(1, d.dot(TRACK_PLANE.N))))
+  return { u: (th - TRACK.th0) / (TRACK.th1 - TRACK.th0), v: (TRACK.ph - ph) / (2 * TRACK.ph) }
+}
+
+/** 帯のふちで、まわりの地図へなめらかにつなぐ重み（1 = 帯の中、0 = 外） */
+function trackWeight(u: number, v: number) {
+  if (u <= 0 || u >= 1 || v <= 0 || v >= 1) return 0
+  const eu = Math.min(u, 1 - u) * TRACK.w
+  const ev = Math.min(v, 1 - v) * TRACK.h
+  return smooth(0, 60, Math.min(eu, ev))
+}
+
+/** 帯の高さ（双線形）。帯の外は null */
+function trackHeight(t: TrackMap, d: THREE.Vector3) {
+  const { u, v } = trackUV(d)
+  if (u <= 0 || u >= 1 || v <= 0 || v >= 1) return null
+  const x = u * TRACK.w - 0.5
+  const y = v * TRACK.h - 0.5
+  const i0 = Math.max(0, Math.min(TRACK.w - 2, Math.floor(x)))
+  const j0 = Math.max(0, Math.min(TRACK.h - 2, Math.floor(y)))
+  const fx = Math.max(0, Math.min(1, x - i0))
+  const fy = Math.max(0, Math.min(1, y - j0))
+  const H = t.heights
+  const a = H[j0 * TRACK.w + i0]
+  const b = H[j0 * TRACK.w + i0 + 1]
+  const c = H[(j0 + 1) * TRACK.w + i0]
+  const e = H[(j0 + 1) * TRACK.w + i0 + 1]
+  return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + e * fx) * fy
+}
+
+/** 谷の地図の外の高さ：帯の中は本物の地図（＋細かい起伏）、外は月全体の地図 */
+function outerHeight(d: THREE.Vector3, minWave: number) {
+  const g = () => globalHeight(maps!.global, d.x, d.y, d.z, minWave)
+  const t = maps!.track
+  if (!t) return g()
+  const { u, v } = trackUV(d)
+  const w = trackWeight(u, v)
+  if (w <= 0) return g()
+  const h = (trackHeight(t, d) ?? 0) + fineRelief(d.x, d.y, d.z, minWave, TRACK_WAVE)
+  return w >= 1 ? h : h * w + g() * (1 - w)
+}
 
 const smooth = (a: number, b: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
@@ -68,11 +142,11 @@ export function groundAt(d: THREE.Vector3, minWave = 0) {
         const local = maps.base + v
         const w = smooth(FAR_HALF - FAR_BLEND, FAR_HALF - 200, m)
         if (w <= 0) return local
-        return local + (globalHeight(maps.global, d.x, d.y, d.z, Math.max(minWave, 2000)) - local) * w
+        return local + (outerHeight(d, Math.max(minWave, maps.track ? minWave : 2000)) - local) * w
       }
     }
   }
-  return globalHeight(maps.global, d.x, d.y, d.z, minWave)
+  return outerHeight(d, minWave)
 }
 
 /** 物理用（いつも細かく） */
