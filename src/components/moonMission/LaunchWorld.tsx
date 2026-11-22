@@ -410,6 +410,8 @@ export function LaunchWorld() {
       earthMat.uniforms.uNear2.value = THREE.MathUtils.clamp(1 - h / 2_000_000, 0, 1)
       // 本物は高さ 100 km でも街の明かりがはっきり見える（フロリダ、キューバ、カリブの島々）
       earthMat.uniforms.uLights.value = THREE.MathUtils.smoothstep(h, 15_000, 250_000) * 0.85 + 0.15
+      // 街の明かりの細かさ：上がってから、地球を回る高さまで（月へ向かって遠ざかると、地図のままで十分）
+      earthMat.uniforms.uDetail.value = THREE.MathUtils.smoothstep(h, 8_000, 40_000) * (1 - THREE.MathUtils.smoothstep(h, 2_000_000, 6_000_000))
       atmoMat.uniforms.uSun.value.copy(SUN)
       atmoMat.uniforms.uCenter.value.copy(earthM.current.position)
       atmoMat.uniforms.uR.value = R_EARTH
@@ -572,7 +574,16 @@ export function LaunchWorld() {
       plumeFill.current.position.set(0, -30, 0).addScaledVector(_v, 45)
       // 空気の濃い所では光る煙が広く照らす。宇宙に近づくと炎だけになって弱まる
       const air = 0.45 + 0.55 * Math.exp(-h / 12_000)
-      plumeFill.current.intensity = s1On > 0 ? 3.2e5 * air * (0.9 + 0.1 * Math.sin(t * 23)) * (0.2 + 0.8 * ignite.current) : 0
+      if (s1On > 0) {
+        plumeFill.current.intensity = 3.2e5 * air * (0.9 + 0.1 * Math.sin(t * 23)) * (0.2 + 0.8 * ignite.current)
+        plumeFill.current.color.set('#ffdcb0')
+      } else if (upperOn > 0 && s.phase === 'ascent') {
+        // 第2段・第3段：J-2 の青白い炎の根元が、機体の後ろの方だけを照らす（前は空の光だけで、全体が同じ灰色の模型のように見えた）
+        const base = a.stage === 1 ? 46.6 : 66.6
+        plumeFill.current.position.set(0, base - 16, 0).addScaledVector(_v, 26)
+        plumeFill.current.intensity = (a.stage === 1 ? 2.6e4 : 1.2e4) * upperOn * (0.92 + 0.08 * Math.sin(t * 31))
+        plumeFill.current.color.set('#d6dcff')
+      } else plumeFill.current.intensity = 0
     }
     lights.group.visible = h < 20_000
     // 光の柱：点火の炎がまぶしいあいだは、目がくらんで薄く見える（作業5で露出と合わせる）
@@ -599,11 +610,13 @@ export function LaunchWorld() {
     const glare = s1On > 0 ? ignite.current * (1 - THREE.MathUtils.smoothstep(h, 4000, 30_000)) : 0
     // 溝の炎：点火から離昇のすぐ後まで（ロケットが高く上がると、溝にはもう届かない）
     site.update(s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 150, 0, 1) : 0, t)
+    // 夜の宇宙（第1段を捨てた後の上昇）：空の光を弱めて、炎の照り返しで形が見えるように
+    const nightSpace = s.phase === 'ascent' && a.stage >= 1 ? 0.42 : 1
     if (fill.current) {
       // 南の上から（three の z が南）。地球の向こうから照らさないよう、いつも局所の上寄り
       fill.current.position.copy(up).multiplyScalar(0.8).add(_v.set(0, 0, 0.6)).multiplyScalar(1000)
       // 地上の近くは本当の暗闇（ロケットは投光器だけで浮かぶ）。高く上がると、星明かり代わりの弱い光
-      fill.current.intensity = THREE.MathUtils.lerp(0.06, 0.9, THREE.MathUtils.smoothstep(h, 3000, 20_000)) + 0.35 * moonK
+      fill.current.intensity = THREE.MathUtils.lerp(0.06, 0.9, THREE.MathUtils.smoothstep(h, 3000, 20_000)) * nightSpace + 0.35 * moonK
     }
     if (workLight.current) {
       // エンジンを見るときだけ、甲板の作業灯（夕方の甲板の下は暗い）
@@ -804,7 +817,7 @@ export function LaunchWorld() {
     const wantExp = inside || observing ? 1 : THREE.MathUtils.lerp(1, 0.32, glare)
     missionLook.exposure += (wantExp - missionLook.exposure) * Math.min(1, dt * (wantExp < missionLook.exposure ? 2.5 : 0.8))
     if (hemi.current) {
-      hemi.current.intensity = inside ? 0.05 : THREE.MathUtils.lerp(0.12, 1.1, THREE.MathUtils.smoothstep(h, 3000, 20_000)) + (observing ? 0.9 * dayK + 0.25 * moonK : 0)
+      hemi.current.intensity = inside ? 0.05 : THREE.MathUtils.lerp(0.12, 1.1, THREE.MathUtils.smoothstep(h, 3000, 20_000)) * nightSpace + (observing ? 0.9 * dayK + 0.25 * moonK : 0)
       // 夕方の空の光は青く、地面の照り返しは夕日の色
       hemi.current.color.set('#5a6a8a').lerp(_c1.set('#9cb2d8'), observing ? dayK : 0)
       hemi.current.groundColor.set('#120c08').lerp(_c1.set('#4a3426'), observing ? dayK : 0)

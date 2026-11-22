@@ -23,6 +23,19 @@
 .ac-card.high {
   bottom: 175px;
 }
+/* 広い画面では「月への窓」と横にならぶので、上げなくていい */
+@media (min-width: 1300px) {
+  .ac-card.high {
+    bottom: 22px;
+  }
+}
+/* 背の低い画面では、上げると左上の計器に重なる。細くして「月への窓」の左におさめる */
+@media (max-height: 640px) and (min-width: 701px) and (max-width: 1299px) {
+  .ac-card.high {
+    bottom: 22px;
+    width: min(340px, calc(50vw - 240px));
+  }
+}
 @keyframes ac-in {
   from {
     opacity: 0;
@@ -290,4 +303,9 @@
 }
 .ac-label.moon {
   fill: #f0ead6;
+}
+.ac-warn {
+  font-size: 11px;
+  color: #ffb070;
+  font-weight: 700;
 }

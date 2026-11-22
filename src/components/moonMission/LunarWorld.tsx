@@ -506,6 +506,7 @@ function Spacecraft({ craft }: { craft: Craft }) {
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI)
     return { q, p: DROGUE.clone() }
   }, [])
+  const dockOff = useRef(new THREE.Vector3())
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime
     const lm = craft.lm
@@ -543,9 +544,13 @@ function Spacecraft({ craft }: { craft: Craft }) {
     if (docked) {
       csm.position.copy(csmDock.p).applyMatrix4(lm.matrixWorld)
       csm.quaternion.copy(lm.quaternion).multiply(csmDock.q)
+      // つながっていた位置（着陸船の中心からのずれ）を覚えておく
+      dockOff.current.copy(csm.position).sub(lm.position)
     } else {
-      csm.position.copy(lunar.csm.r)
-      // 離れたあとも、向きはそのまま
+      // 離れたあと：司令船の軌道（着陸船の中心から始まる）に、つながっていたときのずれを足す。
+      // 足さないと、切り離した瞬間に司令船が着陸船の中心へ飛んで、めり込む
+      csm.position.copy(lunar.csm.r).add(dockOff.current)
+      // 向きはそのまま
     }
     csm.visible = phase !== 'descent' || (lunar.desc !== null && lunar.desc.t < -60)
     // 炎（真空なので、ほとんど見えない。ノズルの口のまわりがうっすら光るくらい）

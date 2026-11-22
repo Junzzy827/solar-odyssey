@@ -43,6 +43,7 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
   cards: {
     profile: "Earth's curve and how high we are",
     profileScale: (n: number) => `Height drawn ${n}× taller than real`,
+    tooHigh: 'Climbing far above the guide (green line). Tip the nose over more to build sideways speed and reach orbit sooner',
     space: '100 km: space starts here',
     orbitLine: 'Orbit height',
     pad: 'Launch pad',

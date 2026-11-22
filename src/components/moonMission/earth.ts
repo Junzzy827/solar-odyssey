@@ -30,9 +30,25 @@ const frag = /* glsl */ `
   uniform float uNear;
   uniform float uLights;
   uniform float uNear2;
+  uniform float uDetail;
   varying vec2 vUv;
   varying vec3 vNw;
   varying vec3 vPw;
+  float lhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  /** 街の明かりの細かさ：地図は 1 画素 10 km なので、ぼやけた橙のしみになる。
+   *  本物を宇宙から見ると、明かりは町ごとの点と、道にそった線の集まり。約 1.2 km と 5 km の升ごとに、明るい升と暗い升をつくる */
+  float cityGrain(vec2 uv) {
+    vec2 g1 = uv * vec2(33000.0, 16500.0);
+    vec2 g2 = uv * vec2(8000.0, 4000.0);
+    float a = lhash(floor(g1));
+    float b = lhash(floor(g2) + 7.0);
+    float fine = pow(a, 4.0) * 3.2;
+    float coarse = smoothstep(0.25, 0.85, b) * 1.6;
+    float d = fine * (0.35 + coarse);
+    // 升が画面の 1 画素より小さくなる遠く（地平線の近く）は、ちらつかないように平均の明るさへ
+    float px = length(fwidth(g1));
+    return mix(d, 0.62, smoothstep(0.5, 1.5, px));
+  }
   void main() {
     #include <logdepthbuf_fragment>
     vec3 n = normalize(vNw);
@@ -47,6 +63,8 @@ const frag = /* glsl */ `
     vec3 night = texture2D(uNight, vUv).rgb * (1.0 - cl * 0.6);
     // 低い所から見ると地図の粗さ（1 画素 10 km）が目立つので、街の明かりは高く上がるほど強く
     night = pow(night, vec3(1.6)) * vec3(1.25, 0.95, 0.65) * 1.6 * uLights;
+    // 近いときだけ、細かい点の集まりにする（遠くからは今までどおりの地図の明かり）
+    night *= mix(1.0, cityGrain(vUv) / 0.62, uDetail);
     vec3 col = mix(night, dayCol, day);
     // 夕焼けの帯
     float dusk = exp(-pow((l - 0.02) / 0.045, 2.0));
@@ -73,6 +91,7 @@ export function earthMaterial(day: THREE.Texture, night: THREE.Texture, clouds: 
       uSun: { value: new THREE.Vector3(0, -1, 0) },
       uNear: { value: 0 },
       uLights: { value: 1 },
+      uDetail: { value: 0 },
       uNear2: { value: 0 },
     },
   })
@@ -114,11 +133,16 @@ const atmoFrag = /* glsl */ `
     vec3 oc = uCenter - cameraPosition;
     float tc = dot(oc, d);
     float hTan = length(oc - d * tc) - uR;
-    float g = tc > 0.0 ? exp(-pow((hTan - 95000.0) / 4500.0, 2.0)) : 0.0;
+    float g = tc > 0.0 ? exp(-pow((hTan - 95000.0) / 5500.0, 2.0)) : 0.0;
     vec3 q = normalize(cameraPosition + d * tc - uCenter);
     float night = 1.0 - smoothstep(-0.25, 0.05, dot(q, uSun));
-    col += vec3(0.42, 0.8, 0.36) * g * night * 0.26 * uGlow;
-    gl_FragColor = vec4(col, max(a, g * night * uGlow));
+    // 本物の写真の大気光は、一様な線ではなく、波のようにところどころ濃い（大気の重力波）
+    float ripple = 0.72 + 0.28 * sin(dot(q, vec3(1100.0, 700.0, 900.0))) * sin(dot(q, vec3(-500.0, 1300.0, 300.0)) + 1.7);
+    g *= ripple;
+    // 線の下（地平線までのあいだ）にも、ごく淡い光（線だけがくっきり浮くと、描いた線のように見える）
+    float under = tc > 0.0 && hTan > 0.0 ? smoothstep(95000.0, 20000.0, hTan) * 0.16 : 0.0;
+    col += vec3(0.42, 0.8, 0.36) * (g + under) * night * 0.26 * uGlow;
+    gl_FragColor = vec4(col, max(a, (g + under) * night * uGlow));
     ${OUT_CHUNK}
   }
 `

@@ -48,7 +48,7 @@ const W = 300
 const H = 150
 const R_KM = R_EARTH / 1000
 /** 高さの目盛り（px / km）。横より何倍か伸ばす */
-const VS = 0.52
+const VS0 = 0.52
 const ORBIT_KM = 170
 
 let span: { d0: number; d1: number; ideal: [number, number][] } | null = null
@@ -64,7 +64,16 @@ function profileSpan() {
 function Profile({ r }: { r: Readout }) {
   const t = ui().moonMission
   const c = t.cards
-  const { d0, d1, ideal } = profileSpan()
+  const { d0, d1: dEnd, ideal } = profileSpan()
+  const now = trackPoint(sim.a.x, sim.a.y)
+  const fall = sim.s1Fall
+  // 手本より高く・遠くへ飛んだら、図の目盛りを広げて、いまの点が図の外へ出ないように
+  let hMax = 0
+  for (const p of sim.track) hMax = Math.max(hMax, p[1])
+  for (const p of fall) hMax = Math.max(hMax, p[2])
+  hMax = Math.max(hMax, now[1])
+  const d1 = Math.max(dEnd, now[0] * 1.06)
+  const VS = Math.min(VS0, 108 / Math.max(1, hMax))
   const hs = (W - 24) / (d1 - d0)
   const X = (d: number) => 12 + (d - d0) * hs
   const dm = (d0 + d1) / 2
@@ -77,10 +86,12 @@ function Profile({ r }: { r: Readout }) {
     for (let i = 0; i <= 24; i++) pts.push([d0 + ((d1 - d0) * i) / 24, h])
     return line(pts)
   }
-  const now = trackPoint(sim.a.x, sim.a.y)
   const track = [...sim.track, now]
+  // 手本の同じ距離での高さとくらべる
+  const k = ideal.findIndex((p) => p[0] >= now[0])
+  const idealH = k < 0 ? (ideal.length ? ideal[ideal.length - 1][1] : 0) : ideal[k][1]
+  const tooHigh = r.t > 90 && now[1] > idealH + 35
   // 落ちていく第1段：いまの物理の時刻のところ
-  const fall = sim.s1Fall
   let s1: [number, number] | null = null
   if (fall.length) {
     const i = fall.findIndex((p) => p[0] > r.t)
@@ -130,6 +141,7 @@ function Profile({ r }: { r: Readout }) {
           {c.you} {t.km(r.alt / 1000)}
         </text>
       </svg>
+      {tooHigh && <div className="ac-warn">{c.tooHigh}</div>}
       <div className="ac-note">{c.profileScale(Math.round(VS / hs))}</div>
     </>
   )

@@ -405,12 +405,12 @@ export function stepOutside() {
   window.setTimeout(() => beginApolloEva(), MISSION_FADE * 1000 + 120)
 }
 
-/** 着陸船が司令船から離れる：司令船は少し上（月から離れる向き）へ */
+/** 着陸船が司令船から離れる：まず、つながっていた軸（着陸船のてっぺんの向き d.dir）に沿ってまっすぐ後ろへ。上（月から離れる向き）へは少しだけ */
 function separate() {
   const d = lunar.desc!
   lunar.sepAt = d.t
   lunar.csm.r.copy(d.r)
-  lunar.csm.v.copy(d.v).addScaledVector(_c.copy(d.r).normalize(), 0.35).addScaledVector(_e.copy(d.v).normalize(), -0.15)
+  lunar.csm.v.copy(d.v).addScaledVector(d.dir, 0.4).addScaledVector(_c.copy(d.r).normalize(), 0.08)
   setCaption('separation')
 }
 

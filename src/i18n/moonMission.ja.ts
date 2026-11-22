@@ -44,6 +44,7 @@ export const moonMissionJa = {
   cards: {
     profile: '地球の丸みと、いまの高さ',
     profileScale: (n: number) => `高さは ${n} 倍に伸ばして描いています`,
+    tooHigh: '手本（緑の線）より高く上がりすぎ。機首をもっと倒すと、横の速さがついて早く地球を回れる',
     space: '100 km：ここから宇宙',
     orbitLine: '地球を回る高さ',
     pad: '発射台',
