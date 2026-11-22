@@ -17,6 +17,7 @@ import {
   useMoonDock,
 } from '../../state/moonDock'
 import { ChapterMenu } from './ChapterMenu'
+import { useAutoNext } from './autoNext'
 import './dock.css'
 import { CamMenu } from './CamMenu'
 
@@ -132,8 +133,10 @@ function Coas() {
 
 function DockEnd() {
   const T = ui().moonDock
+  const M = ui().moonMission
   const stars = useMoonDock((s) => s.stars)
   const hit = useMoonDock((s) => s.hit)
+  const auto = useAutoNext(() => startMarble(), 6)
   return (
     <div className="mm-end dk-end">
       <div className="mm-end-title">{T.endTitle}</div>
@@ -142,10 +145,10 @@ function DockEnd() {
       <div className="mm-end-note">{T.endNote}</div>
       <div className="mm-end-buttons">
         <button className="mm-continue" onClick={() => startMarble()}>
-          {T.toMarble}
+          {auto.left !== null ? M.autoNext(T.toMarble, auto.left) : T.toMarble}
         </button>
-        <button onClick={() => startDock()}>{T.again}</button>
-        <button onClick={() => endMission()}>{T.back}</button>
+        <button onClick={() => (auto.cancel(), startDock())}>{T.again}</button>
+        <button onClick={() => (auto.cancel(), endMission())}>{T.back}</button>
       </div>
     </div>
   )
@@ -196,7 +199,10 @@ function Finder() {
 
 function Compare() {
   const T = ui().moonDock
+  const M = ui().moonMission
   const photo = useMoonDock((s) => s.photo)
+  // 撮った写真と本物を見くらべる時間をとってから、自動で 3 日の旅へ（撮り直すと止まる）
+  const auto = useAutoNext(() => marbleToCoast(), 10, !!photo)
   if (!photo) return null
   const stars = photo.cut ? 0 : photo.off < 3 ? 3 : photo.off < 6 ? 2 : 1
   return (
@@ -218,9 +224,9 @@ function Compare() {
       <div className="dk-note">{photo.cut ? T.cutNote : T.realNote}</div>
       <div className="mm-end-buttons">
         <button className="mm-continue" onClick={() => marbleToCoast()}>
-          {T.toCoast}
+          {auto.left !== null ? M.autoNext(T.toCoast, auto.left) : T.toCoast}
         </button>
-        <button onClick={() => pressShutter()}>{T.retake}</button>
+        <button onClick={() => (auto.cancel(), pressShutter())}>{T.retake}</button>
       </div>
       <div className="dk-credit">{T.credit}</div>
     </div>

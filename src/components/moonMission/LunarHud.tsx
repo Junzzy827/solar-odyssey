@@ -21,6 +21,7 @@ import { endMission, missionNow, useMoonMission } from '../../state/moonMission'
 import { journey } from '../../state/missionJourney'
 import { ChapterMenu } from './ChapterMenu'
 import { startChapter } from '../../state/missionChapters'
+import { useAutoNext } from './autoNext'
 import './lunarHud.css'
 import { CamMenu } from './CamMenu'
 
@@ -300,26 +301,7 @@ export function LunarHud() {
           {T.quit}
         </button>
       </div>
-      {showEnd && lm && (
-        <div className="mm-end lh-end">
-          <div className="mm-end-title">{lm.touch ? (L.stars > 0 ? t.endTitle : t.endHard) : t.endAbort}</div>
-          {lm.touch && <div className="mm-end-stars">{T.stars(L.stars)}</div>}
-          {lm.touch && <div className="mm-end-note">{t.touch(lm.touch.vUp, lm.touch.vSide, lm.touch.miss, Math.max(0, lm.touch.fuel - 20))}</div>}
-          <div className="mm-end-note">{t.starsNote}</div>
-          <div className="mm-end-next">{t.endNext}</div>
-          <div className="mm-end-buttons">
-            {lm.touch && L.stars > 0 && (
-              <button className="mm-continue" onClick={() => startChapter(7)}>
-                {t.evaNext}
-              </button>
-            )}
-            <button onClick={() => retryDescent()}>{t.again}</button>
-            {lm.touch && <button onClick={() => stepOutside()}>{t.surface}</button>}
-            <button onClick={() => endMission()}>{T.back}</button>
-          </div>
-          {(s.best.land ?? 0) > 0 && <div className="mm-end-best">{T.best(s.best.land ?? 0)}</div>}
-        </div>
-      )}
+      {showEnd && lm && <LandEnd lm={lm} stars={L.stars} best={s.best.land ?? 0} />}
       {L.interlude && (
         <div className="lh-interlude">
           <div className="lh-interlude-head">{t.interlude[L.interlude.key][0]}</div>
@@ -327,5 +309,33 @@ export function LunarHud() {
         </div>
       )}
     </>
+  )
+}
+
+/** 着陸の結果。うまく着いたら、数秒で自動で月面の探検へ */
+function LandEnd({ lm, stars, best }: { lm: { touch: { vUp: number; vSide: number; miss: number; fuel: number } | null }; stars: number; best: number }) {
+  const T = ui().moonMission
+  const t = T.lunar
+  const ok = !!lm.touch && stars > 0
+  const auto = useAutoNext(() => startChapter(7), 8, ok)
+  return (
+    <div className="mm-end lh-end">
+      <div className="mm-end-title">{lm.touch ? (stars > 0 ? t.endTitle : t.endHard) : t.endAbort}</div>
+      {lm.touch && <div className="mm-end-stars">{T.stars(stars)}</div>}
+      {lm.touch && <div className="mm-end-note">{t.touch(lm.touch.vUp, lm.touch.vSide, lm.touch.miss, Math.max(0, lm.touch.fuel - 20))}</div>}
+      <div className="mm-end-note">{t.starsNote}</div>
+      <div className="mm-end-next">{t.endNext}</div>
+      <div className="mm-end-buttons">
+        {ok && (
+          <button className="mm-continue" onClick={() => startChapter(7)}>
+            {auto.left !== null ? T.autoNext(t.evaNext, auto.left) : t.evaNext}
+          </button>
+        )}
+        <button onClick={() => (auto.cancel(), retryDescent())}>{t.again}</button>
+        {lm.touch && <button onClick={() => (auto.cancel(), stepOutside())}>{t.surface}</button>}
+        <button onClick={() => (auto.cancel(), endMission())}>{T.back}</button>
+      </div>
+      {best > 0 && <div className="mm-end-best">{T.best(best)}</div>}
+    </div>
   )
 }

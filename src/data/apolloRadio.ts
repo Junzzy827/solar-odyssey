@@ -3,7 +3,7 @@
 // セリフは作らない。字幕の文は src/i18n/moonMission.* の radio.lines にある（原文と訳）。
 
 export type RadioWho = 'pao' | 'cdr' | 'capcom' | 'lmp' | 'cmp'
-export type RadioLineKey = 'count' | 'liftoff1' | 'liftoff2' | 'landed' | 'super' | 'goTli' | 'goTliAck' | 'arrived' | 'heardYou' | 'pdiCount' | 'pdiIgnition' | 'ohHey' | 'what' | 'orangeSoil' | 'dontMove' | 'allOver' | 'leaveAsWeCame' | 'peaceHope' | 'ascentCount' | 'ascentIgnition' | 'onOurWay' | 'ratesGood' | 'captureHouston' | 'weCopy' | 'prime1' | 'markIt' | 'hereSheComes' | 'kachunk' | 'rippleFire' | 'onMyMark' | 'gotIt' | 'thereSheGoes' | 'stickForever' | 'rogerGene' | 'africa' | 'upperThird'
+export type RadioLineKey = 'count' | 'liftoff1' | 'liftoff2' | 'landed' | 'super' | 'goTli' | 'goTliAck' | 'arrived' | 'heardYou' | 'pdiCount' | 'pdiIgnition' | 'ohHey' | 'what' | 'orangeSoil' | 'dontMove' | 'allOver' | 'dontMove2' | 'stirred' | 'itIs' | 'leaveAsWeCame' | 'peaceHope' | 'ascentCount' | 'ascentIgnition' | 'onOurWay' | 'ratesGood' | 'captureHouston' | 'weCopy' | 'prime1' | 'markIt' | 'hereSheComes' | 'kachunk' | 'rippleFire' | 'onMyMark' | 'gotIt' | 'thereSheGoes' | 'stickForever' | 'rogerGene' | 'africa' | 'upperThird'
 export type RadioClipId = 'liftoff' | 'landed' | 'tli' | 'aos' | 'pdi' | 'orange' | 'lastWords' | 'ascent' | 'capture' | 'hardDock' | 'ejection' | 'earthView'
 
 export type RadioLine = { from: number; to: number; who: RadioWho; key: RadioLineKey }
@@ -69,17 +69,21 @@ export const RADIO: Record<RadioClipId, RadioClip> = {
     ],
   },
   // ショーティ・クレーターでオレンジの土を見つけた瞬間（経過時間 145:26:22、2 回目の船外活動の観測点4）
+  // 言葉と順番は ALSJ の書き起こし（a17.sta4.html、145:26:22〜145:26:42）。時刻は音声の声の出ている所に合わせた
+  // （シュミットの声は大きく、サーナンの声は小さく入っている）
   orange: {
     file: 'audio/apollo17/orange.mp3',
     length: 20.4,
     get: '145:26:22',
     lines: [
-      { from: 0.3, to: 2.9, who: 'lmp', key: 'ohHey' },
-      { from: 2.9, to: 4.4, who: 'cdr', key: 'what' },
-      { from: 4.4, to: 10.0, who: 'lmp', key: 'orangeSoil' },
-      { from: 10.0, to: 13.0, who: 'cdr', key: 'dontMove' },
-      { from: 13.0, to: 16.5, who: 'lmp', key: 'allOver' },
-      { from: 16.5, to: 20.4, who: 'cdr', key: 'dontMove' },
+      { from: 0.2, to: 3.6, who: 'lmp', key: 'ohHey' },
+      { from: 3.6, to: 5.8, who: 'cdr', key: 'what' },
+      { from: 5.9, to: 10.0, who: 'lmp', key: 'orangeSoil' },
+      { from: 10.0, to: 12.9, who: 'cdr', key: 'dontMove' },
+      { from: 12.9, to: 15.1, who: 'lmp', key: 'allOver' },
+      { from: 15.1, to: 16.6, who: 'cdr', key: 'dontMove2' },
+      { from: 16.6, to: 19.3, who: 'lmp', key: 'stirred' },
+      { from: 19.3, to: 20.4, who: 'cdr', key: 'itIs' },
     ],
   },
   // 月面に残る最後の言葉（経過時間 170:41、サーナン船長。長い言葉の終わりの部分）

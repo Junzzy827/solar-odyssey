@@ -151,6 +151,9 @@ export const moonMissionJa = {
       orangeSoil: ["Where are the reflections? I've been fooled once. There is orange soil!!", '光の反射はどこだ？ 一度だまされたからな。オレンジ色の土がある！'],
       dontMove: ["Well, don't move it until I see it.", '僕が見るまで動かすなよ'],
       allOver: ["It's all over!! Orange!!!", 'そこらじゅうだ！ オレンジだ！'],
+      dontMove2: ["Don't move it until I see it.", '僕が見るまで動かすな'],
+      stirred: ['I stirred it up with my feet.', '足でかき混ぜたんだ'],
+      itIs: ['Hey, it is!!', 'ほんとだ！'],
       leaveAsWeCame: ['And, as we leave the Moon at Taurus-Littrow, we leave as we came and, God willing, as we shall return,', 'タウルス・リトロー谷を去るいま、私たちは来たときのように去り、そして願わくは、また戻ってくる。'],
       peaceHope: ['with peace and hope for all mankind. Godspeed the crew of Apollo 17.', 'すべての人類の平和と希望とともに。アポロ17号の乗組員に幸運を。'],
       ascentCount: ['99 Proceeded. 3, 2, 1...', '99 を実行。3、2、1…'],
@@ -313,6 +316,8 @@ export const moonMissionJa = {
   endTitle: '月へ向かう道に乗りました',
   endNext: 'このあと、着陸船とのドッキング、青い地球、月の裏での点火、着陸へと続きます',
   dockNext: '続けて：向きを変えてドッキング（章4）',
+  /** 章の終わりのカード：自動で次へ進むまでの秒 */
+  autoNext: (label: string, n: number) => `${label}（${n}）`,
   stars: (n: number) => '★'.repeat(n) + '☆'.repeat(3 - n),
   starsNote: '手本との合い方と、月への点火のタイミングで星が決まる',
   again: 'もう一度',
