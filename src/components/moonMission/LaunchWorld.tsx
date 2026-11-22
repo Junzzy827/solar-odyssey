@@ -83,24 +83,60 @@ type Debris = { name: string; obj: THREE.Object3D; x: number; y: number; vx: num
 
 /** 上昇の後半の、自動のカメラの切り替え（横・エンジンの横・司令船の中・前から・遠くから）。
  *  夜の打ち上げなので、下の地球は暗い（高いところからの絵や窓の外は、ほぼまっ黒で使えなかった） */
-type AscentShot = 'side' | 'tail' | 'cabin' | 'front' | 'far' | 'window'
+type AscentShot = 'side' | 'tail' | 'cabin' | 'front' | 'far' | 'window' | 'flyby'
 const ASCENT_SHOTS: AscentShot[] = ['side', 'tail', 'cabin', 'front', 'far']
-/** 地球を回る・月へ向かう燃焼のあいだ：横・船長の窓（日の出の後だけ）・エンジンの横・遠くから */
-const ORBIT_SHOTS: AscentShot[] = ['side', 'window', 'tail', 'far']
+/** 地球を回る・月へ向かう燃焼のあいだ：横・船長の窓（日の出の後だけ）・上を飛び越える・エンジンの横・遠くから */
+const ORBIT_SHOTS: AscentShot[] = ['side', 'window', 'flyby', 'tail', 'far']
 function ascentShot(s: { phase: string; cam: string; camLocked: boolean; auto: boolean }, stage: number, prop: number): AscentShot {
   const beat = showBeat()
   if (s.cam !== 'chase' || s.camLocked || beat === null) return 'side'
   const k = Math.floor((beat + CARD_SEC / 2) / CARD_SEC)
   // 地球を回るあいだは操縦がないので、おまかせでなくても切りかえる
   if (s.phase === 'orbit' || s.phase === 'tli') {
+    if (filmForce.orbit) return filmForce.orbit as AscentShot
     const shot = ORBIT_SHOTS[k % ORBIT_SHOTS.length]
     // 日の出の前は、窓の外がまっ暗で何も見えない
+    if (!sim.sunrise && shot === 'flyby') return 'side'
     return shot === 'window' && !sim.sunrise ? 'far' : shot
   }
   if (s.phase !== 'ascent' || !s.auto) return 'side'
   // 段を切り離す前後は、横から見せる
   if ((sim.sepAt.s2 > 0 && sim.a.t - sim.sepAt.s2 < 8) || (stage === 1 && prop < STAGES[1].prop * 0.04)) return 'side'
   return ASCENT_SHOTS[k % ASCENT_SHOTS.length]
+}
+
+/** 材質の名前 → [粗さ, 金属らしさ]（glb の粗さの地図に掛ける） */
+const SURFACE: Record<string, [number, number]> = {
+  White: [0.42, 0],
+  Black: [0.95, 0],
+  Grey: [0.62, 0.15],
+  Silver: [0.16, 1],
+  Metal: [0.38, 1],
+}
+
+/** 宇宙で機体に映りこむまわり：下は昼の地球（青白い）、地平線のかすみ、上はまっ黒な宇宙。下（-y）を地球へ向けて回して使う */
+function spaceEnvironment(gl: THREE.WebGLRenderer) {
+  const scene = new THREE.Scene()
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    vertexShader: 'varying vec3 vD; void main() { vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `varying vec3 vD;
+      void main() {
+        float y = vD.y;
+        // 高さ 170 km から見ると、地平線は水平より約 13 度下
+        float earth = smoothstep(-0.2, -0.24, y);
+        vec3 ground = mix(vec3(0.30, 0.42, 0.58), vec3(0.18, 0.30, 0.48), smoothstep(-0.3, -1.0, y));
+        float haze = exp(-pow((y + 0.21) / 0.035, 2.0));
+        vec3 col = ground * earth + vec3(0.55, 0.7, 0.95) * haze * 0.8;
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  })
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(10, 64, 32), mat))
+  const pmrem = new THREE.PMREMGenerator(gl)
+  const tex = pmrem.fromScene(scene, 0).texture
+  pmrem.dispose()
+  mat.dispose()
+  return tex
 }
 
 export function LaunchWorld() {
@@ -124,6 +160,15 @@ export function LaunchWorld() {
     for (const t of [day, night, clouds]) t.anisotropy = 4
   }, [day, night, clouds, stars, moonTex])
   const { camera, size, gl, scene } = useThree()
+  // 宇宙での映りこみ（地上では使わない）
+  const spaceEnv = useMemo(() => spaceEnvironment(gl), [gl])
+  useEffect(
+    () => () => {
+      if (scene.environment === spaceEnv) scene.environment = null
+      spaceEnv.dispose()
+    },
+    [scene, spaceEnv],
+  )
   // 夕方は遠くの陸と海が、地平線のもやにとける（夜と宇宙では濃さ 0）
   const fog = useMemo(() => new THREE.FogExp2('#000000', 0), [])
   useEffect(() => {
@@ -148,6 +193,22 @@ export function LaunchWorld() {
       if (['S1', 'Ring', 'S2', 'S3', 'CSM', 'LES'].includes(o.name)) byName[o.name] = o
       const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined
       if (m && 'envMapIntensity' in m) m.envMapIntensity = 0.4
+    })
+    // 材質の照り：白い塗装は半つや（太陽の照りが出る）、黒い帯は艶消し、司令船の外は磨いた金属（junji 2026-11-22）
+    const done = new Set<THREE.Material>()
+    root.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      for (const x of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        const m = x as THREE.MeshStandardMaterial
+        if (done.has(m) || !('roughness' in m)) continue
+        done.add(m)
+        const look = SURFACE[m.name]
+        if (!look) continue
+        m.roughness = look[0]
+        m.metalness = look[1]
+        m.needsUpdate = true
+      }
     })
     // 発射台では、冷たいタンクの外に霜が付いている（frost.ts）
     const frost = frostRocket(['S1', 'S2', 'S3'].map((n) => byName[n]).filter(Boolean))
@@ -679,6 +740,8 @@ export function LaunchWorld() {
     let filmShakeAng = 0
     let inside = false
     let shotName = ''
+    // 決まった道を動くカメラ（遅れて追わない）
+    let snapCam = false
     // 映画は曲の最初の区切りまで（途中から飛ばして来たときも、高く上がっていたら横からに）
     if (s.cam === 'film' && s.phase === 'ascent' && !s.camLocked && ((mt ?? 0) > FILM_END || a.t > 60)) autoCam('chase')
     // 上昇の後半（おまかせのとき）：「うしろから」のカメラを、計器のカードと 4 秒ずらして 8 秒ごとに切りかえる
@@ -739,6 +802,26 @@ export function LaunchWorld() {
         fov = 74
       }
       cs.up.copy(up)
+    } else if (shot === 'flyby') {
+      // 飛び越えるカメラ：機首の先の斜め下から近づき、第3段のすぐ上を越えて、うしろへ遠ざかる（junji 2026-11-22）
+      // 日の当たる側を通る（影の側から見ると、白い機体がまっ黒になる）
+      const beat = showBeat() ?? 0
+      const u = filmForce.orbit ? filmForce.orbitU : ((((beat + CARD_SEC / 2) % CARD_SEC) + CARD_SEC) % CARD_SEC) / CARD_SEC
+      const e = u * u * (3 - 2 * u) * 0.5 + u * 0.5
+      const side = south.dot(SUN) >= 0 ? 1 : -1
+      // 機首の先の斜め下（高さ -6 m・横 24 m）→ 第3段の真上近く（12 m・3 m）→ うしろの斜め上（36 m・18 m）を、なめらかに通る
+      const along = THREE.MathUtils.lerp(150, 28, e)
+      const bez = (a: number, m: number, b: number) => {
+        const c = 2 * m - (a + b) / 2
+        return (1 - e) * (1 - e) * a + 2 * e * (1 - e) * c + e * e * b
+      }
+      want.copy(nose).multiplyScalar(along).addScaledVector(up, bez(-6, 12, 36)).addScaledVector(south, side * bez(24, 3, 18))
+      // 見るのは、カメラに近い機体の点の少し先（うしろへ遠ざかるときも、機体の上の面と宇宙船が見える）
+      look.copy(nose).multiplyScalar(THREE.MathUtils.clamp(along - 12, 64, 100))
+      const bump = Math.exp(-Math.pow((e - 0.5) / 0.2, 2))
+      fov = THREE.MathUtils.lerp(46, 64, bump)
+      cs.up.copy(up)
+      snapCam = true
     } else if (shot === 'tail' || shot === 'front' || shot === 'far') {
       // エンジンの口の位置（機首の向きに、第2段は 46.6 m・第3段は 66.6 m。j2Trail と同じ）
       const base = a.stage < 2 ? 46.6 : 66.6
@@ -793,7 +876,7 @@ export function LaunchWorld() {
       cs.init = true
     }
     // 船内のカットは機体にくっついたカメラ（遅れて追うと、機首の向きが変わるたびに画面がゆっくり回る）
-    const k = observing || inside ? 1 : 1 - Math.exp(-dt * (s.cam === 'onboard' || s.cam === 'window' ? 20 : s.cam === 'film' ? 10 : 4))
+    const k = observing || inside || snapCam ? 1 : 1 - Math.exp(-dt * (s.cam === 'onboard' || s.cam === 'window' ? 20 : s.cam === 'film' ? 10 : 4))
     cs.pos.lerp(want, k)
     cs.look.lerp(look, k)
     cs.fov += (fov - cs.fov) * k
@@ -833,6 +916,29 @@ export function LaunchWorld() {
       // 夕方の空の光は青く、地面の照り返しは夕日の色
       hemi.current.color.set('#5a6a8a').lerp(_c1.set('#9cb2d8'), observing ? dayK : 0)
       hemi.current.groundColor.set('#120c08').lerp(_c1.set('#4a3426'), observing ? dayK : 0)
+    }
+    // 宇宙：上は黒い宇宙、下は昼の地球。機体は下から地球の照り返しを受け、上は暗い。映りこみも同じ向き
+    {
+      const space = (s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound') && !inside
+      // 地球の真上の昼の明るさ（地球から遠ざかると、地球は小さくなって照り返しも弱い）
+      const earthDay = THREE.MathUtils.smoothstep(up.dot(SUN), -0.1, 0.35) * (1 - THREE.MathUtils.smoothstep(h, 2_000_000, 20_000_000))
+      if (space) {
+        scene.environment = spaceEnv
+        scene.environmentIntensity = 0.15 + 0.85 * earthDay
+        // 映りこみの下（-y）を地球へ。軌道は z = 0 の面の中なので、z 軸のまわりの回転だけでよい
+        scene.environmentRotation.set(0, 0, Math.atan2(-up.x, up.y))
+        // 地球の照り返しは映りこみ（scene.environment）が受け持つ。空の光は、影の側が真っ黒にならない程度だけ
+        if (hemi.current) {
+          hemi.current.position.copy(up)
+          hemi.current.color.set('#03050a')
+          hemi.current.groundColor.set('#5f7fa8')
+          hemi.current.intensity = 0.06 + 0.2 * earthDay
+        }
+        if (fill.current) fill.current.intensity *= 0.15 + 0.85 * (1 - earthDay)
+      } else if (scene.environment === spaceEnv) {
+        scene.environment = null
+        if (hemi.current) hemi.current.position.set(0, 1, 0)
+      }
     }
     // 断面：選んだ部品の高さの帯か、全体を、カメラの側から開く
     {
