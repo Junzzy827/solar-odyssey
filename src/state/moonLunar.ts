@@ -235,14 +235,15 @@ function warpFor(phase: string) {
   if (phase === 'undock') {
     const since = d.t + UNDOCK_BEFORE
     if (since < 26) return 1
-    return d.t < PDI_EARLY - 60 ? 18 : 4
+    return d.t < PDI_EARLY - 60 ? 30 : 8
   }
   if (phase === 'descent') {
-    if (d.mode === 'coast') return 1
+    // 降下の窓：初めは少し早送りして、手本の時刻（0）が近づいたら等速（タイミングを合わせやすく）
+    if (d.mode === 'coast') return d.t < PDI_IDEAL - 14 ? 2 : 1
     const pdi = d.t - (d.pdiAt ?? d.t)
     if (d.mode === 'braking') {
       if (pdi < 20) return 1
-      return d.tgo < 40 ? 2 : 9
+      return d.tgo < 40 ? 2 : 12
     }
     if (d.mode === 'approach') return 1.3
     return 1
@@ -460,6 +461,9 @@ export function lunarReadout() {
       toFwd: to.fwd,
       toRight: to.right,
       toDist: to.dist,
+      // 押している向き（十字の計器のふちの矢印を光らせる）
+      inFwd: lunar.input.fwd,
+      inRight: lunar.input.right,
       fuel: d.prop / LM_PROP,
       hover: Math.max(0, d.hover - BINGO),
       throttle: d.throttle,

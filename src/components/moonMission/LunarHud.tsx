@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLang } from '../../i18n/lang'
 import { ui } from '../../i18n'
 import { isTouchDevice } from '../../state/input'
-import { LOI_IDEAL, PDI_EARLY, PDI_IDEAL, PDI_LATE } from '../../data/lunarDescent'
+import { LOI_IDEAL, MANUAL_ALT, PDI_EARLY, PDI_IDEAL, PDI_LATE } from '../../data/lunarDescent'
 import {
   LOI_CLOSE,
   LOI_OPEN,
@@ -61,21 +61,71 @@ function WindowBar({ t, open, close, ideal, label, go, hint, can }: { t: number;
   )
 }
 
-/** 十字の速度計：横の針が前後の速さ、縦の針が左右の速さ（±6 m/s）。緑の点は降りる場所 */
-function CrossPointer({ fwd, right, toFwd, toRight }: { fwd: number; right: number; toFwd: number; toRight: number }) {
+/** 針の目盛り（m/s）と、降りる場所の点の目盛り（m）。速いうち・遠いうちは粗い目盛りにして、針が振り切れたままにならないようにする（本物の計器にも 10 倍の切り替えがあった） */
+const SPEED_SCALES = [6, 30, 150]
+const SITE_SCALES = [120, 600, 3000]
+
+/** いまの値が入る目盛りを選ぶ。細かい目盛りへ戻るのは、値が十分小さくなってから（境目で行ったり来たりしない） */
+function useScale(value: number, scales: number[]) {
+  const at = useRef(scales.length - 1)
+  let i = at.current
+  while (i < scales.length - 1 && value > scales[i]) i++
+  while (i > 0 && value < scales[i - 1] * 0.92) i--
+  at.current = i
+  return scales[i]
+}
+
+/** 十字の速度計：横の針が前後の速さ、縦の針が左右の速さ。緑の点は降りる場所。ふちの矢印は、いま押している向き */
+function CrossPointer({ fwd, right, toFwd, toRight, inFwd, inRight }: { fwd: number; right: number; toFwd: number; toRight: number; inFwd: number; inRight: number }) {
+  const t = ui().moonMission.lunar
   const S = 60
-  const k = (v: number) => Math.max(-1, Math.min(1, v / 6)) * S
-  const tk = (v: number) => Math.max(-1, Math.min(1, v / 120)) * S
+  const vs = useScale(Math.max(Math.abs(fwd), Math.abs(right)), SPEED_SCALES)
+  const ms = useScale(Math.max(Math.abs(toFwd), Math.abs(toRight)), SITE_SCALES)
+  const k = (v: number) => Math.max(-1, Math.min(1, v / vs)) * S
+  const tk = (v: number) => Math.max(-1, Math.min(1, v / ms)) * S
+  const good = vs === SPEED_SCALES[0]
   return (
-    <svg className="lh-cross" viewBox="-70 -70 140 140" aria-hidden>
-      <rect x={-S} y={-S} width={S * 2} height={S * 2} rx={8} className="lh-cross-bg" />
-      <line x1={-S} y1={0} x2={S} y2={0} className="lh-cross-axis" />
-      <line x1={0} y1={-S} x2={0} y2={S} className="lh-cross-axis" />
-      <circle cx={tk(toRight)} cy={-tk(toFwd)} r={5} className="lh-cross-site" />
-      <line x1={-S} y1={-k(fwd)} x2={S} y2={-k(fwd)} className={`lh-cross-needle ${Math.abs(fwd) < 0.6 ? 'good' : ''}`} />
-      <line x1={k(right)} y1={-S} x2={k(right)} y2={S} className={`lh-cross-needle ${Math.abs(right) < 0.6 ? 'good' : ''}`} />
-    </svg>
+    <div className="lh-crossbox">
+      <svg className="lh-cross" viewBox="-70 -70 140 140" aria-hidden>
+        <rect x={-S} y={-S} width={S * 2} height={S * 2} rx={8} className="lh-cross-bg" />
+        <line x1={-S} y1={0} x2={S} y2={0} className="lh-cross-axis" />
+        <line x1={0} y1={-S} x2={0} y2={S} className="lh-cross-axis" />
+        <circle cx={tk(toRight)} cy={-tk(toFwd)} r={5} className="lh-cross-site" />
+        <line x1={-S} y1={-k(fwd)} x2={S} y2={-k(fwd)} className={`lh-cross-needle ${good && Math.abs(fwd) < 0.6 ? 'good' : ''}`} />
+        <line x1={k(right)} y1={-S} x2={k(right)} y2={S} className={`lh-cross-needle ${good && Math.abs(right) < 0.6 ? 'good' : ''}`} />
+        <path d="M0 -69 L6 -62 L-6 -62 Z" className={`lh-cross-in ${inFwd > 0.1 ? 'on' : ''}`} />
+        <path d="M0 69 L6 62 L-6 62 Z" className={`lh-cross-in ${inFwd < -0.1 ? 'on' : ''}`} />
+        <path d="M69 0 L62 6 L62 -6 Z" className={`lh-cross-in ${inRight > 0.1 ? 'on' : ''}`} />
+        <path d="M-69 0 L-62 6 L-62 -6 Z" className={`lh-cross-in ${inRight < -0.1 ? 'on' : ''}`} />
+      </svg>
+      <div className="lh-cross-scale">{t.crossScale(vs, ms)}</div>
+    </div>
   )
+}
+
+type Keys = { up: string; down: string; left: string; right: string; slow: string; fast: string }
+const KEYS: Keys = { up: '↑', down: '↓', left: '←', right: '→', slow: 'W', fast: 'S' }
+const TOUCH_KEYS: Keys = { up: '▲', down: '▼', left: '◀', right: '▶', slow: 'W ▲', fast: 'S ▼' }
+
+/** 手で操縦するあいだの「いま、やること」。上がっている → 横の動き（降りる場所へ寄せる・止める）→ 降りる速さ、の順に見る */
+function coach(lm: { alt: number; vUp: number; fwd: number; right: number; toFwd: number; toRight: number }, keys: Keys) {
+  const c = ui().moonMission.lunar.coach
+  if (lm.vUp > 0.3) return c.rising(keys)
+  // 降りる場所へ寄せる速さ（自動の操縦と同じ目安：遠いほど速く、12 m/s まで）
+  const want = (to: number) => Math.max(-12, Math.min(12, to * 0.09))
+  const ef = lm.fwd - want(lm.toFwd)
+  const er = lm.right - want(lm.toRight)
+  if (Math.max(Math.abs(ef), Math.abs(er)) > 1.5) {
+    if (Math.abs(ef) >= Math.abs(er)) {
+      if (ef > 0) return lm.fwd > 1.5 ? c.tooFast(Math.round(lm.fwd), keys.down) : c.siteBack(Math.round(-lm.toFwd), keys.down)
+      return lm.fwd < -1.5 ? c.driftBack(Math.round(-lm.fwd), keys.up) : c.siteAhead(Math.round(lm.toFwd), keys.up)
+    }
+    if (er > 0) return lm.right > 1.5 ? c.driftRight(Math.round(lm.right), keys.left) : c.siteLeft(Math.round(-lm.toRight), keys.left)
+    return lm.right < -1.5 ? c.driftLeft(Math.round(-lm.right), keys.right) : c.siteRight(Math.round(lm.toRight), keys.right)
+  }
+  if (lm.alt > 40 && lm.vUp > -1.5) return c.faster(keys)
+  if (lm.alt < 25 && lm.vUp < -1.5) return c.slower(keys)
+  return c.steady
 }
 
 /** 高さの帯：高さ（右の数字）と、上下の速さ（矢印の長さ）と、指示した降りる速さ */
@@ -213,19 +263,24 @@ export function LunarHud() {
         <div className="lh-approach">
           <div className="mm-hint">{t.lpdHint}</div>
           {!s.auto && (
-            <button className="mm-go ready" onPointerDown={() => manual()}>
-              {t.manualGo}
+            <button className="mm-go ready" onPointerDown={() => manual()} disabled={!!lm && lm.alt > MANUAL_ALT}>
+              {lm && lm.alt > MANUAL_ALT ? t.manualWait(MANUAL_ALT) : t.manualGo}
             </button>
           )}
         </div>
       )}
       {lm && (approach || manualOn) && (
         <div className="lh-instruments">
-          <CrossPointer fwd={lm.fwd} right={lm.right} toFwd={lm.toFwd} toRight={lm.toRight} />
+          <CrossPointer fwd={lm.fwd} right={lm.right} toFwd={lm.toFwd} toRight={lm.toRight} inFwd={manualOn ? lm.inFwd : 0} inRight={manualOn ? lm.inRight : 0} />
           {manualOn && <AltTape alt={lm.alt} vUp={lm.vUp} vCmd={lm.vCmd} />}
         </div>
       )}
-      {manualOn && !touch && <div className="lh-manual-hint mm-hint">{t.manualHint}</div>}
+      {manualOn && lm && lm.mode === 'terminal' && (
+        <div className="lh-manual-hint">
+          <div className="lh-coach">{coach(lm, touch ? TOUCH_KEYS : KEYS)}</div>
+          {!touch && <div className="mm-hint">{t.manualHint}</div>}
+        </div>
+      )}
       {touch && (approach || manualOn) && <PadButtons approach={approach} />}
       {touch && manualOn && <RodButtons />}
       <div className="mm-buttons">
