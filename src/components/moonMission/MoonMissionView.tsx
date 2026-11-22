@@ -40,6 +40,7 @@ import { JourneyBar } from './JourneyBar'
 import { journey } from '../../state/missionJourney'
 import { ChapterMenu, ResumeButton } from './ChapterMenu'
 import { CabinFrame } from './CabinFrame'
+import { useAfter, useAutoNext } from './autoNext'
 import './moonMission.css'
 import { CamMenu } from './CamMenu'
 import { AscentCards } from './AscentCards'
@@ -265,7 +266,7 @@ function Hud() {
         </div>
       )}
       {s.phase === 'ascent' && touch && !s.auto && r.stage < 2 && <TiltButtons />}
-      <AscentCards r={r} raised={touch && !s.auto && r.stage < 2} />
+      <AscentCards r={r} raised={s.phase === 'ascent' && touch && !s.auto && r.stage < 2} high={s.phase === 'orbit' && orbitT > TLI_WINDOW_OPEN - 300} />
       {s.phase === 'orbit' && orbitT > TLI_WINDOW_OPEN - 300 && (
         <div className="mm-tli">
           <div className="mm-tli-label">{t.tliBar}</div>
@@ -293,22 +294,36 @@ function Hud() {
           {t.quit}
         </button>
       </div>
-      {s.phase === 'outbound' && missionNow() - s.since > 9 && (
-        <div className="mm-end">
-          <div className="mm-end-title">{t.endTitle}</div>
-          <div className="mm-end-stars">{t.stars(s.stars)}</div>
-          <div className="mm-end-note">{t.starsNote}</div>
-          <div className="mm-end-next">{t.endNext}</div>
-          <div className="mm-end-buttons">
-            <button className="mm-continue" onClick={() => startDock()}>
-              {t.dockNext}
-            </button>
-            <button onClick={() => restartMission()}>{t.again}</button>
-            <button onClick={() => endMission()}>{t.back}</button>
-          </div>
-          {s.best.stars > 0 && <div className="mm-end-best">{t.best(s.best.stars)}</div>}
-        </div>
-      )}
+      <OutboundEnd />
+    </div>
+  )
+}
+
+/** 章3 の終わり：月へ向かう道に乗って 9 秒たったら結果を出し、さらに数秒で自動で章4 へ */
+function OutboundEnd() {
+  const s = useMoonMission()
+  const show = useAfter(s.phase === 'outbound', 9)
+  if (!show) return null
+  return <OutboundCard stars={s.stars} best={s.best.stars} />
+}
+
+function OutboundCard({ stars, best }: { stars: number; best: number }) {
+  const t = ui().moonMission
+  const auto = useAutoNext(() => startDock(), 6)
+  return (
+    <div className="mm-end">
+      <div className="mm-end-title">{t.endTitle}</div>
+      <div className="mm-end-stars">{t.stars(stars)}</div>
+      <div className="mm-end-note">{t.starsNote}</div>
+      <div className="mm-end-next">{t.endNext}</div>
+      <div className="mm-end-buttons">
+        <button className="mm-continue" onClick={() => startDock()}>
+          {auto.left !== null ? t.autoNext(t.dockNext, auto.left) : t.dockNext}
+        </button>
+        <button onClick={() => (auto.cancel(), restartMission())}>{t.again}</button>
+        <button onClick={() => (auto.cancel(), endMission())}>{t.back}</button>
+      </div>
+      {best > 0 && <div className="mm-end-best">{t.best(best)}</div>}
     </div>
   )
 }

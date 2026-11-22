@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing'
-import { ShaderPass, ToneMappingMode } from 'postprocessing'
+import { BlendFunction, Effect, ShaderPass, ToneMappingMode } from 'postprocessing'
 import { QUALITY, useLevel } from '../../state/quality'
 
 // 月ミッションの画面の後処理：明るさ（露出）・光のにじみ（Bloom）・ACES の色調。
@@ -42,11 +42,31 @@ function exposurePass() {
   return { pass: new ShaderPass(material, 'inputBuffer'), material }
 }
 
+/** 最後に、ごく小さなざらつきを足す：夜空・炎・大気のなめらかな明るさが、画面の 8 ビットで段（縞）にならないように */
+class DitherEffect extends Effect {
+  constructor() {
+    super(
+      'MissionDither',
+      `
+      float ditherHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+        float n = ditherHash(gl_FragCoord.xy) + ditherHash(gl_FragCoord.xy + 17.3) - 1.0;
+        // 画面の明るさ（sRGB）の上で 1 段ぶん。線形のまま足すと、まっ暗な所でざらつきが目立つ
+        vec3 srgb = pow(max(inputColor.rgb, 0.0), vec3(1.0 / 2.2));
+        outputColor = vec4(pow(max(srgb + n / 255.0, 0.0), vec3(2.2)), inputColor.a);
+      }`,
+      { blendFunction: BlendFunction.NORMAL },
+    )
+  }
+}
+
 export function MissionPost() {
   const level = useLevel()
   const quality = QUALITY[level]
   const gl = useThree((s) => s.gl)
   const ex = useMemo(exposurePass, [quality.msaa, quality.bloom])
+  const dither = useMemo(() => new DitherEffect(), [])
+  useEffect(() => () => dither.dispose(), [dither])
   useEffect(
     () => () => {
       ex.pass.dispose()
@@ -72,6 +92,7 @@ export function MissionPost() {
       <primitive object={ex.pass} />
       <Bloom intensity={0.5} luminanceThreshold={2.5} luminanceSmoothing={0.4} mipmapBlur />
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      <primitive object={dither} />
     </EffectComposer>
   )
 }

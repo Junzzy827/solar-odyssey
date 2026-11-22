@@ -8,7 +8,7 @@ import { loadCatalog } from '../Sky'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { lunar, tickLunar, UNDOCK_BEFORE, useMoonLunar } from '../../state/moonLunar'
 import { autoCam, useMoonMission } from '../../state/moonMission'
-import { FRAME, groundAt, loadLunarMaps, lunarMaps, SUN_DIR, valleyShadows, valleyWeight, type LunarMaps, type ShadowMap } from './lunarTerrain'
+import { FRAME, groundAt, loadLunarMaps, lunarMaps, SUN_DIR, TRACK, TRACK_PLANE, valleyShadows, valleyWeight, type LunarMaps, type ShadowMap } from './lunarTerrain'
 import { earthMaterial, atmosphereMaterial } from './earth'
 import { plumeGeometry, plumeMaterial } from './plume'
 import { APOLLO_URL, DROGUE, useCraft, type Craft } from './craft'
@@ -56,6 +56,14 @@ const moonFragment = /* glsl */ `
   uniform vec3 uEast;
   uniform vec3 uNorth;
   uniform float uDetail;
+  // 降下の道すじの帯（本物の明るさと、着陸の日の日なた・影）
+  uniform sampler2D uTrackAlb;
+  uniform sampler2D uTrackSun;
+  uniform float uTrackOn;
+  uniform vec3 uTP;
+  uniform vec3 uTQ;
+  uniform vec3 uTN;
+  uniform vec4 uTrack;
   varying vec3 vN;
   varying vec3 vDir;
   varying vec3 vRel;
@@ -131,6 +139,20 @@ const moonFragment = /* glsl */ `
     vec2 dx2 = dFdx(uv2); vec2 dy2 = dFdy(uv2);
     if (dot(dx2, dx2) + dot(dy2, dy2) < dot(dx, dx) + dot(dy, dy)) { dx = dx2; dy = dy2; }
     vec3 albedo = pow(textureGrad(uMap, fract(uv), dx, dy).rgb, vec3(2.2));
+    // 帯の中は本物の地図（かぐやの明るさ、1 画素 238 m）に。ふちはなめらかに
+    float trackSun = 1.0;
+    float trackW = 0.0;
+    if (uTrackOn > 0.5) {
+      float th = atan(dot(d, uTQ), dot(d, uTP));
+      float ph = asin(clamp(dot(d, uTN), -1.0, 1.0));
+      vec2 tuv = vec2((th - uTrack.x) / (uTrack.y - uTrack.x), (uTrack.z - ph) / (2.0 * uTrack.z));
+      if (tuv.x > 0.0 && tuv.x < 1.0 && tuv.y > 0.0 && tuv.y < 1.0) {
+        trackW = smoothstep(0.0, 0.012, min(tuv.x, 1.0 - tuv.x)) * smoothstep(0.0, 0.06, min(tuv.y, 1.0 - tuv.y));
+        float a = pow(texture2D(uTrackAlb, tuv).r, 2.2) * uTrack.w;
+        albedo = mix(albedo, vec3(a) * vec3(1.0, 0.985, 0.96), trackW);
+        trackSun = mix(1.0, texture2D(uTrackSun, tuv).r, trackW);
+      }
+    }
     vec3 n = normalize(vN);
     // 細かいまだら（近いときだけ）と、急な斜面ほど明るい（新しい岩が出ている）
     vec3 p = d * ${MOON_R.toFixed(1)};
@@ -150,8 +172,8 @@ const moonFragment = /* glsl */ `
     }
     float slope = 1.0 - dot(n, d);
     albedo *= 1.0 + smoothstep(0.05, 0.3, slope) * 0.35;
-    // 谷の影（前もって計算した地図）
-    float shade = 1.0;
+    // 谷の影（前もって計算した地図）。谷の外は、帯の影
+    float shade = trackSun;
     float k = dot(d, uUp);
     if (uShadowOn > 0.5 && k > 0.99) {
       vec2 xz = vec2(dot(d, uEast), -dot(d, uNorth)) * ${MOON_R.toFixed(1)} / k;
@@ -165,7 +187,7 @@ const moonFragment = /* glsl */ `
           s = mix(sn, s, smoothstep(uNearHalf * 0.85, uNearHalf, e));
         }
         float ef = smoothstep(uFarHalf * 0.82, uFarHalf * 0.98, e);
-        shade = mix(s, 1.0, ef);
+        shade = mix(s, trackSun, ef);
       }
     }
     float mu0 = dot(n, uSun);
@@ -202,7 +224,7 @@ const _hd = new THREE.Vector3()
 const height = (x: number, y: number, z: number, minWave: number) => groundAt(_hd.set(x, y, z), minWave)
 
 function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
-  const tex = useTexture(`${base}textures/4k_moon.jpg`)
+  const [tex, trackTex] = useTexture([`${base}textures/4k_moon.jpg`, `${base}terrain/moon_track_albedo.jpg`])
   const camera = useThree((s) => s.camera)
   const gl = useThree((s) => s.gl)
   const [shadow, setShadow] = useState<{ far: ShadowMap; near: ShadowMap } | null>(null)
@@ -220,6 +242,19 @@ function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
     tex.needsUpdate = true
     const blank = new THREE.DataTexture(new Uint8Array([255]), 1, 1, THREE.RedFormat)
     blank.needsUpdate = true
+    // 降下の道すじの帯（大きな絵が使えない端末では、高さだけ使う）
+    const trackOk = !!maps.track && gl.capabilities.maxTextureSize >= TRACK.w
+    let trackSun: THREE.Texture = blank
+    if (trackOk && maps.track) {
+      trackTex.colorSpace = THREE.NoColorSpace
+      trackTex.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy())
+      trackTex.needsUpdate = true
+      const sun = new THREE.DataTexture(maps.track.sun, TRACK.w, TRACK.h, THREE.RedFormat, THREE.UnsignedByteType)
+      sun.magFilter = THREE.LinearFilter
+      sun.minFilter = THREE.LinearFilter
+      sun.needsUpdate = true
+      trackSun = sun
+    }
     return new THREE.ShaderMaterial({
       uniforms: {
         uMap: { value: tex },
@@ -234,6 +269,13 @@ function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
         uEast: { value: FRAME.east },
         uNorth: { value: FRAME.north },
         uDetail: { value: 0 },
+        uTrackAlb: { value: trackOk ? trackTex : blank },
+        uTrackSun: { value: trackSun },
+        uTrackOn: { value: trackOk ? 1 : 0 },
+        uTP: { value: TRACK_PLANE.P },
+        uTQ: { value: TRACK_PLANE.Q },
+        uTN: { value: TRACK_PLANE.N },
+        uTrack: { value: new THREE.Vector4(TRACK.th0, TRACK.th1, TRACK.ph, TRACK.albedoScale) },
         uCamMod: { value: new THREE.Vector3() },
         uLmOn: { value: 0 },
         uLmPos: { value: new THREE.Vector3() },
@@ -244,7 +286,7 @@ function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
       vertexShader: moonVertex,
       fragmentShader: moonFragment,
     })
-  }, [tex, gl])
+  }, [tex, trackTex, gl, maps])
   useEffect(() => {
     if (!shadow) return
     const u = material.uniforms
@@ -506,6 +548,7 @@ function Spacecraft({ craft }: { craft: Craft }) {
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI)
     return { q, p: DROGUE.clone() }
   }, [])
+  const dockOff = useRef(new THREE.Vector3())
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime
     const lm = craft.lm
@@ -543,9 +586,13 @@ function Spacecraft({ craft }: { craft: Craft }) {
     if (docked) {
       csm.position.copy(csmDock.p).applyMatrix4(lm.matrixWorld)
       csm.quaternion.copy(lm.quaternion).multiply(csmDock.q)
+      // つながっていた位置（着陸船の中心からのずれ）を覚えておく
+      dockOff.current.copy(csm.position).sub(lm.position)
     } else {
-      csm.position.copy(lunar.csm.r)
-      // 離れたあとも、向きはそのまま
+      // 離れたあと：司令船の軌道（着陸船の中心から始まる）に、つながっていたときのずれを足す。
+      // 足さないと、切り離した瞬間に司令船が着陸船の中心へ飛んで、めり込む
+      csm.position.copy(lunar.csm.r).add(dockOff.current)
+      // 向きはそのまま
     }
     csm.visible = phase !== 'descent' || (lunar.desc !== null && lunar.desc.t < -60)
     // 炎（真空なので、ほとんど見えない。ノズルの口のまわりがうっすら光るくらい）
@@ -702,6 +749,14 @@ function Lights() {
 
 // ---- カメラ ---------------------------------------------------------------------------------
 
+// 地球の入り・出のころだけ 1。前後 3 秒でなめらかに切りかわる
+function earthShot(t: number, at: number | null, before: number, after: number) {
+  if (at == null) return 0
+  const a = THREE.MathUtils.smoothstep(t, at - before - 3, at - before)
+  const b = 1 - THREE.MathUtils.smoothstep(t, at + after, at + after + 3)
+  return Math.min(a, b)
+}
+
 function CameraRig({ craft, cabin: lmc }: { craft: Craft; cabin: LmCabin }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const state = useMemo(() => ({ pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), init: false, groundCam: new THREE.Vector3(), phase: '' }), [])
@@ -765,6 +820,18 @@ function CameraRig({ craft, cabin: lmc }: { craft: Craft; cabin: LmCabin }) {
         want.copy(s.r).addScaledVector(v, -34).addScaledVector(r, 11).addScaledVector(_z.crossVectors(v, r), 9)
         look.copy(s.r).addScaledVector(v, 18).addScaledVector(r, -6)
         fov = 50
+        // 地球が月のかげに沈むとき（通信が切れる）と、また昇るとき：船のうしろから、望遠で地球と月の地平線を見る
+        const c = lunar.clocks
+        const rise = s.burnEnd !== null ? c?.aosBurn : c?.aosNoBurn
+        const w = Math.max(earthShot(s.t, c?.los ?? null, 26, 6), earthShot(s.t, rise ?? null, 8, 30))
+        if (w > 0) {
+          const e = _a.copy(EARTH_POS).sub(s.r).normalize()
+          const eye = _b.copy(s.r).addScaledVector(e, -26).addScaledVector(r, 9)
+          want.lerp(eye, w)
+          // 地球は画面の下寄り（まん中は字幕が出る）：少し上をねらう
+          look.lerp(eye.addScaledVector(e, 400).addScaledVector(r, 9), w)
+          fov = THREE.MathUtils.lerp(fov, 7, w)
+        }
       }
       up.copy(r)
     } else if (lunar.desc) {

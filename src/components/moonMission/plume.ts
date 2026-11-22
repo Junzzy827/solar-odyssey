@@ -84,7 +84,8 @@ export function plumeMaterial(look: PlumeLook) {
 
 /** 炎の形：長さ 1、口の半径 1、先へ向かって -Y に伸びる円すい（呼ぶ側で大きさを決める） */
 export function plumeGeometry() {
-  const g = new THREE.CylinderGeometry(1, 1.25, 1, 28, 24, true)
+  // 縦の分け目が少ないと、広がり方の曲線が折れ線になって、炎に段が見えた
+  const g = new THREE.CylinderGeometry(1, 1.25, 1, 40, 64, true)
   g.translate(0, -0.5, 0)
   return g
 }

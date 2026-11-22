@@ -19,6 +19,23 @@
 .ac-card.raised {
   bottom: 112px;
 }
+/* 地球を回るあいだ、まん中下に「月への窓」が出たら、その上へ */
+.ac-card.high {
+  bottom: 175px;
+}
+/* 広い画面では「月への窓」と横にならぶので、上げなくていい */
+@media (min-width: 1300px) {
+  .ac-card.high {
+    bottom: 22px;
+  }
+}
+/* 背の低い画面では、上げると左上の計器に重なる。細くして「月への窓」の左におさめる */
+@media (max-height: 640px) and (min-width: 701px) and (max-width: 1299px) {
+  .ac-card.high {
+    bottom: 22px;
+    width: min(340px, calc(50vw - 240px));
+  }
+}
 @keyframes ac-in {
   from {
     opacity: 0;
@@ -237,8 +254,58 @@
   .ac-card.raised {
     bottom: 100px;
   }
+  .ac-card.high {
+    bottom: 150px;
+  }
   .ac-bells {
     width: 70px;
     height: 70px;
   }
+}
+
+/* 軌道の図 */
+.ac-earth {
+  fill: #3d7fc4;
+}
+.ac-night {
+  fill: rgba(4, 8, 18, 0.78);
+}
+.ac-sun {
+  fill: #ffe08a;
+  filter: drop-shadow(0 0 4px #ffd060);
+}
+.ac-ring {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.4;
+}
+.ac-window {
+  fill: none;
+  stroke: #7ee0a0;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.ac-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: #7ee0a0;
+  vertical-align: middle;
+}
+.ac-moon {
+  stroke: #e6e0cc;
+  stroke-width: 1.4;
+  stroke-dasharray: 4 3;
+}
+.ac-moon-head {
+  fill: #e6e0cc;
+}
+.ac-label.moon {
+  fill: #f0ead6;
+}
+.ac-warn {
+  font-size: 11px;
+  color: #ffb070;
+  font-weight: 700;
 }

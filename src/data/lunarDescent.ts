@@ -441,9 +441,13 @@ export function ignitePdi(d: Descent) {
   return true
 }
 
-/** 手動（P66）に切り替える。接近のあいだ、いつでも */
+/** 手で操縦に切り替えられる高さ（m）。これより高いと横の速さが大きすぎて（高さ 2 km で 140 m/s）、手では止めきれない。本物も 100〜150 m で切り替えた */
+export const MANUAL_ALT = 300
+
+/** 手動（P66）に切り替える。接近のあいだは、高さ MANUAL_ALT から下で */
 export function takeOver(d: Descent) {
   if (d.mode !== 'approach' && d.mode !== 'terminal') return false
+  if (d.mode === 'approach' && d.alt > MANUAL_ALT) return false
   d.mode = 'terminal'
   d.manual = true
   d.auto = false

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { playRadio, preloadRadio, stopRadio } from '../audio/radio'
-import { stopMusic } from '../audio/missionMusic'
+import { playMusic, stopMusic } from '../audio/missionMusic'
 import { playStatic } from '../audio/sfx'
 import * as THREE from 'three'
 import {
@@ -37,7 +37,7 @@ import { beginApolloEva } from './apolloEva'
 // 物理は data/lunarDescent.ts。時間は場面ごとに早送りする（warp）。
 
 /** 3 日の旅を見せる時間（画面の秒） */
-export const COAST_TIME = 20
+export const COAST_TIME = 14
 /** LOI の窓（近月点の時刻 = 0 から、手本の LOI_IDEAL の前後）。窓の終わりで自動で点火 */
 export const LOI_OPEN = LOI_IDEAL - 70
 export const LOI_CLOSE = LOI_IDEAL + 40
@@ -89,6 +89,11 @@ export const lunar = {
   coast: 0,
   /** 地球が月に隠れている（通信が切れている） */
   los: false,
+  /**
+   * 管制室の 2 つの時計（物理の秒）：地球が隠れる時刻、ブレーキが成功したら地球がまた見える時刻、ブレーキしなかったら見える時刻。
+   * 本物の管制室も、月の裏から出てくる時刻で成功か失敗かを知った
+   */
+  clocks: null as null | { los: number | null; aosBurn: number | null; aosNoBurn: number | null },
   input: emptyInput(),
   /** 出来事（場面の部品が読む） */
   events: [] as DescentEvent[],
@@ -111,6 +116,7 @@ export function startLunar() {
   lunar.legs = 0
   lunar.coast = 0
   lunar.los = false
+  lunar.clocks = predictClocks(lunar.stack)
   lunar.input = emptyInput()
   lunar.events = []
   useMoonLunar.setState({ loiTiming: null, pdiTiming: null, interlude: null, stars: 0, ready: !!lunarMaps() })
@@ -130,6 +136,32 @@ export function lunarGo() {
     if (d.mode === 'coast' && d.t >= PDI_EARLY) beginPdi()
     else if (d.mode === 'approach' || (d.mode === 'terminal' && !d.manual)) manual()
   }
+}
+
+/** 今の状態から、地球が隠れる・見える時刻を先読みする（burnAt：その時刻にブレーキを始めたことにする。null ならブレーキしない） */
+function predictSight(s0: Stack, burnAt: number | null) {
+  const c: Stack = { ...s0, r: s0.r.clone(), v: s0.v.clone() }
+  let hid = earthHidden(c.r)
+  let los: number | null = hid ? c.t : null
+  let guard = 0
+  while (guard++ < 6000 && c.t < s0.t + 14_000) {
+    if (burnAt !== null && !c.burning && c.burnEnd === null && c.t >= burnAt) {
+      c.burning = true
+      c.burnStart = c.t
+    }
+    stepStack(c, c.burning ? 2 : 10)
+    const h = earthHidden(c.r)
+    if (h && !hid) los = c.t
+    if (!h && hid && los !== null) return { los, aos: c.t }
+    hid = h
+  }
+  return { los, aos: null }
+}
+
+function predictClocks(s: Stack) {
+  const yes = predictSight(s, LOI_IDEAL)
+  const no = predictSight(s, null)
+  return { los: no.los, aosBurn: yes.aos, aosNoBurn: no.aos }
 }
 
 function beginLoi() {
@@ -223,11 +255,16 @@ function warpFor(phase: string) {
   if (useMoonLunar.getState().realTime && (phase === 'descent' || phase === 'loi')) return 1
   if (phase === 'loi') {
     const s = lunar.stack
-    if (s.burning) return 8
-    if (s.burnEnd !== null) return 20
-    if (s.t < -2600) return 220
-    if (s.t < -1300) return 90
-    if (s.t < LOI_OPEN - 40) return 25
+    const c = lunar.clocks
+    if (s.burning) return 12
+    // 地球が月の向こうに沈む・昇るところは、ゆっくり見せる
+    const near = (at: number | null | undefined, before: number, after: number) => at != null && s.t > at - before && s.t < at + after
+    if (s.burnEnd !== null) return near(c?.aosBurn, 40, 40) ? 4 : 40
+    if (near(c?.los, 30, 30)) return 4
+    if (s.t < -2600) return 400
+    if (s.t < -1300) return 160
+    if (s.t < LOI_OPEN - 60) return 50
+    if (s.t < LOI_OPEN) return 6
     return 3
   }
   const d = lunar.desc
@@ -235,14 +272,15 @@ function warpFor(phase: string) {
   if (phase === 'undock') {
     const since = d.t + UNDOCK_BEFORE
     if (since < 26) return 1
-    return d.t < PDI_EARLY - 60 ? 18 : 4
+    return d.t < PDI_EARLY - 60 ? 30 : 8
   }
   if (phase === 'descent') {
-    if (d.mode === 'coast') return 1
+    // 降下の窓：初めは少し早送りして、手本の時刻（0）が近づいたら等速（タイミングを合わせやすく）
+    if (d.mode === 'coast') return d.t < PDI_IDEAL - 14 ? 2 : 1
     const pdi = d.t - (d.pdiAt ?? d.t)
     if (d.mode === 'braking') {
       if (pdi < 20) return 1
-      return d.tgo < 40 ? 2 : 9
+      return d.tgo < 40 ? 2 : 12
     }
     if (d.mode === 'approach') return 1.3
     return 1
@@ -311,13 +349,23 @@ export function tickLunar(dt: number) {
       if (hid) {
         stopRadio()
         stopMusic(2.5)
-      } else if (s.burnEnd !== null) setTimeout(() => playRadio('aos'), 700)
+      } else if (s.burnEnd !== null) {
+        // 月の裏から出て、地球が昇る：木星の賛歌と、本物の交信
+        playMusic('jupiterHymn')
+        setTimeout(() => playRadio('aos'), 2500)
+      }
     }
     if (before < LOI_OPEN && s.t >= LOI_OPEN) setCaption('loiWindow')
     if (!s.burning && s.burnEnd === null && s.t >= LOI_CLOSE) beginLoi()
-    if (ev === 'loiCutoff') setCaption('loiCutoff')
-    // 減速が終わって少ししたら、「12 周後」へ
-    if (s.burnEnd !== null && s.t - s.burnEnd > 280 && !L.interlude) {
+    if (ev === 'loiCutoff') {
+      setCaption('loiCutoff')
+      // 実際にブレーキした軌道で、地球が見える時刻を先読みし直す
+      if (lunar.clocks) lunar.clocks.aosBurn = predictSight(s, null).aos
+    }
+    // 減速が終わって、地球が昇るのを見てから、「12 周後」へ（地球が見えない軌道なら、少し待って）
+    const aos = lunar.clocks?.aosBurn
+    const done = aos != null ? s.t > aos + 40 : s.burnEnd !== null && s.t - s.burnEnd > 280
+    if (s.burnEnd !== null && done && !L.interlude) {
       useMoonLunar.setState({ interlude: { key: 'undock', at: missionNow() } })
       window.setTimeout(() => beginUndock(), 900)
     }
@@ -405,12 +453,12 @@ export function stepOutside() {
   window.setTimeout(() => beginApolloEva(), MISSION_FADE * 1000 + 120)
 }
 
-/** 着陸船が司令船から離れる：司令船は少し上（月から離れる向き）へ */
+/** 着陸船が司令船から離れる：まず、つながっていた軸（着陸船のてっぺんの向き d.dir）に沿ってまっすぐ後ろへ。上（月から離れる向き）へは少しだけ */
 function separate() {
   const d = lunar.desc!
   lunar.sepAt = d.t
   lunar.csm.r.copy(d.r)
-  lunar.csm.v.copy(d.v).addScaledVector(_c.copy(d.r).normalize(), 0.35).addScaledVector(_e.copy(d.v).normalize(), -0.15)
+  lunar.csm.v.copy(d.v).addScaledVector(d.dir, 0.4).addScaledVector(_c.copy(d.r).normalize(), 0.08)
   setCaption('separation')
 }
 
@@ -460,6 +508,9 @@ export function lunarReadout() {
       toFwd: to.fwd,
       toRight: to.right,
       toDist: to.dist,
+      // 押している向き（十字の計器のふちの矢印を光らせる）
+      inFwd: lunar.input.fwd,
+      inRight: lunar.input.right,
       fuel: d.prop / LM_PROP,
       hover: Math.max(0, d.hover - BINGO),
       throttle: d.throttle,
@@ -484,6 +535,14 @@ export function lunarReadout() {
     burnEnd: s.burnEnd,
     warp: lunar.warp,
     los: lunar.los,
+    clocks: lunar.clocks,
+    // 軌道の面の上の位置と速さ（月を真上から見た図）
+    x: s.r.dot(plane.P),
+    y: s.r.dot(plane.Q),
+    vx: s.v.dot(plane.P),
+    vy: s.v.dot(plane.Q),
+    ex: EARTH.dot(plane.P),
+    ey: EARTH.dot(plane.Q),
   }
 }
 

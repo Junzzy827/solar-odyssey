@@ -91,9 +91,10 @@ const OCTAVES: [number, number][] = [
   [350, 10],
   [120, 3],
 ]
-function detail(x: number, y: number, z: number, upTo: number) {
+function detail(x: number, y: number, z: number, upTo: number, maxWave = Infinity) {
   let h = 0
   for (const [wave, amp] of OCTAVES) {
+    if (wave > maxWave) continue
     if (wave < upTo) break
     const k = MOON_R / wave
     const n = noise(x * k, y * k, z * k)
@@ -114,10 +115,11 @@ const CRATER_CELLS: [number, number][] = [
   [500, 0.7],
   [160, 0.7],
 ]
-function craters(x: number, y: number, z: number, minWave: number) {
+function craters(x: number, y: number, z: number, minWave: number, maxCell = Infinity) {
   let h = 0
   for (let s = 0; s < CRATER_CELLS.length; s++) {
     const [cell, chance] = CRATER_CELLS[s]
+    if (cell > maxCell) continue
     if (cell * 0.5 < minWave) break
     const k = MOON_R / cell
     const px = x * k
@@ -143,6 +145,14 @@ function craters(x: number, y: number, z: number, minWave: number) {
     h += c
   }
   return h
+}
+
+/**
+ * 細かい起伏だけ（決まった乱数）：本物の地図が maxWave（m）までの起伏を持っている所で、それより細かいぶんを足す。
+ * 升目 maxWave より大きなクレーターと、波長 maxWave より長い起伏は足さない
+ */
+export function fineRelief(x: number, y: number, z: number, minWave: number, maxWave: number) {
+  return detail(x, y, z, minWave, maxWave) + craters(x, y, z, minWave, maxWave)
 }
 
 /** その向き（単位ベクトル）の地面の高さ（月の球から、m）。minWave より小さな起伏は足さない（遠いかけら用） */
