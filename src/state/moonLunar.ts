@@ -302,9 +302,9 @@ function warpFor(phase: string) {
       if (pdi < 20) return 1
       return d.tgo < 40 ? 4 : d.tgo < 90 ? 12 : 24
     }
-    if (d.mode === 'approach') return 2
-    // 最後の降下：おまかせは高さ 30 m まで 2 倍、手で操縦するときは 60 m まで 1.5 倍
-    if (d.mode === 'terminal') return d.manual ? (d.alt > 60 ? 1.5 : 1) : d.alt > 30 ? 2 : 1
+    if (d.mode === 'approach') return 3
+    // 最後の降下：高さ 60 m までは 2 倍（おまかせは 2.5 倍）、20 m までは 1.5 倍。接地のまぎわだけ等速
+    if (d.mode === 'terminal') return d.alt > 60 ? (d.manual ? 2 : 2.5) : d.alt > 20 ? 1.5 : 1
     return 1
   }
   return 1

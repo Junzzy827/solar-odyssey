@@ -4,7 +4,7 @@ import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { loadCatalog } from '../Sky'
 import { currentLevel, lowMemory } from '../../state/quality'
-import { useMoonMission } from '../../state/moonMission'
+import { autoCam, useMoonMission, type MissionCam } from '../../state/moonMission'
 import { COAST_TIME, CMSEP_TIME, CORRIDOR_TIME, TEI_BURN, TEI_WARP, ret, tickReturn, useMoonReturn, type ReturnStep } from '../../state/moonReturn'
 import { EARTH_MOON, coastDistance } from '../../data/apolloTimeline'
 import { EI_ALT, RE } from '../../data/reentry'
@@ -301,6 +301,7 @@ function Scene() {
     const time = state.clock.elapsedTime
     const ms = useMoonMission.getState()
     const step = useMoonReturn.getState().step
+    returnCuts(step, dt)
     const t = ret.t
     const lunar = lunarStep(step)
     const e = ret.e
@@ -755,6 +756,43 @@ export function ReturnWorld() {
       <Scene />
     </>
   )
+}
+
+/**
+ * 帰り道のカメラを 10 秒ごとに切りかえる（8 秒ルール：同じ絵が長く続かないように）。
+ * 場面がかわったら、うしろから（その場面のいちばんわかりやすい絵）。自分でカメラを選んだら（camLocked）、切りかえない
+ */
+const RETURN_CUTS: Partial<Record<ReturnStep, MissionCam[]>> = {
+  rdv: ['chase', 'window', 'wide'],
+  docked: ['chase', 'window', 'wide'],
+  lmGone: ['chase', 'wide', 'window'],
+  teiWait: ['chase', 'wide'],
+  tei: ['chase', 'wide', 'window'],
+  coast: ['chase', 'wide', 'window'],
+  cmSep: ['chase', 'wide'],
+  corridor: ['chase', 'wide', 'window'],
+  entry: ['chase', 'window', 'wide'],
+  chutes: ['chase', 'window', 'wide'],
+  splash: ['chase', 'wide'],
+  end: ['wide', 'chase'],
+}
+const rcuts = { t: 0, i: 0, step: '' as string }
+function returnCuts(step: ReturnStep, dt: number) {
+  const ms = useMoonMission.getState()
+  const list = RETURN_CUTS[step]
+  if (step !== rcuts.step) {
+    rcuts.step = step
+    rcuts.t = 0
+    rcuts.i = 0
+    if (list && ms.phase === 'home') autoCam(list[0])
+    return
+  }
+  if (!list || ms.camLocked || ms.phase !== 'home') return
+  rcuts.t += dt
+  if (rcuts.t < 10) return
+  rcuts.t = 0
+  rcuts.i = (rcuts.i + 1) % list.length
+  autoCam(list[rcuts.i])
 }
 
 useGLTF.preload(APOLLO_URL)

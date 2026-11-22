@@ -474,8 +474,11 @@ export function cloneDescent(d: Descent): Descent {
   }
 }
 
-/** 自動の降りる速さ（m/s、下が -）：高さに合わせて、だんだんゆっくり。地面の近くで 0.9 m/s */
-const sinkFor = (alt: number) => -THREE.MathUtils.clamp(0.9 + alt * 0.028, 0.9, 5)
+/**
+ * 自動の降りる速さ（m/s、下が -）：高さに合わせて、だんだんゆっくり。地面の近くで 1 m/s（本物の接地も 1 m/s ほど）。
+ * 高いところではもう少し速く降りる（300 m から 90 秒かかって退屈だった。junji 2026-11-23）
+ */
+const sinkFor = (alt: number) => -THREE.MathUtils.clamp(1.0 + alt * 0.045, 1.0, 5.5)
 
 const MAX_TILT = THREE.MathUtils.degToRad(35)
 /** 機体が向きを変えられる速さ（rad/s） */
@@ -684,11 +687,11 @@ function terminalAccel(d: Descent, input: DescentInput, out: THREE.Vector3) {
   if (d.manual) {
     // 押した向きへ「横の速さ」を指示する（離すと、機体が自分で横の動きを止める）。
     // 押した分だけ傾き続ける操縦（本物の P66 に近い）は、ちょっと押すだけで行き過ぎて止められなかった（junji 2026-11-23）。
-    // 速さの上限は高さで小さく：着く前は 1 m/s ほど
+    // 速さの上限は高さで小さく：着く前は 0.5 m/s ほど（脚が横すべりしない）
     const { down, right } = aimFrame(d)
     _tmp.copy(down).multiplyScalar(input.fwd).addScaledVector(right, input.right)
     if (_tmp.lengthSq() > 1) _tmp.normalize()
-    const vmax = THREE.MathUtils.clamp(0.6 + d.alt * 0.07, 0.6, 10)
+    const vmax = THREE.MathUtils.clamp(0.3 + d.alt * 0.075, 0.3, 10)
     const ah = _tmp.multiplyScalar(vmax).sub(vh).multiplyScalar(0.7)
     if (ah.length() > 1.4) ah.setLength(1.4)
     out.add(ah)

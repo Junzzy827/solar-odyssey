@@ -975,33 +975,47 @@ export function LunarWorld() {
 }
 
 /**
- * 月の裏でブレーキ（章6）と、降下の制動（章7）のあいだ、おまかせでは 11 秒ごとにカメラを切りかえる（8 秒ルール：同じ絵が長く続かないように）。
- * うしろから → 遠くから（月を背に小さく） → 船長の窓（月面が流れる）。エンジンに火が入った瞬間は、炎の見えるうしろから。
+ * おまかせでは 11 秒ごとにカメラを切りかえる（8 秒ルール：同じ絵が長く続かないように）。
+ * 月の裏でブレーキ（章6）：うしろから → 遠くから（月を背に小さく） → 船長の窓（月面が流れる）。エンジンに火が入った瞬間は、炎の見えるうしろから。
+ * 章7：切り離し（等速のところ）と制動はうしろ ↔ 遠く（制動のあいだは窓が空を向いているので窓は使わない）。
+ * 接近（ピッチオーバーから）は船長の窓を主に、ときどきうしろから。手動にしたら切りかえない。
  * 自分でカメラを選んだら（camLocked）、切りかえない
  */
-const cuts = { t: 0, i: 0, burning: false }
-const LOI_CUTS: MissionCam[] = ['chase', 'wide', 'window']
-const BRAKE_CUTS: MissionCam[] = ['chase', 'wide']
+const cuts = { t: 0, i: 0, burning: false, mode: '' }
+const CUTS: Record<string, MissionCam[]> = {
+  loi: ['chase', 'wide', 'window'],
+  undock: ['chase', 'wide'],
+  brake: ['chase', 'wide'],
+  approach: ['window', 'chase'],
+}
+function cutMode() {
+  const s = useMoonMission.getState()
+  if (s.phase === 'loi') return 'loi'
+  const d = lunar.desc
+  if (!d) return ''
+  if (s.phase === 'undock') return 'undock'
+  if (s.phase !== 'descent' || d.manual) return ''
+  return d.mode === 'braking' ? 'brake' : d.mode === 'approach' ? 'approach' : ''
+}
 function loiCuts(dt: number) {
   const s = useMoonMission.getState()
-  // 降下の制動（PDI からピッチオーバーまで）も同じように切りかえる。ピッチオーバーからは船長の窓（本物の眺め）のまま
-  const braking = s.phase === 'descent' && lunar.desc?.mode === 'braking'
-  if (s.phase !== 'loi' && !braking) {
+  const mode = cutMode()
+  if (mode !== cuts.mode) {
+    // 場面がかわったら、その場面の最初のカメラから（そのカメラは場面の側で選ばれている）
+    cuts.mode = mode
     cuts.t = 0
     cuts.i = 0
     cuts.burning = false
-    return
   }
-  if (!s.auto || s.camLocked) return
-  const burning = s.phase === 'loi' && !!lunar.stack?.burning
+  if (!mode || !s.auto || s.camLocked) return
+  const burning = mode === 'loi' && !!lunar.stack?.burning
   cuts.t += dt
   if (burning && !cuts.burning) {
     cuts.i = 0
     cuts.t = 0
     autoCam('chase')
-  } else if (cuts.t >= 11) {
-    // 制動のあいだの着陸船は窓が上（空）を向いているので、窓のカメラは使わない
-    const list = braking ? BRAKE_CUTS : LOI_CUTS
+  } else if (cuts.t >= (mode === 'approach' && cuts.i === 0 ? 14 : 11)) {
+    const list = CUTS[mode]
     cuts.t = 0
     cuts.i = (cuts.i + 1) % list.length
     autoCam(list[cuts.i])
