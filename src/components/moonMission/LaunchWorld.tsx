@@ -170,9 +170,12 @@ export function LaunchWorld() {
     const f1 = encodeOutput(plumeMaterial({ core: '#ffffff', edge: '#ffe2b0', soft: 0.9 }))
     // 本物の上昇の写真（as17-534）：根元は白から少し青白く、先は黄色からオレンジへ
     const big = encodeOutput(plumeMaterial({ core: '#f3f2ff', edge: '#ffd596', soft: 1.2 }))
-    const j2 = encodeOutput(plumeMaterial({ core: '#d8dcff', edge: '#6a64b8', soft: 1.8 }))
+    // 本物の J-2 の炎はほとんど透明。見ごたえのために、青白くはっきり見えるように誇張する（junji 2026-11-22「地味な時間が続く」）
+    const j2 = encodeOutput(plumeMaterial({ core: '#f2f4ff', edge: '#9aa6ff', soft: 1.3 }))
+    // 炎の先へ長く伸びる、うっすら光る噴射の筋
+    const j2Trail = encodeOutput(plumeMaterial({ core: '#c9d2ff', edge: '#5560c8', soft: 2.2 }))
     const les = encodeOutput(plumeMaterial({ core: '#fff0c0', edge: '#ff8a30', soft: 1.0 }))
-    return { geo, f1, big, j2, les }
+    return { geo, f1, big, j2, j2Trail, les }
   }, [])
   const cabin = useMemo(() => buildCabin(), [])
   useEffect(() => () => cabin.dispose(), [cabin])
@@ -213,6 +216,18 @@ export function LaunchWorld() {
   const daySun = useRef<THREE.DirectionalLight>(null)
   const workLight = useRef<THREE.PointLight>(null)
   const towerFill = useRef<THREE.PointLight>(null)
+  const j2Trail = useRef<THREE.Mesh>(null)
+  // 第2段・第3段のエンジンの口の白い輝き
+  const nozzleGlow = useMemo(() => {
+    const m = new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(0.78, 0.84, 1), depthWrite: false, transparent: true, blending: THREE.AdditiveBlending, opacity: 0 })
+    const sp = new THREE.Sprite(m)
+    sp.visible = false
+    return sp
+  }, [])
+  useEffect(() => () => nozzleGlow.material.dispose(), [nozzleGlow])
+  // 炎と、炎に照らされた煙の光：真下の点の明かりだけでは、まっすぐ立った機体の側面はほとんど照らされないので、
+  // カメラの側の斜め下（炎のかたまりと光る煙のあたり）からも照らす（少し誇張。junji 2026-11-22「機体を明るく」）
+  const plumeFill = useRef<THREE.PointLight>(null)
   // 切り離しの光：夜の打ち上げなので、離れていく第1段を照らすのは、逆噴射ロケットと第2段の炎の光だけ
   const sepLight = useRef<THREE.PointLight>(null)
   // 炎に照らされた空気の光：大気の中では、炎のまわりの空が黄色っぽく明るく光る（写真では画面じゅうがほんのり黄色い）
@@ -460,19 +475,39 @@ export function LaunchWorld() {
     plumes.big.uniforms.uExpand.value = expand * 2.2
     const s2On = a.stage === 1 && a.thrust > 0
     if (s2On && stageFx.s2At < 0) stageFx.s2At = a.t
-    // J-2 は 2 秒ほどかけて推力が上がる。真空の中の炎はほとんど透明で、うすい青紫にかすかに見えるだけ
+    // J-2 は 2 秒ほどかけて推力が上がる（本物の炎はほとんど透明。ここでは誇張して青白く見せる）
     const s2Ramp = s2On ? THREE.MathUtils.smoothstep(a.t - stageFx.s2At, 0, 2.2) : 0
     const s3On = a.stage === 2 && a.thrust > 0
     if (j2s.current) {
       j2s.current.visible = s2On
-      j2s.current.children.forEach((c) => c.scale.set(1.05, 18 + 50 * expand, 1.05))
+      j2s.current.children.forEach((c) => c.scale.set(1.1, 30 + 60 * expand, 1.1))
     }
     if (j3.current) {
       j3.current.visible = s3On
-      j3.current.scale.set(1.1, 20 + 50 * expand, 1.1)
+      j3.current.scale.set(1.15, 30 + 60 * expand, 1.15)
     }
     plumes.j2.uniforms.uTime.value = t
-    plumes.j2.uniforms.uPower.value = 0.22 * (a.stage === 1 ? s2Ramp : 1)
+    const upperOn = a.stage === 1 ? s2Ramp : s3On ? 1 : 0
+    plumes.j2.uniforms.uPower.value = 0.8 * upperOn
+    plumes.j2Trail.uniforms.uTime.value = t
+    plumes.j2Trail.uniforms.uPower.value = 0.2 * upperOn
+    plumes.j2Trail.uniforms.uExpand.value = expand * 1.2
+    {
+      const base = a.stage === 1 ? 46.6 : 66.6
+      const on = (s2On || s3On) && upperOn > 0
+      if (j2Trail.current) {
+        j2Trail.current.visible = on
+        j2Trail.current.position.set(0, base, 0)
+        const w = a.stage === 1 ? 5.5 : 2.2
+        j2Trail.current.scale.set(w, 220, w)
+      }
+      nozzleGlow.visible = on
+      nozzleGlow.position.set(0, base - 1.5, 0)
+      nozzleGlow.scale.setScalar(a.stage === 1 ? 17 : 8)
+      // 機体カメラのようにすぐ近くからだと画面いっぱいの白いかたまりになるので、近いほど弱く
+      const near = THREE.MathUtils.clamp(_v3.copy(nozzleGlow.position).applyQuaternion(rocketG.current ? rocketG.current.quaternion : _q.identity()).distanceTo(camera.position) / 160, 0.12, 1)
+      nozzleGlow.material.opacity = 0.75 * upperOn * near * (0.92 + 0.08 * Math.sin(t * 31))
+    }
     if (sepLight.current) {
       const s1 = debris.current.find((d) => d.name === 'S1')
       const age = s1 ? a.t - stageFx.t0 : 1e9
@@ -503,6 +538,18 @@ export function LaunchWorld() {
       flameLight.current.intensity = (s1On > 0 ? 1.0e6 * (0.85 + 0.15 * Math.sin(t * 37)) : 0) * (0.25 + 0.75 * ignite.current)
       // 地上にいるあいだは、炎は溝の中を南北へ流れるので、明かりを低く置く（甲板の穴の壁が白く飛ばないように）
       flameLight.current.position.set(0, h < 200 ? -25 - 30 * (1 - h / 200) : -25, 0)
+    }
+    if (plumeFill.current) {
+      // カメラの向き（機体の軸に直角な成分）へ 45 m、炎の 30 m 下（ロケットの組の中なので、機体の座標で。機首 = +y）
+      _v.copy(camera.position)
+      if (rocketG.current) _v.applyQuaternion(_q.copy(rocketG.current.quaternion).invert())
+      _v.y = 0
+      if (_v.lengthSq() < 1) _v.set(0, 0, 1)
+      _v.normalize()
+      plumeFill.current.position.set(0, -30, 0).addScaledVector(_v, 45)
+      // 空気の濃い所では光る煙が広く照らす。宇宙に近づくと炎だけになって弱まる
+      const air = 0.45 + 0.55 * Math.exp(-h / 12_000)
+      plumeFill.current.intensity = s1On > 0 ? 3.2e5 * air * (0.9 + 0.1 * Math.sin(t * 23)) * (0.2 + 0.8 * ignite.current) : 0
     }
     lights.group.visible = h < 20_000
     // 光の柱：点火の炎がまぶしいあいだは、目がくらんで薄く見える（作業5で露出と合わせる）
@@ -690,6 +737,7 @@ export function LaunchWorld() {
     if (parts.byName.CSM) parts.byName.CSM.visible = !inside
     if (inside) {
       if (flameLight.current) flameLight.current.intensity = 0
+      if (plumeFill.current) plumeFill.current.intensity = 0
       if (fill.current) fill.current.intensity = 0
     }
     lights.setInside(inside)
@@ -775,6 +823,7 @@ export function LaunchWorld() {
         <pointLight ref={flameLight} color="#ffc88e" intensity={0} distance={0} decay={2} />
         <pointLight ref={workLight} color="#ffe6c4" intensity={0} distance={0} decay={2} />
         <pointLight ref={towerFill} color="#fff1dc" intensity={0} distance={0} decay={2} />
+        <pointLight ref={plumeFill} color="#ffdcb0" intensity={0} distance={0} decay={2} />
         <group ref={f1} position={[0, 0.2, 0]}>
           {[
             [0, 0],
@@ -801,6 +850,8 @@ export function LaunchWorld() {
           ))}
         </group>
         <mesh ref={j3} geometry={plumes.geo} material={plumes.j2} position={[0, 66.6, 0]} visible={false} />
+        <mesh ref={j2Trail} geometry={plumes.geo} material={plumes.j2Trail} visible={false} />
+        <primitive object={nozzleGlow} />
       </group>
       <mesh ref={lesFlame} geometry={plumes.geo} material={plumes.les} visible={false} />
       <group ref={debrisG} />
