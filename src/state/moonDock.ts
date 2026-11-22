@@ -127,7 +127,7 @@ export function startDock() {
   preloadRadio('hardDock')
   preloadRadio('ejection')
   preloadRadio('earthView')
-  preloadMusic('jupiterHymn')
+  preloadMusic('jupiterOpening')
   stopRadio()
   stopMusic(1)
   Object.assign(dock, { t: 0, gap: 30, vz: 0, x: 0, y: 0, vx: 0, vy: 0, out: 0, auto: false, shoot: false })
@@ -140,14 +140,14 @@ export function startDock() {
 /** 章4 を始める */
 export function startMarble() {
   preloadRadio('earthView')
-  preloadMusic('jupiterHymn')
+  preloadMusic('jupiterOpening')
   stopRadio()
   Object.assign(dock, { t: 0, gap: -0.3, out: 30, aimYaw: -14, aimPitch: 9, shoot: false, drift: 0 })
   dock.input = { x: 0, y: 0, z: 0 }
   useMoonDock.setState({ step: 'aim', since: missionNow(), photo: null, photoStars: 0 })
   useMoonMission.setState({ phase: 'marble', since: missionNow(), cam: 'window', camLocked: false, auto: false, caption: null })
   setCaption('marble')
-  playMusic('jupiterHymn')
+  playMusic('jupiterOpening')
   window.setTimeout(() => useMoonMission.getState().phase === 'marble' && playRadio('earthView'), 6000)
 }
 

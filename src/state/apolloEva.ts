@@ -74,7 +74,7 @@ export function startApolloEva() {
   preloadRadio('orange')
   preloadRadio('lastWords')
   preloadRadio('ascent')
-  preloadMusic('jupiterHymn')
+  preloadMusic('jupiterOpening')
   recallRover()
   launchRover(false, 'lrv')
 }
@@ -163,7 +163,7 @@ export function watchLiftoff() {
   useRover.setState({ view: 'chase' })
   // 秒読みの切り抜きの 6.8 秒が点火（LIFTOFF_AT）
   window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && playRadio('ascent'), 400)
-  window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && playMusic('jupiterHymn'), (LIFTOFF_AT + 9) * 1000)
+  window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && playMusic('jupiterOpening'), (LIFTOFF_AT + 9) * 1000)
   window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && set('done'), (LIFTOFF_AT + 26) * 1000)
 }
 

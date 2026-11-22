@@ -107,12 +107,16 @@ export function LaunchWorld() {
   const rocket = useGLTF(ROCKET_URL)
   const padGltf = useGLTF(PAD_URL)
   const small = lowMemory()
-  const [day, night, clouds, stars, moonTex] = useTexture([
-    `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
+  // 昼の地図：NASA Blue Marble Next Generation の 12 月（打ち上げと同じ季節。北半球は雪）。海は深い所を暗く、浅い所だけ明るく
+  const big = !small && currentLevel() !== 'low'
+  const [day, night, clouds, stars, moonTex, water] = useTexture([
+    big ? `${base}textures/earth/bm_dec_8k.jpg` : `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
     `${base}textures/${small ? '2k' : '4k'}_earth_nightmap.jpg`,
     `${base}textures/${small ? '2k' : '4k'}_earth_clouds.jpg`,
     `${base}textures/milky_way_glow.jpg`,
     `${base}textures/2k_moon.jpg`,
+    // 海と陸の境（Blue Marble から。海の照り返しに使う）
+    `${base}textures/earth/bm_water_4k.png`,
   ])
   useMemo(() => {
     for (const t of [day, night, stars, moonTex]) t.colorSpace = THREE.SRGBColorSpace
@@ -210,8 +214,11 @@ export function LaunchWorld() {
   }, [small])
   useEffect(() => () => smoke.dispose(), [smoke])
 
-  const earthMat = useMemo(() => encodeOutput(earthMaterial(day, night, clouds)), [day, night, clouds])
-  const atmoMat = useMemo(() => encodeOutput(atmosphereMaterial()), [])
+  // 大気は光の散乱を計算する（宇宙から見た地平線の層・かすみ・日の出の色）
+  // 画質が軽いときは、視線の上の点を減らす（地球が画面いっぱいになると、画素ごとの計算が重い）
+  const steps = small || currentLevel() === 'low' ? 8 : currentLevel() === 'medium' ? 12 : 16
+  const earthMat = useMemo(() => encodeOutput(earthMaterial(day, night, clouds, { scatter: true, steps, water })), [day, night, clouds, steps, water])
+  const atmoMat = useMemo(() => encodeOutput(atmosphereMaterial({ scatter: true, steps })), [steps])
   const padQ = useMemo(() => padQuaternion(), [])
 
   // 発射台のまわりの土地・投光器・空（作業ごとに別のファイル）
@@ -412,9 +419,13 @@ export function LaunchWorld() {
       earthMat.uniforms.uLights.value = THREE.MathUtils.smoothstep(h, 15_000, 250_000) * 0.85 + 0.15
       // 街の明かりの細かさ：上がってから、地球を回る高さまで（月へ向かって遠ざかると、地図のままで十分）
       earthMat.uniforms.uDetail.value = THREE.MathUtils.smoothstep(h, 8_000, 40_000) * (1 - THREE.MathUtils.smoothstep(h, 2_000_000, 6_000_000))
+      earthMat.uniforms.uCenter.value.copy(earthM.current.position)
+      earthMat.uniforms.uR.value = R_EARTH * earthM.current.scale.x
       atmoMat.uniforms.uSun.value.copy(SUN)
       atmoMat.uniforms.uCenter.value.copy(earthM.current.position)
       atmoMat.uniforms.uR.value = R_EARTH
+      // 地上の近くは、発射台の空（launchSky）が受け持つ。上がるにつれて、散乱で描く空へ
+      atmoMat.uniforms.uSky.value = THREE.MathUtils.smoothstep(h, 15_000, 45_000)
       // 大気光は、地上の空の明かりより上へ出てから（下では見上げても層の中で、ぼやけるだけ）
       atmoMat.uniforms.uGlow.value = THREE.MathUtils.smoothstep(h, 40_000, 110_000)
     }

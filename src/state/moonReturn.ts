@@ -118,7 +118,6 @@ const inHome = () => useMoonMission.getState().phase === 'home'
 export function startReturn() {
   stopRadio()
   stopMusic(1)
-  preloadMusic('jupiterHymn')
   preloadMusic('jupiterOpening')
   Object.assign(ret, { t: 0, gap: RDV_GAP, angle: EI_ANGLE, drift: 0, input: 0, auto: false, e: null, want: 1, heat: 0, char: 0, h: DROGUE_ALT, drogueAt: -1, mainAt: -1, splashT: 0, get: GET.lunarDock - 600 })
   useMoonReturn.setState({ step: 'rdv', since: missionNow(), angle: null, fail: null, peakG: 0, stars: 0, mains: false })

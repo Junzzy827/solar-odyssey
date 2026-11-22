@@ -350,8 +350,8 @@ export function tickLunar(dt: number) {
         stopRadio()
         stopMusic(2.5)
       } else if (s.burnEnd !== null) {
-        // 月の裏から出て、地球が昇る：木星の賛歌と、本物の交信
-        playMusic('jupiterHymn')
+        // 月の裏から出て、地球が昇る：音楽と、本物の交信（主旋律の賛歌は軌道の日の出の 1 回だけ）
+        playMusic('jupiterOpening')
         setTimeout(() => playRadio('aos'), 2500)
       }
     }
