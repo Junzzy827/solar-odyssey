@@ -438,15 +438,21 @@ function Sky() {
   const earthMat = useMemo(() => {
     day.colorSpace = THREE.SRGBColorSpace
     night.colorSpace = THREE.SRGBColorSpace
-    const m = earthMaterial(day, night, clouds)
+    // 大気は光の散乱で（地球の入り・出の望遠で、ふちの青い層と夕焼けの帯が見える）
+    const m = earthMaterial(day, night, clouds, { scatter: true, steps: 12 })
     m.uniforms.uSun.value.copy(SUN_DIR)
     m.uniforms.uLights.value = 1
     m.uniforms.uNear2.value = 1
+    m.uniforms.uCenter.value.copy(EARTH_POS)
+    m.uniforms.uR.value = EARTH_R
     return m
   }, [day, night, clouds])
   const atmo = useMemo(() => {
-    const m = atmosphereMaterial()
+    const m = atmosphereMaterial({ scatter: true, steps: 12 })
     m.uniforms.uSun.value.copy(SUN_DIR)
+    m.uniforms.uCenter.value.copy(EARTH_POS)
+    m.uniforms.uR.value = EARTH_R
+    m.uniforms.uSky.value = 1
     return m
   }, [])
   const sunMat = useMemo(() => new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(7, 6.6, 6), depthTest: true, depthWrite: false, toneMapped: false, transparent: true, blending: THREE.AdditiveBlending }), [])
@@ -476,7 +482,7 @@ function Sky() {
           <sphereGeometry args={[EARTH_R, 64, 40]} />
         </mesh>
         <mesh material={atmo}>
-          <sphereGeometry args={[EARTH_R + 90_000, 48, 32]} />
+          <sphereGeometry args={[EARTH_R + 100_000, 48, 32]} />
         </mesh>
       </group>
     </>

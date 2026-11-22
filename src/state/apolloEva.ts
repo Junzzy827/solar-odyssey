@@ -70,11 +70,10 @@ const set = (step: EvaStep, more: Partial<EvaState> = {}) => useApolloEva.setSta
 /** 章7 を始める（地表の場面に入ったあと） */
 export function startApolloEva() {
   set('board', { leg: 0, got: [], dist: 0, turn: 0 })
-  holdBgm(true)
+  holdBgm('eva', true)
   preloadRadio('orange')
   preloadRadio('lastWords')
   preloadRadio('ascent')
-  preloadMusic('jupiterHymn')
   recallRover()
   launchRover(false, 'lrv')
 }
@@ -84,7 +83,7 @@ export function endApolloEva() {
   if (!evaOn()) return
   stopRadio()
   stopMusic(1)
-  holdBgm(false)
+  holdBgm('eva', false)
   lrvTeleport.to = null
   useApolloEva.setState({ step: 'off' })
 }
@@ -163,7 +162,9 @@ export function watchLiftoff() {
   useRover.setState({ view: 'chase' })
   // 秒読みの切り抜きの 6.8 秒が点火（LIFTOFF_AT）
   window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && playRadio('ascent'), 400)
-  window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && playMusic('jupiterHymn'), (LIFTOFF_AT + 9) * 1000)
+  // 月を離れる：「月の光」（同じ曲は 2 度使わない。junji 2026-11-22）
+  preloadMusic('clairDeLune')
+  window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && playMusic('clairDeLune'), (LIFTOFF_AT + 9) * 1000)
   window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && set('done'), (LIFTOFF_AT + 26) * 1000)
 }
 

@@ -132,6 +132,20 @@ export const moonMissionJa = {
     speedOf: (v: number) => (v < 100 ? `秒速 ${v.toFixed(1)} m` : `秒速 ${(v / 1000).toFixed(2)} km`),
     date: (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
   },
+  nowPlaying: {
+    label: 'いま流れている曲',
+    cues: {
+      jupiterOpening: { title: '組曲「惑星」より「木星、快楽をもたらす者」', by: 'グスターヴ・ホルスト（イギリス）1916年' },
+      jupiterHymn: { title: '組曲「惑星」より「木星」の中間部', by: 'グスターヴ・ホルスト（イギリス）1916年' },
+      mars: { title: '組曲「惑星」より「火星、戦争をもたらす者」', by: 'グスターヴ・ホルスト（イギリス）1914年' },
+      saturn: { title: '組曲「惑星」より「土星、老いをもたらす者」', by: 'グスターヴ・ホルスト（イギリス）1915年' },
+      neptune: { title: '組曲「惑星」より「海王星、神秘の者」', by: 'グスターヴ・ホルスト（イギリス）1915年' },
+      blueDanube: { title: 'ワルツ「美しく青きドナウ」', by: 'ヨハン・シュトラウス2世（オーストリア）1866年' },
+      zarathustra: { title: '交響詩「ツァラトゥストラはかく語りき」より「日の出」', by: 'リヒャルト・シュトラウス（ドイツ）1896年 ・ 演奏 Kevin MacLeod（CC BY 3.0）' },
+      clairDeLune: { title: '「ベルガマスク組曲」より「月の光」', by: 'クロード・ドビュッシー（フランス）1905年' },
+      newWorld: { title: '交響曲第9番「新世界より」第2楽章', by: 'アントニン・ドヴォルザーク（チェコ）1893年' },
+    },
+  },
   radio: {
     source: '実際の交信音声（NASA）',
     who: { pao: 'ケネディ宇宙センターの実況', cdr: 'サーナン船長', capcom: 'ヒューストン（管制）', lmp: 'シュミット（着陸船パイロット）', cmp: 'エバンス（司令船パイロット）' },

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { playRadio, preloadRadio, stopRadio } from '../audio/radio'
-import { playMusic, stopMusic } from '../audio/missionMusic'
+import { playMusic, preloadMusic, stopMusic } from '../audio/missionMusic'
 import { playStatic } from '../audio/sfx'
 import * as THREE from 'three'
 import {
@@ -103,6 +103,8 @@ export const lunarPhase = (p: string) => p === 'coast' || p === 'loi' || p === '
 
 /** 第2弾を始める（第1弾の終わりから、または発射台のカードから） */
 export function startLunar() {
+  preloadMusic('saturn')
+  preloadMusic('zarathustra')
   preloadRadio('landed')
   preloadRadio('aos')
   preloadRadio('pdi')
@@ -349,9 +351,11 @@ export function tickLunar(dt: number) {
       if (hid) {
         stopRadio()
         stopMusic(2.5)
+        // 地球と話せない月の裏：静かな「土星」
+        setTimeout(() => lunar.los && playMusic('saturn'), 3500)
       } else if (s.burnEnd !== null) {
-        // 月の裏から出て、地球が昇る：木星の賛歌と、本物の交信
-        playMusic('jupiterHymn')
+        // 月の裏から出て、地球が昇る：「ツァラトゥストラ」の日の出と、本物の交信（同じ曲は 2 度使わない。junji 2026-11-22）
+        playMusic('zarathustra')
         setTimeout(() => playRadio('aos'), 2500)
       }
     }

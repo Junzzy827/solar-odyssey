@@ -346,7 +346,7 @@ export function startMoonMission(chapter: 'launch' | 'moon' = 'launch', after?: 
   useStore.getState().setMode('flight')
   stopRadio()
   stopMusic()
-  holdBgm(true)
+  holdBgm('mission', true)
   preloadRadio(chapter === 'moon' ? 'landed' : 'liftoff')
   if (chapter !== 'moon') preloadRadio('tli')
   preloadMusic(chapter === 'moon' ? 'mars' : 'jupiterOpening')
@@ -385,7 +385,7 @@ export function endMission() {
   if (s.phase === 'none' || s.phase === 'leave') return
   stopRadio()
   stopMusic(MISSION_FADE)
-  holdBgm(false)
+  holdBgm('mission', false)
   useMoonMission.setState({ phase: 'leave', since: missionNow() })
   setTimeout(() => useMoonMission.setState({ phase: 'none', since: missionNow() }), MISSION_FADE * 1000)
 }
@@ -403,13 +403,16 @@ export function restartMission() {
 const MUSIC_AT: Partial<Record<CaptionKey, MusicCue | 'stop'>> = {
   ignition: 'jupiterOpening',
   orbit: 'jupiterHymn',
+  // 章3：第3段から離れて向きを変え、着陸船を迎えに行く（宇宙のワルツ）。章4：青い地球と 3 日の旅
+  tdSep: 'blueDanube',
+  marble: 'neptune',
   lowGate: 'mars',
   contact: 'stop',
   touchdown: 'stop',
   outOfFuel: 'stop',
-  // 章8：火の玉のあいだは音楽を止めて、パラシュートが開いたら木星の賛歌
+  // 章8：火の玉のあいだは音楽を止める（パラシュートの曲は、新しい曲を取りこむときに決める）
+  // 主旋律（賛歌）は軌道の日の出の 1 回だけ（junji 2026-11-22「主旋律を使うのは一回でいい」）
   entryInterface: 'stop',
-  mains: 'jupiterHymn',
 }
 
 export function setCaption(key: CaptionKey) {

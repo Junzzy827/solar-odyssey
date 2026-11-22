@@ -4,7 +4,7 @@ import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { loadCatalog } from '../Sky'
-import { lowMemory } from '../../state/quality'
+import { currentLevel, lowMemory } from '../../state/quality'
 import { useMoonMission } from '../../state/moonMission'
 import { COAST_TIME, CMSEP_TIME, CORRIDOR_TIME, TEI_BURN, TEI_WARP, ret, tickReturn, useMoonReturn, type ReturnStep } from '../../state/moonReturn'
 import { EARTH_MOON, coastDistance } from '../../data/apolloTimeline'
@@ -184,11 +184,15 @@ function Scene() {
   const craft = useCraft()
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const small = lowMemory()
-  const [moonTex, day, night, clouds] = useTexture([
+  // 地球は打ち上げの場面と同じ：NASA Blue Marble の 12 月と Black Marble の夜の明かり、光の散乱で描く大気
+  const big = !small && currentLevel() !== 'low'
+  const steps = small || currentLevel() === 'low' ? 8 : currentLevel() === 'medium' ? 12 : 16
+  const [moonTex, day, night, clouds, water] = useTexture([
     `${base}textures/4k_moon.jpg`,
-    `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
-    `${base}textures/2k_earth_nightmap.jpg`,
+    big ? `${base}textures/earth/bm_dec_8k.jpg` : `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
+    big ? `${base}textures/earth/bm_night_8k.jpg` : `${base}textures/2k_earth_nightmap.jpg`,
     `${base}textures/${small ? '2k' : '4k'}_earth_clouds.jpg`,
+    `${base}textures/earth/bm_water_4k.png`,
   ])
   const stars = useStars()
 
@@ -204,13 +208,15 @@ function Scene() {
     moon.name = 'return-moon'
     const moonG = new THREE.Group()
     moonG.add(moon)
-    const earthMat = earthMaterial(day, night, clouds)
+    const earthMat = earthMaterial(day, night, clouds, { scatter: true, steps, water })
     earthMat.uniforms.uLights.value = 0.5
-    const atmo = atmosphereMaterial()
+    earthMat.uniforms.uR.value = RE
+    const atmo = atmosphereMaterial({ scatter: true, steps })
+    atmo.uniforms.uR.value = RE
     const earthG = new THREE.Group()
     earthG.name = 'return-earth'
     const earth = new THREE.Mesh(new THREE.SphereGeometry(RE, 160, 100), earthMat)
-    const air = new THREE.Mesh(new THREE.SphereGeometry(RE + 80_000, 96, 64), atmo)
+    const air = new THREE.Mesh(new THREE.SphereGeometry(RE + 100_000, 96, 64), atmo)
     earthG.add(earth, air)
     const sky = new THREE.Mesh(new THREE.SphereGeometry(90_000, 48, 24), skyMaterial())
     sky.renderOrder = -2
@@ -255,7 +261,7 @@ function Scene() {
     foam.rotation.x = -Math.PI / 2
     const owned: { dispose: () => void }[] = [moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, cloud, ship, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat, foam.geometry, foamMat, foamTex]
     return { fireGlow, nozzle, moonG, earthMat, atmo, earthG, sky, ocean, cloud, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, foam, owned }
-  }, [moonTex, day, night, clouds])
+  }, [moonTex, day, night, clouds, water])
   useEffect(() => () => w.owned.forEach((o) => o.dispose()), [w])
   // 確かめる用（#debug のときだけ）
   useEffect(() => {
@@ -369,6 +375,10 @@ function Scene() {
       earthOrient(up.clone(), fwd.clone(), tmp.qe)
       if (range > 0) tmp.qe.premultiply(_q.setFromAxisAngle(_w.crossVectors(fwd, up).normalize().negate(), -range / RE))
       w.earthG.quaternion.copy(tmp.qe)
+      w.earthMat.uniforms.uCenter.value.copy(w.earthG.position)
+      w.atmo.uniforms.uCenter.value.copy(w.earthG.position)
+      // 大気の中に入ったら、空は低い所の空（skyMaterial）にまかせる
+      w.atmo.uniforms.uSky.value = THREE.MathUtils.smoothstep(h, 15_000, 45_000)
       sun.copy(SUN_E).applyQuaternion(tmp.qe)
       w.earthMat.uniforms.uSun.value.copy(sun)
       w.atmo.uniforms.uSun.value.copy(sun)

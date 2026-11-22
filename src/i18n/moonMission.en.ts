@@ -131,6 +131,20 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
     speedOf: (v: number) => (v < 100 ? `${v.toFixed(1)} m/s` : `${(v / 1000).toFixed(2)} km/s`),
     date: (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
   },
+  nowPlaying: {
+    label: 'Now playing',
+    cues: {
+      jupiterOpening: { title: 'The Planets: Jupiter, the Bringer of Jollity', by: 'Gustav Holst (England), 1916' },
+      jupiterHymn: { title: 'The Planets: Jupiter (the hymn)', by: 'Gustav Holst (England), 1916' },
+      mars: { title: 'The Planets: Mars, the Bringer of War', by: 'Gustav Holst (England), 1914' },
+      saturn: { title: 'The Planets: Saturn, the Bringer of Old Age', by: 'Gustav Holst (England), 1915' },
+      neptune: { title: 'The Planets: Neptune, the Mystic', by: 'Gustav Holst (England), 1915' },
+      blueDanube: { title: 'The Blue Danube (waltz)', by: 'Johann Strauss II (Austria), 1866' },
+      zarathustra: { title: 'Also sprach Zarathustra: Sunrise', by: 'Richard Strauss (Germany), 1896 · performed by Kevin MacLeod (CC BY 3.0)' },
+      clairDeLune: { title: 'Suite bergamasque: Clair de lune', by: 'Claude Debussy (France), 1905' },
+      newWorld: { title: 'Symphony No. 9 "From the New World": Largo', by: 'Antonín Dvořák (Czech), 1893' },
+    },
+  },
   radio: {
     source: 'Actual mission audio (NASA)',
     who: { pao: 'Kennedy Launch Control commentary', cdr: 'Commander Cernan', capcom: 'Houston (CapCom)', lmp: 'Schmitt (Lunar Module Pilot)', cmp: 'Evans (Command Module Pilot)' },

@@ -43,7 +43,8 @@ export const FILM_CUTS: Cue[] = [
   { shot: 'chase', clock: 'music', at: 38.53 },
 ]
 /** 確認用：カットを決めうちする（debugHooks から。ふだんは null） */
-export const filmForce = { shot: null as Shot | null }
+/** 確認の道具（tools/film）から：shot は映画のカット、orbit は地球を回るあいだの自動のカット（'flyby' など）と、そのカットの進み（0〜1） */
+export const filmForce = { shot: null as Shot | null, orbit: null as string | null, orbitU: 0 }
 
 /** この曲の秒を過ぎたら、映画のカメラを終えて、ふつうの自動のカメラ（うしろから）にもどす */
 export const FILM_END = 44

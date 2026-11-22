@@ -118,8 +118,6 @@ const inHome = () => useMoonMission.getState().phase === 'home'
 export function startReturn() {
   stopRadio()
   stopMusic(1)
-  preloadMusic('jupiterHymn')
-  preloadMusic('jupiterOpening')
   Object.assign(ret, { t: 0, gap: RDV_GAP, angle: EI_ANGLE, drift: 0, input: 0, auto: false, e: null, want: 1, heat: 0, char: 0, h: DROGUE_ALT, drogueAt: -1, mainAt: -1, splashT: 0, get: GET.lunarDock - 600 })
   useMoonReturn.setState({ step: 'rdv', since: missionNow(), angle: null, fail: null, peakG: 0, stars: 0, mains: false })
   useMoonMission.setState({ phase: 'home', since: missionNow(), cam: 'chase', camLocked: false, auto: false, caption: null })
@@ -136,7 +134,8 @@ export function pressTei() {
   if (!inHome() || useMoonReturn.getState().step !== 'teiWait') return
   set('tei')
   setCaption('tei')
-  playMusic('jupiterOpening')
+  // 家へ帰る：「新世界より」の第2楽章（同じ曲は 2 度使わない。junji 2026-11-22）
+  playMusic('newWorld')
 }
 
 /** 角度を決める段階から、もう一度 */
@@ -216,6 +215,7 @@ export function tickReturn(dt: number) {
       ret.get = GET.lmJettison + t * 6
       if (t >= LMGONE_TIME) {
         set('teiWait')
+        preloadMusic('newWorld')
         setCaption('teiWait')
       }
       break

@@ -24,3 +24,17 @@ Recording: Skidmore College Orchestra, provided by Musopen and released as publi
 - `jupiter-opening.mp3`: Jupiter, 0:00–0:58
 - `jupiter-hymn.mp3`: Jupiter, 3:23–4:51 (central theme)
 - `mars.mp3`: Mars, 0:44–1:48
+
+Recording: "The President's Own" United States Marine Band (a work of the U.S. government, public domain; Wikimedia Commons files 'HOLST "The Planets, Op. 32 5. Saturn, the Bringer of Old Age" - "The President's Own" U.S. Marine Band.opus' and '... 7. Neptune, the Mystic ...'). Loudness raised to match the other pieces.
+
+- `saturn.mp3`: Saturn, 0:00–1:50 (fade out)
+- `neptune.mp3`: Neptune, 0:00–1:50 (fade out)
+
+## classics/ — other public-domain works with a space feel (junji 2026-11-22)
+
+Each piece is used once in the Moon mission. Files fetched from Wikimedia Commons; loudness adjusted.
+
+- `blue-danube.mp3`: Johann Strauss II, An der schönen blauen Donau, 0:00–1:40. Recording: European Archive via Musopen, CC0 (Commons "Strauss, An der schönen blauen Donau.ogg").
+- `zarathustra.mp3`: Richard Strauss, Also sprach Zarathustra, introduction (Sonnenaufgang), complete. Recording: Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 3.0 (CC BY 3.0) — attribution required (Commons "Also Sprach Zarathustra - Einleitung.ogg").
+- `clair-de-lune.mp3`: Claude Debussy, Suite bergamasque: Clair de lune, 0:00–1:50. Performed by Laurens Goedhart (piano), 2011, public domain (Commons "Clair de lune (Claude Debussy) Suite bergamasque.ogg").
+- `new-world-largo.mp3`: Antonín Dvořák, Symphony No. 9 "From the New World", II. Largo, 0:00–2:05. Recording via Musopen, public domain (Commons "Antonin Dvorak - symphony no. 9 in e minor 'from the new world', op. 95 - ii. largo.ogg").

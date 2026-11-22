@@ -3,7 +3,7 @@ import { GET, R_EARTH, coastSpeed } from '../data/apolloTimeline'
 import { dockStars, earthDistance, stepApproach } from '../data/dockPhysics'
 export { CAPTURE_OFF, CAPTURE_SPEED, DOCK_WARP, earthDistance } from '../data/dockPhysics'
 import { playRadio, preloadRadio, stopRadio } from '../audio/radio'
-import { playMusic, preloadMusic, stopMusic } from '../audio/missionMusic'
+import { preloadMusic, stopMusic } from '../audio/missionMusic'
 import { chapterHooks, missionNow, saveMissionRecord, setCaption, useMoonMission } from './moonMission'
 
 // アポロ17号の追体験・章3「向きを変えてドッキング」と章4「青い地球」（components/moonMission/DockWorld.tsx・DockHud.tsx）。
@@ -123,11 +123,12 @@ export function dockJourney() {
 
 /** 章3 を始める（第1弾の終わりのカード、章の一覧から） */
 export function startDock() {
+  preloadMusic('blueDanube')
+  preloadMusic('neptune')
   preloadRadio('capture')
   preloadRadio('hardDock')
   preloadRadio('ejection')
   preloadRadio('earthView')
-  preloadMusic('jupiterHymn')
   stopRadio()
   stopMusic(1)
   Object.assign(dock, { t: 0, gap: 30, vz: 0, x: 0, y: 0, vx: 0, vy: 0, out: 0, auto: false, shoot: false })
@@ -139,15 +140,15 @@ export function startDock() {
 
 /** 章4 を始める */
 export function startMarble() {
+  preloadMusic('neptune')
   preloadRadio('earthView')
-  preloadMusic('jupiterHymn')
   stopRadio()
   Object.assign(dock, { t: 0, gap: -0.3, out: 30, aimYaw: -14, aimPitch: 9, shoot: false, drift: 0 })
   dock.input = { x: 0, y: 0, z: 0 }
   useMoonDock.setState({ step: 'aim', since: missionNow(), photo: null, photoStars: 0 })
   useMoonMission.setState({ phase: 'marble', since: missionNow(), cam: 'window', camLocked: false, auto: false, caption: null })
   setCaption('marble')
-  playMusic('jupiterHymn')
+  // 同じ曲は 2 度使わない（junji 2026-11-22）。この場面の曲は、新しい曲を取りこむときに決める
   window.setTimeout(() => useMoonMission.getState().phase === 'marble' && playRadio('earthView'), 6000)
 }
 
