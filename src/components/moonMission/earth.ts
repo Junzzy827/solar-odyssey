@@ -96,6 +96,9 @@ const atmoFrag = /* glsl */ `
   #include <common>
   #include <logdepthbuf_pars_fragment>
   uniform vec3 uSun;
+  uniform vec3 uCenter;
+  uniform float uR;
+  uniform float uGlow;
   varying vec3 vNw;
   varying vec3 vPw;
   void main() {
@@ -105,8 +108,17 @@ const atmoFrag = /* glsl */ `
     float rim = 1.0 - abs(dot(n, v));
     float a = pow(rim, 5.0);
     float lit = smoothstep(-0.35, 0.25, dot(n, uSun));
-    vec3 col = mix(vec3(0.02, 0.04, 0.12), vec3(0.35, 0.6, 1.0), lit);
-    gl_FragColor = vec4(col * a, a);
+    vec3 col = mix(vec3(0.02, 0.04, 0.12), vec3(0.35, 0.6, 1.0), lit) * a;
+    // 夜の大気光（酸素の緑の光）：高さ 90〜100 km の薄い層を真横から見るので、地平線の上に細い線になる
+    vec3 d = -v;
+    vec3 oc = uCenter - cameraPosition;
+    float tc = dot(oc, d);
+    float hTan = length(oc - d * tc) - uR;
+    float g = tc > 0.0 ? exp(-pow((hTan - 95000.0) / 4500.0, 2.0)) : 0.0;
+    vec3 q = normalize(cameraPosition + d * tc - uCenter);
+    float night = 1.0 - smoothstep(-0.25, 0.05, dot(q, uSun));
+    col += vec3(0.42, 0.8, 0.36) * g * night * 0.26 * uGlow;
+    gl_FragColor = vec4(col, max(a, g * night * uGlow));
     ${OUT_CHUNK}
   }
 `
@@ -115,7 +127,7 @@ export function atmosphereMaterial() {
   return new THREE.ShaderMaterial({
     vertexShader: atmoVert,
     fragmentShader: atmoFrag,
-    uniforms: { uSun: { value: new THREE.Vector3(0, -1, 0) } },
+    uniforms: { uSun: { value: new THREE.Vector3(0, -1, 0) }, uCenter: { value: new THREE.Vector3() }, uR: { value: 6_371_000 }, uGlow: { value: 0 } },
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,

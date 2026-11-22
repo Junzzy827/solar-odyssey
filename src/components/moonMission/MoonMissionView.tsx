@@ -51,6 +51,7 @@ import { SaturnExplorer } from './SaturnExplorer'
 function FilmHook() {
   const advance = useThree((s) => s.advance)
   const setFrameloop = useThree((s) => s.setFrameloop)
+  const get = useThree((s) => s.get)
   useEffect(() => {
     const w = window as unknown as { __moonFilm?: unknown }
     w.__moonFilm = {
@@ -62,11 +63,13 @@ function FilmHook() {
         film.t = (film.t ?? 1000) + dt
         advance(film.t)
       },
+      /** 確認用：いまの場面とカメラ */
+      three: () => get(),
     }
     return () => {
       delete w.__moonFilm
     }
-  }, [advance, setFrameloop])
+  }, [advance, setFrameloop, get])
   return null
 }
 
