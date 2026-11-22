@@ -731,7 +731,8 @@ export function LaunchWorld() {
       cs.up.copy(nose)
       fov = 72
       inside = true
-      filmShakeAng = 0.0025 * (a.accel / 9.8)
+      // 第2段・第3段の燃焼はなめらか（本物の船内の映像でも、ほとんど揺れない）。ごく小さくふるえるだけ
+      filmShakeAng = 0.0004 * (a.accel / 9.8)
     } else {
       // 横から：軌道では少し離れて、地球が下に見えるように
       const far = s.phase === 'ascent' ? 190 : s.phase === 'outbound' ? 260 : 230
@@ -756,12 +757,14 @@ export function LaunchWorld() {
       cs.fov = fov
       cs.init = true
     }
-    const k = observing ? 1 : 1 - Math.exp(-dt * (s.cam === 'onboard' || s.cam === 'window' ? 20 : s.cam === 'film' ? 10 : 4))
+    // 船内のカットは機体にくっついたカメラ（遅れて追うと、機首の向きが変わるたびに画面がゆっくり回る）
+    const k = observing || inside ? 1 : 1 - Math.exp(-dt * (s.cam === 'onboard' || s.cam === 'window' ? 20 : s.cam === 'film' ? 10 : 4))
     cs.pos.lerp(want, k)
     cs.look.lerp(look, k)
     cs.fov += (fov - cs.fov) * k
     // 揺れ：加速が強いほど、地上に近いほど
-    const shake = s.cam === 'film' ? 0 : (s.phase === 'ascent' || (s.phase === 'pad' && ignite.current > 0) ? 1 : 0) * (s.cam === 'pad' ? 0.02 : 0.25) * (a.accel / 9.8 + (h < 2000 ? 1 : 0)) * (s.phase === 'pad' ? ignite.current : 1)
+    // 船内のカットでは、横からのカメラの揺れ（0.25 m × G）をかけない。目の 1 m 先を見ているので、大きくぶれていた
+    const shake = s.cam === 'film' || inside ? 0 : (s.phase === 'ascent' || (s.phase === 'pad' && ignite.current > 0) ? 1 : 0) * (s.cam === 'pad' ? 0.02 : 0.25) * (a.accel / 9.8 + (h < 2000 ? 1 : 0)) * (s.phase === 'pad' ? ignite.current : 1)
     camera.position.copy(cs.pos).add(_v.set(Math.sin(t * 53) * shake, Math.sin(t * 47 + 1) * shake, Math.sin(t * 59 + 2) * shake))
     camera.up.copy(cs.up)
     if (filmShakeAng > 0) {
