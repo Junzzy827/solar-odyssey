@@ -145,7 +145,7 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
     maxQ: ['Max Q', 'Through the point of strongest air pressure'],
     centerCutoff: ['Center engine cutoff', 'The rocket is lighter now, so it must not push too hard'],
     stage1Sep: ['Stage 1 separation', '67 km up. The empty first stage falls back to the sea'],
-    stage2Ign: ['Stage 2 ignition', 'Liquid hydrogen engines: the flame is almost invisible'],
+    stage2Ign: ['Stage 2 ignition', 'Five liquid-hydrogen engines burn for about 6 minutes (the real flame is nearly clear)'],
     interstage: ['Interstage jettisoned', 'The ring under stage 2 drops away'],
     les: ['Escape tower jettisoned', 'High enough that the escape tower is no longer needed'],
     stage2Sep: ['Stage 2 separation', 'Stage 3 takes over'],
