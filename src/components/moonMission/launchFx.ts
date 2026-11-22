@@ -13,6 +13,10 @@ const VENTS: [number, number, number][] = [
 ]
 const Z = new THREE.Vector3(0, 0, 1)
 const _v = new THREE.Vector3()
+/** 煙の時計（噴き出しの強弱のゆらぎに使う） */
+let clock = 0
+/** 0〜1 のゆっくりした不規則なゆらぎ（いくつかの sin の重ね） */
+const wobble = (t: number, k: number) => 0.5 + 0.25 * Math.sin(t * 0.9 + k * 1.7) + 0.15 * Math.sin(t * 2.3 + k * 4.1) + 0.1 * Math.sin(t * 5.1 + k * 0.6)
 
 /** dt 秒に平均 rate 個（端数は確率で） */
 export const count = (rate: number, dt: number) => Math.floor(rate * dt + Math.random())
@@ -51,12 +55,20 @@ export function launchSmoke(c: FxCtx) {
   if (s1On > 0 && h < 900) {
     // 炎の溝から南北へ吹き出す。本物の写真（S72-55070）では、煙は地面をはって数百 m 広がり、
     // 炎に照らされた大きな入道雲のように、ロケットの高さを越えてもくもく立ち上がる。3 つに 1 つは、溝に撒く水の白い湯気
+    // 粒の数は同じまま、出し方を不ぞろいにする：南北の強さがゆらいで、ときどき大きな塊（入道雲の芽）がどっと出る
+    clock += dt
     const n = count(60 * (1 - h / 900) * ignite, dt)
     for (let i = 0; i < n; i++) {
       const side = Math.random() < 0.5 ? -1 : 1
+      const gust = wobble(clock, side)
       const steam = Math.random() < 0.3
-      const out = 90 + Math.random() * 120
-      smoke.emit((Math.random() - 0.5) * 24, GROUND_Y + 3, side * (50 + Math.random() * 40), (Math.random() - 0.5) * 30, 4 + Math.random() * 16, side * out, 28 + Math.random() * 22, 30 + Math.random() * 12, 1.8, steam ? STEAM : undefined)
+      const big = Math.random() < 0.18
+      const out = (60 + Math.random() * 170) * (0.55 + 0.9 * gust)
+      // 大きさは 対数でばらつく（小さな粒がたくさん、大きな塊が少し）
+      const size = (20 + 26 * Math.exp((Math.random() - 0.5) * 1.6)) * (big ? 1.6 : 1)
+      const up = big ? 14 + Math.random() * 26 : 2 + Math.random() * 14
+      const spread = (Math.random() - 0.5) * (big ? 46 : 30)
+      smoke.emit((Math.random() - 0.5) * 24, GROUND_Y + 3, side * (45 + Math.random() * 50), spread, up, side * out, size, 26 + Math.random() * 22, big ? 2.2 : 1.5 + Math.random() * 0.6, steam ? STEAM : undefined)
     }
     // 甲板の穴のまわりからも、湯気が噴き上がる
     if (h < 60) {
