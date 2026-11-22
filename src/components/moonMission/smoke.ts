@@ -21,8 +21,16 @@ const vert = /* glsl */ `
   varying vec3 vLight;
   varying float vSeed;
   varying float vKind;
+  varying vec2 vToFlame;
+  varying float vFlameK;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    // 画面の上で、炎のある向き（粒の、炎に向いた側を明るく、反対側を暗くする）
+    vec4 fv = modelViewMatrix * vec4(uFlame, 1.0);
+    vec3 tf = fv.xyz - mv.xyz;
+    vToFlame = normalize(tf.xy + vec2(0.0, 1e-4));
+    // 炎がカメラの方にある（粒の手前）ほど、向きの差は小さい
+    vFlameK = length(tf.xy) / (length(tf) + 1e-3);
     gl_Position = projectionMatrix * mv;
     gl_PointSize = clamp(aSize * uPx / max(1.0, -mv.z), 1.0, 900.0);
     vAlpha = aAlpha;
@@ -31,14 +39,19 @@ const vert = /* glsl */ `
     // 炎（uFlame は同じ地面の座標）からの距離で照らす
     float d = distance(position, uFlame);
     // 本物の夜の打ち上げ（S72-55070）では、煙は炎に照らされたうすいベージュ。炎の近くはほとんど白く、遠くは黄土色
-    float lit = uFlamePower / (1.0 + d * d / 90000.0);
+    // 炎から離れるほど、ずっと暗くなる（光は距離の 2 乗で弱まり、手前の煙にもさえぎられる）。写真では、炎のそばだけ白く、
+    // 外側と上の方は暗い茶色にしずむ
+    float lit = uFlamePower / (1.0 + d * d / 20000.0) * exp(-d / 1500.0);
     // 照明：発射台のまわり（真ん中から約 250 m）ほど明るい
     float amb = uAmb / (1.0 + dot(position.xz, position.xz) / 60000.0);
-    vec3 base = aKind < 0.5 ? vec3(0.035, 0.04, 0.05) + vec3(0.2, 0.22, 0.26) * amb
-      : aKind < 1.5 ? vec3(0.05, 0.055, 0.065) + vec3(0.62, 0.68, 0.78) * amb
+    vec3 base = aKind < 0.5 ? vec3(0.03, 0.032, 0.038) + vec3(0.16, 0.17, 0.2) * amb
+      : aKind < 1.5 ? vec3(0.04, 0.042, 0.05) + vec3(0.36, 0.39, 0.44) * amb
       : vec3(0.25, 0.27, 0.3) + vec3(1.1, 1.15, 1.25) * amb;
-    vec3 flameCol = mix(vec3(0.92, 0.74, 0.52), vec3(1.0, 0.93, 0.82), clamp(lit * 0.6, 0.0, 1.0));
-    vLight = base + flameCol * lit * (aKind > 1.5 ? 0.6 : 1.0);
+    // 近くは白、少し離れると黄土色、遠くは暗い茶色
+    vec3 flameCol = mix(vec3(0.62, 0.5, 0.38), vec3(1.0, 0.9, 0.74), smoothstep(0.05, 1.0, lit));
+    // 粒ごとに明るさを少しずつ変える（同じ色の塊が並ばないように）
+    float var = 0.7 + 0.6 * aSeed;
+    vLight = (base + flameCol * lit * 1.9 * (aKind > 1.5 ? 0.6 : 1.0)) * (aKind > 1.5 ? 1.0 : var);
     #include <logdepthbuf_vertex>
   }
 `
@@ -50,6 +63,8 @@ const frag = /* glsl */ `
   varying vec3 vLight;
   varying float vSeed;
   varying float vKind;
+  varying vec2 vToFlame;
+  varying float vFlameK;
   void main() {
     #include <logdepthbuf_fragment>
     vec2 p = gl_PointCoord * 2.0 - 1.0;
@@ -64,15 +79,22 @@ const frag = /* glsl */ `
     // もこもこした縁
     float ang = atan(p.y, p.x);
     float edge = 1.0 - 0.18 * (sin(ang * 5.0 + vSeed * 6.0) * 0.5 + 0.5);
-    float a = smoothstep(edge, edge * 0.35, r) * vAlpha;
-    // 下側を少し明るく（下の炎に照らされる）
-    vec3 col = vLight * (0.85 + 0.3 * (1.0 - gl_PointCoord.y));
+    // 縁はくっきり（もくもくした入道雲の塊）、中は濃い
+    float a = smoothstep(edge, edge * 0.7, r) * vAlpha;
+    // 丸い塊として陰をつける：炎に向いた側は明るく、反対側と縁は暗い
+    vec3 n = vec3(p.x, -p.y, sqrt(max(0.0, 1.0 - r * r)));
+    // 塊の中の小さなこぶ（カリフラワーのような凹凸）：面の向きを少しずつ揺らす
+    float sd = vSeed * 37.0;
+    n.xy += 0.32 * vec2(sin(p.x * 7.0 + sd) * cos(p.y * 5.0 + sd * 0.7), sin(p.y * 7.0 + sd * 1.3) * cos(p.x * 6.0 - sd));
+    n = normalize(n);
+    float facing = dot(n.xy, vToFlame) * vFlameK;
+    vec3 col = vLight * mix(0.35, 1.45, clamp(0.5 + 0.75 * facing, 0.0, 1.0)) * (0.75 + 0.25 * n.z);
     gl_FragColor = vec4(col, a);
     ${OUT_CHUNK}
   }
 `
 
-type Puff = { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; grow: number; kind: number }
+type Puff = { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; grow: number; kind: number; lift: number }
 export const SMOKE = 0
 export const STEAM = 1
 export const ICE = 2
@@ -120,7 +142,7 @@ export class Smoke {
   /** 煙を 1 つ出す（地面の座標、m と m/s） */
   emit(x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, life: number, grow = 1, kind = SMOKE) {
     if (this.puffs.length >= this.max) this.puffs.shift()
-    this.puffs.push({ x, y, z, vx, vy, vz, age: 0, life, size, grow, kind })
+    this.puffs.push({ x, y, z, vx, vy, vz, age: 0, life, size, grow, kind, lift: 0.4 + Math.random() * 1.4 })
   }
 
   get count() {
@@ -147,7 +169,7 @@ export class Smoke {
       p.vx *= k
       p.vz *= k
       // 熱い煙は浮かんで、大きな雲になって立ち上がる
-      p.vy = p.vy * k + (p.kind === STEAM ? -0.3 : 4.0) * dt
+      p.vy = p.vy * k + (p.kind === STEAM ? -0.3 : 4.0 * p.lift) * dt
       p.x += p.vx * dt
       p.y += p.vy * dt
       p.z += p.vz * dt
