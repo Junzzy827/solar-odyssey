@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { loadCatalog } from '../Sky'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { useMoonMission } from '../../state/moonMission'
@@ -12,6 +11,7 @@ import { EI_ALT, RE } from '../../data/reentry'
 import { earthMaterial, atmosphereMaterial } from './earth'
 import { glowTexture, plumeGeometry, plumeMaterial } from './plume'
 import { APOLLO_URL, DROGUE, useCraft } from './craft'
+import { useSpaceEnv, type SpaceBody } from './spaceEnv'
 import { foamTexture, makeChute, makeClouds, makeShip, oceanMaterial, shapeChute, skyMaterial } from './returnSea'
 import { makeFireball, updateFireball } from './returnPlasma'
 
@@ -88,23 +88,12 @@ const seaStep = (s: ReturnStep) => s === 'chutes' || s === 'splash' || s === 'en
 /** いまの太陽の向き（場面ごとに Scene が書く） */
 const sun = new THREE.Vector3().copy(SUN_MOON)
 
+/** 映りこむ景色（Scene が毎フレーム書く）：いちばん大きく見える天体か、大気の中の空と海 */
+const envBody: SpaceBody = { down: new THREE.Vector3(0, -1, 0), angR: 0, sun, earth: false, air: 0 }
+
 function Lights() {
-  const gl = useThree((s) => s.gl)
-  const scene = useThree((s) => s.scene)
   const camera = useThree((s) => s.camera)
-  useEffect(() => {
-    const pmrem = new THREE.PMREMGenerator(gl)
-    const room = new RoomEnvironment()
-    const env = pmrem.fromScene(room, 0.04).texture
-    scene.environment = env
-    scene.environmentIntensity = 0.22
-    return () => {
-      if (scene.environment === env) scene.environment = null
-      env.dispose()
-      pmrem.dispose()
-      room.dispose()
-    }
-  }, [gl, scene])
+  useSpaceEnv(() => envBody, 'moon')
   const light = useMemo(() => {
     const l = new THREE.DirectionalLight('#fff6ea', 4.2)
     const t = new THREE.Object3D()
@@ -190,7 +179,7 @@ function Scene() {
   const [moonTex, day, night, clouds, water] = useTexture([
     `${base}textures/4k_moon.jpg`,
     big ? `${base}textures/earth/bm_dec_8k.jpg` : `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
-    big ? `${base}textures/earth/bm_night_8k.jpg` : `${base}textures/2k_earth_nightmap.jpg`,
+    big ? `${base}textures/earth/bm_night_8k.jpg` : `${base}textures/earth/bm_night_2k.jpg`,
     `${base}textures/${small ? '2k' : '4k'}_earth_clouds.jpg`,
     `${base}textures/earth/bm_water_4k.png`,
   ])
@@ -394,6 +383,27 @@ function Scene() {
 
     // ---- 空と海（低い所） ----
     const skyA = (1 - THREE.MathUtils.smoothstep(h, 22_000, 70_000)) * (inAir || sea ? 1 : 0)
+    {
+      // 映りこむ景色：見かけの大きい方の天体。大気の中では空と海
+      const angOf = (g: THREE.Object3D, r: number) => (g.visible ? Math.asin(Math.min(1, r / Math.max(r, g.position.distanceTo(camera.position)))) : 0)
+      const am = angOf(w.moonG, MOON_R)
+      const ae = angOf(w.earthG, RE)
+      envBody.air = skyA
+      if (skyA > 0.001 || sea) {
+        envBody.down.set(0, -1, 0)
+        envBody.angR = Math.PI / 2
+        envBody.earth = true
+        envBody.air = sea ? 1 : skyA
+      } else if (am >= ae && am > 0) {
+        envBody.down.copy(w.moonG.position).sub(camera.position).normalize()
+        envBody.angR = am
+        envBody.earth = false
+      } else if (ae > 0) {
+        envBody.down.copy(w.earthG.position).sub(camera.position).normalize()
+        envBody.angR = ae
+        envBody.earth = true
+      } else envBody.angR = 0
+    }
     w.sky.visible = skyA > 0.001
     w.sky.position.copy(camera.position)
     const skyU = (w.sky.material as THREE.ShaderMaterial).uniforms

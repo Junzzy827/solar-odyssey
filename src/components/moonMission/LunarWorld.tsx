@@ -2,16 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { buildChunk, chunkCenterDir, chunkSize, keyOf, MOON_R, type ChunkKey } from '../flight/moonGlobe'
 import { loadCatalog } from '../Sky'
 import { currentLevel, lowMemory } from '../../state/quality'
 import { lunar, tickLunar, UNDOCK_BEFORE, useMoonLunar } from '../../state/moonLunar'
-import { autoCam, useMoonMission } from '../../state/moonMission'
+import { autoCam, useMoonMission, type MissionCam } from '../../state/moonMission'
 import { FRAME, groundAt, loadLunarMaps, lunarMaps, SUN_DIR, TRACK, TRACK_PLANE, valleyShadows, valleyWeight, type LunarMaps, type ShadowMap } from './lunarTerrain'
 import { earthMaterial, atmosphereMaterial } from './earth'
 import { plumeGeometry, plumeMaterial } from './plume'
 import { APOLLO_URL, DROGUE, useCraft, type Craft } from './craft'
+import { useSpaceEnv } from './spaceEnv'
 import { buildLmCabin, LM_EYE, LM_LOOK, type LmCabin } from './lmCabin'
 
 // 月ミッション第2弾の場面：月を丸ごと（月の中心が原点、向きは moonGlobe.ts と同じ）。
@@ -434,7 +434,7 @@ function Sky() {
       }),
     [],
   )
-  const [day, night, clouds] = useTexture([`${base}textures/2k_earth_daymap.jpg`, `${base}textures/2k_earth_nightmap.jpg`, `${base}textures/2k_earth_clouds.jpg`])
+  const [day, night, clouds] = useTexture([`${base}textures/2k_earth_daymap.jpg`, `${base}textures/earth/bm_night_2k.jpg`, `${base}textures/2k_earth_clouds.jpg`])
   const earthMat = useMemo(() => {
     day.colorSpace = THREE.SRGBColorSpace
     night.colorSpace = THREE.SRGBColorSpace
@@ -719,24 +719,17 @@ function Dust() {
 // ---- 光と映りこみ --------------------------------------------------------------------------
 
 function Lights() {
-  const gl = useThree((s) => s.gl)
-  const scene = useThree((s) => s.scene)
-  useEffect(() => {
-    const pmrem = new THREE.PMREMGenerator(gl)
-    const room = new RoomEnvironment()
-    const env = pmrem.fromScene(room, 0.04).texture
-    scene.environment = env
-    scene.environmentIntensity = 0.25
-    return () => {
-      if (scene.environment === env) scene.environment = null
-      env.dispose()
-      pmrem.dispose()
-      room.dispose()
-    }
-  }, [gl, scene])
+  const camera = useThree((s) => s.camera)
+  // 映りこむ景色：下の月面（太陽に照らされた灰色）と、真っ黒な空
+  const body = useMemo(() => ({ down: new THREE.Vector3(), angR: 0, sun: SUN_DIR }), [])
+  useSpaceEnv(() => {
+    const r = camera.position.length()
+    body.down.copy(camera.position).multiplyScalar(-1 / Math.max(1, r))
+    body.angR = Math.asin(Math.min(1, MOON_R / Math.max(MOON_R, r)))
+    return body
+  }, 'moon')
   const sun = useRef<THREE.DirectionalLight>(null)
   const target = useMemo(() => new THREE.Object3D(), [])
-  const camera = useThree((s) => s.camera)
   useFrame(() => {
     // 太陽の光は、いつもカメラのそばを照らす（向きだけが大事）
     target.position.copy(camera.position)
@@ -958,7 +951,10 @@ export function LunarWorld() {
   const craft = useCraft()
   const lmCabin = useMemo(() => buildLmCabin(), [])
   useEffect(() => () => lmCabin.dispose(), [lmCabin])
-  useFrame((_, dt) => tickLunar(dt))
+  useFrame((_, dt) => {
+    tickLunar(dt)
+    loiCuts(dt)
+  })
   // 降下を始めたら、カメラはうしろから
   const phase = useMoonMission((s) => s.phase)
   useEffect(() => {
@@ -976,6 +972,41 @@ export function LunarWorld() {
       <CameraRig craft={craft} cabin={lmCabin} />
     </>
   )
+}
+
+/**
+ * 月の裏でブレーキ（章6）と、降下の制動（章7）のあいだ、おまかせでは 11 秒ごとにカメラを切りかえる（8 秒ルール：同じ絵が長く続かないように）。
+ * うしろから → 遠くから（月を背に小さく） → 船長の窓（月面が流れる）。エンジンに火が入った瞬間は、炎の見えるうしろから。
+ * 自分でカメラを選んだら（camLocked）、切りかえない
+ */
+const cuts = { t: 0, i: 0, burning: false }
+const LOI_CUTS: MissionCam[] = ['chase', 'wide', 'window']
+const BRAKE_CUTS: MissionCam[] = ['chase', 'wide']
+function loiCuts(dt: number) {
+  const s = useMoonMission.getState()
+  // 降下の制動（PDI からピッチオーバーまで）も同じように切りかえる。ピッチオーバーからは船長の窓（本物の眺め）のまま
+  const braking = s.phase === 'descent' && lunar.desc?.mode === 'braking'
+  if (s.phase !== 'loi' && !braking) {
+    cuts.t = 0
+    cuts.i = 0
+    cuts.burning = false
+    return
+  }
+  if (!s.auto || s.camLocked) return
+  const burning = s.phase === 'loi' && !!lunar.stack?.burning
+  cuts.t += dt
+  if (burning && !cuts.burning) {
+    cuts.i = 0
+    cuts.t = 0
+    autoCam('chase')
+  } else if (cuts.t >= 11) {
+    // 制動のあいだの着陸船は窓が上（空）を向いているので、窓のカメラは使わない
+    const list = braking ? BRAKE_CUTS : LOI_CUTS
+    cuts.t = 0
+    cuts.i = (cuts.i + 1) % list.length
+    autoCam(list[cuts.i])
+  }
+  cuts.burning = burning
 }
 
 useGLTF.preload(APOLLO_URL)
