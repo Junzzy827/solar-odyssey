@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { OUT_CHUNK } from './shaderOut'
 
 // ロケットの噴射の炎。円すい（ノズルの口が細い側）を、加算の光で描く。
 // 地上では細く締まった炎、空気の薄い高い所では、外へ大きく広がる（本物の映像でも高く上がるほど炎がふくらむ）。
@@ -56,6 +57,7 @@ const frag = /* glsl */ `
     vec3 col = mix(uEdge, uCore, hot * rim);
     float a = body * rim * uPower;
     gl_FragColor = vec4(col * a, a);
+    ${OUT_CHUNK}
   }
 `
 

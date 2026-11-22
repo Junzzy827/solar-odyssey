@@ -329,6 +329,8 @@ const SCENARIOS = {
       await sleep(3000)
       await page.evaluate(() => window.__sv.landing.skip())
       await page.waitForFunction(() => window.__sv.landing.state.getState().phase === 'surface' && window.__sv.landing.state.getState().ready, null, { timeout: 180000, polling: 500 })
+      // 着陸の画面のボタンは、着いたあとの次のコマで出る（遅い CI では数秒かかることがある）
+      await page.waitForSelector('.crew-rover-start', { timeout: 30000 }).catch(() => {})
       await visibleButton(page, '.crew-rover-start')
       await page.evaluate(() => document.querySelector('.crew-rover-start').click())
       await page.waitForFunction(() => window.__sv.rover.state.getState().phase === 'drive', null, { timeout: 60000, polling: 500 })

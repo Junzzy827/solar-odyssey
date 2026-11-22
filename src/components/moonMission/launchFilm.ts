@@ -12,6 +12,9 @@ import { CABIN_EYE, CABIN_LOOK, CABIN_Y } from './cmCabin'
 // 狙う先は、地面の物なら地面の組の座標、ロケットなら世界の座標（ロケットはいつも原点）。
 
 export type Shot = 'press' | 'cabin' | 'wide' | 'deck' | 'engine' | 'tower' | 'deckUp' | 'reveal' | 'chase'
+/** 手本の写真と同じ向きのカメラ（確認の道具 tools/film から filmForce で使う。ふだんのカット割りには出ない） */
+  | 'refNight'
+  | 'refLiftoff'
 
 type Cue = { shot: Shot; /** film：秒読みを始めてからの秒、music：曲の始まり（点火）からの秒 */ clock: 'film' | 'music'; at: number }
 
@@ -144,6 +147,20 @@ export function filmRig(shot: Shot, ctx: FilmCtx, want: THREE.Vector3, look: THR
       look.copy(_a).lerp(_b, 0.55)
       const half = _a.distanceTo(_b) * 0.5 + 70
       return { fov: fovFor(half, want.distanceTo(look), 8, 50), onGround: true }
+    }
+    case 'refNight': {
+      // NASA の写真 S72-54813（1972 年 11 月、満月とサーチライト）の向き：東南東の水辺、約 1.2 km から西を見る（塔はロケットの右）
+      G(ctx, 1120, groundY + 4, 380, want)
+      G(ctx, 0, 52, 0, look)
+      return { fov: fovFor(88, want.distanceTo(look), 2, 40), onGround: true }
+    }
+    case 'refLiftoff': {
+      // NASA の写真 S72-55070（12 月 7 日、塔を越えた直後）の向き：東南東の湿地、約 4 km 先から。煙が左右に大きく広がる
+      G(ctx, 3800, groundY + 6, 1250, want)
+      G(ctx, 0, 0, 0, _a)
+      _b.copy(nose).multiplyScalar(60)
+      look.copy(_a).lerp(_b, 0.5)
+      return { fov: fovFor(_a.distanceTo(_b) * 0.5 + 240, want.distanceTo(look), 3, 40), onGround: true }
     }
     case 'chase':
     default: {

@@ -1,3 +1,21 @@
+/* 章（場面）のボタン：いまの場面の番号と名前。長い名前は … で切る */
+.cm-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 260px;
+}
+.cm-open-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .cm-open {
+    max-width: 190px;
+  }
+}
+
 /* 章の一覧 */
 .cm-panel {
   position: absolute;
@@ -102,7 +120,7 @@
 }
 .cm-panel .cm-next {
   width: 100%;
-  margin-top: 10px;
+  margin-bottom: 10px;
   padding: 9px;
   border-radius: 10px;
   border: 1px solid #ffb060;

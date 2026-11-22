@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 
 import { useLang } from '../../i18n/lang'
 import { ui } from '../../i18n'
 import { isTouchDevice } from '../../state/input'
-import { cycleCam, endMission, useMoonMission } from '../../state/moonMission'
+import { endMission, useMoonMission } from '../../state/moonMission'
 import {
   CAPTURE_OFF,
   CAPTURE_SPEED,
@@ -18,6 +18,7 @@ import {
 } from '../../state/moonDock'
 import { ChapterMenu } from './ChapterMenu'
 import './dock.css'
+import { CamMenu } from './CamMenu'
 
 // 章3（ドッキング）と章4（青い地球）の画面：照準、距離と速さ、ずれの目盛り、終わりのカード。写真の枠と、本物の写真との見くらべ
 
@@ -250,7 +251,7 @@ export function DockHud() {
       )}
       {marble && step === 'shot' && <Compare />}
       <div className="mm-buttons dk-buttons">
-        <button onClick={() => cycleCam()}>{M.camLabel(M.camNames[cam])}</button>
+        <CamMenu />
         {step === 'approach' && (
           <button className={auto ? 'on' : ''} onClick={() => setDockAuto(!auto)}>
             {auto ? T.autoOn : T.auto}

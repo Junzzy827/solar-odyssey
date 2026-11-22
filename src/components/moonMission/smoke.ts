@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { OUT_CHUNK } from './shaderOut'
 
 // 打ち上げの煙。発射台の炎の溝から南北へ吹き出す大きな雲と、上がっていくロケットの後ろに残る煙の柱。
 // 粒は地面に固定した座標で持ち（地上の物は地面と一緒に動く）、炎に近いほどオレンジに照らされる。
@@ -29,7 +30,7 @@ const vert = /* glsl */ `
     vKind = aKind;
     // 炎（uFlame は同じ地面の座標）からの距離で照らす
     float d = distance(position, uFlame);
-    float lit = uFlamePower / (1.0 + d * d / 9000.0);
+    float lit = uFlamePower / (1.0 + d * d / 40000.0);
     // 照明：発射台のまわり（真ん中から約 250 m）ほど明るい
     float amb = uAmb / (1.0 + dot(position.xz, position.xz) / 60000.0);
     vec3 base = aKind < 0.5 ? vec3(0.035, 0.04, 0.05) + vec3(0.2, 0.22, 0.26) * amb
@@ -55,6 +56,7 @@ const frag = /* glsl */ `
     if (vKind > 1.5) {
       // 氷のかけら：小さく光る点
       gl_FragColor = vec4(vLight, smoothstep(1.0, 0.2, r) * vAlpha);
+      ${OUT_CHUNK}
       return;
     }
     // もこもこした縁
@@ -64,6 +66,7 @@ const frag = /* glsl */ `
     // 下側を少し明るく（下の炎に照らされる）
     vec3 col = vLight * (0.85 + 0.3 * (1.0 - gl_PointCoord.y));
     gl_FragColor = vec4(col, a);
+    ${OUT_CHUNK}
   }
 `
 
@@ -141,7 +144,8 @@ export class Smoke {
       const k = Math.exp(-dt * 0.7)
       p.vx *= k
       p.vz *= k
-      p.vy = p.vy * k + (p.kind === STEAM ? -0.5 : 1.6) * dt
+      // 熱い煙は浮かんで、大きな雲になって立ち上がる
+      p.vy = p.vy * k + (p.kind === STEAM ? -0.3 : 4.0) * dt
       p.x += p.vx * dt
       p.y += p.vy * dt
       p.z += p.vz * dt

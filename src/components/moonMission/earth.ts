@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { OUT_CHUNK } from './shaderOut'
 
 // 打ち上げの場面の地球：昼の側は昼の地図と雲、夜の側は街の明かり、ふちには薄い大気の光。
 // 本物の大きさ（半径 6,371 km）で描く。地上のすぐ近くは発射台のまわりの地面（LaunchWorld）が受け持つ。
@@ -57,6 +58,7 @@ const frag = /* glsl */ `
     // 近いときは粗い地図が目立つので、少し暗く沈める
     col *= mix(1.0, 0.55, uNear);
     gl_FragColor = vec4(col, 1.0);
+    ${OUT_CHUNK}
   }
 `
 
@@ -105,6 +107,7 @@ const atmoFrag = /* glsl */ `
     float lit = smoothstep(-0.35, 0.25, dot(n, uSun));
     vec3 col = mix(vec3(0.02, 0.04, 0.12), vec3(0.35, 0.6, 1.0), lit);
     gl_FragColor = vec4(col * a, a);
+    ${OUT_CHUNK}
   }
 `
 
