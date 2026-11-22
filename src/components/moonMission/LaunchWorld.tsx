@@ -223,7 +223,7 @@ export function LaunchWorld() {
   const debrisG = useRef<THREE.Group>(null)
   const debris = useRef<Debris[]>([])
   const ignite = useRef(0)
-  const camState = useRef({ pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), fov: 40, init: false })
+  const camState = useRef({ pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), fov: 40, init: false, prevCam: '' })
   /** 映画のカメラ：いまのカット、秒読みを始めてからの秒（離昇の後は実際の秒で進める）、カットの始まり */
   const filmS = useRef({ idx: 0, f: 0, cutAt: 0 })
 
@@ -565,6 +565,9 @@ export function LaunchWorld() {
       fov = 50
       cs.up.copy(up)
     }
+    // 映画のカメラから自動で切りかわるときは、すっと寄らずにカットでつなぐ（映画の最後のカメラは地上で、ロケットは何 km も先にいる）
+    if (cs.prevCam === 'film' && s.cam !== 'film') cs.init = false
+    cs.prevCam = s.cam
     if (!cs.init) {
       cs.pos.copy(want)
       cs.look.copy(look)
