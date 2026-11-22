@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
-import { R_EARTH, PAD_LAT, OMEGA, altitude } from '../../data/saturnAscent'
-import { sim, tickMission, useMoonMission, autoCam, missionNow, COUNT_FROM, TIMELAPSE } from '../../state/moonMission'
+import { R_EARTH, PAD_LAT, OMEGA, STAGES, altitude } from '../../data/saturnAscent'
+import { sim, tickMission, useMoonMission, autoCam, missionNow, showBeat, COUNT_FROM, TIMELAPSE } from '../../state/moonMission'
 import { useExplorer } from '../../state/saturnExplorer'
 import { musicTime } from '../../audio/missionMusic'
 import { currentLevel, lowMemory } from '../../state/quality'
@@ -21,7 +21,8 @@ import { liveSky, skyNow } from './launchClock'
 import { bindOrbit, explorerCamera, resetOrbit } from './explorerCam'
 import { SaturnHotspots, SizeFigure } from './SaturnHotspots'
 import { atmosphereMaterial, earthMaterial } from './earth'
-import { buildCabin, CABIN_Y, CM_WIN_DIR, CM_WIN_EYE } from './cmCabin'
+import { buildCabin, CABIN_EYE, CABIN_LOOK, CABIN_Y, CM_WIN_DIR, CM_WIN_EYE } from './cmCabin'
+import { CARD_SEC } from './AscentCards'
 import { FILM_CUTS, FILM_END, filmCut, filmForce, filmRig, filmShake } from './launchFilm'
 
 // 打ち上げの場面の 3D：（観察パートの夕方の発射台 →）夜の発射台（移動発射台・発射塔・照明・海）、サターンV、炎と煙、地球、月、星。
@@ -79,6 +80,18 @@ function frame() {
 }
 
 type Debris = { name: string; obj: THREE.Object3D; x: number; y: number; vx: number; vy: number; t0: number; spin: THREE.Vector3; push: number; dir: THREE.Vector3 }
+
+/** 上昇の後半の、自動のカメラの切り替え（横・エンジンの横・司令船の中・前から・遠くから）。
+ *  夜の打ち上げなので、下の地球は暗い（高いところからの絵や窓の外は、ほぼまっ黒で使えなかった） */
+type AscentShot = 'side' | 'tail' | 'cabin' | 'front' | 'far'
+const ASCENT_SHOTS: AscentShot[] = ['side', 'tail', 'cabin', 'front', 'far']
+function ascentShot(s: { phase: string; cam: string; camLocked: boolean; auto: boolean }, stage: number, prop: number): AscentShot {
+  const beat = showBeat()
+  if (s.phase !== 'ascent' || s.cam !== 'chase' || s.camLocked || !s.auto || beat === null) return 'side'
+  // 段を切り離す前後は、横から見せる
+  if ((sim.sepAt.s2 > 0 && sim.a.t - sim.sepAt.s2 < 8) || (stage === 1 && prop < STAGES[1].prop * 0.04)) return 'side'
+  return ASCENT_SHOTS[Math.floor((beat + CARD_SEC / 2) / CARD_SEC) % ASCENT_SHOTS.length]
+}
 
 export function LaunchWorld() {
   const rocket = useGLTF(ROCKET_URL)
@@ -266,7 +279,7 @@ export function LaunchWorld() {
   const debrisG = useRef<THREE.Group>(null)
   const debris = useRef<Debris[]>([])
   const ignite = useRef(0)
-  const camState = useRef({ pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), fov: 40, init: false, prevCam: '' })
+  const camState = useRef({ pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), fov: 40, init: false, prevCam: '', prevShot: '' as AscentShot | '' })
   /** 映画のカメラ：いまのカット、秒読みを始めてからの秒（離昇の後は実際の秒で進める）、カットの始まり */
   const filmS = useRef({ idx: 0, f: 0, cutAt: 0 })
 
@@ -633,6 +646,10 @@ export function LaunchWorld() {
     let shotName = ''
     // 映画は曲の最初の区切りまで（途中から飛ばして来たときも、高く上がっていたら横からに）
     if (s.cam === 'film' && s.phase === 'ascent' && !s.camLocked && ((mt ?? 0) > FILM_END || a.t > 60)) autoCam('chase')
+    // 上昇の後半（おまかせのとき）：「うしろから」のカメラを、計器のカードと 4 秒ずらして 8 秒ごとに切りかえる
+    const shot = ascentShot(s, a.stage, a.prop)
+    if (shot !== cs.prevShot) cs.init = false
+    cs.prevShot = shot
     if (observing) {
       fov = explorerCamera(dt, ex.part, lapseU > 0 ? THREE.MathUtils.smoothstep(lapseU, 0, 0.12) : 0, want, look)
       cs.up.set(0, 1, 0)
@@ -687,6 +704,34 @@ export function LaunchWorld() {
         fov = 74
       }
       cs.up.copy(up)
+    } else if (shot === 'tail' || shot === 'front' || shot === 'far') {
+      // エンジンの口の位置（機首の向きに、第2段は 46.6 m・第3段は 66.6 m。j2Trail と同じ）
+      const base = a.stage < 2 ? 46.6 : 66.6
+      if (shot === 'tail') {
+        // エンジンの横、少し上から前を見る：青白い J-2 の炎と、その先へのびる機体
+        want.copy(nose).multiplyScalar(base - 22).addScaledVector(south, 30).addScaledVector(up, 13)
+        look.copy(nose).multiplyScalar(base + 28)
+        fov = 62
+      } else if (shot === 'front') {
+        // 機首の前、斜め下から：こちらへ進んでくる機体と、うしろへのびる炎
+        want.copy(nose).multiplyScalar(140).addScaledVector(south, 30).addScaledVector(up, -8)
+        look.copy(nose).multiplyScalar(base + 10)
+        fov = 50
+      } else {
+        // 遠くから：真空で大きく広がる炎の長さ
+        want.copy(south).multiplyScalar(380).addScaledVector(nose, -30).addScaledVector(up, 24)
+        look.copy(nose).multiplyScalar(base - 30)
+        fov = 32
+      }
+      cs.up.copy(up)
+    } else if (shot === 'cabin' && rocketG.current) {
+      // 司令船の中：寝た姿勢の 3 人と計器盤（映画の始まりと同じ場所）
+      rocketG.current.localToWorld(want.copy(CABIN_EYE).setY(CABIN_EYE.y + CABIN_Y))
+      rocketG.current.localToWorld(look.copy(CABIN_LOOK).setY(CABIN_LOOK.y + CABIN_Y))
+      cs.up.copy(nose)
+      fov = 72
+      inside = true
+      filmShakeAng = 0.0025 * (a.accel / 9.8)
     } else {
       // 横から：軌道では少し離れて、地球が下に見えるように
       const far = s.phase === 'ascent' ? 190 : s.phase === 'outbound' ? 260 : 230

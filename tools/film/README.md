@@ -17,3 +17,12 @@
 | S72-55070（12 月 7 日、塔を越えた直後） | `refLiftoff` |
 
 注意：ブラウザーを使う確認（この道具・`tools/smoke`）は、同時に 2 つ走らせない（SwiftShader がとても遅くなる）。
+
+## 「画面が変わらない時間」を測る（8 秒ルール）
+
+- `DIST=dist OUT=/tmp/dull MAX=300 SKIP=150 node tools/film/dull.mjs && python3 tools/film/dull.py /tmp/dull`
+  - おまかせの操縦で、画面の 1 秒ごとに 3D の絵を撮り、字幕・カメラ・場面・計器のカード（`data-dull`）を記録する。
+  - `dull.py` は、何も変わらない秒が 8 秒（`--limit`）以上続いた所を長い順に出す。
+  - `SKIP=150`：打ち上げ 150 秒後から（第1段は煙が重くて、コマ送りがとても遅い）。
+- `OUT=/tmp/ascvid SKIP=150 node tools/film/ascentVideo.mjs`：上昇の後半を、画面の時間どおりに動画にする（`$OUT/ascent.mp4`）。
+- コマ送り（`window.__moonFilm.step`）は R3F の時計を止めて進める。時計が動いていると、撮影にかかった本当の時間が次のコマから差し引かれ、早送りが遅く測れる。

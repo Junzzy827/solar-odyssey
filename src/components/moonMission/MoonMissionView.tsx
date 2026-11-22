@@ -42,6 +42,7 @@ import { ChapterMenu, ResumeButton } from './ChapterMenu'
 import { CabinFrame } from './CabinFrame'
 import './moonMission.css'
 import { CamMenu } from './CamMenu'
+import { AscentCards } from './AscentCards'
 import { SaturnExplorer } from './SaturnExplorer'
 
 // 月ミッション（アポロ17号の追体験）の場面。宇宙の場面とは別の Canvas で描く（そのあいだ宇宙の場面は止める）。
@@ -60,6 +61,12 @@ function FilmHook() {
         setFrameloop('never')
       },
       step: (dt: number) => {
+        // 時計を止めておく：動いていると、コマとコマのあいだの本当の時間（撮影に 1 秒かかるなど）が差し引かれ、
+        // 次のコマの dt が小さくなって、早送りが遅く測れていた（画質の自動調整で描き直すと、時計がまた動き出す）
+        if (get().frameloop !== 'never') setFrameloop('never')
+        const clock = get().clock
+        clock.autoStart = false
+        clock.running = false
         film.t = (film.t ?? 1000) + dt
         advance(film.t)
       },
@@ -103,7 +110,8 @@ type World = 'launch' | 'dock' | 'moon' | 'home'
 const MissionCanvas = memo(function MissionCanvas({ world }: { world: World }) {
   const dpr = useDpr(1.75)
   return (
-    <Canvas dpr={dpr} gl={{ alpha: false, logarithmicDepthBuffer: true, antialias: true }} camera={{ fov: 40, near: 0.3, far: 2e10, position: [0, 20, 300] }}>
+    // コマ送りの確認のあいだは、画質の自動調整で描き直されても、本当の時間で動き出さないように
+    <Canvas frameloop={film.t !== null ? 'never' : 'always'} dpr={dpr} gl={{ alpha: false, logarithmicDepthBuffer: true, antialias: true }} camera={{ fov: 40, near: 0.3, far: 2e10, position: [0, 20, 300] }}>
       <color attach="background" args={['#000']} />
       {/* 第1弾（地球から月へ向かうまで）と第2弾（月のまわり）は、別の世界 */}
       <Suspense fallback={null}>{world === 'moon' ? <LunarWorld /> : world === 'dock' ? <DockWorld /> : world === 'home' ? <ReturnWorld /> : <LaunchWorld />}</Suspense>
@@ -257,6 +265,7 @@ function Hud() {
         </div>
       )}
       {s.phase === 'ascent' && touch && !s.auto && r.stage < 2 && <TiltButtons />}
+      <AscentCards r={r} raised={touch && !s.auto && r.stage < 2} />
       {s.phase === 'orbit' && orbitT > TLI_WINDOW_OPEN - 300 && (
         <div className="mm-tli">
           <div className="mm-tli-label">{t.tliBar}</div>
