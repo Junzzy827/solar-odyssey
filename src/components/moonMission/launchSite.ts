@@ -251,6 +251,7 @@ function marshWater(group: THREE.Group, mat: THREE.Material, geos: THREE.BufferG
     const z = Math.sin(a) * d
     if (x > COAST_X - 200) continue
     if (x < -300 && x > -4800 && Math.abs(z - x * -0.52) < 260) continue
+    if (Math.hypot(x - PAD_B.x, z - PAD_B.y) < 420) continue
     add(x, z, 60 + rnd() * 260, 30 + rnd() * 140, rnd() * Math.PI)
   }
 }
@@ -301,20 +302,89 @@ function vehicleAssemblyBuilding(group: THREE.Group, geos: THREE.BufferGeometry[
 
 /** クローラーの道：発射台の坂の下から、西南西の組み立て棟へ（砂利の 2 本の道） */
 function crawlerway(group: THREE.Group, mat: THREE.Material, geos: THREE.BufferGeometry[]) {
-  const from = new THREE.Vector2(-330, 0)
-  const to = new THREE.Vector2(-4500, 2300)
+  gravelRoad(group, mat, geos, new THREE.Vector2(-330, 0), new THREE.Vector2(-4500, 2300))
+}
+
+/** 39B 発射台：39A の北北西 2.7 km（x 東、z 南）。1972 年 12 月は使っていない（アポロ 10 号のあと空き）ので、台の上は空で、投光器だけ */
+const PAD_B = new THREE.Vector2(-900, -2550)
+/** 2 つの発射台へのクローラーの道が分かれる所 */
+const FORK = new THREE.Vector2(-2400, 1142)
+/** 移動整備塔（MSS、高さ 125 m）：打ち上げの間は、クローラーの道のわきの待避所（発射台から約 2.1 km）に下がっている */
+const MSS = new THREE.Vector2(-2050, 1080)
+
+/** 砂利の 2 本の道を from から to へ */
+function gravelRoad(group: THREE.Group, mat: THREE.Material, geos: THREE.BufferGeometry[], from: THREE.Vector2, to: THREE.Vector2) {
   const len = from.distanceTo(to)
+  const ang = Math.atan2(to.y - from.y, to.x - from.x)
   for (const off of [-12, 12]) {
     const g = new THREE.PlaneGeometry(len, 12)
     geos.push(g)
     const m = new THREE.Mesh(g, mat)
-    const ang = Math.atan2(to.y - from.y, to.x - from.x)
     m.rotation.set(-Math.PI / 2, 0, -ang)
-    const nx = -Math.sin(ang) * off
-    const nz = Math.cos(ang) * off
-    m.position.set((from.x + to.x) / 2 + nx, LAND_Y + 0.04, (from.y + to.y) / 2 + nz)
+    m.position.set((from.x + to.x) / 2 - Math.sin(ang) * off, LAND_Y + 0.04, (from.y + to.y) / 2 + Math.cos(ang) * off)
     group.add(m)
   }
+}
+
+/** 光の点の組（窓・投光器・航空灯）。夜の明るさに合わせて opacity を変える */
+function lightPoints(pts: number[], cols: number[], size: number, geos: THREE.BufferGeometry[], mats: THREE.Material[]) {
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3))
+  g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cols), 3))
+  const m = new THREE.PointsMaterial({ vertexColors: true, size, sizeAttenuation: false, map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+  geos.push(g)
+  mats.push(m)
+  return { points: new THREE.Points(g, m), material: m }
+}
+
+/** 39B の盛り土（39A と同じ形）・投光器と、移動整備塔 */
+function padB(group: THREE.Group, moundGeo: THREE.BufferGeometry, moundMat: THREE.Material, deflGeo: THREE.BufferGeometry, deflMat: THREE.Material, gravel: THREE.Material, geos: THREE.BufferGeometry[], mats: THREE.Material[]) {
+  const pad = new THREE.Group()
+  pad.position.set(PAD_B.x, 0, PAD_B.y)
+  pad.add(new THREE.Mesh(moundGeo, moundMat), new THREE.Mesh(deflGeo, deflMat))
+  group.add(pad)
+  gravelRoad(group, gravel, geos, new THREE.Vector2(PAD_B.x - 330, PAD_B.y), FORK)
+  const pts: number[] = []
+  const cols: number[] = []
+  // 盛り土の上のふちの投光器（白とナトリウムのオレンジ）
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2
+    const x = Math.cos(a) * 90
+    const z = Math.sin(a) * 100
+    pts.push(PAD_B.x + x, GROUND_Y + 12, PAD_B.y + z)
+    const warm = i % 3 === 0 ? 0 : 1
+    cols.push(1.3, 1.25 - 0.35 * warm, 1.15 - 0.75 * warm)
+  }
+  // 移動整備塔：鉄骨の箱（夜は黒いかたまり）に、作業灯と赤い航空灯
+  const tower = new THREE.Group()
+  tower.position.set(MSS.x, LAND_Y, MSS.y)
+  tower.rotation.y = -0.5
+  const wall = new THREE.MeshStandardMaterial({ color: '#3c3a36', roughness: 0.9 })
+  mats.push(wall)
+  const body = new THREE.BoxGeometry(40, 125, 34)
+  body.translate(0, 62.5, 0)
+  const legs = new THREE.BoxGeometry(46, 14, 40)
+  legs.translate(0, 7, 0)
+  geos.push(body, legs)
+  tower.add(new THREE.Mesh(body, wall), new THREE.Mesh(legs, wall))
+  group.add(tower)
+  const tp: number[] = []
+  const tc: number[] = []
+  let seed = 9
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  for (let i = 0; i < 24; i++) {
+    tp.push((rnd() - 0.5) * 38, 10 + rnd() * 110, 17.5)
+    tc.push(1, 0.92, 0.75)
+  }
+  for (const [x, z] of [[-20, -17], [20, 17]]) {
+    tp.push(x, 126, z)
+    tc.push(1.6, 0.05, 0.02)
+  }
+  const tl = lightPoints(tp, tc, 2.2, geos, mats)
+  tower.add(tl.points)
+  const pl = lightPoints(pts, cols, 2.6, geos, mats)
+  group.add(pl.points)
+  return [pl.material, tl.material]
 }
 
 export type LaunchSite = {
@@ -369,6 +439,8 @@ export function buildSite(small: boolean): LaunchSite {
   geos.push(deflGeo)
   mats.push(deflMat)
   group.add(new THREE.Mesh(deflGeo, deflMat))
+  // 北北西の 39B 発射台と、待避所の移動整備塔
+  const padBLights = padB(group, moundGeo, moundMat, deflGeo, deflMat, gravel, geos, mats)
   // 炎の溝の火：点火すると溝が炎で満たされ、南北の出口から噴き出す
   const fireMat = new THREE.MeshBasicMaterial({ map: glowTexture(), color: '#ffc47e', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
   const trenchFire = flat(new THREE.PlaneGeometry(30, 150), fireMat, 0, GROUND_Y - 3, 0)
@@ -387,6 +459,7 @@ export function buildSite(small: boolean): LaunchSite {
       cityMat.opacity = lights
       cityMat.visible = lights > 0.01
       vabLights.opacity = 0.3 + 0.7 * lights
+      for (const m of padBLights) m.opacity = 0.3 + 0.7 * lights
     },
     update(k, t) {
       trenchFire.visible = k > 0.01
