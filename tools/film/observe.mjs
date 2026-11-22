@@ -41,6 +41,9 @@ await step(30)
 let i = 0
 for (const v of (process.env.VIEWS || 'whole').split(',')) {
   const [name, arg] = v.split(':')
+  if (name === 'hold') {
+    await step(Number(arg) * 10)
+  }
   if (name === 'lapse') {
     await page.evaluate((u) => {
       const M = window.__sv.moonMission
@@ -48,6 +51,11 @@ for (const v of (process.env.VIEWS || 'whole').split(',')) {
       // 時計（コマ送りの時計）を u の所へ
       M.state.setState({ since: M.now() - u * 12 })
     }, Number(arg))
+    await step(3)
+  } else if (name.startsWith('o=')) {
+    // o=方位/仰角/距離/見る高さ
+    const [az, el, dist, focus] = name.slice(2).split('/').map(Number)
+    await page.evaluate(([az, el, dist, focus]) => Object.assign(window.__sv.moonMission.orbit, { az, el, dist, tDist: dist, focus, tFocus: focus, tAz: null, tEl: null }), [az, el, dist, focus])
     await step(3)
   } else if (name.startsWith('az=')) {
     await page.evaluate((a) => (window.__sv.moonMission.orbit.az = a), Number(name.slice(3)))
@@ -64,7 +72,7 @@ for (const v of (process.env.VIEWS || 'whole').split(',')) {
     await sleep(800)
   }
   if (process.env.SKYLOG) console.log(JSON.stringify(await page.evaluate(() => ({ moon: window.__sv.moonMission.sky.moon, lit: window.__sv.moonMission.sky.moonLit, ms: new Date(window.__sv.moonMission.sky.ms).toISOString() }))))
-  const file = `${OUT}/${String(i++).padStart(2, '0')}-${v.replace(/[:=]/g, '_')}.jpg`
+  const file = `${OUT}/${String(i++).padStart(2, '0')}-${v.replace(/[:=/]/g, '_')}.jpg`
   await page.screenshot({ path: file, quality: 88, type: 'jpeg' })
   console.log(file)
 }

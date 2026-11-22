@@ -6,10 +6,10 @@ import { R_EARTH, PAD_LAT, OMEGA, altitude } from '../../data/saturnAscent'
 import { sim, tickMission, useMoonMission, autoCam, missionNow, COUNT_FROM, TIMELAPSE } from '../../state/moonMission'
 import { useExplorer } from '../../state/saturnExplorer'
 import { musicTime } from '../../audio/missionMusic'
-import { lowMemory } from '../../state/quality'
+import { currentLevel, lowMemory } from '../../state/quality'
 import { plumeGeometry, plumeMaterial } from './plume'
 import { Smoke } from './smoke'
-import { buildSite, GROUND_Y } from './launchSite'
+import { buildSite, GROUND_Y, LAND_Y } from './launchSite'
 import { buildFloodlights } from './launchLights'
 import { buildSky } from './launchSky'
 import { launchSmoke } from './launchFx'
@@ -166,8 +166,9 @@ export function LaunchWorld() {
   const plumes = useMemo(() => {
     const geo = plumeGeometry()
     // 打ち上げの世界の自前のシェーダーは、後処理のあるなしで明るさがそろうように仕上げる（shaderOut.ts）
-    const f1 = encodeOutput(plumeMaterial({ core: '#fffaf0', edge: '#ffc070', soft: 0.9 }))
-    const big = encodeOutput(plumeMaterial({ core: '#fff4dc', edge: '#ffa448', soft: 1.2 }))
+    // 本物の夜の写真では、炎はほとんど白く（芯はわずかに青白く）、ふちだけ淡い黄色
+    const f1 = encodeOutput(plumeMaterial({ core: '#ffffff', edge: '#ffe2b0', soft: 0.9 }))
+    const big = encodeOutput(plumeMaterial({ core: '#fffbf2', edge: '#ffd598', soft: 1.2 }))
     const j2 = encodeOutput(plumeMaterial({ core: '#b8c4ff', edge: '#3a48d8', soft: 1.8 }))
     const les = encodeOutput(plumeMaterial({ core: '#fff0c0', edge: '#ff8a30', soft: 1.0 }))
     return { geo, f1, big, j2, les }
@@ -210,6 +211,15 @@ export function LaunchWorld() {
   const hemi = useRef<THREE.HemisphereLight>(null)
   const daySun = useRef<THREE.DirectionalLight>(null)
   const workLight = useRef<THREE.PointLight>(null)
+  /** 水面に映すもの（毎フレーム書きかえる） */
+  const waterSrc = useRef({
+    lights: Array.from({ length: 4 }, () => ({ pos: new THREE.Vector3(), col: new THREE.Color() })),
+    rocket: new THREE.Vector3(),
+    rocketCol: new THREE.Color(),
+  })
+  /** 前のフレームの第1段の炎（水面に映す） */
+  const s1Prev = useRef(0)
+  const _mirrorCam = useMemo(() => new THREE.Vector3(), [])
   const debrisG = useRef<THREE.Group>(null)
   const debris = useRef<Debris[]>([])
   const ignite = useRef(0)
@@ -327,6 +337,24 @@ export function LaunchWorld() {
     fog.density = observing ? 1.5e-4 * (0.3 + 0.7 * dayK) : 0
     fog.color.set('#05070b').lerp(_c1.set('#767b8a'), dayK)
     site.setDusk(observing ? dayK : 0, liveSky.lights)
+    // 水面に映るもの：投光器の列、点火の炎、照らされたロケット
+    if (ground.current) {
+      const ws = waterSrc.current
+      lights.lamps.forEach((l, i) => {
+        ws.lights[i].pos.copy(l.pos)
+        ws.lights[i].col.setRGB(0.85, 0.9, 1).multiplyScalar(l.on)
+      })
+      const fl = ws.lights[lights.lamps.length]
+      fl.pos.set(0, GROUND_Y - 2, 0)
+      fl.col.setRGB(1, 0.86, 0.68).multiplyScalar(s1Prev.current * 700)
+      ground.current.worldToLocal(ws.rocket.set(0, 0, 0))
+      // 柱は地面から機首まで（点火のあとは、炎と照らされた煙もロケットの下に光る）
+      const rocketTop = ws.rocket.y + 110
+      if (s1Prev.current > 0) ws.rocket.y = Math.min(ws.rocket.y, GROUND_Y)
+      // ロケットの柱：照明に照らされた白、夕日の色、点火のあとは炎と照らされた煙の明るい柱（写真では水面に白い光の帯）
+      ws.rocketCol.setRGB(0.55, 0.58, 0.64).multiplyScalar(liveSky.lights).add(_c1.setRGB(0.95, 0.72, 0.5).multiplyScalar(observing ? dayK * 0.9 : 0)).add(_c1.setRGB(1, 0.93, 0.85).multiplyScalar(s1Prev.current * 1.6))
+      site.water.update({ ground: ground.current, camera, t, sun: liveSky.sun, moon: liveSky.moon, moonLit: liveSky.moonLit, dusk: observing ? Math.max(dayK, 0.15) : 0.15, lights: ws.lights, rocket: ws.rocket, rocketH: rocketTop - ws.rocket.y, rocketCol: ws.rocketCol, domeShown: observing })
+    }
     lights.setOn(liveSky.lights)
     // 日の出：太陽が地平線の上に出たとき
     if (!sim.sunrise && s.phase === 'orbit' && up.dot(SUN) > -0.06) {
@@ -340,6 +368,8 @@ export function LaunchWorld() {
     if (s.phase === 'pad' && s.ignitedAt !== null) ignite.current = THREE.MathUtils.clamp((s.ignitedAt - s.countdown) / (s.ignitedAt - 0.2), 0, 1)
     if (s.phase === 'ascent') ignite.current = 1
     const s1On = (s.phase === 'pad' ? ignite.current : 1) * (a.stage === 0 && a.thrust > 0 || (s.phase === 'pad' && ignite.current > 0) ? 1 : 0)
+    // 水に映る炎：地上に近いあいだ（高く上がると、遠くの小さな光）
+    s1Prev.current = s1On * THREE.MathUtils.clamp(1 - h / 3000, 0.05, 1)
     const centerOff = a.stage === 0 && a.t >= 135.5
     if (f1.current) {
       f1.current.visible = s1On > 0
@@ -597,6 +627,14 @@ export function LaunchWorld() {
     }
   })
 
+  // 水面の鏡の絵（カメラを動かした後、画面を描く前）。煙・炎・ロケットが、波でゆがんで縦にのびて水に映る
+  useFrame(() => {
+    if (!ground.current) return
+    camera.updateMatrixWorld()
+    const near = ground.current.worldToLocal(_mirrorCam.copy(camera.position)).y < 30000
+    site.water.renderMirror({ gl, scene, camera: camera as THREE.PerspectiveCamera, ground: ground.current, planeY: LAND_Y, on: near && currentLevel() !== 'low' && !small })
+  })
+
   const sunlit = useMoonMission((s) => s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound')
   const observe = useMoonMission((s) => s.phase === 'observe')
   const showSize = useExplorer((s) => s.size)
@@ -636,7 +674,7 @@ export function LaunchWorld() {
         <primitive object={cabin.group} />
         {observe && <SaturnHotspots />}
         {observe && showSize && <SizeFigure />}
-        <pointLight ref={flameLight} color="#ff9a40" intensity={0} distance={0} decay={2} />
+        <pointLight ref={flameLight} color="#ffc88e" intensity={0} distance={0} decay={2} />
         <pointLight ref={workLight} color="#ffe6c4" intensity={0} distance={0} decay={2} />
         <group ref={f1} position={[0, 0.2, 0]}>
           {[

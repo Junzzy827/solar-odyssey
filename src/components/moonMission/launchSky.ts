@@ -70,19 +70,13 @@ const domeVert = /* glsl */ `
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `
-const domeFrag = /* glsl */ `
-  uniform vec3 uSun;
-  uniform vec3 uMoon;
-  uniform float uMoonLit;
-  uniform float uAir;
-  uniform vec3 uUp;
-  varying vec3 vDir;
-  void main() {
-    vec3 d = normalize(vDir);
-    float y = dot(d, uUp);
+/** 空の色（d の向き、太陽・月の向き、月の輝き、上）。水面の映り込み（water.ts）でも使う。太陽・月の円盤そのものは入れない */
+export const SKY_CHUNK = /* glsl */ `
+  vec3 skyColor(vec3 d, vec3 sun, vec3 moon, float moonLit, vec3 up) {
+    float y = dot(d, up);
     float yy = max(y, 0.0);
-    float sy = dot(uSun, uUp);
-    float c = dot(d, uSun);
+    float sy = dot(sun, up);
+    float c = dot(d, sun);
     // 昼の青 → 薄明 → 夜
     float day = smoothstep(-0.12, 0.3, sy);
     float twi = smoothstep(-0.3, -0.02, sy) * (1.0 - smoothstep(0.08, 0.45, sy));
@@ -98,15 +92,33 @@ const domeFrag = /* glsl */ `
     float anti = pow(max(-c * 0.5 + 0.5, 0.0), 3.0);
     col += twi * anti * exp(-abs(yy - 0.12) * 16.0) * vec3(0.42, 0.26, 0.32) * 0.5;
     col *= 1.0 - twi * anti * exp(-yy * 22.0) * 0.45;
-    // 太陽のまわり（地平線より上にいるとき）
-    float sunUp = smoothstep(-0.02, 0.01, sy);
-    col += sunUp * vec3(1.0, 0.62, 0.3) * (pow(max(c, 0.0), 900.0) * 6.0 + pow(max(c, 0.0), 40.0) * 0.35);
-    // 月のまわりの明るさと、月明かりの夜空
-    float mUp = smoothstep(-0.03, 0.08, dot(uMoon, uUp));
-    float mc = max(dot(d, uMoon), 0.0);
-    col += mUp * uMoonLit * (vec3(0.5, 0.55, 0.65) * (pow(mc, 600.0) * 0.5 + pow(mc, 30.0) * 0.06) + vec3(0.008, 0.012, 0.024) * (1.0 - day));
-    // 地平線の下（盛り土・海の向こう）はもやの色
+    // 月明かりの夜空と、月のまわりの広い明るさ
+    float mUp = smoothstep(-0.03, 0.08, dot(moon, up));
+    float mc = max(dot(d, moon), 0.0);
+    col += mUp * moonLit * (vec3(0.5, 0.55, 0.65) * pow(mc, 30.0) * 0.06 + vec3(0.008, 0.012, 0.024) * (1.0 - day));
+    // 地平線の下はもやの色
     if (y < 0.0) col = hor * 0.55 * (1.0 + day);
+    return col;
+  }
+`
+const domeFrag = /* glsl */ `
+  uniform vec3 uSun;
+  uniform vec3 uMoon;
+  uniform float uMoonLit;
+  uniform float uAir;
+  uniform vec3 uUp;
+  varying vec3 vDir;
+  ${SKY_CHUNK}
+  void main() {
+    vec3 d = normalize(vDir);
+    vec3 col = skyColor(d, uSun, uMoon, uMoonLit, uUp);
+    float c = dot(d, uSun);
+    // 太陽のまわり（地平線より上にいるとき）と、月のすぐまわり
+    float sunUp = smoothstep(-0.02, 0.01, dot(uSun, uUp));
+    col += sunUp * vec3(1.0, 0.62, 0.3) * (pow(max(c, 0.0), 900.0) * 6.0 + pow(max(c, 0.0), 40.0) * 0.35);
+    float mUp = smoothstep(-0.03, 0.08, dot(uMoon, uUp));
+    col += mUp * uMoonLit * vec3(0.5, 0.55, 0.65) * pow(max(dot(d, uMoon), 0.0), 600.0) * 0.5;
+    if (dot(d, uUp) < 0.0) col = skyColor(d, uSun, uMoon, uMoonLit, uUp);
     gl_FragColor = vec4(col * uAir, 1.0);
     ${OUT_CHUNK}
   }

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { buildWater, type Water } from './water'
 import { glowTexture } from './plume'
 
 // 打ち上げの場面の「地面の組」に置く、発射台のまわりの土地：陸（西）・海（東）・発射台の盛り土と炎の溝・夜の町の明かり。
@@ -236,7 +237,7 @@ function marshWater(group: THREE.Group, mat: THREE.Material, geos: THREE.BufferG
     const m = new THREE.Mesh(disc, mat)
     m.rotation.set(-Math.PI / 2, 0, rot)
     m.scale.set(sx, sz, 1)
-    m.position.set(x, LAND_Y + 0.02, z)
+    m.position.set(x, LAND_Y + 0.12, z)
     group.add(m)
   }
   // 西のバナナ川の入り江（南北に長い水面）と、インディアン川
@@ -320,6 +321,8 @@ export type LaunchSite = {
   group: THREE.Group
   /** 溝の炎の強さ k（0〜1）と時刻 t */
   update(k: number, t: number): void
+  /** 水面（毎フレーム、映るものを渡す） */
+  water: Water
   /** 夕方の明るさ（day 0 夜〜1 昼）と、町の明かりがついた割合 */
   setDusk(day: number, lights: number): void
   dispose(): void
@@ -344,8 +347,9 @@ export function buildSite(small: boolean): LaunchSite {
   flat(new THREE.PlaneGeometry(30000, 80000), new THREE.MeshStandardMaterial({ color: '#1a1c16', roughness: 0.95 }), COAST_X - 15000, LAND_Y - 0.05, 0)
   // 砂浜
   flat(new THREE.PlaneGeometry(60, 80000), new THREE.MeshStandardMaterial({ color: '#5a554a', roughness: 0.95 }), COAST_X - 30, LAND_Y - 0.03, 0)
-  // 大西洋。夜の海は黒く、炎や照明だけを映す
-  const water = new THREE.MeshStandardMaterial({ color: '#03060a', roughness: 0.14, metalness: 0.3 })
+  // 大西洋と湿地の水：さざ波が空・月・投光器・炎・ロケットを映す（water.ts）
+  const waterFx = buildWater(COAST_X)
+  const water = waterFx.material
   mats.push(water)
   flat(new THREE.PlaneGeometry(40000, 80000), water, COAST_X + 20000, LAND_Y - 0.5, 0)
   marshWater(group, water, geos)
@@ -366,7 +370,7 @@ export function buildSite(small: boolean): LaunchSite {
   mats.push(deflMat)
   group.add(new THREE.Mesh(deflGeo, deflMat))
   // 炎の溝の火：点火すると溝が炎で満たされ、南北の出口から噴き出す
-  const fireMat = new THREE.MeshBasicMaterial({ map: glowTexture(), color: '#ff9a3a', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+  const fireMat = new THREE.MeshBasicMaterial({ map: glowTexture(), color: '#ffc47e', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
   const trenchFire = flat(new THREE.PlaneGeometry(30, 150), fireMat, 0, GROUND_Y - 3, 0)
   trenchFire.visible = false
   // 町の明かり
@@ -375,14 +379,11 @@ export function buildSite(small: boolean): LaunchSite {
   geos.push(cityGeo)
   mats.push(cityMat)
   group.add(new THREE.Points(cityGeo, cityMat))
-  // 夕方の海は空を映して青灰色、夜は黒い
-  const waterNight = water.color.clone()
-  const waterDay = new THREE.Color('#2c3a4c')
 
   return {
     group,
-    setDusk(day, lights) {
-      water.color.copy(waterNight).lerp(waterDay, day)
+    water: waterFx,
+    setDusk(_day, lights) {
       cityMat.opacity = lights
       cityMat.visible = lights > 0.01
       vabLights.opacity = 0.3 + 0.7 * lights
@@ -392,6 +393,7 @@ export function buildSite(small: boolean): LaunchSite {
       fireMat.opacity = Math.min(1, k * 1.4) * (0.85 + 0.15 * Math.sin(t * 29))
     },
     dispose() {
+      waterFx.dispose()
       for (const g of geos) g.dispose()
       for (const m of mats) m.dispose()
       concrete.dispose()

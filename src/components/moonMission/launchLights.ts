@@ -108,6 +108,8 @@ export type Floodlights = {
   update(power: number, t: number): void
   /** 明かりがついた割合（0〜1）。夕方のタイムラプスで、列ごとに順につく */
   setOn(k: number): void
+  /** 列ごとの灯の位置（地面の組の座標）と、ついている割合（水面の映り込みに使う） */
+  lamps: { pos: THREE.Vector3; on: number }[]
   dispose(): void
 }
 
@@ -187,8 +189,10 @@ export function buildFloodlights(): Floodlights {
     spots.push(spot)
   }
   for (const m of beamMats) mats.push(m)
+  const lamps = ARRAYS.map((a) => ({ pos: new THREE.Vector3(a.at[0], moundHeight(a.at[0], a.at[1]) + 2.2, a.at[1]), on: 1 }))
   return {
     group,
+    lamps,
     setInside(v) {
       inside = v
       spots.forEach((s, i) => (s.intensity = inside ? 0 : SPOT_POWER * on[i]))
@@ -207,6 +211,7 @@ export function buildFloodlights(): Floodlights {
         heads[i].color.copy(headMat.color).multiplyScalar(0.02 + 0.98 * on[i])
         glows[i].opacity = on[i]
         spots[i].intensity = inside ? 0 : SPOT_POWER * on[i]
+        lamps[i].on = on[i]
       }
     },
     dispose() {

@@ -101,13 +101,30 @@ async function cupScene(page, body, until) {
 }
 
 /** 画面の 3D が描けているか（文字やボタンを消して撮る） */
+/** 3D が黒いときに、ログへ出す手がかり（WebGL が失われていないか、画面の大きさ、場面ごとの様子） */
+async function why3dBlank(page, name) {
+  return page
+    .evaluate((name) => {
+      const c = document.querySelector('canvas')
+      const gl = c && (c.getContext('webgl2') || c.getContext('webgl'))
+      const out = { canvas: c ? `${c.width}x${c.height}` : 'none', contextLost: gl ? gl.isContextLost() : null }
+      const m = window.__sv?.moonMission
+      if (name.startsWith('moonMission') && m) {
+        const st = m.state.getState()
+        Object.assign(out, { phase: st.phase, cam: st.cam, camLocked: st.camLocked, t: Math.round(m.sim.a.t), stage: m.sim.a.stage })
+      }
+      return JSON.stringify(out)
+    }, name)
+    .catch((e) => String(e))
+}
+
 async function check3d(page, name, min = { std: 4, lit: 0.002 }) {
   await page.evaluate(() => document.documentElement.classList.add('clean-screen'))
   await sleep(600)
   const shot = await page.screenshot({ timeout: 120000 })
   await page.evaluate(() => document.documentElement.classList.remove('clean-screen'))
   const s = imageStats(decodePng(shot))
-  if (s.std < min.std || s.lit < min.lit) throw new Error(`${name}: 3D looks blank (mean ${s.mean.toFixed(1)}, std ${s.std.toFixed(1)}, lit ${(s.lit * 100).toFixed(2)}%)`)
+  if (s.std < min.std || s.lit < min.lit) throw new Error(`${name}: 3D looks blank (mean ${s.mean.toFixed(1)}, std ${s.std.toFixed(1)}, lit ${(s.lit * 100).toFixed(2)}%) ${await why3dBlank(page, name)}`)
   return s
 }
 
