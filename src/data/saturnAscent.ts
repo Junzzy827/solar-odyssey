@@ -49,6 +49,8 @@ export const LES_DROP = 35
 export const PAYLOAD = 48_700
 /** 第1段の中央のエンジンを先に止める時刻（s）。加速が強くなりすぎないように */
 export const CENTER_CUTOFF = 135.5
+/** 第2段の中央のエンジンを止める、第2段の点火からの秒（アポロ17号：点火 T+2:44.6 ごろ、中央停止 T+7:41.2。NASA SP-4029） */
+export const S2_CENTER_CUTOFF = 296.6
 /** 段を切り離してから次の段に火が入るまで（s） */
 export const STAGING_GAP = 2.5
 
@@ -208,7 +210,7 @@ export function guidePitch(a: Ascent) {
 
 // ---- 1 歩すすめる ----------------------------------------------------------------------
 
-export type AscentEvent = 'centerCutoff' | 'stage1Sep' | 'stage2Ign' | 'interstage' | 'les' | 'stage2Sep' | 'stage3Ign' | 'orbit' | 'tliCutoff'
+export type AscentEvent = 'centerCutoff' | 's2CenterCutoff' | 'stage1Sep' | 'stage2Ign' | 'interstage' | 'les' | 'stage2Sep' | 'stage3Ign' | 'orbit' | 'tliCutoff'
 
 /**
  * dt 秒すすめる。pitch は機首の向き（度、真上から東へ）。起きた出来事を返す。
@@ -224,6 +226,7 @@ export function stepAscent(a: Ascent, dt: number, pitch: number, out: AscentEven
         a.m -= INTERSTAGE_MASS
         out.push('interstage')
       }
+      if (a.t - a.s2Start < S2_CENTER_CUTOFF && a.t + dt - a.s2Start >= S2_CENTER_CUTOFF) out.push('s2CenterCutoff')
       if (a.les && a.t - a.s2Start >= LES_DROP) {
         a.les = false
         a.m -= LES_MASS
@@ -240,7 +243,7 @@ export function stepAscent(a: Ascent, dt: number, pitch: number, out: AscentEven
   const st = STAGES[a.stage]
   if (!a.cutoff && a.t >= a.ignite && a.prop > 0) {
     const p = Math.exp(-h / 7_200)
-    const f = a.stage === 0 && a.t >= CENTER_CUTOFF ? 0.8 : 1
+    const f = (a.stage === 0 && a.t >= CENTER_CUTOFF) || (a.stage === 1 && a.s2Start >= 0 && a.t - a.s2Start >= S2_CENTER_CUTOFF) ? 0.8 : 1
     thrust = f * (st.thrustVac + (st.thrustSl - st.thrustVac) * p)
     const isp = st.ispVac + (st.ispSl - st.ispVac) * p
     const mdot = thrust / (isp * G0)

@@ -6,6 +6,7 @@ import { LIFTOFF_AT } from '../data/apolloRadio'
 import { playMusic, preloadMusic, stopMusic, type MusicCue } from '../audio/missionMusic'
 import { holdBgm } from '../audio/music'
 import {
+  R_EARTH,
   altitude,
   guidePitch,
   orbitOf,
@@ -107,6 +108,7 @@ export type CaptionKey =
   | 'towerClear'
   | 'maxQ'
   | 'centerCutoff'
+  | 's2CenterCutoff'
   | 'stage1Sep'
   | 'stage2Ign'
   | 'interstage'
@@ -222,6 +224,40 @@ export const sim = {
   events: [] as AscentEvent[],
   /** 手本の道すじ（打ち上げから軌道まで、物理の座標） */
   path: [] as [number, number][],
+  /** 飛んできた道すじ（[打ち上げ場からの距離 km, 高さ km]、物理の 2 秒ごと）。断面図に描く */
+  track: [] as [number, number][],
+  /** 切り離した第1段が海へ落ちていく道（[物理の秒, 距離 km, 高さ km]）。切り離しの瞬間に計算しておく */
+  s1Fall: [] as [number, number, number][],
+  /** 第1段を切り離した映像が終わり、計器やカメラの切り替えを始めた画面の時刻（missionNow）。まだなら -1 */
+  showAt: -1,
+}
+
+/** 断面図の座標：打ち上げ場からの距離（km）と高さ（km） */
+export const trackPoint = (x: number, y: number): [number, number] => [(Math.atan2(y, x) * R_EARTH) / 1000, (Math.hypot(x, y) - R_EARTH) / 1000]
+
+/** 切り離した第1段の落ちる道（重さと空気の抵抗だけ。LaunchWorld の破片と同じ式） */
+function fallPath(a: Ascent) {
+  let { x, y, vx, vy } = a
+  const out: [number, number, number][] = []
+  for (let t = 0; t < 1200; t += 0.5) {
+    const r = Math.hypot(x, y)
+    if (r < R_EARTH) break
+    if (t % 4 === 0) out.push([a.t + t, ...trackPoint(x, y)])
+    const g = 3.986004e14 / (r * r)
+    const rho = r - R_EARTH < 120_000 ? 1.225 * Math.exp(-(r - R_EARTH) / 7200) : 0
+    const drag = rho * Math.hypot(vx, vy) * 0.004
+    vx += (-g * (x / r) - drag * vx) * 0.5
+    vy += (-g * (y / r) - drag * vy) * 0.5
+    x += vx * 0.5
+    y += vy * 0.5
+  }
+  out.push([a.t + out.length * 4, ...trackPoint(x, y)])
+  return out
+}
+
+/** 計器のカードとカメラの切り替えの拍（画面の秒）。まだ始まっていなければ null */
+export function showBeat() {
+  return sim.showAt < 0 ? null : missionNow() - sim.showAt
 }
 
 /** 手本どおりに飛んだときの道すじ（線で見せる） */
@@ -286,6 +322,9 @@ export function startMoonMission(chapter: 'launch' | 'moon' = 'launch', after?: 
   sim.sunrise = false
   sim.sepAt = { s1: -1, ring: -1, les: -1, s2: -1 }
   sim.events = []
+  sim.track = []
+  sim.s1Fall = []
+  sim.showAt = -1
   if (!sim.path.length) sim.path = idealPath()
   missionInput.tilt = 0
   missionInput.ignite = false
@@ -450,8 +489,9 @@ function warpFor(phase: MissionPhase, a: Ascent) {
     if (a.t < 22) return 1
     if (near(sim.sepAt.s1) || near(sim.sepAt.ring) || near(sim.sepAt.les) || near(sim.sepAt.s2)) return 1.5
     if (a.stage === 0) return a.t > 150 ? 2 : 4
-    if (a.stage === 1) return 10
-    return 5
+    // 第2段・第3段は、計器とカメラの切り替えを見せながら、少し速く（前は 10 倍・5 倍で、同じ絵が 40 秒・30 秒続いていた）
+    if (a.stage === 1) return 14
+    return 7
   }
   if (phase === 'orbit') {
     const t = a.t - sim.orbitAt
@@ -533,9 +573,17 @@ export function tickMission(dt: number) {
     }
   }
   if (s.phase === 'ascent' && a.t > 9 && a.t - dt * sim.warp <= 9) setCaption('towerClear')
+  if (s.phase === 'ascent') {
+    if (a.t >= sim.track.length * 2) sim.track.push(trackPoint(a.x, a.y))
+    // 第1段を切り離した映像（機体カメラ）が終わったら、計器のカードとカメラの切り替えを始める
+    if (sim.showAt < 0 && sim.sepAt.s1 > 0 && a.t - sim.sepAt.s1 > 14) sim.showAt = missionNow()
+  }
   for (const e of out) {
     sim.events.push(e)
-    if (e === 'stage1Sep') sim.sepAt.s1 = a.t
+    if (e === 'stage1Sep') {
+      sim.sepAt.s1 = a.t
+      sim.s1Fall = fallPath(a)
+    }
     if (e === 'interstage') sim.sepAt.ring = a.t
     if (e === 'les') sim.sepAt.les = a.t
     if (e === 'stage2Sep') sim.sepAt.s2 = a.t
