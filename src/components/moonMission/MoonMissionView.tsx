@@ -265,7 +265,7 @@ function Hud() {
         </div>
       )}
       {s.phase === 'ascent' && touch && !s.auto && r.stage < 2 && <TiltButtons />}
-      <AscentCards r={r} raised={touch && !s.auto && r.stage < 2} />
+      <AscentCards r={r} raised={s.phase === 'ascent' && touch && !s.auto && r.stage < 2} high={s.phase === 'orbit' && orbitT > TLI_WINDOW_OPEN - 300} />
       {s.phase === 'orbit' && orbitT > TLI_WINDOW_OPEN - 300 && (
         <div className="mm-tli">
           <div className="mm-tli-label">{t.tliBar}</div>

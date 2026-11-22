@@ -1,6 +1,7 @@
 // 上昇の後半（第2段・第3段）の確認動画：計器のカード・カメラの切り替えが入った画面を、画面の時間どおりに撮る（CI では使わない）
 //   OUT=/tmp/ascvid SKIP=150 node tools/film/ascentVideo.mjs   → $OUT/frames/*.jpg と $OUT/ascent.mp4
-//   SKIP：打ち上げから何秒（物理の秒）の所から撮るか。地球を回り始めて END 秒（画面の秒）で終わる
+//   SKIP：打ち上げから何秒（物理の秒）の所から撮るか。場面が STOP（ふつう orbit、第3章は outbound）になって END 秒（画面の秒）で終わる
+//   月へ向かう点火は、窓が開いたらすぐ押す（dull.mjs と同じ）
 import { chromium } from 'playwright'
 import { serve } from '../perf/serve.mjs'
 import { mkdirSync, rmSync } from 'node:fs'
@@ -14,6 +15,7 @@ const H = Number(process.env.H || 540)
 const FPS = Number(process.env.FPS || 20)
 const SKIP = Number(process.env.SKIP || 150)
 const END = Number(process.env.END || 4)
+const STOP = process.env.STOP || 'orbit'
 rmSync(`${OUT}/frames`, { recursive: true, force: true })
 mkdirSync(`${OUT}/frames`, { recursive: true })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -45,14 +47,16 @@ await page.evaluate((t) => window.__sv.moonMission.skip(t), SKIP)
 let after = -1
 for (let f = 0; f < FPS * 300; f++) {
   const phase = await page.evaluate((dt) => {
+    const M = window.__sv.moonMission
+    if (M.state.getState().phase === 'orbit' && M.sim.a.t - M.sim.orbitAt >= 2400) M.go()
     window.__moonFilm.step(dt)
-    return window.__sv.moonMission.state.getState().phase
+    return M.state.getState().phase
   }, 1 / FPS)
   // 字幕・カードの React の描き直しを待つ
   if (f % 2 === 0) await sleep(30)
   await page.screenshot({ path: `${OUT}/frames/${String(f).padStart(5, '0')}.jpg`, type: 'jpeg', quality: 85 })
   if (f % (FPS * 5) === 0) console.log(f / FPS, phase)
-  if (phase !== 'ascent' && after < 0) after = f
+  if (phase === STOP && after < 0) after = f
   if (after >= 0 && f - after >= END * FPS) break
 }
 await browser.close()

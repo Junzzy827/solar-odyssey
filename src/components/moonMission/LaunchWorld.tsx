@@ -83,14 +83,24 @@ type Debris = { name: string; obj: THREE.Object3D; x: number; y: number; vx: num
 
 /** 上昇の後半の、自動のカメラの切り替え（横・エンジンの横・司令船の中・前から・遠くから）。
  *  夜の打ち上げなので、下の地球は暗い（高いところからの絵や窓の外は、ほぼまっ黒で使えなかった） */
-type AscentShot = 'side' | 'tail' | 'cabin' | 'front' | 'far'
+type AscentShot = 'side' | 'tail' | 'cabin' | 'front' | 'far' | 'window'
 const ASCENT_SHOTS: AscentShot[] = ['side', 'tail', 'cabin', 'front', 'far']
+/** 地球を回る・月へ向かう燃焼のあいだ：横・船長の窓（日の出の後だけ）・エンジンの横・遠くから */
+const ORBIT_SHOTS: AscentShot[] = ['side', 'window', 'tail', 'far']
 function ascentShot(s: { phase: string; cam: string; camLocked: boolean; auto: boolean }, stage: number, prop: number): AscentShot {
   const beat = showBeat()
-  if (s.phase !== 'ascent' || s.cam !== 'chase' || s.camLocked || !s.auto || beat === null) return 'side'
+  if (s.cam !== 'chase' || s.camLocked || beat === null) return 'side'
+  const k = Math.floor((beat + CARD_SEC / 2) / CARD_SEC)
+  // 地球を回るあいだは操縦がないので、おまかせでなくても切りかえる
+  if (s.phase === 'orbit' || s.phase === 'tli') {
+    const shot = ORBIT_SHOTS[k % ORBIT_SHOTS.length]
+    // 日の出の前は、窓の外がまっ暗で何も見えない
+    return shot === 'window' && !sim.sunrise ? 'far' : shot
+  }
+  if (s.phase !== 'ascent' || !s.auto) return 'side'
   // 段を切り離す前後は、横から見せる
   if ((sim.sepAt.s2 > 0 && sim.a.t - sim.sepAt.s2 < 8) || (stage === 1 && prop < STAGES[1].prop * 0.04)) return 'side'
-  return ASCENT_SHOTS[Math.floor((beat + CARD_SEC / 2) / CARD_SEC) % ASCENT_SHOTS.length]
+  return ASCENT_SHOTS[k % ASCENT_SHOTS.length]
 }
 
 export function LaunchWorld() {
@@ -446,7 +456,7 @@ export function LaunchWorld() {
     // 日の出：太陽が地平線の上に出たとき
     if (!sim.sunrise && s.phase === 'orbit' && up.dot(SUN) > -0.06) {
       sim.sunrise = true
-      useMoonMission.setState({ caption: { key: 'sunrise', at: performance.now() / 1000 } })
+      useMoonMission.setState({ caption: { key: 'sunrise', at: missionNow() } })
     }
 
     // ---- 炎 ----
@@ -688,7 +698,7 @@ export function LaunchWorld() {
       look.copy(nose).multiplyScalar(-90).addScaledVector(south, 16)
       fov = 62
       cs.up.copy(east)
-    } else if (s.cam === 'window' && s.phase !== 'ascent') {
+    } else if ((s.cam === 'window' || shot === 'window') && s.phase !== 'ascent') {
       // 司令船の窓：先端の少し下から外を見る。地球を回るときは地平線、月へ向かうときはふりかえって小さくなる地球
       want.copy(nose).multiplyScalar(104).addScaledVector(south, 2.2)
       if (s.phase === 'outbound') {
