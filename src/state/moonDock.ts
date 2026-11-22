@@ -3,7 +3,7 @@ import { GET, R_EARTH, coastSpeed } from '../data/apolloTimeline'
 import { dockStars, earthDistance, stepApproach } from '../data/dockPhysics'
 export { CAPTURE_OFF, CAPTURE_SPEED, DOCK_WARP, earthDistance } from '../data/dockPhysics'
 import { playRadio, preloadRadio, stopRadio } from '../audio/radio'
-import { stopMusic } from '../audio/missionMusic'
+import { preloadMusic, stopMusic } from '../audio/missionMusic'
 import { chapterHooks, missionNow, saveMissionRecord, setCaption, useMoonMission } from './moonMission'
 
 // アポロ17号の追体験・章3「向きを変えてドッキング」と章4「青い地球」（components/moonMission/DockWorld.tsx・DockHud.tsx）。
@@ -123,6 +123,8 @@ export function dockJourney() {
 
 /** 章3 を始める（第1弾の終わりのカード、章の一覧から） */
 export function startDock() {
+  preloadMusic('blueDanube')
+  preloadMusic('neptune')
   preloadRadio('capture')
   preloadRadio('hardDock')
   preloadRadio('ejection')
@@ -138,6 +140,7 @@ export function startDock() {
 
 /** 章4 を始める */
 export function startMarble() {
+  preloadMusic('neptune')
   preloadRadio('earthView')
   stopRadio()
   Object.assign(dock, { t: 0, gap: -0.3, out: 30, aimYaw: -14, aimPitch: 9, shoot: false, drift: 0 })

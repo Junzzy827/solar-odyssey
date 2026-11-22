@@ -137,6 +137,12 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
       jupiterOpening: { title: 'The Planets: Jupiter, the Bringer of Jollity', by: 'Gustav Holst (England), 1916' },
       jupiterHymn: { title: 'The Planets: Jupiter (the hymn)', by: 'Gustav Holst (England), 1916' },
       mars: { title: 'The Planets: Mars, the Bringer of War', by: 'Gustav Holst (England), 1914' },
+      saturn: { title: 'The Planets: Saturn, the Bringer of Old Age', by: 'Gustav Holst (England), 1915' },
+      neptune: { title: 'The Planets: Neptune, the Mystic', by: 'Gustav Holst (England), 1915' },
+      blueDanube: { title: 'The Blue Danube (waltz)', by: 'Johann Strauss II (Austria), 1866' },
+      zarathustra: { title: 'Also sprach Zarathustra: Sunrise', by: 'Richard Strauss (Germany), 1896 · performed by Kevin MacLeod (CC BY 3.0)' },
+      clairDeLune: { title: 'Suite bergamasque: Clair de lune', by: 'Claude Debussy (France), 1905' },
+      newWorld: { title: 'Symphony No. 9 "From the New World": Largo', by: 'Antonín Dvořák (Czech), 1893' },
     },
   },
   radio: {

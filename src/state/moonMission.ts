@@ -403,6 +403,9 @@ export function restartMission() {
 const MUSIC_AT: Partial<Record<CaptionKey, MusicCue | 'stop'>> = {
   ignition: 'jupiterOpening',
   orbit: 'jupiterHymn',
+  // 章3：第3段から離れて向きを変え、着陸船を迎えに行く（宇宙のワルツ）。章4：青い地球と 3 日の旅
+  tdSep: 'blueDanube',
+  marble: 'neptune',
   lowGate: 'mars',
   contact: 'stop',
   touchdown: 'stop',

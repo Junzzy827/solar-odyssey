@@ -18,7 +18,7 @@ import {
   type EntryEnd,
 } from '../data/reentry'
 import { stopRadio } from '../audio/radio'
-import { stopMusic } from '../audio/missionMusic'
+import { playMusic, preloadMusic, stopMusic } from '../audio/missionMusic'
 import { missionNow, saveMissionRecord, setCaption, useMoonMission } from './moonMission'
 
 // アポロ17号の追体験・章8「離陸・再会・地球へ帰還」（components/moonMission/ReturnWorld.tsx・ReturnHud.tsx）。
@@ -134,7 +134,8 @@ export function pressTei() {
   if (!inHome() || useMoonReturn.getState().step !== 'teiWait') return
   set('tei')
   setCaption('tei')
-  // 同じ曲は 2 度使わない（junji 2026-11-22）。この場面の曲は、新しい曲を取りこむときに決める
+  // 家へ帰る：「新世界より」の第2楽章（同じ曲は 2 度使わない。junji 2026-11-22）
+  playMusic('newWorld')
 }
 
 /** 角度を決める段階から、もう一度 */
@@ -214,6 +215,7 @@ export function tickReturn(dt: number) {
       ret.get = GET.lmJettison + t * 6
       if (t >= LMGONE_TIME) {
         set('teiWait')
+        preloadMusic('newWorld')
         setCaption('teiWait')
       }
       break

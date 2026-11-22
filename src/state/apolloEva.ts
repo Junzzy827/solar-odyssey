@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { APOLLO17 } from '../data/apollo17'
 import { launchRover, recallRover, roverPose, useRover } from './rover'
 import { preloadRadio, playRadio, stopRadio } from '../audio/radio'
-import { stopMusic } from '../audio/missionMusic'
+import { playMusic, preloadMusic, stopMusic } from '../audio/missionMusic'
 import { holdBgm } from '../audio/music'
 import { leaveSurface, skipDescent, startLanding, useLanding } from './landing'
 
@@ -162,7 +162,9 @@ export function watchLiftoff() {
   useRover.setState({ view: 'chase' })
   // 秒読みの切り抜きの 6.8 秒が点火（LIFTOFF_AT）
   window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && playRadio('ascent'), 400)
-  // 同じ曲は 2 度使わない（junji 2026-11-22）。この場面の曲は、新しい曲を取りこむときに決める
+  // 月を離れる：「月の光」（同じ曲は 2 度使わない。junji 2026-11-22）
+  preloadMusic('clairDeLune')
+  window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && playMusic('clairDeLune'), (LIFTOFF_AT + 9) * 1000)
   window.setTimeout(() => useApolloEva.getState().step === 'liftoff' && set('done'), (LIFTOFF_AT + 26) * 1000)
 }
 
