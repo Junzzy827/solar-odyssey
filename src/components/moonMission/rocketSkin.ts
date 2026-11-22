@@ -23,6 +23,7 @@ const SKIN = /* glsl */ `
   /** 外の補強の縦の筋（ストリンガー）がある高さ：段と段をつなぐ筒（インターステージ）と、タンクの上下のスカート */
   float skStringerZone(float y) {
     float z = 0.0;
+    z += smoothstep(1.8, 2.0, y) * (1.0 - smoothstep(8.2, 8.4, y)); // 第1段のいちばん下（エンジンを支える部分のスカート）
     z += smoothstep(24.8, 25.0, y) * (1.0 - smoothstep(28.8, 29.0, y)); // 第1段のタンクのあいだ
     z += smoothstep(39.8, 40.0, y) * (1.0 - smoothstep(46.6, 46.8, y)); // 第1段の上のスカートと、第2段とのあいだ
     z += smoothstep(46.8, 47.0, y) * (1.0 - smoothstep(48.8, 49.0, y)); // 第2段の下のスカート
@@ -156,33 +157,34 @@ export function s4bAft() {
   }
   const lathe = (pts: [number, number][], seg = 64) => new THREE.LatheGeometry(pts.map(([y, r]) => new THREE.Vector2(r, y)), seg)
 
-  // ノズル：冷やすための細い管を何百本も並べて作ってあり、黒く焼けた金属。管の並びが縦の細い筋に見える（平らな面を細かく並べて出す）
-  const nozzle = mat({ color: '#2b2c2f', metalness: 0.75, roughness: 0.42, side: THREE.DoubleSide, flatShading: true })
-  const steel = mat({ color: '#8d9096', metalness: 0.7, roughness: 0.35 })
-  const foil = mat({ color: '#b39a62', metalness: 0.8, roughness: 0.38 })
-  const struct = mat({ color: '#5d6064', metalness: 0.45, roughness: 0.55, side: THREE.DoubleSide, flatShading: true })
-  const dome = mat({ color: '#9a9b98', metalness: 0.2, roughness: 0.7, side: THREE.DoubleSide })
-  const skirt = mat({ color: '#1d1e20', metalness: 0.1, roughness: 0.8, side: THREE.BackSide })
+  // 色と照りは、ケネディ宇宙センターに展示されている実機の第3段の写真に合わせる（junji 2026-11-22）
+  // ノズル：冷やすための細い管を何百本も縦に並べて作った、銀色の金属（管は細かすぎるので、補強の輪だけ形で出す）
+  const nozzle = mat({ color: '#b4b7bb', metalness: 0.7, roughness: 0.45, side: THREE.DoubleSide })
+  const steel = mat({ color: '#9a9da2', metalness: 0.8, roughness: 0.3 })
+  const darkPipe = mat({ color: '#2e2f31', metalness: 0.3, roughness: 0.6 })
+  const foil = mat({ color: '#c9a64a', metalness: 0.85, roughness: 0.35, side: THREE.DoubleSide })
+  const bottle = mat({ color: '#a7aaae', metalness: 0.75, roughness: 0.3 })
+  const whiteBall = mat({ color: '#e6e6e2', metalness: 0.0, roughness: 0.55 })
+  const struct = mat({ color: '#8c8f8c', metalness: 0.45, roughness: 0.5, side: THREE.DoubleSide, flatShading: true })
+  const dome = mat({ color: '#a3ab9b', metalness: 0.15, roughness: 0.65, side: THREE.DoubleSide })
+  const skirt = mat({ color: '#b9bbb8', metalness: 0.1, roughness: 0.7, side: THREE.BackSide, flatShading: true })
 
   const engine = new THREE.Group()
   engine.name = 'S4bEngine'
   // ノズル（口の直径 2 m、のどから口まで 1.9 m）：のどからふくらんで広がる、ベルの形
+  const bellR = (y: number) => 0.24 + 0.74 * Math.pow(THREE.MathUtils.clamp((68.85 - y) / 1.95, 0, 1), 0.62)
+  // 補強の輪（ハットバンド）は、ノズルの形そのものに細い出っぱりとして入れる（別の輪を重ねると、遠くで点線のようにちらつく）。
+  // 下の広い所ほど多い。口のふちは太い輪
+  const bands = Array.from({ length: 11 }, (_, i) => 68.35 - i * 0.135)
   const bell: [number, number][] = []
-  for (let i = 0; i <= 16; i++) {
-    const k = i / 16
-    bell.push([68.85 - 1.95 * k, 0.24 + 0.74 * Math.pow(k, 0.62)])
+  for (let i = 0; i <= 160; i++) {
+    const y = 68.85 - 1.95 * (i / 160)
+    let bump = 0
+    for (const by of bands) bump = Math.max(bump, 1 - Math.min(Math.abs(y - by) / 0.03, 1))
+    bump = Math.max(bump, 1 - Math.min((y - 66.9) / 0.06, 1))
+    bell.push([y, bellR(y) + 0.03 * Math.sqrt(bump)])
   }
-  mesh(lathe(bell, 160), nozzle, engine)
-  // ノズルの補強の輪（ハットバンド）
-  for (const [y, r] of [
-    [68.0, 0.71],
-    [67.45, 0.85],
-  ]) {
-    const g = new THREE.TorusGeometry(r + 0.02, 0.025, 6, 64)
-    g.rotateX(Math.PI / 2)
-    g.translate(0, y, 0)
-    mesh(g, steel, engine)
-  }
+  mesh(lathe(bell, 128), nozzle, engine)
   // 燃焼室と噴射器（のどの上）・首振りの台
   mesh(lathe([[68.85, 0.24], [69.0, 0.3], [69.45, 0.32], [69.6, 0.36], [69.75, 0.2], [69.95, 0.12], [69.95, 0.001]], 32), steel, engine)
   // ターボポンプ 2 つ（液体水素と液体酸素）と、燃料の太い管
@@ -196,24 +198,69 @@ export function s4bAft() {
     const duct = new THREE.CylinderGeometry(0.07, 0.07, 0.9, 10)
     duct.rotateZ(Math.sign(x) * 0.9)
     duct.translate(x * 0.55, 69.1, z)
-    mesh(duct, foil, engine)
+    mesh(duct, darkPipe, engine)
   }
-  // ポンプの間の、熱よけの金色の箔（ガス発生器）
+  // ガス発生器
   {
     const g = new THREE.SphereGeometry(0.16, 16, 10)
     g.translate(0.1, 69.55, 0.45)
-    mesh(g, foil, engine)
+    mesh(g, steel, engine)
+  }
+  // エンジンを始動させる水素の白い球（写真ではエンジンの横の白い大きな球）
+  {
+    const g = new THREE.SphereGeometry(0.4, 24, 16)
+    g.translate(0.95, 69.75, -0.75)
+    mesh(g, whiteBall, engine)
   }
   // エンジンを支える円すいの梁（縦の補強の筋は、平らな面を並べて出す）
   mesh(lathe([[69.95, 0.45], [71.3, 1.95]], 24), struct, engine)
-  // 液体酸素タンクの丸い底（外は白っぽい灰色の断熱）と、黒い帯の内側
+  // 液体酸素タンクの丸い底（薄い緑がかった灰色）と、帯の内側（白い外板の裏の補強の筋）
+  const domeY = (r: number) => 70.35 + (1 - Math.cos(Math.asin(Math.min(r / 3.26, 1)))) * 1.9
   const dPts: [number, number][] = []
   for (let i = 0; i <= 14; i++) {
     const a = (i / 14) * (Math.PI / 2)
     dPts.push([70.35 + (1 - Math.cos(a)) * 1.9, Math.sin(a) * 3.26])
   }
   mesh(lathe(dPts, 64), dome, engine)
-  mesh(lathe([[70.0, 3.28], [72.3, 3.28]], 64), skirt, engine)
+  mesh(lathe([[70.0, 3.28], [72.3, 3.28]], 96), skirt, engine)
+  // 底に貼った金色の断熱の板（扇形に 3 枚）
+  for (const a0 of [0.3, 2.4, 4.3]) {
+    const pts: [number, number][] = []
+    for (let i = 0; i <= 6; i++) {
+      const r = 1.3 + i * 0.13
+      pts.push([domeY(r) - 0.03, r])
+    }
+    mesh(new THREE.LatheGeometry(pts.map(([y, r]) => new THREE.Vector2(r, y)), 8, a0, 0.75), foil, engine)
+  }
+  // ヘリウムのボンベ（銀色の球）：底のふちに輪のように並ぶ。そこからエンジンへ細い管
+  const pipes: THREE.Vector3[][] = []
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + 0.2
+    const r = 2.45
+    const c = new THREE.Vector3(Math.cos(a) * r, domeY(r) - 0.33, Math.sin(a) * r)
+    const g = new THREE.SphereGeometry(0.33, 24, 16)
+    g.translate(c.x, c.y, c.z)
+    mesh(g, bottle, engine)
+    if (i % 3 === 0) pipes.push([c.clone().setY(c.y + 0.1), new THREE.Vector3(Math.cos(a) * 1.4, 70.55, Math.sin(a) * 1.4), new THREE.Vector3(Math.cos(a) * 0.5, 69.8, Math.sin(a) * 0.5)])
+  }
+  // 小さめのボンベを、エンジンの近くにも
+  for (const [x, z] of [
+    [-1.1, 0.7],
+    [-0.4, 1.25],
+  ]) {
+    const g = new THREE.SphereGeometry(0.24, 20, 14)
+    g.translate(x, 70.15, z)
+    mesh(g, bottle, engine)
+  }
+  for (const p of pipes) {
+    const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(p), 16, 0.035, 6)
+    mesh(g, steel, engine)
+  }
+  // 黒い太いホース（写真ではエンジンの上を曲がって通る）
+  {
+    const c = new THREE.CatmullRomCurve3([new THREE.Vector3(-1.7, 70.75, -0.9), new THREE.Vector3(-0.9, 70.2, -0.75), new THREE.Vector3(-0.45, 69.6, -0.4)])
+    mesh(new THREE.TubeGeometry(c, 16, 0.08, 8), darkPipe, engine)
+  }
 
   return { engine, dispose: () => (geos.forEach((g) => g.dispose()), mats.forEach((m) => m.dispose())) }
 }
