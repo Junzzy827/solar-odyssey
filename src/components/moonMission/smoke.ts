@@ -30,13 +30,15 @@ const vert = /* glsl */ `
     vKind = aKind;
     // 炎（uFlame は同じ地面の座標）からの距離で照らす
     float d = distance(position, uFlame);
-    float lit = uFlamePower / (1.0 + d * d / 40000.0);
+    // 本物の夜の打ち上げ（S72-55070）では、煙は炎に照らされたうすいベージュ。炎の近くはほとんど白く、遠くは黄土色
+    float lit = uFlamePower / (1.0 + d * d / 90000.0);
     // 照明：発射台のまわり（真ん中から約 250 m）ほど明るい
     float amb = uAmb / (1.0 + dot(position.xz, position.xz) / 60000.0);
     vec3 base = aKind < 0.5 ? vec3(0.035, 0.04, 0.05) + vec3(0.2, 0.22, 0.26) * amb
       : aKind < 1.5 ? vec3(0.05, 0.055, 0.065) + vec3(0.62, 0.68, 0.78) * amb
       : vec3(0.25, 0.27, 0.3) + vec3(1.1, 1.15, 1.25) * amb;
-    vLight = base + vec3(1.0, 0.55, 0.22) * lit * (aKind > 1.5 ? 0.6 : 1.0);
+    vec3 flameCol = mix(vec3(0.92, 0.74, 0.52), vec3(1.0, 0.93, 0.82), clamp(lit * 0.6, 0.0, 1.0));
+    vLight = base + flameCol * lit * (aKind > 1.5 ? 0.6 : 1.0);
     #include <logdepthbuf_vertex>
   }
 `

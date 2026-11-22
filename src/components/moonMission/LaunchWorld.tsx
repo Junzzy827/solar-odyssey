@@ -3,23 +3,28 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { R_EARTH, PAD_LAT, OMEGA, altitude } from '../../data/saturnAscent'
-import { sim, tickMission, useMoonMission, autoCam, COUNT_FROM } from '../../state/moonMission'
+import { sim, tickMission, useMoonMission, autoCam, missionNow, COUNT_FROM, TIMELAPSE } from '../../state/moonMission'
+import { useExplorer } from '../../state/saturnExplorer'
 import { musicTime } from '../../audio/missionMusic'
-import { lowMemory } from '../../state/quality'
+import { currentLevel, lowMemory } from '../../state/quality'
 import { plumeGeometry, plumeMaterial } from './plume'
 import { Smoke } from './smoke'
-import { buildSite, GROUND_Y } from './launchSite'
+import { buildSite, GROUND_Y, LAND_Y } from './launchSite'
 import { buildFloodlights } from './launchLights'
 import { buildSky } from './launchSky'
 import { launchSmoke } from './launchFx'
 import { encodeOutput } from './shaderOut'
 import { missionLook } from './MissionPost'
 import { frostRocket, frostUniform } from './frost'
+import { buildCutaway, CUT_ALL, SATURN_PARTS } from './saturnCutaway'
+import { liveSky, skyNow } from './launchClock'
+import { bindOrbit, explorerCamera, resetOrbit } from './explorerCam'
+import { SaturnHotspots, SizeFigure } from './SaturnHotspots'
 import { atmosphereMaterial, earthMaterial } from './earth'
 import { buildCabin, CABIN_Y, CM_WIN_DIR, CM_WIN_EYE } from './cmCabin'
 import { FILM_CUTS, FILM_END, filmCut, filmForce, filmRig, filmShake } from './launchFilm'
 
-// 打ち上げの場面の 3D：夜の発射台（移動発射台・発射塔・照明・海）、サターンV、炎と煙、地球、月、星。
+// 打ち上げの場面の 3D：（観察パートの夕方の発射台 →）夜の発射台（移動発射台・発射塔・照明・海）、サターンV、炎と煙、地球、月、星。
 //
 // 座標：ロケットをいつも原点に置く（遠くまで行っても数字が大きくならない）。
 // three の x が東、y が打ち上げの瞬間の上、z が南。物理（data/saturnAscent）の (x: 上, y: 東) は three の (y, x) になる。
@@ -61,6 +66,7 @@ let pcNear = 0.3
 const _q = new THREE.Quaternion()
 const Y = new THREE.Vector3(0, 1, 0)
 const Z = new THREE.Vector3(0, 0, 1)
+const _c1 = new THREE.Color()
 
 /** ロケットの局所の向き：上（地球の中心から）・東・機首 */
 function frame() {
@@ -78,17 +84,33 @@ export function LaunchWorld() {
   const rocket = useGLTF(ROCKET_URL)
   const padGltf = useGLTF(PAD_URL)
   const small = lowMemory()
-  const [day, night, clouds, stars] = useTexture([
+  const [day, night, clouds, stars, moonTex] = useTexture([
     `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
     `${base}textures/${small ? '2k' : '4k'}_earth_nightmap.jpg`,
     `${base}textures/${small ? '2k' : '4k'}_earth_clouds.jpg`,
     `${base}textures/milky_way_glow.jpg`,
+    `${base}textures/2k_moon.jpg`,
   ])
   useMemo(() => {
-    for (const t of [day, night, stars]) t.colorSpace = THREE.SRGBColorSpace
+    for (const t of [day, night, stars, moonTex]) t.colorSpace = THREE.SRGBColorSpace
     for (const t of [day, night, clouds]) t.anisotropy = 4
-  }, [day, night, clouds, stars])
-  const { camera, size } = useThree()
+  }, [day, night, clouds, stars, moonTex])
+  const { camera, size, gl, scene } = useThree()
+  // 夕方は遠くの陸と海が、地平線のもやにとける（夜と宇宙では濃さ 0）
+  const fog = useMemo(() => new THREE.FogExp2('#000000', 0), [])
+  useEffect(() => {
+    const was = scene.fog
+    scene.fog = fog
+    return () => void (scene.fog = was)
+  }, [scene, fog])
+  // 観察パートの断面は、材質ごとの切り取り面を使う
+  useEffect(() => {
+    const was = gl.localClippingEnabled
+    gl.localClippingEnabled = true
+    return () => void (gl.localClippingEnabled = was)
+  }, [gl])
+  // 観察パートでは、画面をなぞってロケットのまわりを回る
+  useEffect(() => bindOrbit(gl.domElement), [gl])
 
   // ---- 組み立て ----
   const parts = useMemo(() => {
@@ -100,10 +122,20 @@ export function LaunchWorld() {
       if (m && 'envMapIntensity' in m) m.envMapIntensity = 0.4
     })
     // 発射台では、冷たいタンクの外に霜が付いている（frost.ts）
-    const disposeFrost = frostRocket(['S1', 'S2', 'S3'].map((n) => byName[n]).filter(Boolean))
-    return { root, byName, disposeFrost }
+    const frost = frostRocket(['S1', 'S2', 'S3'].map((n) => byName[n]).filter(Boolean))
+    // 観察パートの断面（中のタンク・エンジン・着陸船）
+    const cut = buildCutaway(root, frost.made)
+    return { root, byName, frost, cut }
   }, [rocket])
-  useEffect(() => () => parts.disposeFrost(), [parts])
+  useEffect(
+    () => () => {
+      parts.frost.dispose()
+      parts.cut.dispose()
+    },
+    [parts],
+  )
+  /** 断面の開きぐあい（0〜1）と、閉じるあいだも使う高さの帯 */
+  const cutState = useRef({ open: 0, band: CUT_ALL as [number, number] })
   const pad = useMemo(() => {
     const root = padGltf.scene.clone(true)
     // 甲板の灰色は、照明の真下で白く飛ばないよう、鋼の暗い灰色にする（読み込んだ素材は複製してから変える）
@@ -121,14 +153,22 @@ export function LaunchWorld() {
       })
       m.material = Array.isArray(m.material) ? mats : mats[0]
     })
-    return root
+    // 動く部品：塔の腕（Arm1〜Arm9）と、ロケットの押さえの腕（Hold1〜Hold4）。原点が回る軸
+    const arms: THREE.Object3D[] = []
+    const holds: { obj: THREE.Object3D; axis: THREE.Vector3 }[] = []
+    root.traverse((o) => {
+      if (/^Arm\d$/.test(o.name)) arms[Number(o.name[3]) - 1] = o
+      if (/^Hold\d$/.test(o.name)) holds.push({ obj: o, axis: new THREE.Vector3(o.position.x, 0, o.position.z).normalize().cross(Y).negate() })
+    })
+    return { root, arms, holds }
   }, [padGltf])
 
   const plumes = useMemo(() => {
     const geo = plumeGeometry()
     // 打ち上げの世界の自前のシェーダーは、後処理のあるなしで明るさがそろうように仕上げる（shaderOut.ts）
-    const f1 = encodeOutput(plumeMaterial({ core: '#fffaf0', edge: '#ffc070', soft: 0.9 }))
-    const big = encodeOutput(plumeMaterial({ core: '#fff4dc', edge: '#ffa448', soft: 1.2 }))
+    // 本物の夜の写真では、炎はほとんど白く（芯はわずかに青白く）、ふちだけ淡い黄色
+    const f1 = encodeOutput(plumeMaterial({ core: '#ffffff', edge: '#ffe2b0', soft: 0.9 }))
+    const big = encodeOutput(plumeMaterial({ core: '#fffbf2', edge: '#ffd598', soft: 1.2 }))
     const j2 = encodeOutput(plumeMaterial({ core: '#b8c4ff', edge: '#3a48d8', soft: 1.8 }))
     const les = encodeOutput(plumeMaterial({ core: '#fff0c0', edge: '#ff8a30', soft: 1.0 }))
     return { geo, f1, big, j2, les }
@@ -152,7 +192,7 @@ export function LaunchWorld() {
   useEffect(() => () => site.dispose(), [site])
   const lights = useMemo(() => buildFloodlights(), [])
   useEffect(() => () => lights.dispose(), [lights])
-  const sky = useMemo(() => buildSky(stars), [stars])
+  const sky = useMemo(() => buildSky(stars, moonTex), [stars, moonTex])
   useEffect(() => () => sky.dispose(), [sky])
 
   const ground = useRef<THREE.Group>(null)
@@ -169,17 +209,29 @@ export function LaunchWorld() {
   const fill = useRef<THREE.DirectionalLight>(null)
   const camLight = useRef<THREE.PointLight>(null)
   const hemi = useRef<THREE.HemisphereLight>(null)
+  const daySun = useRef<THREE.DirectionalLight>(null)
+  const workLight = useRef<THREE.PointLight>(null)
+  /** 水面に映すもの（毎フレーム書きかえる） */
+  const waterSrc = useRef({
+    lights: Array.from({ length: 4 }, () => ({ pos: new THREE.Vector3(), col: new THREE.Color() })),
+    rocket: new THREE.Vector3(),
+    rocketCol: new THREE.Color(),
+  })
+  /** 前のフレームの第1段の炎（水面に映す） */
+  const s1Prev = useRef(0)
+  const _mirrorCam = useMemo(() => new THREE.Vector3(), [])
   const debrisG = useRef<THREE.Group>(null)
   const debris = useRef<Debris[]>([])
   const ignite = useRef(0)
-  const camState = useRef({ pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), fov: 40, init: false })
+  const camState = useRef({ pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), fov: 40, init: false, prevCam: '' })
   /** 映画のカメラ：いまのカット、秒読みを始めてからの秒（離昇の後は実際の秒で進める）、カットの始まり */
   const filmS = useRef({ idx: 0, f: 0, cutAt: 0 })
 
   // 打ち上げのたびに、切り離した段をもとにもどす
   const phase = useMoonMission((s) => s.phase)
   useEffect(() => {
-    if (phase !== 'pad') return
+    if (phase === 'observe') resetOrbit()
+    if (phase !== 'pad' && phase !== 'observe') return
     for (const d of debris.current) {
       parts.byName[d.name] && parts.root.add(parts.byName[d.name])
       parts.byName[d.name] && parts.byName[d.name].position.set(0, 0, 0)
@@ -196,6 +248,7 @@ export function LaunchWorld() {
     const dt = Math.min(dtRaw, 0.1)
     tickMission(dt)
     const s = useMoonMission.getState()
+    const ex = useExplorer.getState()
     const a = sim.a
     const t = state.clock.elapsedTime
     const h = altitude(a)
@@ -273,7 +326,36 @@ export function LaunchWorld() {
       toWorld(Math.cos(ang) * MOON_DIST, Math.sin(ang) * MOON_DIST, moonM.current.position)
       moonM.current.visible = s.phase === 'outbound' || s.phase === 'tli'
     }
-    sky.update(camera, up, h, t)
+    // 空の時計：観察の夕方 → タイムラプス → 打ち上げの夜
+    const observing = s.phase === 'observe' || s.phase === 'timelapse'
+    const lapseU = s.phase === 'timelapse' ? THREE.MathUtils.clamp((missionNow() - s.since) / TIMELAPSE, 0, 1) : 0
+    skyNow(s.phase, lapseU, liveSky)
+    const sunY = liveSky.sun.y
+    const dayK = THREE.MathUtils.smoothstep(sunY, -0.2, 0.06)
+    const moonK = liveSky.moonLit * THREE.MathUtils.smoothstep(liveSky.moon.y, -0.02, 0.4)
+    sky.update(camera, up, h, t, liveSky, observing)
+    fog.density = observing ? 1.5e-4 * (0.3 + 0.7 * dayK) : 0
+    fog.color.set('#05070b').lerp(_c1.set('#767b8a'), dayK)
+    site.setDusk(observing ? dayK : 0, liveSky.lights)
+    // 水面に映るもの：投光器の列、点火の炎、照らされたロケット
+    if (ground.current) {
+      const ws = waterSrc.current
+      lights.lamps.forEach((l, i) => {
+        ws.lights[i].pos.copy(l.pos)
+        ws.lights[i].col.setRGB(0.85, 0.9, 1).multiplyScalar(l.on)
+      })
+      const fl = ws.lights[lights.lamps.length]
+      fl.pos.set(0, GROUND_Y - 2, 0)
+      fl.col.setRGB(1, 0.86, 0.68).multiplyScalar(s1Prev.current * 700)
+      ground.current.worldToLocal(ws.rocket.set(0, 0, 0))
+      // 柱は地面から機首まで（点火のあとは、炎と照らされた煙もロケットの下に光る）
+      const rocketTop = ws.rocket.y + 110
+      if (s1Prev.current > 0) ws.rocket.y = Math.min(ws.rocket.y, GROUND_Y)
+      // ロケットの柱：照明に照らされた白、夕日の色、点火のあとは炎と照らされた煙の明るい柱（写真では水面に白い光の帯）
+      ws.rocketCol.setRGB(0.55, 0.58, 0.64).multiplyScalar(liveSky.lights).add(_c1.setRGB(0.95, 0.72, 0.5).multiplyScalar(observing ? dayK * 0.9 : 0)).add(_c1.setRGB(1, 0.93, 0.85).multiplyScalar(s1Prev.current * 1.6))
+      site.water.update({ ground: ground.current, camera, t, sun: liveSky.sun, moon: liveSky.moon, moonLit: liveSky.moonLit, dusk: observing ? Math.max(dayK, 0.15) : 0.15, lights: ws.lights, rocket: ws.rocket, rocketH: rocketTop - ws.rocket.y, rocketCol: ws.rocketCol, domeShown: observing })
+    }
+    lights.setOn(liveSky.lights)
     // 日の出：太陽が地平線の上に出たとき
     if (!sim.sunrise && s.phase === 'orbit' && up.dot(SUN) > -0.06) {
       sim.sunrise = true
@@ -286,6 +368,8 @@ export function LaunchWorld() {
     if (s.phase === 'pad' && s.ignitedAt !== null) ignite.current = THREE.MathUtils.clamp((s.ignitedAt - s.countdown) / (s.ignitedAt - 0.2), 0, 1)
     if (s.phase === 'ascent') ignite.current = 1
     const s1On = (s.phase === 'pad' ? ignite.current : 1) * (a.stage === 0 && a.thrust > 0 || (s.phase === 'pad' && ignite.current > 0) ? 1 : 0)
+    // 水に映る炎：地上に近いあいだ（高く上がると、遠くの小さな光）
+    s1Prev.current = s1On * THREE.MathUtils.clamp(1 - h / 3000, 0.05, 1)
     const centerOff = a.stage === 0 && a.t >= 135.5
     if (f1.current) {
       f1.current.visible = s1On > 0
@@ -339,8 +423,24 @@ export function LaunchWorld() {
     lights.group.visible = h < 20_000
     // 光の柱：点火の炎がまぶしいあいだは、目がくらんで薄く見える（作業5で露出と合わせる）
     lights.update(1 - 0.7 * (s1On > 0 ? ignite.current * THREE.MathUtils.clamp(1 - h / 3000, 0, 1) : 0), t)
+    // 塔の腕：乗組員の通路（Arm9）は秒読みの 5 分前に退いている。第1段の腕（Arm1）は T-16.2 秒、
+    // 残りは離昇の瞬間に、塔の西の角を軸に 90 度回って塔の面に退く（およそ 5 秒）。押さえの腕は離昇で外へ倒れて開く
+    {
+      const sinceLift = observing ? -1e3 : s.phase === 'pad' ? -s.countdown : a.t
+      const ease = (x: number) => {
+        const k = THREE.MathUtils.clamp(x, 0, 1)
+        return k * k * (3 - 2 * k)
+      }
+      pad.arms.forEach((arm, i) => {
+        if (!arm) return
+        const k = i === 8 ? liveSky.crewArm : i === 0 ? ease((sinceLift + 16.2) / 5) : ease(sinceLift / 5)
+        arm.rotation.y = (Math.PI / 2) * k
+      })
+      const open = ease(sinceLift / 0.6)
+      for (const hd of pad.holds) hd.obj.quaternion.setFromAxisAngle(hd.axis, open * 0.5)
+    }
     // 霜：離昇の揺れと風で、上がるにつれてはがれ落ちる
-    frostUniform.value = THREE.MathUtils.clamp(1 - h / 2500, 0, 1)
+    frostUniform.value = THREE.MathUtils.clamp(1 - h / 2500, 0, 1) * liveSky.frost
     // 炎のまぶしさ（露出を下げる量。カメラが決まったあとで使う）
     const glare = s1On > 0 ? ignite.current * (1 - THREE.MathUtils.smoothstep(h, 4000, 30_000)) : 0
     // 溝の炎：点火から離昇のすぐ後まで（ロケットが高く上がると、溝にはもう届かない）
@@ -349,7 +449,20 @@ export function LaunchWorld() {
       // 南の上から（three の z が南）。地球の向こうから照らさないよう、いつも局所の上寄り
       fill.current.position.copy(up).multiplyScalar(0.8).add(_v.set(0, 0, 0.6)).multiplyScalar(1000)
       // 地上の近くは本当の暗闇（ロケットは投光器だけで浮かぶ）。高く上がると、星明かり代わりの弱い光
-      fill.current.intensity = THREE.MathUtils.lerp(0.06, 0.9, THREE.MathUtils.smoothstep(h, 3000, 20_000))
+      fill.current.intensity = THREE.MathUtils.lerp(0.06, 0.9, THREE.MathUtils.smoothstep(h, 3000, 20_000)) + 0.35 * moonK
+    }
+    if (workLight.current) {
+      // エンジンを見るときだけ、甲板の作業灯（夕方の甲板の下は暗い）
+      const want = s.phase === 'observe' && ex.part === 'f1' ? 160 : 0
+      workLight.current.intensity += (want - workLight.current.intensity) * Math.min(1, dt * 3)
+      _v3.set(camera.position.x, 0, camera.position.z).normalize()
+      workLight.current.position.set(_v3.x * 11, 2.5, _v3.z * 11)
+    }
+    if (daySun.current) {
+      // 低い夕日：地平線に近いほど赤く、沈むと消える
+      daySun.current.position.copy(liveSky.sun).multiplyScalar(1000)
+      daySun.current.intensity = observing ? 3.4 * THREE.MathUtils.smoothstep(sunY, -0.012, 0.05) : 0
+      daySun.current.color.setRGB(1, 0.56 + 0.3 * THREE.MathUtils.smoothstep(sunY, 0, 0.2), 0.3 + 0.45 * THREE.MathUtils.smoothstep(sunY, 0, 0.2))
     }
     if (camLight.current) {
       // 機体カメラの見る先（切り離した段）を、少しだけ照らす
@@ -386,7 +499,10 @@ export function LaunchWorld() {
     let inside = false
     // 映画は曲の最初の区切りまで（途中から飛ばして来たときも、高く上がっていたら横からに）
     if (s.cam === 'film' && s.phase === 'ascent' && !s.camLocked && ((mt ?? 0) > FILM_END || a.t > 60)) autoCam('chase')
-    if (s.cam === 'film' && ground.current) {
+    if (observing) {
+      fov = explorerCamera(dt, ex.part, lapseU > 0 ? THREE.MathUtils.smoothstep(lapseU, 0, 0.12) : 0, want, look)
+      cs.up.set(0, 1, 0)
+    } else if (s.cam === 'film' && ground.current) {
       const next = filmCut(fs.idx, fs.f, mt)
       if (next !== fs.idx) {
         fs.idx = next
@@ -449,13 +565,16 @@ export function LaunchWorld() {
       fov = 50
       cs.up.copy(up)
     }
+    // 映画のカメラから自動で切りかわるときは、すっと寄らずにカットでつなぐ（映画の最後のカメラは地上で、ロケットは何 km も先にいる）
+    if (cs.prevCam === 'film' && s.cam !== 'film') cs.init = false
+    cs.prevCam = s.cam
     if (!cs.init) {
       cs.pos.copy(want)
       cs.look.copy(look)
       cs.fov = fov
       cs.init = true
     }
-    const k = 1 - Math.exp(-dt * (s.cam === 'onboard' || s.cam === 'window' ? 20 : s.cam === 'film' ? 10 : 4))
+    const k = observing ? 1 : 1 - Math.exp(-dt * (s.cam === 'onboard' || s.cam === 'window' ? 20 : s.cam === 'film' ? 10 : 4))
     cs.pos.lerp(want, k)
     cs.look.lerp(look, k)
     cs.fov += (fov - cs.fov) * k
@@ -481,9 +600,28 @@ export function LaunchWorld() {
     lights.setInside(inside)
     // 露出：点火すると炎がまぶしいので、カメラの露出が下がる（本物の夜の打ち上げの写真のように、まわりは暗く沈み、
     // 炎と、炎に照らされた煙だけが浮かぶ）。高く上がって炎が遠く小さくなると戻る。カメラの自動露出らしく、少し遅れて追う
-    const wantExp = inside ? 1 : THREE.MathUtils.lerp(1, 0.32, glare)
+    const wantExp = inside || observing ? 1 : THREE.MathUtils.lerp(1, 0.32, glare)
     missionLook.exposure += (wantExp - missionLook.exposure) * Math.min(1, dt * (wantExp < missionLook.exposure ? 2.5 : 0.8))
-    if (hemi.current) hemi.current.intensity = inside ? 0.05 : THREE.MathUtils.lerp(0.12, 1.1, THREE.MathUtils.smoothstep(h, 3000, 20_000))
+    if (hemi.current) {
+      hemi.current.intensity = inside ? 0.05 : THREE.MathUtils.lerp(0.12, 1.1, THREE.MathUtils.smoothstep(h, 3000, 20_000)) + (observing ? 0.9 * dayK + 0.25 * moonK : 0)
+      // 夕方の空の光は青く、地面の照り返しは夕日の色
+      hemi.current.color.set('#5a6a8a').lerp(_c1.set('#9cb2d8'), observing ? dayK : 0)
+      hemi.current.groundColor.set('#120c08').lerp(_c1.set('#4a3426'), observing ? dayK : 0)
+    }
+    // 断面：選んだ部品の高さの帯か、全体を、カメラの側から開く
+    {
+      const p = SATURN_PARTS.find((x) => x.id === ex.part)
+      const band = s.phase === 'observe' ? (p ? p.cut : ex.cutAll ? CUT_ALL : null) : null
+      const c = cutState.current
+      if (band && (band[0] !== c.band[0] || band[1] !== c.band[1])) {
+        // 帯が変わったら、閉じてから開きなおす
+        if (c.open < 0.05) c.band = band
+      }
+      const target = band && band[0] === c.band[0] && band[1] === c.band[1] ? 1 : 0
+      c.open += (target - c.open) * Math.min(1, dt * (target ? 2.2 : 5))
+      if (c.open < 0.002) c.open = 0
+      parts.cut.set(_v3.copy(camera.position), c.band, c.open)
+    }
     pc.near = inside ? 0.05 : 0.3
     if (Math.abs(pc.fov - cs.fov) > 0.01 || pc.near !== pcNear) {
       pcNear = pc.near
@@ -492,7 +630,17 @@ export function LaunchWorld() {
     }
   })
 
+  // 水面の鏡の絵（カメラを動かした後、画面を描く前）。煙・炎・ロケットが、波でゆがんで縦にのびて水に映る
+  useFrame(() => {
+    if (!ground.current) return
+    camera.updateMatrixWorld()
+    const near = ground.current.worldToLocal(_mirrorCam.copy(camera.position)).y < 30000
+    site.water.renderMirror({ gl, scene, camera: camera as THREE.PerspectiveCamera, ground: ground.current, planeY: LAND_Y, on: near && currentLevel() !== 'low' && !small })
+  })
+
   const sunlit = useMoonMission((s) => s.phase === 'orbit' || s.phase === 'tli' || s.phase === 'outbound')
+  const observe = useMoonMission((s) => s.phase === 'observe')
+  const showSize = useExplorer((s) => s.size)
   return (
     <>
       {/* 月の無い夜：ロケットの形がかすかに分かるくらいの、空からの光 */}
@@ -500,6 +648,8 @@ export function LaunchWorld() {
       {/* 夜でも機体の形が読めるように、南の上から弱い青白い光（星明かり代わり） */}
       <directionalLight ref={fill} intensity={0.9} color="#9fb6e8" />
       <directionalLight position={SUN.clone().multiplyScalar(1000)} intensity={sunlit ? 2.2 : 0} />
+      {/* 観察パートの夕日 */}
+      <directionalLight ref={daySun} intensity={0} />
       {/* 星 */}
       <primitive object={sky.stars} />
       {/* 地球と大気 */}
@@ -515,7 +665,7 @@ export function LaunchWorld() {
       </mesh>
       {/* 地面の組 */}
       <group ref={ground}>
-        <primitive object={pad} />
+        <primitive object={pad.root} />
         <primitive object={site.group} />
         <primitive object={smoke.points} />
         <primitive object={lights.group} />
@@ -523,8 +673,12 @@ export function LaunchWorld() {
       {/* ロケット */}
       <group ref={rocketG}>
         <primitive object={parts.root} />
+        <primitive object={parts.cut.interior} />
         <primitive object={cabin.group} />
-        <pointLight ref={flameLight} color="#ff9a40" intensity={0} distance={0} decay={2} />
+        {observe && <SaturnHotspots />}
+        {observe && showSize && <SizeFigure />}
+        <pointLight ref={flameLight} color="#ffc88e" intensity={0} distance={0} decay={2} />
+        <pointLight ref={workLight} color="#ffe6c4" intensity={0} distance={0} decay={2} />
         <group ref={f1} position={[0, 0.2, 0]}>
           {[
             [0, 0],

@@ -8,6 +8,7 @@ import { startDock, startMarble } from './moonDock'
 import { startReturn } from './moonReturn'
 import { evaOn, leaveApolloEva } from './apolloEva'
 import { FADE as SURFACE_FADE } from './landing'
+import { startSaturnObserve } from './saturnExplorer'
 
 export type Chapter = {
   n: number
@@ -27,7 +28,8 @@ function beginDeep(start: () => void) {
 }
 
 export const CHAPTERS: Chapter[] = [
-  { n: 0, start: () => begin('launch') },
+  // 章0：夕方の発射台でサターンV を見てから、タイムラプスで打ち上げの夜へ
+  { n: 0, start: () => begin('launch', startSaturnObserve) },
   {
     n: 1,
     start: () =>
@@ -66,6 +68,8 @@ function beginReturn() {
 }
 
 const OF_PHASE: Partial<Record<MissionPhase, number>> = {
+  observe: 0,
+  timelapse: 0,
   pad: 0,
   ascent: 1,
   orbit: 2,

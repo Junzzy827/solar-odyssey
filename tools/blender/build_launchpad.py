@@ -96,7 +96,13 @@ def sphere(p, c, r, mat, nu=24, nv=12):
 # ---- 移動発射台 -------------------------------------------------------------------
 
 
-def launcher(p):
+def hold_hinge(name):
+    a = (int(name[4:]) - 1) * math.pi / 2 + math.pi / 4
+    r = S.R1 + 5.7
+    return (r * math.cos(a), r * math.sin(a), ML_TOP + 0.8)
+
+
+def launcher(p, holds):
     hx, hy = ML_L / 2, ML_W / 2
     zc = (ML_TOP + ML_BOT) / 2
     # 炎の穴のまわりの 4 つの塊（中は鉄骨の 2 階建て。外から見えるのは側面の板）
@@ -146,14 +152,19 @@ def launcher(p):
         for z in (ML_TOP + 0.55, ML_TOP + 1.1):
             tube(p, (x, -hy + 0.3, z), (x, hy - 0.3, z), 0.04, 'Grey', n=4)
     # 押さえの腕（4 本）：台の上の台座、ロケットのほうへ斜めに伸びる腕、先の爪
+    # 腕は部品 Hold1〜Hold4（台座の外側の下を軸に、離昇で外へ倒れて開く）
     R1 = S.R1
+    pad = p
     for j in range(4):
         a = j * math.pi / 2 + math.pi / 4
         c, s = math.cos(a), math.sin(a)
         r0, r1 = R1 + 4.2, R1 + 0.5
-        box(p, (r0 * c, r0 * s, ML_TOP + 0.9), (3.0, 3.0, 1.8), 'Grey', rz=a)
+        box(pad, (r0 * c, r0 * s, ML_TOP + 0.4), (3.4, 3.4, 0.8), 'Grey', rz=a)
+        p = holds[f'Hold{j + 1}'] = Part()
+        box(p, (r0 * c, r0 * s, ML_TOP + 1.3), (3.0, 3.0, 1.0), 'Grey', rz=a)
         beam(p, (r0 * c, r0 * s, ML_TOP + 1.6), (r1 * c, r1 * s, ML_TOP + 3.4), 1.4, 1.6, 'Grey')
         box(p, (r1 * c, r1 * s, ML_TOP + 3.4), (1.2, 1.6, 1.2), 'Dark', rz=a)
+    p = pad
     # 尾部の配管塔（TSM）3 本：鉄骨の塔（中に配管の箱）と、ロケットへ伸びる先のフード
     for ang in (math.radians(100), math.radians(200), math.radians(-20)):
         c, s = math.cos(ang), math.sin(ang)
@@ -199,7 +210,16 @@ def launcher(p):
 # ---- 発射塔 -----------------------------------------------------------------------
 
 
-def tower(p):
+ARM_Z = [18.0, 31.0, 45.0, 62.0, 72.0, 80.0, 88.0, 96.0]
+ARM_HINGE_X = -1.4  # 腕の回る軸（塔のロケット側の面の、西の角寄り）
+
+
+def arm_hinge(name):
+    z = ARM_Z[int(name[3:]) - 1] if name != 'Arm9' else 99.0
+    return (ARM_HINGE_X, TOWER_Y - TOWER_W / 2, z)
+
+
+def tower(p, arms):
     w = TOWER_W / 2
     cy = TOWER_Y
     flare = 20.0  # 下の脚が外へ広がる高さ
@@ -259,8 +279,9 @@ def tower(p):
     box(p, (0, cy - 18.0, TOP + 6.4), (0.4, 0.4, 0.4), 'NavRed')
     box(p, (0, cy, TOP + 12.2), (0.5, 0.5, 0.5), 'NavRed')
     # スイングアーム（本物は 9 本）。トラスの箱の腕、ロケット側の先に機械の箱
-    arms = [(18.0, 'S1'), (31.0, 'S1'), (45.0, 'S1'), (62.0, 'S2'), (72.0, 'S2'), (80.0, 'S2'), (88.0, 'S3'), (96.0, 'S3')]
-    for z, _ in arms:
+    # 腕は 1 本ずつ別の部品（Arm1〜Arm8、乗組員の通路は Arm9）。塔の西の角を軸に、離昇で東へ 90 度回って塔の面に退く
+    for i, z in enumerate(ARM_Z):
+        p = arms[f'Arm{i + 1}'] = Part()
         y0 = cy - w
         y1 = S.rocket_radius(z) + 0.8
         hw, hh = 1.4, 1.1
@@ -281,6 +302,7 @@ def tower(p):
     # いちばん上：司令船へ乗り込む通路と白い部屋（ホワイトルーム）
     zc = 99.0
     y1 = S.RS + 1.6
+    p = arms['Arm9'] = Part()
     box(p, (0, (cy - w + y1) / 2, zc), (2.2, cy - w - y1, 2.4), 'Grey')
     box(p, (0, y1, zc), (3.4, 2.6, 3.0), 'White')
     box(p, (0, y1 - 1.0, zc + 0.2), (1.6, 0.6, 1.4), 'Lamp')
@@ -384,11 +406,22 @@ def main():
     t0 = time.time()
     S.reset_scene()
     P = {n: Part() for n in ('Tower', 'Pad', 'Site')}
-    tower(P['Tower'])
-    launcher(P['Pad'])
+    arms, holds = {}, {}
+    tower(P['Tower'], arms)
+    launcher(P['Pad'], holds)
     poles(P['Site'])
     tanks(P['Site'])
     objs = [S.make_object(n, P[n]) for n in P]
+    # 動く部品：軸の位置を部品の原点にする（アプリでは、この原点のまわりに回す）
+    for n, part in list(arms.items()) + list(holds.items()):
+        o = S.make_object(n, part)
+        hinge = arm_hinge(n) if n.startswith('Arm') else hold_hinge(n)
+        for v in o.data.vertices:
+            v.co.x -= hinge[0]
+            v.co.y -= hinge[1]
+            v.co.z -= hinge[2]
+        o.location = hinge
+        objs.append(o)
     nf = sum(len(o.data.polygons) for o in objs)
     print(f'{nf} faces ({time.time() - t0:.1f}s)', flush=True)
     if os.environ.get('EXPORT', '1') == '1':

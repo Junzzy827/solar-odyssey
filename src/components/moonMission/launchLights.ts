@@ -106,6 +106,10 @@ export type Floodlights = {
   setInside(inside: boolean): void
   /** 光の柱の濃さ（0〜1。点火の炎でまぶしいあいだは薄く見える）と時刻 */
   update(power: number, t: number): void
+  /** 明かりがついた割合（0〜1）。夕方のタイムラプスで、列ごとに順につく */
+  setOn(k: number): void
+  /** 列ごとの灯の位置（地面の組の座標）と、ついている割合（水面の映り込みに使う） */
+  lamps: { pos: THREE.Vector3; on: number }[]
   dispose(): void
 }
 
@@ -116,6 +120,12 @@ export function buildFloodlights(): Floodlights {
   const mats: THREE.Material[] = []
   const beamMats: THREE.ShaderMaterial[] = []
   const spots: THREE.SpotLight[] = []
+  /** 列ごとの光の柱・灯体の明るさ（つく割合） */
+  const arrayOf: number[] = []
+  const heads: THREE.MeshBasicMaterial[] = []
+  const glows: THREE.SpriteMaterial[] = []
+  const on: number[] = ARRAYS.map(() => 1)
+  let inside = false
   // 灯体：光る小さな面（光のにじみで輝いて見える明るさ）と、黒い台
   const headGeo = new THREE.BoxGeometry(1.4, 1.4, 0.6)
   const headMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#e8f0ff').multiplyScalar(6) })
@@ -126,8 +136,13 @@ export function buildFloodlights(): Floodlights {
   mats.push(headMat, baseMat, glowMat)
   let seed = 1
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-  for (const arr of ARRAYS) {
+  for (const [ai, arr] of ARRAYS.entries()) {
     const [cx, cz] = arr.at
+    const head1 = headMat.clone()
+    const glow1 = glowMat.clone()
+    heads.push(head1)
+    glows.push(glow1)
+    mats.push(head1, glow1)
     const center = new THREE.Vector3(cx, moundHeight(cx, cz) + 1.6, cz)
     // 列は、ロケットへの向きに直角に並べる
     const toRocket = new THREE.Vector3(-cx, 0, -cz).normalize()
@@ -147,19 +162,20 @@ export function buildFloodlights(): Floodlights {
       mat.userData.base = mat.uniforms.uPower.value
       geos.push(geo)
       beamMats.push(mat)
+      arrayOf.push(ai)
       const beam = new THREE.Mesh(geo, mat)
       beam.position.copy(from)
       beam.quaternion.setFromUnitVectors(Y, dir)
       beam.renderOrder = 2
       group.add(beam)
-      const head = new THREE.Mesh(headGeo, headMat)
+      const head = new THREE.Mesh(headGeo, head1)
       head.position.copy(from).addScaledVector(Y, 0.6)
       head.lookAt(aim)
       group.add(head)
       const base = new THREE.Mesh(baseGeo, baseMat)
       base.position.copy(from).addScaledVector(Y, -0.6)
       group.add(base)
-      const glow = new THREE.Sprite(glowMat)
+      const glow = new THREE.Sprite(glow1)
       glow.position.copy(head.position)
       glow.scale.setScalar(4)
       group.add(glow)
@@ -173,15 +189,29 @@ export function buildFloodlights(): Floodlights {
     spots.push(spot)
   }
   for (const m of beamMats) mats.push(m)
+  const lamps = ARRAYS.map((a) => ({ pos: new THREE.Vector3(a.at[0], moundHeight(a.at[0], a.at[1]) + 2.2, a.at[1]), on: 1 }))
   return {
     group,
-    setInside(inside) {
-      for (const s of spots) s.intensity = inside ? 0 : SPOT_POWER
+    lamps,
+    setInside(v) {
+      inside = v
+      spots.forEach((s, i) => (s.intensity = inside ? 0 : SPOT_POWER * on[i]))
     },
     update(power, t) {
-      for (const m of beamMats) {
-        m.uniforms.uPower.value = m.userData.base * power
+      beamMats.forEach((m, i) => {
+        m.uniforms.uPower.value = m.userData.base * power * on[arrayOf[i]]
         m.uniforms.uTime.value = t
+      })
+    },
+    setOn(k) {
+      // 列ごとに順に、ぱっと（少しまたたいて）つく
+      for (let i = 0; i < on.length; i++) {
+        const x = THREE.MathUtils.clamp((k * on.length - i) * 4, 0, 1)
+        on[i] = x > 0 && x < 1 ? x * (0.6 + 0.4 * Math.sin(x * 40)) : x
+        heads[i].color.copy(headMat.color).multiplyScalar(0.02 + 0.98 * on[i])
+        glows[i].opacity = on[i]
+        spots[i].intensity = inside ? 0 : SPOT_POWER * on[i]
+        lamps[i].on = on[i]
       }
     },
     dispose() {

@@ -101,13 +101,30 @@ async function cupScene(page, body, until) {
 }
 
 /** 画面の 3D が描けているか（文字やボタンを消して撮る） */
+/** 3D が黒いときに、ログへ出す手がかり（WebGL が失われていないか、画面の大きさ、場面ごとの様子） */
+async function why3dBlank(page, name) {
+  return page
+    .evaluate((name) => {
+      const c = document.querySelector('canvas')
+      const gl = c && (c.getContext('webgl2') || c.getContext('webgl'))
+      const out = { canvas: c ? `${c.width}x${c.height}` : 'none', contextLost: gl ? gl.isContextLost() : null }
+      const m = window.__sv?.moonMission
+      if (name.startsWith('moonMission') && m) {
+        const st = m.state.getState()
+        Object.assign(out, { phase: st.phase, cam: st.cam, camLocked: st.camLocked, t: Math.round(m.sim.a.t), stage: m.sim.a.stage })
+      }
+      return JSON.stringify(out)
+    }, name)
+    .catch((e) => String(e))
+}
+
 async function check3d(page, name, min = { std: 4, lit: 0.002 }) {
   await page.evaluate(() => document.documentElement.classList.add('clean-screen'))
   await sleep(600)
   const shot = await page.screenshot({ timeout: 120000 })
   await page.evaluate(() => document.documentElement.classList.remove('clean-screen'))
   const s = imageStats(decodePng(shot))
-  if (s.std < min.std || s.lit < min.lit) throw new Error(`${name}: 3D looks blank (mean ${s.mean.toFixed(1)}, std ${s.std.toFixed(1)}, lit ${(s.lit * 100).toFixed(2)}%)`)
+  if (s.std < min.std || s.lit < min.lit) throw new Error(`${name}: 3D looks blank (mean ${s.mean.toFixed(1)}, std ${s.std.toFixed(1)}, lit ${(s.lit * 100).toFixed(2)}%) ${await why3dBlank(page, name)}`)
   return s
 }
 
@@ -648,13 +665,28 @@ const SCENARIOS = {
       if (await page.$('.pioneer-hud')) throw new Error('pioneer: still shown after quitting')
     },
   },
-  // 月ミッション（アポロ17号の追体験）：夜の発射台 → 打ち上げ → 地球を回る → 月へ向けて点火 → 終わりのカード
+  // 月ミッション（アポロ17号の追体験）：夕方の発射台のサターンV 図鑑（印・断面）→ タイムラプス → 夜の発射台 → 打ち上げ →
+  // 地球を回る → 月へ向けて点火 → 終わりのカード
   moonMission: {
     ctx: desktop,
     hash: '#debug',
     run: async (page) => {
       await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
-      await page.evaluate(() => window.__sv.moonMission.start())
+      await page.evaluate(() => window.__sv.moonMission.start('launch', window.__sv.moonMission.observe))
+      await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'observe', null, { timeout: 60000 })
+      await page.waitForSelector('.se-dot', { timeout: 120000 })
+      await sleep(3000)
+      await check3d(page, 'moonMission observe')
+      // 印にさわると説明のカード、断面のボタン、打ち上げの夜へ → タイムラプスをとばす
+      await page.evaluate(() => document.querySelectorAll('.se-dot')[6].click())
+      await page.waitForSelector('.se-card', { timeout: 10000 })
+      await visibleButton(page, '.se-buttons button')
+      await page.evaluate(() => document.querySelector('.se-buttons button').click())
+      await sleep(1500)
+      await page.evaluate(() => document.querySelector('.se-go').click())
+      await page.waitForSelector('.se-skip', { timeout: 10000 })
+      await sleep(1500)
+      await page.evaluate(() => document.querySelector('.se-skip').click())
       await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'pad', null, { timeout: 60000 })
       await page.waitForSelector('.mm-count', { timeout: 120000 })
       await sleep(4000)

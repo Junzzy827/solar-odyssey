@@ -55,6 +55,7 @@ import { sunriseJa } from './sunrise.ja'
 import { crewRoverJa } from './crewRover.ja'
 import { apolloEvaJa } from './apolloEva.ja'
 import { moonDockJa } from './moonDock.ja'
+import { saturnExplorerJa } from './saturnExplorer.ja'
 import { moonReturnJa } from './moonReturn.ja'
 import { roverHudJa } from './roverHud.ja'
 import { scaleToggleJa } from './scaleToggle.ja'
@@ -231,6 +232,7 @@ export const ja = {
   crewRover: crewRoverJa,
   apolloEva: apolloEvaJa,
   moonDock: moonDockJa,
+  saturnExplorer: saturnExplorerJa,
   moonReturn: moonReturnJa,
   roverHud: roverHudJa,
   scaleToggle: scaleToggleJa,
