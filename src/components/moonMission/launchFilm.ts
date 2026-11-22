@@ -128,10 +128,11 @@ export function filmRig(shot: Shot, ctx: FilmCtx, want: THREE.Vector3, look: THR
       return { fov: 56, onGround: true }
     }
     case 'tower': {
-      // 発射塔のてっぺん（130 m）から、横を上がっていく機首を見る
-      G(ctx, -10, 131, -2, want)
-      look.copy(nose).multiplyScalar(98)
-      return { fov: 56, onGround: true }
+      // 発射塔のカメラ（NASA の写真 as17-495a）：塔の南東の角、高さ約 52 m に付いた広角のカメラが、すぐ横を上がっていく
+      // 機体を見上げる。機首の脱出塔から、照らされた白い機体、下の炎と煙までが 1 枚に入る
+      G(ctx, 9.5, 52, -13.5, want)
+      look.copy(nose).multiplyScalar(96)
+      return { fov: 92, onGround: true }
     }
     case 'deckUp': {
       // 発射台の南の地面から見上げる：頭の上を炎が上がっていく

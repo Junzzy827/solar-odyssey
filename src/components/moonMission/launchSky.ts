@@ -26,6 +26,8 @@ const vert = /* glsl */ `
   uniform float uAir;
   uniform vec3 uUp;
   uniform float uVis;
+  uniform float uGlare;
+  uniform float uDip;
   varying vec3 vColor;
   varying float vSize;
   float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -34,6 +36,8 @@ const vert = /* glsl */ `
     float alt = dot(dir, uUp);
     // 空気の層を通る長さ（地平線ほど長い）で暗く。地平線の下は見えない
     float air = mix(1.0, smoothstep(-0.01, 0.22, alt), uAir);
+    // 宇宙から見ると、地平線は下がる（高さ 100 km で 10°）。その下の星は、地球の陰で見えない
+    air *= smoothstep(-uDip - 0.002, -uDip + 0.002, alt);
     // またたき：星ごとに違う速さで、空気のある所だけ
     float h = hash(position);
     float tw = 1.0 + uAir * 0.28 * sin(uTime * (7.0 + 9.0 * h) + h * 40.0) * (1.0 - 0.6 * smoothstep(0.2, 0.9, alt));
@@ -41,7 +45,7 @@ const vert = /* glsl */ `
     float seeing = mix(1.0, smoothstep(6.3, 4.6, mag), uAir);
     // 空が明るい（夕方・満月の夜）と、暗い星から消える
     float vis = clamp(uVis * 1.6 - (mag - 1.0) * (1.0 - uVis) * 0.5, 0.0, 1.0);
-    float flux = pow(10.0, -0.4 * (mag - 1.5) * 0.66) * air * tw * seeing * vis;
+    float flux = pow(10.0, -0.4 * (mag - 1.5) * 0.66) * air * tw * seeing * vis * (1.0 - uGlare) * (1.0 - uGlare);
     float size = clamp(1.4 + 1.9 * sqrt(flux), 1.4, 6.5);
     vSize = size * max(uPx, 1.0);
     vColor = color * min(flux * 2.6, 3.6);
@@ -157,7 +161,8 @@ export type LaunchSky = {
   /** 天の川の淡い光の球と、星の点をまとめた組（カメラについて動く） */
   stars: THREE.Group
   /** カメラの位置へ。up は地面の上の向き（three の座標）、h は高さ m、t は秒、sky は空の時計（launchClock.ts）、dusk は夕方の空を描くか */
-  update(camera: THREE.Camera, up: THREE.Vector3, h: number, t: number, sky: SkyNow, dusk: boolean): void
+  /** glare：炎がまぶしくてカメラの露出が下がっている割合（0〜1）。露出が下がると、星は写らない */
+  update(camera: THREE.Camera, up: THREE.Vector3, h: number, t: number, sky: SkyNow, dusk: boolean, glare?: number): void
   dispose(): void
 }
 
@@ -210,7 +215,7 @@ export function buildSky(glowTex: THREE.Texture, moonTex: THREE.Texture): Launch
   moon.frustumCulled = false
   group.add(moon)
   const mat = new THREE.ShaderMaterial({
-    uniforms: { uPx: { value: 1 }, uTime: { value: 0 }, uAir: { value: 1 }, uUp: { value: new THREE.Vector3(0, 1, 0) }, uVis: { value: 1 } },
+    uniforms: { uPx: { value: 1 }, uTime: { value: 0 }, uAir: { value: 1 }, uUp: { value: new THREE.Vector3(0, 1, 0) }, uVis: { value: 1 }, uGlare: { value: 0 }, uDip: { value: 0 } },
     vertexShader: vert,
     fragmentShader: frag,
     blending: THREE.AdditiveBlending,
@@ -232,7 +237,7 @@ export function buildSky(glowTex: THREE.Texture, moonTex: THREE.Texture): Launch
   )
   return {
     stars: group,
-    update(camera, up, h, t, sky, dusk) {
+    update(camera, up, h, t, sky, dusk, glare = 0) {
       group.position.copy(camera.position)
       mat.uniforms.uUp.value.copy(up)
       // 空気は 10〜40 km でほとんどなくなる
@@ -249,8 +254,10 @@ export function buildSky(glowTex: THREE.Texture, moonTex: THREE.Texture): Launch
       const dark = THREE.MathUtils.smoothstep(-sunY, 0.06, 0.3)
       const vis = dark * (1 - 0.55 * sky.moonLit * Math.sqrt(moonY))
       mat.uniforms.uVis.value = 1 - (1 - vis) * air
+      mat.uniforms.uGlare.value = glare
+      mat.uniforms.uDip.value = Math.sin(Math.acos(6_371_000 / (6_371_000 + Math.max(0, h))))
       // 天の川の光は、宇宙に出ると少し見えやすく。月夜・夕方は見えない
-      glowMat.color.setScalar((0x1c / 255) * (1 + 1.2 * (1 - air)) * (1 - (1 - vis * vis * (1 - sky.moonLit * moonY)) * air))
+      glowMat.color.setScalar((0x1c / 255) * (1 + 1.2 * (1 - air)) * (1 - (1 - vis * vis * (1 - sky.moonLit * moonY)) * air) * (1 - glare))
       dome.visible = dusk && air > 0
       if (dome.visible) {
         domeMat.uniforms.uSun.value.copy(sky.sun)

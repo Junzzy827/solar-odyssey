@@ -32,7 +32,8 @@ const vert = /* glsl */ `
     // 炎がカメラの方にある（粒の手前）ほど、向きの差は小さい
     vFlameK = length(tf.xy) / (length(tf) + 1e-3);
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = clamp(aSize * uPx / max(1.0, -mv.z), 1.0, 900.0);
+    // 氷のかけらは、カメラのすぐ前に来ても小さなきらめきのまま（大きな白い玉に見えないように）
+    gl_PointSize = clamp(aSize * uPx / max(1.0, -mv.z), 1.0, aKind > 1.5 ? 5.0 : 900.0);
     vAlpha = aAlpha;
     vSeed = aSeed;
     vKind = aKind;

@@ -33,6 +33,8 @@ await page.waitForFunction(() => window.__moonFilm && window.__sv.moonMission.st
 await page.evaluate(() => window.__moonFilm.begin())
 await sleep(4000)
 await page.evaluate(() => window.__sv.moonMission.state.setState({ countdown: 20 }))
+// AUTO=1：上昇の操縦をおまかせにする（手で傾けないと、まっすぐ上がりすぎる）
+if (process.env.AUTO) await page.evaluate(() => window.__sv.moonMission.auto(true))
 const shots = process.env.SHOTS.split(',').map((x) => {
   const [t, s] = x.split(':')
   return { t: Number(t), s }
@@ -52,7 +54,7 @@ for (const sh of shots) {
     },
     [sh.t, f],
   )
-  await page.evaluate((shot) => (window.__sv.moonMission.filmForce.shot = shot), sh.s)
+  await page.evaluate((shot) => (window.__sv.moonMission.filmForce.shot = shot === 'auto' ? null : shot), sh.s)
   await page.evaluate(() => {
     for (let i = 0; i < 6; i++) window.__moonFilm.step(0.1)
   })

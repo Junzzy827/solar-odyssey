@@ -7,7 +7,7 @@ import { sim, tickMission, useMoonMission, autoCam, missionNow, COUNT_FROM, TIME
 import { useExplorer } from '../../state/saturnExplorer'
 import { musicTime } from '../../audio/missionMusic'
 import { currentLevel, lowMemory } from '../../state/quality'
-import { plumeGeometry, plumeMaterial } from './plume'
+import { glowTexture, plumeGeometry, plumeMaterial } from './plume'
 import { Smoke } from './smoke'
 import { buildSite, GROUND_Y, LAND_Y } from './launchSite'
 import { buildFloodlights } from './launchLights'
@@ -168,8 +168,9 @@ export function LaunchWorld() {
     // 打ち上げの世界の自前のシェーダーは、後処理のあるなしで明るさがそろうように仕上げる（shaderOut.ts）
     // 本物の夜の写真では、炎はほとんど白く（芯はわずかに青白く）、ふちだけ淡い黄色
     const f1 = encodeOutput(plumeMaterial({ core: '#ffffff', edge: '#ffe2b0', soft: 0.9 }))
-    const big = encodeOutput(plumeMaterial({ core: '#fffbf2', edge: '#ffd598', soft: 1.2 }))
-    const j2 = encodeOutput(plumeMaterial({ core: '#b8c4ff', edge: '#3a48d8', soft: 1.8 }))
+    // 本物の上昇の写真（as17-534）：根元は白から少し青白く、先は黄色からオレンジへ
+    const big = encodeOutput(plumeMaterial({ core: '#f3f2ff', edge: '#ffd596', soft: 1.2 }))
+    const j2 = encodeOutput(plumeMaterial({ core: '#d8dcff', edge: '#6a64b8', soft: 1.8 }))
     const les = encodeOutput(plumeMaterial({ core: '#fff0c0', edge: '#ff8a30', soft: 1.0 }))
     return { geo, f1, big, j2, les }
   }, [])
@@ -211,6 +212,33 @@ export function LaunchWorld() {
   const hemi = useRef<THREE.HemisphereLight>(null)
   const daySun = useRef<THREE.DirectionalLight>(null)
   const workLight = useRef<THREE.PointLight>(null)
+  const towerFill = useRef<THREE.PointLight>(null)
+  // 切り離しの光：夜の打ち上げなので、離れていく第1段を照らすのは、逆噴射ロケットと第2段の炎の光だけ
+  const sepLight = useRef<THREE.PointLight>(null)
+  // 炎に照らされた空気の光：大気の中では、炎のまわりの空が黄色っぽく明るく光る（写真では画面じゅうがほんのり黄色い）
+  const halo = useMemo(() => {
+    const m = new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(1, 0.82, 0.48), depthWrite: false, transparent: true, blending: THREE.AdditiveBlending, opacity: 0 })
+    const sp = new THREE.Sprite(m)
+    sp.renderOrder = 3
+    return sp
+  }, [])
+  // 光のにじみの絵は共有なので、素材だけ捨てる
+  useEffect(() => () => halo.material.dispose(), [halo])
+  // 第1段の切り離し（T+2:41）：5 つの F-1 が止まると、残りの燃えるガスが大きな光の雲になってふくらみ、
+  // 第1段の 8 本の逆噴射ロケットが一瞬光る。第2段の J-2 はゆっくり（2 秒ほどで）点く
+  const stageFx = useMemo(() => {
+    const mk = (c: THREE.Color) => {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: c, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending, opacity: 0 }))
+      sp.visible = false
+      sp.renderOrder = 5
+      return sp
+    }
+    return { cloud: mk(new THREE.Color(1, 0.72, 0.4)), retro: mk(new THREE.Color(1, 0.9, 0.7)), t0: -1, s2At: -1 }
+  }, [])
+  useEffect(() => () => {
+    stageFx.cloud.material.dispose()
+    stageFx.retro.material.dispose()
+  }, [stageFx])
   /** 水面に映すもの（毎フレーム書きかえる） */
   const waterSrc = useRef({
     lights: Array.from({ length: 4 }, () => ({ pos: new THREE.Vector3(), col: new THREE.Color() })),
@@ -238,6 +266,8 @@ export function LaunchWorld() {
       parts.byName[d.name] && parts.byName[d.name].quaternion.identity()
     }
     debris.current = []
+    stageFx.t0 = -1
+    stageFx.s2At = -1
     for (const n of Object.keys(parts.byName)) parts.byName[n].visible = true
     camState.current.init = false
     filmS.current = { idx: 0, f: 0, cutAt: 0 }
@@ -267,6 +297,7 @@ export function LaunchWorld() {
       const push = name === 'LES' ? 30 : name === 'Ring' ? -3 : -5
       debris.current.push({ name, obj, x: a.x, y: a.y, vx: a.vx, vy: a.vy, t0: a.t, spin, push, dir: nose.clone() })
       if (name === 'S1') {
+        stageFx.t0 = a.t
         ignite.current = 0
         if (!s.camLocked) autoCam('onboard')
       }
@@ -281,7 +312,9 @@ export function LaunchWorld() {
       const sp = Math.hypot(d.vx, d.vy)
       const drag = rho * sp * 0.004
       const kick = age < (d.name === 'LES' ? 4 : 1.2) ? d.push : 0
-      const steps = Math.max(1, Math.ceil((dt * sim.warp) / 0.05))
+      // 切り離したコマでは動かさない（機体の物理はこのコマの分もう進んでいるので、ここで進めると 1 コマ分だけ機体の前へ出てしまい、
+      // 第1段が機体の 500 m 先に現れていた）
+      const steps = age <= 0 ? 0 : Math.max(1, Math.ceil((dt * sim.warp) / 0.05))
       const hh = (dt * sim.warp) / steps
       for (let i = 0; i < steps; i++) {
         d.vx += (-g * (d.x / r) - drag * d.vx + kick * d.dir.y) * hh
@@ -292,7 +325,27 @@ export function LaunchWorld() {
       toWorld(d.x, d.y, d.obj.position)
       _q.setFromAxisAngle(_v.copy(d.spin).normalize(), d.spin.length() * dt * sim.warp)
       d.obj.quaternion.premultiply(_q)
-      d.obj.visible = d.obj.position.length() < 60_000
+      // 見えるのはカメラから 60 km まで（前は打ち上げ場からの距離で決めていて、高さ 67 km の第1段の切り離しが見えなかった）
+      d.obj.visible = d.obj.position.distanceTo(camera.position) < 60_000
+    }
+
+    // 切り離しの光：止まった第1段の上（段のつなぎ目）で、光の雲がふくらんで消えていく
+    {
+      const s1 = debris.current.find((d) => d.name === 'S1')
+      const age = s1 ? a.t - stageFx.t0 : 1e9
+      const { cloud, retro } = stageFx
+      cloud.visible = !!s1 && age < 3
+      retro.visible = !!s1 && age < 0.8
+      if (s1 && cloud.visible) {
+        const k = THREE.MathUtils.clamp(age / 3, 0, 1)
+        // 光の雲は、離れていく第1段の向こう側（第1段の影が光の雲に浮かぶ）
+        cloud.position.copy(s1.obj.position).addScaledVector(s1.dir, -15)
+        cloud.scale.setScalar(90 + 420 * Math.sqrt(k))
+        cloud.material.opacity = 0.6 * (1 - k) * (1 - k)
+        retro.position.copy(s1.obj.position).addScaledVector(s1.dir, 42)
+        retro.scale.setScalar(40 + 30 * age)
+        retro.material.opacity = 1.2 * (1 - age / 0.8)
+      }
     }
 
     // ---- ロケット ----
@@ -317,8 +370,13 @@ export function LaunchWorld() {
       earthMat.uniforms.uSun.value.copy(SUN)
       earthMat.uniforms.uNear.value = THREE.MathUtils.clamp(1 - h / 60_000, 0, 1)
       earthMat.uniforms.uNear2.value = THREE.MathUtils.clamp(1 - h / 2_000_000, 0, 1)
-      earthMat.uniforms.uLights.value = THREE.MathUtils.smoothstep(h, 60_000, 900_000) * 0.85 + 0.15
+      // 本物は高さ 100 km でも街の明かりがはっきり見える（フロリダ、キューバ、カリブの島々）
+      earthMat.uniforms.uLights.value = THREE.MathUtils.smoothstep(h, 15_000, 250_000) * 0.85 + 0.15
       atmoMat.uniforms.uSun.value.copy(SUN)
+      atmoMat.uniforms.uCenter.value.copy(earthM.current.position)
+      atmoMat.uniforms.uR.value = R_EARTH
+      // 大気光は、地上の空の明かりより上へ出てから（下では見上げても層の中で、ぼやけるだけ）
+      atmoMat.uniforms.uGlow.value = THREE.MathUtils.smoothstep(h, 40_000, 110_000)
     }
     if (moonM.current) {
       // 月：月へ向かう燃焼の向きのずっと先（燃焼が終わったあとの道の遠い所の向き）
@@ -333,7 +391,8 @@ export function LaunchWorld() {
     const sunY = liveSky.sun.y
     const dayK = THREE.MathUtils.smoothstep(sunY, -0.2, 0.06)
     const moonK = liveSky.moonLit * THREE.MathUtils.smoothstep(liveSky.moon.y, -0.02, 0.4)
-    sky.update(camera, up, h, t, liveSky, observing)
+    // 炎がまぶしくて露出が下がっているあいだは、星は写らない（本物の上昇の写真にも星は無い）
+    sky.update(camera, up, h, t, liveSky, observing, THREE.MathUtils.clamp((1 - missionLook.exposure) / 0.6, 0, 1))
     fog.density = observing ? 1.5e-4 * (0.3 + 0.7 * dayK) : 0
     fog.color.set('#05070b').lerp(_c1.set('#767b8a'), dayK)
     site.setDusk(observing ? dayK : 0, liveSky.lights)
@@ -388,10 +447,21 @@ export function LaunchWorld() {
       bigPlume.current.scale.set(6.5 + 4 * expand, len * (s.phase === 'pad' ? 0.25 + 0.75 * ignite.current : 1), 5.5 + 4 * expand)
       bigPlume.current.position.y = -2
     }
+    {
+      // 空気が濃いほど、炎の光は大きく広がって見える。地上の近くは煙が受け持つので、少し上がってから
+      const thick = Math.exp(-h / 9000) * THREE.MathUtils.smoothstep(h, 150, 1500)
+      halo.visible = s1On > 0 && thick > 0.01
+      halo.position.set(0, -70, 0)
+      halo.scale.setScalar(380 + 260 * (1 - thick))
+      halo.material.opacity = 0.55 * thick * s1On
+    }
     plumes.big.uniforms.uTime.value = t
     plumes.big.uniforms.uPower.value = (3 - 1.8 * expand) * s1On
     plumes.big.uniforms.uExpand.value = expand * 2.2
     const s2On = a.stage === 1 && a.thrust > 0
+    if (s2On && stageFx.s2At < 0) stageFx.s2At = a.t
+    // J-2 は 2 秒ほどかけて推力が上がる。真空の中の炎はほとんど透明で、うすい青紫にかすかに見えるだけ
+    const s2Ramp = s2On ? THREE.MathUtils.smoothstep(a.t - stageFx.s2At, 0, 2.2) : 0
     const s3On = a.stage === 2 && a.thrust > 0
     if (j2s.current) {
       j2s.current.visible = s2On
@@ -402,7 +472,21 @@ export function LaunchWorld() {
       j3.current.scale.set(1.1, 20 + 50 * expand, 1.1)
     }
     plumes.j2.uniforms.uTime.value = t
-    plumes.j2.uniforms.uPower.value = 0.45
+    plumes.j2.uniforms.uPower.value = 0.22 * (a.stage === 1 ? s2Ramp : 1)
+    if (sepLight.current) {
+      const s1 = debris.current.find((d) => d.name === 'S1')
+      const age = s1 ? a.t - stageFx.t0 : 1e9
+      const near = s1 ? s1.obj.position.length() < 900 : false
+      // はじめの 1 秒は逆噴射（第1段の上、段のすき間）、そのあとは第2段のエンジンの下の、うすい炎の光
+      const retro = Math.max(0, 1 - age / 0.9)
+      const glow = s2Ramp * (near ? 1 : 0)
+      sepLight.current.intensity = near ? 1.2e4 * retro * retro + 4e3 * glow : 0
+      if (s1) {
+        if (retro > 0) sepLight.current.position.copy(s1.obj.position).addScaledVector(s1.dir, 46).add(_v3.set(0, 0, 8))
+        else sepLight.current.position.copy(nose).multiplyScalar(36)
+      }
+      sepLight.current.color.setRGB(1, retro > 0 ? 0.82 : 0.86, retro > 0 ? 0.6 : 1)
+    }
     plumes.j2.uniforms.uExpand.value = expand * 2.5
     if (lesFlame.current) {
       const les = debris.current.find((d) => d.name === 'LES')
@@ -416,7 +500,7 @@ export function LaunchWorld() {
     plumes.les.uniforms.uTime.value = t
     plumes.les.uniforms.uPower.value = 1.4
     if (flameLight.current) {
-      flameLight.current.intensity = (s1On > 0 ? 2.5e6 * (0.85 + 0.15 * Math.sin(t * 37)) : 0) * (0.25 + 0.75 * ignite.current)
+      flameLight.current.intensity = (s1On > 0 ? 1.0e6 * (0.85 + 0.15 * Math.sin(t * 37)) : 0) * (0.25 + 0.75 * ignite.current)
       // 地上にいるあいだは、炎は溝の中を南北へ流れるので、明かりを低く置く（甲板の穴の壁が白く飛ばないように）
       flameLight.current.position.set(0, h < 200 ? -25 - 30 * (1 - h / 200) : -25, 0)
     }
@@ -465,9 +549,11 @@ export function LaunchWorld() {
       daySun.current.color.setRGB(1, 0.56 + 0.3 * THREE.MathUtils.smoothstep(sunY, 0, 0.2), 0.3 + 0.45 * THREE.MathUtils.smoothstep(sunY, 0, 0.2))
     }
     if (camLight.current) {
-      // 機体カメラの見る先（切り離した段）を、少しだけ照らす
-      camLight.current.intensity = s.cam === 'onboard' ? 4e4 : 0
-      camLight.current.position.copy(nose).multiplyScalar(30).add(_v.set(0, 0, 14))
+      // 機体カメラの見る先（切り離した段）を、少しだけ照らす。段のつなぎ目の横から、弱く（強いと第2段の尾が白く飛ぶ）
+      // 機体カメラの横の小さな灯り（夜なので、これがないと機体が見えない）。第2段のカメラでは近いので弱く
+      const onS2 = a.stage < 2
+      camLight.current.intensity = s.cam === 'onboard' ? (onS2 ? 5e2 : 2.5e3) : 0
+      camLight.current.position.copy(nose).multiplyScalar(onS2 ? 30 : 36).add(_v.set(0, 0, onS2 ? 12 : 14))
     }
 
     // ---- 煙 ----
@@ -497,6 +583,7 @@ export function LaunchWorld() {
     const mt = sinceIgn === null ? null : musicTime('jupiterOpening') ?? sinceIgn
     let filmShakeAng = 0
     let inside = false
+    let shotName = ''
     // 映画は曲の最初の区切りまで（途中から飛ばして来たときも、高く上がっていたら横からに）
     if (s.cam === 'film' && s.phase === 'ascent' && !s.camLocked && ((mt ?? 0) > FILM_END || a.t > 60)) autoCam('chase')
     if (observing) {
@@ -509,7 +596,9 @@ export function LaunchWorld() {
         fs.cutAt = fs.f
         cs.init = false
       }
-      const rig = filmRig(filmForce.shot ?? FILM_CUTS[fs.idx].shot, { ground: ground.current, rocket: rocketG.current!, nose, up, south, h, u: fs.f - fs.cutAt, groundY: GROUND_Y }, want, look, cs.up)
+      const sn = filmForce.shot ?? FILM_CUTS[fs.idx].shot
+      shotName = sn
+      const rig = filmRig(sn, { ground: ground.current, rocket: rocketG.current!, nose, up, south, h, u: fs.f - fs.cutAt, groundY: GROUND_Y }, want, look, cs.up)
       fov = rig.fov
       // 揺れは、地上のカメラには音の速さで遅れて届く
       ground.current.getWorldPosition(_v3)
@@ -529,7 +618,8 @@ export function LaunchWorld() {
       cs.up.copy(up)
     } else if (s.cam === 'onboard') {
       // 第2段（切り離しの後は第3段）の横に付けたカメラで、後ろを見下ろす（本物の分離の映像の向き）
-      const mount = a.stage === 0 ? 58 : 80
+      // 第2段に付いたカメラは、第2段を切り離すまでそのまま（前は第1段を切り離した瞬間に第3段へ跳んで、離れていく第1段が第2段の陰に隠れていた）
+      const mount = a.stage < 2 ? 58 : 80
       want.copy(nose).multiplyScalar(mount).addScaledVector(south, 9)
       look.copy(nose).multiplyScalar(-90).addScaledVector(south, 16)
       fov = 62
@@ -589,6 +679,11 @@ export function LaunchWorld() {
       camera.lookAt(_v2)
     } else camera.lookAt(cs.look)
     const pc = camera as THREE.PerspectiveCamera
+    if (towerFill.current) {
+      // 塔のカメラのカット：本物の写真では、機体は投光器と炎の照り返しで白く浮かぶ。カメラの下の方から機体を照らす
+      towerFill.current.intensity = shotName === 'tower' ? 9e4 : 0
+      towerFill.current.position.copy(cs.pos).addScaledVector(up, -35).addScaledVector(south, 6)
+    }
     // 司令船の中にいるあいだは、外の明かり（炎・照明・空）を消して、計器盤の明かりだけにする
     cabin.show(inside)
     // 中にいるあいだは、司令船の外側（両面の殻）が窓の外をふさがないように隠す
@@ -657,7 +752,7 @@ export function LaunchWorld() {
         <sphereGeometry args={[R_EARTH, small ? 96 : 192, small ? 48 : 96]} />
       </mesh>
       <mesh ref={atmoM} material={atmoMat}>
-        <sphereGeometry args={[R_EARTH + 90_000, 96, 48]} />
+        <sphereGeometry args={[R_EARTH + 115_000, 96, 48]} />
       </mesh>
       <mesh ref={moonM} visible={false}>
         <sphereGeometry args={[MOON_R, 48, 24]} />
@@ -679,6 +774,7 @@ export function LaunchWorld() {
         {observe && showSize && <SizeFigure />}
         <pointLight ref={flameLight} color="#ffc88e" intensity={0} distance={0} decay={2} />
         <pointLight ref={workLight} color="#ffe6c4" intensity={0} distance={0} decay={2} />
+        <pointLight ref={towerFill} color="#fff1dc" intensity={0} distance={0} decay={2} />
         <group ref={f1} position={[0, 0.2, 0]}>
           {[
             [0, 0],
@@ -692,6 +788,7 @@ export function LaunchWorld() {
         </group>
         {/* 炎は煙のあとに描く（煙よりずっと明るいので、煙の手前・中でも光って見える） */}
         <mesh ref={bigPlume} geometry={plumes.geo} material={plumes.big} renderOrder={4} />
+        <primitive object={halo} />
         <group ref={j2s} position={[0, 46.6, 0]} visible={false}>
           {[
             [0, 0],
@@ -707,6 +804,9 @@ export function LaunchWorld() {
       </group>
       <mesh ref={lesFlame} geometry={plumes.geo} material={plumes.les} visible={false} />
       <group ref={debrisG} />
+      <primitive object={stageFx.cloud} />
+      <primitive object={stageFx.retro} />
+      <pointLight ref={sepLight} intensity={0} distance={0} decay={2} />
       <pointLight ref={camLight} color="#cfdcff" intensity={0} distance={0} decay={2} />
     </>
   )
