@@ -215,6 +215,16 @@ const frag = /* glsl */ `
       vec3 rd = vPw - cameraPosition;
       float dist = length(rd);
       rd /= dist;
+      // 球の網目は平らな三角形なので、vPw は本物の球より少し内側（遠くから見ると、かすみの差で網目が見えた）。視線と球の交点まで
+      {
+        float bb = dot(ro, rd);
+        float cc = dot(ro, ro) - uR * uR;
+        float disc = bb * bb - cc;
+        if (disc > 0.0) {
+          float th = -bb - sqrt(disc);
+          if (th > 0.0) dist = th;
+        }
+      }
       // 海の照り返し（サングリント）：風で波立った海面（波の傾きの散らばり σ² ≈ 0.02）に映る太陽
       float water = texture2D(uWater, vUv).r * (1.0 - cover);
       if (water > 0.0 && l > 0.0) {

@@ -4,7 +4,7 @@ import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { loadCatalog } from '../Sky'
-import { lowMemory } from '../../state/quality'
+import { currentLevel, lowMemory } from '../../state/quality'
 import { useMoonMission } from '../../state/moonMission'
 import {
   CSM_START_Y,
@@ -113,10 +113,14 @@ function Lights() {
 function Sky() {
   const camera = useThree((s) => s.camera)
   const small = lowMemory()
-  const [day, night, clouds] = useTexture([
-    `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
+  // 打ち上げの場面と同じ地図（NASA Blue Marble の 12 月）と、光の散乱で描く大気
+  const big = !small && currentLevel() !== 'low'
+  const steps = small || currentLevel() === 'low' ? 8 : currentLevel() === 'medium' ? 12 : 16
+  const [day, night, clouds, water] = useTexture([
+    big ? `${base}textures/earth/bm_dec_8k.jpg` : `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
     `${base}textures/2k_earth_nightmap.jpg`,
     `${base}textures/${small ? '2k' : '4k'}_earth_clouds.jpg`,
+    `${base}textures/earth/bm_water_4k.png`,
   ])
   const [stars, setStars] = useState<THREE.BufferGeometry | null>(null)
   useEffect(() => {
@@ -130,11 +134,14 @@ function Sky() {
     day.colorSpace = THREE.SRGBColorSpace
     night.colorSpace = THREE.SRGBColorSpace
     day.anisotropy = 4
-    const earth = earthMaterial(day, night, clouds)
+    const earth = earthMaterial(day, night, clouds, { scatter: true, steps, water })
     earth.uniforms.uSun.value.copy(SUN_DIR)
     earth.uniforms.uLights.value = 0.6
-    const atmo = atmosphereMaterial()
+    earth.uniforms.uR.value = EARTH_R
+    const atmo = atmosphereMaterial({ scatter: true, steps })
     atmo.uniforms.uSun.value.copy(SUN_DIR)
+    atmo.uniforms.uR.value = EARTH_R
+    atmo.uniforms.uSky.value = 1
     const star = new THREE.ShaderMaterial({
       vertexShader: /* glsl */ `
         attribute float mag;
@@ -160,7 +167,7 @@ function Sky() {
       toneMapped: false,
     })
     return { earth, atmo, star }
-  }, [day, night, clouds])
+  }, [day, night, clouds, water, steps])
   useEffect(
     () => () => {
       mats.earth.dispose()
@@ -174,7 +181,7 @@ function Sky() {
     g.name = 'dock-earth'
     g.quaternion.copy(earthQuaternion())
     const ball = new THREE.Mesh(new THREE.SphereGeometry(EARTH_R, 96, 64), mats.earth)
-    const air = new THREE.Mesh(new THREE.SphereGeometry(EARTH_R + 80_000, 64, 40), mats.atmo)
+    const air = new THREE.Mesh(new THREE.SphereGeometry(EARTH_R + 100_000, 64, 40), mats.atmo)
     g.add(ball, air)
     return g
   }, [mats])
@@ -190,6 +197,8 @@ function Sky() {
   useFrame(() => {
     // 地球の距離：本物の経過時間から（数万 km。帯の数字と同じ）
     earth.position.copy(EARTH_DIR).multiplyScalar(earthDistance(dockGet()))
+    mats.earth.uniforms.uCenter.value.copy(earth.position)
+    mats.atmo.uniforms.uCenter.value.copy(earth.position)
     if (starPts) starPts.position.copy(camera.position)
   })
   return (
