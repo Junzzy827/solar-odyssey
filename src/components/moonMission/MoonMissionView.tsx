@@ -36,6 +36,7 @@ import { startDock } from '../../state/moonDock'
 import { LunarHud } from './LunarHud'
 import { bindLunarKeys, lunarPhase } from '../../state/moonLunar'
 import { RadioSubtitle } from './RadioSubtitle'
+import { NowPlaying } from './NowPlaying'
 import { JourneyBar } from './JourneyBar'
 import { journey } from '../../state/missionJourney'
 import { ChapterMenu, ResumeButton } from './ChapterMenu'
@@ -282,6 +283,7 @@ function Hud() {
       )}
       <Caption />
       <RadioSubtitle />
+      <NowPlaying />
       <div className="mm-buttons">
         {s.phase !== 'observe' && s.phase !== 'timelapse' && <CamMenu />}
         {s.phase === 'ascent' && (
@@ -363,6 +365,7 @@ export function MoonMissionView() {
           <ReturnHud />
           <Caption />
           <RadioSubtitle />
+          <NowPlaying />
         </div>
       )}
       {shown && docking && (
@@ -370,6 +373,7 @@ export function MoonMissionView() {
           <DockHud />
           <Caption />
           <RadioSubtitle />
+          <NowPlaying />
         </div>
       )}
       {shown && moon && (
@@ -377,6 +381,7 @@ export function MoonMissionView() {
           <LunarHud />
           <Caption />
       <RadioSubtitle />
+      <NowPlaying />
         </div>
       )}
       <Fade />

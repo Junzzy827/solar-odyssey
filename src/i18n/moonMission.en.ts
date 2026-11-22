@@ -131,6 +131,14 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
     speedOf: (v: number) => (v < 100 ? `${v.toFixed(1)} m/s` : `${(v / 1000).toFixed(2)} km/s`),
     date: (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
   },
+  nowPlaying: {
+    label: 'Now playing',
+    cues: {
+      jupiterOpening: { title: 'The Planets: Jupiter, the Bringer of Jollity', by: 'Gustav Holst (England), 1916' },
+      jupiterHymn: { title: 'The Planets: Jupiter (the hymn)', by: 'Gustav Holst (England), 1916' },
+      mars: { title: 'The Planets: Mars, the Bringer of War', by: 'Gustav Holst (England), 1914' },
+    },
+  },
   radio: {
     source: 'Actual mission audio (NASA)',
     who: { pao: 'Kennedy Launch Control commentary', cdr: 'Commander Cernan', capcom: 'Houston (CapCom)', lmp: 'Schmitt (Lunar Module Pilot)', cmp: 'Evans (Command Module Pilot)' },

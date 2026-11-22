@@ -141,6 +141,29 @@ const frag = /* glsl */ `
   ${SCATTER_CHUNK}
   #endif
   float lhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(lhash(i), lhash(i + vec2(1.0, 0.0)), f.x), mix(lhash(i + vec2(0.0, 1.0)), lhash(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
+  /** 雲の細かさ（0〜1、平均 0.5）。画面の 1 画素より細かい段は足さない（ちらつき止め） */
+  float cloudDetail(vec2 uv) {
+    vec2 p = uv * vec2(400.0, 200.0);
+    float px = length(fwidth(p));
+    float sum = 0.0;
+    float amp = 0.5;
+    float w = 0.0;
+    for (int i = 0; i < 5; i++) {
+      float k = 1.0 - smoothstep(0.25, 0.6, px);
+      sum += (vnoise(p) - 0.5) * amp * k;
+      w += amp;
+      p *= 2.03;
+      px *= 2.03;
+      amp *= 0.55;
+    }
+    return 0.5 + sum / w * 1.4;
+  }
   /** 街の明かりの細かさ：地図は 1 画素 10 km なので、ぼやけた橙のしみになる。
    *  本物を宇宙から見ると、明かりは町ごとの点と、道にそった線の集まり。約 1.2 km と 5 km の升ごとに、明るい升と暗い升をつくる */
   float cityGrain(vec2 uv) {
@@ -176,7 +199,10 @@ const frag = /* glsl */ `
       // 地面の色を光の量にして、太陽からの光（空気を通って赤くなる）で照らし、目までの空気でかすませる
       // 地図は sRGB として読むので、ここではもう光の量（反射率）
       vec3 alb = texture2D(uDay, vUv).rgb;
-      float cover = smoothstep(0.15, 0.9, cl) * 0.92;
+      // 雲の地図は 1 画素 10 km でぼやける。ふちを細かい起伏（約 100 km〜6 km）でけずって、本物の雲のようにくっきりさせる
+      float cd = cloudDetail(vUv);
+      float clx = clamp(cl + (cd - 0.5) * 1.6 * cl * (1.0 - cl) * 2.2, 0.0, 1.0);
+      float cover = smoothstep(0.2, 0.75, clx) * 0.94;
       alb = mix(alb, vec3(0.72), cover);
       alb *= mix(1.0, 0.55, uNear);
       vec3 sunT = exp(-sunTau(uR + 200.0, l));

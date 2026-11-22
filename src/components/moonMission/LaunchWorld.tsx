@@ -111,7 +111,8 @@ export function LaunchWorld() {
   const big = !small && currentLevel() !== 'low'
   const [day, night, clouds, stars, moonTex, water] = useTexture([
     big ? `${base}textures/earth/bm_dec_8k.jpg` : `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
-    `${base}textures/${small ? '2k' : '4k'}_earth_nightmap.jpg`,
+    // 夜の明かり：NASA Black Marble 2016（街の明かりだけを取り出したもの）
+    big ? `${base}textures/earth/bm_night_8k.jpg` : `${base}textures/${small ? '2k' : '4k'}_earth_nightmap.jpg`,
     `${base}textures/${small ? '2k' : '4k'}_earth_clouds.jpg`,
     `${base}textures/milky_way_glow.jpg`,
     `${base}textures/2k_moon.jpg`,

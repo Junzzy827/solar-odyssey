@@ -2,6 +2,7 @@
 // 録音：Musopen 提供、Skidmore College Orchestra の演奏（パブリックドメインとして公開。Wikimedia Commons）。
 // 場面のきっかけ（画面の見出し）で曲を始め、本物の交信音声が流れている間は小さくする。
 
+import { create } from 'zustand'
 import { useStore } from '../state/store'
 import { audio, output, volume } from './sfx'
 import { useRadio } from './radio'
@@ -13,6 +14,9 @@ const FILES: Record<MusicCue, string> = {
   jupiterHymn: 'audio/planets/jupiter-hymn.mp3',
   mars: 'audio/planets/mars.mp3',
 }
+
+/** いま流れ始めた曲（画面の「いま流れている曲」のカード用。at は performance.now() の秒） */
+export const useNowPlaying = create<{ cue: MusicCue | null; at: number }>(() => ({ cue: null, at: 0 }))
 
 /** 効果音とのつりあい（設定の音の大きさに掛ける） */
 const LEVEL = 1.6
@@ -82,6 +86,7 @@ export function playMusic(cue: MusicCue) {
     s.connect(g)
     s.start()
     startedAt = c.currentTime
+    useNowPlaying.setState({ cue, at: performance.now() / 1000 })
     s.onended = () => {
       if (source === s) {
         source = null
@@ -105,6 +110,7 @@ export function musicTime(cue: MusicCue): number | null {
 export function stopMusic(fade = 0.5) {
   ticket++
   current = null
+  if (useNowPlaying.getState().cue) useNowPlaying.setState({ cue: null })
   const c = audio()
   const s = source
   const g = gain

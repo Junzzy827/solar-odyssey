@@ -132,6 +132,14 @@ export const moonMissionJa = {
     speedOf: (v: number) => (v < 100 ? `秒速 ${v.toFixed(1)} m` : `秒速 ${(v / 1000).toFixed(2)} km`),
     date: (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
   },
+  nowPlaying: {
+    label: 'いま流れている曲',
+    cues: {
+      jupiterOpening: { title: '組曲「惑星」より「木星、快楽をもたらす者」', by: 'グスターヴ・ホルスト（イギリス）1916年' },
+      jupiterHymn: { title: '組曲「惑星」より「木星」の中間部', by: 'グスターヴ・ホルスト（イギリス）1916年' },
+      mars: { title: '組曲「惑星」より「火星、戦争をもたらす者」', by: 'グスターヴ・ホルスト（イギリス）1914年' },
+    },
+  },
   radio: {
     source: '実際の交信音声（NASA）',
     who: { pao: 'ケネディ宇宙センターの実況', cdr: 'サーナン船長', capcom: 'ヒューストン（管制）', lmp: 'シュミット（着陸船パイロット）', cmp: 'エバンス（司令船パイロット）' },
