@@ -21,6 +21,7 @@ import { liveSky, skyNow } from './launchClock'
 import { bindOrbit, explorerCamera, resetOrbit } from './explorerCam'
 import { SaturnHotspots, SizeFigure } from './SaturnHotspots'
 import { atmosphereMaterial, earthMaterial } from './earth'
+import { s4bAft, skinParts } from './rocketSkin'
 import { buildCabin, CABIN_EYE, CABIN_LOOK, CABIN_Y, CM_WIN_DIR, CM_WIN_EYE } from './cmCabin'
 import { CARD_SEC } from './AscentCards'
 import { FILM_CUTS, FILM_END, filmCut, filmForce, filmRig, filmShake } from './launchFilm'
@@ -210,16 +211,36 @@ export function LaunchWorld() {
         m.needsUpdate = true
       }
     })
+    // 第3段の下の広がった筒（第2段との段間部、高さ 66.9〜70 m）は、本物では第2段といっしょに離れる。
+    // glb では第3段の一部なので、第3段からは消して、第2段に複製を付ける（離れたあと、中から J-2 エンジンが見える）
+    const flare = byName.S3 && byName.S2 ? byName.S3.clone(true) : null
+    if (flare) flare.name = 'S3Flare'
     // 発射台では、冷たいタンクの外に霜が付いている（frost.ts）
-    const frost = frostRocket(['S1', 'S2', 'S3'].map((n) => byName[n]).filter(Boolean))
+    const frost = frostRocket(['S1', 'S2'].map((n) => byName[n]).filter(Boolean))
+    const frostS3 = frostRocket(byName.S3 ? [byName.S3] : [], [70, 1e9])
+    const frostFlare = frostRocket(flare ? [flare] : [], [-1e9, 70])
+    if (flare) byName.S2.add(flare)
+    // 第3段のお尻（J-2 エンジン・梁・タンクの底）
+    const aft = s4bAft()
+    byName.S3?.add(aft.engine)
+    // 司令船・機械船：外板の細かさ（磨いたアルミのテープの筋など）
+    const skin = skinParts(['CSM', 'Ring'].map((n) => byName[n]).filter(Boolean))
     // 観察パートの断面（中のタンク・エンジン・着陸船）
-    const cut = buildCutaway(root, frost.made)
-    return { root, byName, frost, cut }
+    const cut = buildCutaway(root, new Set([...frost.made, ...frostS3.made, ...frostFlare.made, ...skin.made]))
+    return {
+      root,
+      byName,
+      cut,
+      skin,
+      aft,
+      frost: { dispose: () => [frost, frostS3, frostFlare, aft].forEach((f) => f.dispose()) },
+    }
   }, [rocket])
   useEffect(
     () => () => {
       parts.frost.dispose()
       parts.cut.dispose()
+      parts.skin.dispose()
     },
     [parts],
   )
@@ -901,6 +922,8 @@ export function LaunchWorld() {
     cabin.show(inside)
     // 中にいるあいだは、司令船の外側（両面の殻）が窓の外をふさがないように隠す
     if (parts.byName.CSM) parts.byName.CSM.visible = !inside
+    // 第3段の J-2 エンジンは、段間部（第2段といっしょ）が離れたあとだけ見える
+    parts.aft.engine.visible = !!parts.byName.S2 && parts.byName.S2.parent !== parts.root
     if (inside) {
       if (flameLight.current) flameLight.current.intensity = 0
       if (plumeFill.current) plumeFill.current.intensity = 0
