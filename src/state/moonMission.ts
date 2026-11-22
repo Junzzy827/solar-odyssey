@@ -407,10 +407,9 @@ const MUSIC_AT: Partial<Record<CaptionKey, MusicCue | 'stop'>> = {
   contact: 'stop',
   touchdown: 'stop',
   outOfFuel: 'stop',
-  // 章8：火の玉のあいだは音楽を止めて、パラシュートが開いたら木星の始まり
+  // 章8：火の玉のあいだは音楽を止める（パラシュートの曲は、新しい曲を取りこむときに決める）
   // 主旋律（賛歌）は軌道の日の出の 1 回だけ（junji 2026-11-22「主旋律を使うのは一回でいい」）
   entryInterface: 'stop',
-  mains: 'jupiterOpening',
 }
 
 export function setCaption(key: CaptionKey) {

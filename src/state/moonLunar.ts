@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { playRadio, preloadRadio, stopRadio } from '../audio/radio'
-import { playMusic, stopMusic } from '../audio/missionMusic'
+import { stopMusic } from '../audio/missionMusic'
 import { playStatic } from '../audio/sfx'
 import * as THREE from 'three'
 import {
@@ -351,7 +351,7 @@ export function tickLunar(dt: number) {
         stopMusic(2.5)
       } else if (s.burnEnd !== null) {
         // 月の裏から出て、地球が昇る：音楽と、本物の交信（主旋律の賛歌は軌道の日の出の 1 回だけ）
-        playMusic('jupiterOpening')
+        // 同じ曲は 2 度使わない（junji 2026-11-22）。この場面の曲は、新しい曲を取りこむときに決める
         setTimeout(() => playRadio('aos'), 2500)
       }
     }

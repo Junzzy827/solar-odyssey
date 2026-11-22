@@ -18,7 +18,7 @@ import {
   type EntryEnd,
 } from '../data/reentry'
 import { stopRadio } from '../audio/radio'
-import { playMusic, preloadMusic, stopMusic } from '../audio/missionMusic'
+import { stopMusic } from '../audio/missionMusic'
 import { missionNow, saveMissionRecord, setCaption, useMoonMission } from './moonMission'
 
 // アポロ17号の追体験・章8「離陸・再会・地球へ帰還」（components/moonMission/ReturnWorld.tsx・ReturnHud.tsx）。
@@ -118,7 +118,6 @@ const inHome = () => useMoonMission.getState().phase === 'home'
 export function startReturn() {
   stopRadio()
   stopMusic(1)
-  preloadMusic('jupiterOpening')
   Object.assign(ret, { t: 0, gap: RDV_GAP, angle: EI_ANGLE, drift: 0, input: 0, auto: false, e: null, want: 1, heat: 0, char: 0, h: DROGUE_ALT, drogueAt: -1, mainAt: -1, splashT: 0, get: GET.lunarDock - 600 })
   useMoonReturn.setState({ step: 'rdv', since: missionNow(), angle: null, fail: null, peakG: 0, stars: 0, mains: false })
   useMoonMission.setState({ phase: 'home', since: missionNow(), cam: 'chase', camLocked: false, auto: false, caption: null })
@@ -135,7 +134,7 @@ export function pressTei() {
   if (!inHome() || useMoonReturn.getState().step !== 'teiWait') return
   set('tei')
   setCaption('tei')
-  playMusic('jupiterOpening')
+  // 同じ曲は 2 度使わない（junji 2026-11-22）。この場面の曲は、新しい曲を取りこむときに決める
 }
 
 /** 角度を決める段階から、もう一度 */
