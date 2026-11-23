@@ -15,12 +15,14 @@ import { BOUNDS, G, GROUND_LIFT, HALF_L, LOOP, NS_S, PLAY, POND, STREETS, STREET
 import { CIRC, inBuilding, pushWorld, roofAt, standable, wetAt, worldArea, wrapS } from './cylinder'
 import { CORE, DECK_END, OMEGA, RIDE_S, STATION, STATION_H, TOWER, elevCar, elevH, floorUnder, gAt, nearDoor, sMeters } from './axis'
 import { Wings } from './wings'
+import { WING_PITCH_TRIM, wingStep } from './wingModel'
 
 // 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
 // 人の形は Person（figure.ts）。読み込むまでは仮の人形で、読めたら VRM の人（vrmPeople.ts、MakeHuman 製）と Mixamo の動きに差し替える。
 
 const Y = new THREE.Vector3(0, 1, 0)
 const X = new THREE.Vector3(1, 0, 0)
+const Z = new THREE.Vector3(0, 0, 1)
 const qf = new THREE.Quaternion()
 const qy = new THREE.Quaternion()
 const tmp = new THREE.Vector3()
@@ -63,6 +65,9 @@ export const walker = {
   /** テスト用：ホバースクーターの速さをこの値にする */
   rideSpeed: null as number | null,
 }
+
+/** 翼で飛んでいるあいだの計器の値（WalkView の姿勢計が読む）。active は飛んでいるあいだだけ true */
+export const wingFlight = { active: false, pitch: 0, path: 0, bank: 0, climb: 0, speed: 0, alt: 0 }
 
 /* ---------- 自分 ---------- */
 
@@ -174,6 +179,10 @@ function Player() {
       gs: 0,
       flapCd: 0,
       lean: 0,
+      /** 翼：機首の向き・進む道の傾き（水平から上が +、rad）・機体の傾き（右へ傾くと +） */
+      wp: WING_PITCH_TRIM,
+      fp: 0,
+      bank: 0,
     }),
     [],
   )
@@ -363,6 +372,7 @@ function Player() {
     const sitting = useWalk.getState().sitting
     const riding = useWalk.getState().riding
     let motion: Motion = 'idle'
+    wingFlight.active = false
     let deckPlaced = false
     if (riding) {
       // ---- ホバースクーター：前後で加速・ブレーキ、左右で曲がる。浮いているので少し横すべりする ----
@@ -555,36 +565,34 @@ function Player() {
     } else if (!sitting && useWalk.getState().wings && walker.h > floorUnder(walker.h, walker.y) + 0.02) {
       // ---- 翼で飛ぶ：グライダーのように、重さを前へ進む速さに変えながら、ゆっくり沈んでいく。
       // 軸の近くは重さがほぼ 0 なので、羽ばたいて外へ出る。宙にいるあいだは回転のせいで横へ流される ----
+      // 機首の上げ下げ（W 下げる・S 上げる）で、高さと速さを取りかえる。A D／マウスで機体を傾けて曲がる（wingModel）
       const g = gAt(walker.h)
-      const dive = fwd < -0.3
-      const push = fwd > 0.3
-      st.yaw -= right * 1.2 * dt
-      st.body = turn(st.body, st.yaw, dt * 2.5)
+      wingFlight.active = true
       if (walkInput.jump && st.flapCd <= 0) {
-        // 羽ばたき：前へ。軸の近く（軽い所）では外へ（地面のほうへ）押し出す。急降下中は下へ
+        // 羽ばたき：前へ。軸の近く（ほとんど重さのない所）では外へ（地面のほうへ）押し出す
         st.flapCd = 0.35
         st.gs += 2.5
-        st.vh += dive ? -3 : g < 3 ? -2 : 1.6
+        if (g < 3) st.fp = Math.max(-0.9, st.fp - 0.25)
         st.wings?.flap()
       }
       walkInput.jump = false
       st.flapCd -= dt
-      // 前の速さ：重さを前へ進む力に変える（W で少し前のめり、Shift でもっと）。空気の抵抗で頭打ち
-      st.gs += ((push ? g * (running ? 0.9 : 0.5) : 0) + (dive ? g * 0.25 : 0) - 0.003 * st.gs * st.gs) * dt
-      st.gs = Math.max(0, st.gs)
-      if (dive) st.vh += (-g - 0.004 * st.vh * Math.abs(st.vh)) * dt
-      else {
-        // 滑空：速いほど沈む（滑空比 3）。重いほど沈みやすい
-        const sink = -(st.gs / 3) - 1.2 * Math.sqrt(g / GRAVITY)
-        st.vh += (sink - st.vh) * Math.min(1, dt * 1.2)
-      }
-      // 地面の近くでは、翼を立てて速さを落とす
-      if (walker.h < 80) st.vh = Math.max(st.vh, -4 - walker.h * 0.15)
+      const turnRate = wingStep(st, fwd, right, wrap(st.yaw - st.body), running, g, walker.h, dt)
+      st.body += turnRate * dt
+      if (Math.abs(right) > 0.05) st.yaw += turnRate * dt
+      const V = Math.max(1, st.gs)
       // 回転のせいで横へ流される（コリオリの力）。翼が空気を受けるので、横の流れは少しずつ消える
       st.drift += (2 * OMEGA * st.vh - 0.5 * st.drift) * dt
+      const hz = V * Math.cos(st.fp)
+      wingFlight.pitch = st.wp
+      wingFlight.path = st.fp
+      wingFlight.bank = st.bank
+      wingFlight.climb = st.vh
+      wingFlight.speed = V
+      wingFlight.alt = walker.h
       const sm = sMeters(walker.h)
-      walker.s += (-Math.sin(st.body) * st.gs + st.drift) * dt / sm
-      walker.y += -Math.cos(st.body) * st.gs * dt
+      walker.s += (-Math.sin(st.body) * hz + st.drift) * dt / sm
+      walker.y += -Math.cos(st.body) * hz * dt
       const h0 = walker.h
       walker.h += st.vh * dt
       if (walker.h > G - 2) {
@@ -603,6 +611,7 @@ function Player() {
         st.vh = st.drift = 0
         st.speed = Math.min(st.gs, 4)
         st.gs = 0
+        st.fp = st.bank = 0
       } else st.speed = st.gs
       motion = 'jump'
     } else if (!sitting) {
@@ -645,8 +654,9 @@ function Player() {
         st.vh = Math.max(0, st.vh)
         st.drift = 0
       }
-      // 翼で飛び出したときは、歩いていた速さのまま
+      // 翼で飛び出したときは、歩いていた速さのまま（水平に）
       st.gs = st.speed * pace
+      st.fp = st.bank = 0
       st.phase += dt * ((st.speed * pace) / (st.speed > 2.6 ? 1.0 : 0.62)) * Math.PI
       motion = walker.h > floor + 0.05 ? 'jump' : st.speed > 2.6 ? 'run' : st.speed > 0.15 ? 'walk' : 'idle'
     } else {
@@ -662,7 +672,9 @@ function Player() {
       // 腰のあたり（1 m）を中心に、前（-z）へ倒す
       tmp.set(0, 1, 0).applyQuaternion(st.me.group.quaternion)
       st.me.group.position.addScaledVector(tmp, 1)
-      st.me.group.quaternion.multiply(qy.setFromAxisAngle(X, -1.25 * st.lean))
+      // 進む向きのまわりに傾け（右へ曲がるときは右の翼を下へ）、機首の上げ下げの分だけ起こす・倒す
+      st.me.group.quaternion.multiply(qy.setFromAxisAngle(Z, -st.bank * st.lean))
+      st.me.group.quaternion.multiply(qy.setFromAxisAngle(X, (-1.25 + st.wp - WING_PITCH_TRIM) * st.lean))
       tmp.set(0, 1, 0).applyQuaternion(st.me.group.quaternion)
       st.me.group.position.addScaledVector(tmp, -1)
     }
@@ -713,14 +725,16 @@ function Player() {
     // カメラ
     frameAt(walker.s, qf)
     up.set(0, 1, 0).applyQuaternion(qf)
-    euler.set(st.pitch, st.yaw, 0)
-    qc.copy(qf).multiply(new THREE.Quaternion().setFromEuler(euler))
     const eye = w.view === 'eye'
+    // 翼で飛んでいるときは、カメラも機体といっしょに傾き、下りでは下を、上りでは上を向く（自分の目ではもっと強く）
+    const wl = st.lean
+    euler.set(st.pitch + st.fp * (eye ? 0.75 : 0.5) * wl, st.yaw, -st.bank * (eye ? 0.8 : 0.45) * wl)
+    qc.copy(qf).multiply(new THREE.Quaternion().setFromEuler(euler))
     // 人の模型（VRM）を読み終わるまでは、仮の人形（棒人間）を出さない
     st.me.group.visible = !eye && st.me instanceof VrmPerson
     const headH = (sitting ? 1.15 : 1.62) * (CREW_LOOK.height / 1.7)
     // 速く走るほど、カメラを少し引いて画角を広げる
-    const fast = riding ? Math.abs(st.spd) : 0
+    const fast = riding ? Math.abs(st.spd) : st.gs * st.lean
     const fov = 62 + Math.min(fast, 26) * 0.6
     if (Math.abs(fov - st.fov) > 0.01 && (camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
       st.fov += (fov - st.fov) * Math.min(1, dt * 3)

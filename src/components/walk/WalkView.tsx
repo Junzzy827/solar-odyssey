@@ -9,7 +9,7 @@ import { WALK_FADE, bindWalkKeys, endWalk, toggleWalkView, useWalk, walkInput, w
 import { colonyDay } from '../sf/colonyCity'
 import { WalkWorld } from './WalkWorld'
 import './WalkView.css'
-import { WalkActors, walker } from './WalkActors'
+import { WalkActors, walker, wingFlight } from './WalkActors'
 import { WalkErrand } from './WalkErrand'
 import { WalkErrandHud } from './WalkErrandHud'
 
@@ -158,6 +158,7 @@ function WalkPanel() {
         </button>
       </div>
       {riding && <Speedometer />}
+      {wings && <WingGauge />}
       {waterNote > 0 && walkNow() - waterNote < 3.5 && <WaterNote at={waterNote} text={ui().walk.waterNote} />}
       {skyNote > 0 && walkNow() - skyNote < 3.5 && <WaterNote at={skyNote} text={ui().walk.skyNote} />}
       {elevNear && !riding && (
@@ -190,6 +191,51 @@ function WalkPanel() {
           {riding ? ui().walk.boost : ui().walk.run}
         </button>
         <button onPointerDown={() => (walkInput.jump = true)}>{riding ? ui().walk.hop : wings ? ui().walk.flap : ui().walk.jump}</button>
+      </div>
+    </div>
+  )
+}
+
+/** 翼の姿勢計：地平線（機首の上げ下げで上下、機体の傾きで回る）と、機首の角度・上がる下がる速さ・高さ・速さ */
+function WingGauge() {
+  const [v, setV] = useState({ ...wingFlight })
+  useEffect(() => {
+    const iv = window.setInterval(() => setV({ ...wingFlight }), 100)
+    return () => window.clearInterval(iv)
+  }, [])
+  if (!v.active) return null
+  const deg = (r: number) => Math.round((r * 180) / Math.PI)
+  // 機首が上がると地平線は下へ（1° で 1.2 px）、右へ傾くと地平線は左回りに
+  const dy = Math.max(-40, Math.min(40, deg(v.pitch) * 1.2))
+  const stall = v.speed < 4
+  return (
+    <div className={stall ? 'walk-wing stall' : 'walk-wing'}>
+      <svg viewBox="-50 -50 100 100" width="92" height="92" aria-hidden>
+        <defs>
+          <clipPath id="walk-wing-clip">
+            <circle r="46" />
+          </clipPath>
+        </defs>
+        <g clipPath="url(#walk-wing-clip)">
+          <g transform={`rotate(${-deg(v.bank)}) translate(0 ${dy})`}>
+            <rect x="-120" y="-160" width="240" height="160" fill="#2f6f9e" />
+            <rect x="-120" y="0" width="240" height="160" fill="#6b5233" />
+            <line x1="-120" x2="120" y1="0" y2="0" stroke="#fff" strokeWidth="1.5" />
+            {[-20, -10, 10, 20].map((p) => (
+              <line key={p} x1={-10} x2={10} y1={-p * 1.2} y2={-p * 1.2} stroke="#fff" strokeWidth="1" opacity="0.7" />
+            ))}
+          </g>
+        </g>
+        <circle r="46" fill="none" stroke="rgba(110,220,255,0.6)" strokeWidth="2" />
+        {/* 自分（翼の印）は動かない */}
+        <path d="M-28 0 H-9 L0 6 L9 0 H28" fill="none" stroke="#ffd27a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <div className="walk-wing-text">
+        <b>{ui().walk.wingPitch(deg(v.pitch))}</b>
+        <span>{ui().walk.wingClimb(v.climb)}</span>
+        <span>{ui().walk.wingAlt(v.alt)}</span>
+        <span>{ui().walk.kmh(Math.round(v.speed * 3.6))}</span>
+        {stall && <b className="warn">{ui().walk.wingStall}</b>}
       </div>
     </div>
   )
