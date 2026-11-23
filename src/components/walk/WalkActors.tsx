@@ -728,6 +728,8 @@ function Player() {
     }
     if (eye) {
       camera.position.copy(walker.pos).addScaledVector(up, headH)
+      // 翼で寝て飛ぶときは、体と同じく腰（1 m）を中心に前へ倒した、頭の位置に（まっすぐ上のままだと、背中の上になる）
+      if (st.lean > 0.01) camera.position.copy(walker.pos).addScaledVector(up, 1).addScaledVector(tmp.set(0, 1, 0).applyQuaternion(st.me.group.quaternion), headH - 1)
     } else {
       camera.position.copy(walker.pos).addScaledVector(up, headH - 0.15)
       // 街の建物の壁の中へ入らないよう、入るなら近づける
