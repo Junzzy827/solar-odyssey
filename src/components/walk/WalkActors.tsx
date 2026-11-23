@@ -165,6 +165,8 @@ function Player() {
     walker.s = START.s
     walker.y = START.y
     walker.h = 0
+    // かごの位置はモジュールに残っている（乗っている途中で船へもどると、次に来たとき塔の途中に浮いている）。地面にもどす
+    elevCar.t = st.elevT
     // 軸へのエレベーターの前から始める
     if (useWalk.getState().startAtTower) {
       walker.s = TOWER.s
