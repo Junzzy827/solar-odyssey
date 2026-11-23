@@ -151,6 +151,9 @@ export type CaptionKey =
   | 'splash'
   | 'recoveryHeli'
   | 'recoveryCollar'
+  | 'evaOut'
+  | 'evaFilm'
+  | 'coastEarth'
   // 第2弾
   | 'coast'
   | 'coastMoon'

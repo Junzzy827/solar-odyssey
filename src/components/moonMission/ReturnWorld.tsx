@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { loadCatalog } from '../Sky'
 import { QUALITY, currentLevel, lowMemory, useLevel } from '../../state/quality'
 import { autoCam, useMoonMission, type MissionCam } from '../../state/moonMission'
-import { COAST_TIME, CMSEP_TIME, CORRIDOR_TIME, RECOVERY_TIME, SWIMMERS_AT, TEI_BURN, TEI_WARP, ret, tickReturn, useMoonReturn, type ReturnStep } from '../../state/moonReturn'
+import { coastK, CMSEP_TIME, CORRIDOR_TIME, RECOVERY_TIME, SWIMMERS_AT, TEI_BURN, TEI_WARP, ret, tickReturn, useMoonReturn, type ReturnStep } from '../../state/moonReturn'
 import { EARTH_MOON, coastDistance } from '../../data/apolloTimeline'
 import { EI_ALT, RE } from '../../data/reentry'
 import { earthMaterial, atmosphereMaterial } from './earth'
@@ -14,6 +14,7 @@ import { APOLLO_URL, DROGUE, useCraft } from './craft'
 import { applyCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv, type SpaceBody } from './spaceEnv'
 import { makeChute, oceanMaterial, shapeChute } from './returnSea'
+import { makeEvaScene } from './returnEva'
 import { makeCarrier, makeCollar, makeDownwash, makeHelicopter, makeRaft, makeSwimmer } from './returnRecovery'
 import { CLOUD_COVER_GLSL, SkyLut, cloudQuality, cloudShadeAt, cloudUniforms, skyDomeMaterial, sunTransmit } from './returnSky'
 import { OUT_CHUNK, encodeOutput } from './shaderOut'
@@ -441,6 +442,7 @@ function Scene() {
     const recovery = new THREE.Group()
     recovery.name = 'return-recovery'
     recovery.add(heli.group, wash.mesh, collar.mesh, raft.group, ...swimmers.map((x) => x.group))
+    const eva = makeEvaScene()
     const mains = [makeChute('main'), makeChute('main'), makeChute('main')]
     const drogues = [makeChute('drogue'), makeChute('drogue')]
     const fire = makeFireball()
@@ -471,8 +473,8 @@ function Scene() {
     spray.frustumCulled = false
     // 窓のカメラのときの、窓の外のプラズマ
     const winPlasma = makeWindowPlasma()
-    const owned: { dispose: () => void }[] = [winPlasma, moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, lut, ship, heli, wash, collar, raft, ...swimmers, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat]
-    return { fireGlow, nozzle, moonG, moonSphere, earthMat, atmo, earthG, lut, sky, ocean, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, winPlasma, recovery, heli, wash, collar, swimmers, raft, owned }
+    const owned: { dispose: () => void }[] = [winPlasma, moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, lut, ship, heli, wash, collar, raft, eva, ...swimmers, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat]
+    return { fireGlow, nozzle, moonG, moonSphere, earthMat, atmo, earthG, lut, sky, ocean, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, winPlasma, recovery, heli, wash, collar, swimmers, raft, eva, owned }
   }, [moonTex, day, night, clouds, water])
   useEffect(
     () => () => {
@@ -529,6 +531,13 @@ function Scene() {
     // 次に開いたときのために、焦げを戻す
     return () => parts.burn.forEach((b) => ((b.m.metalness = b.metal), b.m.color.copy(b.from)))
   }, [parts])
+  // 機械船の科学機器室（扉は月へ行く前に外してあるので、月のまわりでも帰り道でも見える）
+  useEffect(() => {
+    parts.sm.add(w.eva.sim.group)
+    return () => {
+      parts.sm.remove(w.eva.sim.group)
+    }
+  }, [parts, w])
   useEffect(() => {
     parts.cm.add(w.plume)
     w.plume.position.y = -10.35
@@ -538,7 +547,7 @@ function Scene() {
   }, [parts, w])
 
   const rig = useMemo(() => ({ pos: new THREE.Vector3(), look: new THREE.Vector3(), init: false, key: '' }), [])
-  const tmp = useMemo(() => ({ qe: new THREE.Quaternion(), qcm: new THREE.Quaternion(), vel: new THREE.Vector3(), up: new THREE.Vector3(), side: new THREE.Vector3(), cmPos: new THREE.Vector3(), moonEnd: new THREE.Vector3(0, -(MOON_R + LUNAR_ALT), 0), roll: new THREE.Quaternion() }), [])
+  const tmp = useMemo(() => ({ qe: new THREE.Quaternion(), qcm: new THREE.Quaternion(), vel: new THREE.Vector3(), up: new THREE.Vector3(), side: new THREE.Vector3(), cmPos: new THREE.Vector3(), moonEnd: new THREE.Vector3(0, -(MOON_R + LUNAR_ALT), 0), roll: new THREE.Quaternion(), chest: new THREE.Vector3(), evans: new THREE.Vector3() }), [])
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.05)
@@ -558,7 +567,7 @@ function Scene() {
     w.sps.uniforms.uTime.value = time
 
     // ---- 月 ----
-    w.moonG.visible = lunar || step === 'coast'
+    w.moonG.visible = lunar || step === 'coast' || step === 'eva'
     if (lunar) {
       // 月を回る：月面がうしろへ流れる（本物の速さ）
       const tei = step === 'teiWait' || step === 'tei'
@@ -575,9 +584,9 @@ function Scene() {
         w.moonG.position.y -= s * 0.15
       }
       tmp.moonEnd.copy(w.moonG.position)
-    } else if (step === 'coast') {
+    } else if (step === 'coast' || step === 'eva') {
       // 月はうしろで小さくなる
-      const k = Math.min(1, t / COAST_TIME)
+      const k = coastK(step, t)
       const d0 = tmp.moonEnd.length()
       const d = d0 * Math.pow((EARTH_MOON * 0.85) / d0, Math.pow(k, 0.6))
       _v.copy(tmp.moonEnd).normalize().lerp(_w.set(0, -0.18, 1).normalize(), Math.min(1, k * 3)).normalize()
@@ -592,8 +601,8 @@ function Scene() {
     if (earthOn) {
       let dist: number
       let dir: THREE.Vector3
-      if (step === 'coast') {
-        dist = coastDistance(1 - Math.min(1, t / COAST_TIME))
+      if (step === 'coast' || step === 'eva') {
+        dist = coastDistance(1 - coastK(step, t))
         dir = _u.set(0, -0.12, -1).normalize()
       } else if (step === 'cmSep') {
         dist = RE + 36_000_000 - 27_000_000 * Math.min(1, t / CMSEP_TIME)
@@ -640,7 +649,7 @@ function Scene() {
     }
 
     // 帰り道の月：うしろの月も、同じ太陽で照らす（月の向きを、太陽が合うように少しだけ回す）
-    if (step === 'coast' || step === 'cmSep') {
+    if (step === 'coast' || step === 'eva' || step === 'cmSep') {
       _a.copy(MOON_SUN).applyQuaternion(w.moonG.quaternion)
       w.moonG.quaternion.premultiply(_q.setFromUnitVectors(_a, sun))
     }
@@ -743,8 +752,8 @@ function Scene() {
     const showLm = step === 'rdv' || step === 'docked' || step === 'lmGone'
     lm.visible = showLm
     csm.visible = true
-    parts.sm.visible = lunar || step === 'coast' || (step === 'cmSep' && t < CMSEP_TIME)
-    for (const p of parts.probe) p.visible = lunar || step === 'coast'
+    parts.sm.visible = lunar || step === 'coast' || step === 'eva' || (step === 'cmSep' && t < CMSEP_TIME)
+    for (const p of parts.probe) p.visible = lunar || step === 'coast' || step === 'eva'
     w.plume.visible = step === 'tei' && t * TEI_WARP < TEI_BURN
     // ノズルの口の光（真空の炎はほとんど見えないので、口のまわりだけ）
     w.nozzle.visible = w.plume.visible
@@ -770,13 +779,19 @@ function Scene() {
       }
       lm.position.set(0, -back, 0).applyQuaternion(LUNAR_FRAME)
       tmp.cmPos.set(0, DROGUE.y + 5, 0).applyQuaternion(LUNAR_FRAME)
-    } else if (step === 'teiWait' || step === 'tei' || step === 'coast' || step === 'cmSep') {
+    } else if (step === 'teiWait' || step === 'tei' || step === 'coast' || step === 'eva' || step === 'cmSep') {
       // 司令船の機首を前へ（点火の向き）。待つあいだに向きを変える
       const k = step === 'teiWait' ? THREE.MathUtils.smootherstep(t / 8, 0, 1) : 1
       _q.copy(LUNAR_FRAME).multiply(FLIP)
       _q2.copy(LUNAR_FRAME)
       // 帰り道：太陽の熱を均すため、ゆっくり回る（バーベキュー・ロール）
       if (step === 'coast') _q2.multiply(tmp.roll.setFromAxisAngle(Y, t * 0.25))
+      // 船外活動：回るのを止めて、ハッチと科学機器室の側（+X）を、日の当たる向きへ
+      if (step === 'eva') {
+        _a.copy(sun).applyQuaternion(_q.copy(LUNAR_FRAME).invert())
+        _q2.copy(LUNAR_FRAME).multiply(tmp.roll.setFromAxisAngle(Y, Math.atan2(-_a.z, _a.x) + 0.55))
+        _q.copy(LUNAR_FRAME).multiply(FLIP)
+      }
       csm.quaternion.slerpQuaternions(_q, _q2, k)
       if (step === 'cmSep') {
         // 機械船を切り離して、司令船だけ向きを変える（熱よけを前へ）
@@ -790,6 +805,11 @@ function Scene() {
       }
       csm.position.set(0, -CM_MID, 0).applyQuaternion(csm.quaternion)
       tmp.cmPos.set(0, 0, 0)
+      // 船外活動の人と命綱（模型の中の座標で動かして、船と一緒に置く）
+      w.eva.group.position.copy(csm.position)
+      w.eva.group.quaternion.copy(csm.quaternion)
+      w.eva.update(step === 'eva' ? t : -1, time, tmp.chest)
+      tmp.evans.copy(tmp.chest).applyQuaternion(csm.quaternion).add(csm.position)
     } else {
       // 大気へ：司令船だけ。熱よけ（-Y）を進む向きへ、少し傾けて揚力を出す
       const gamma = e ? e.gamma : step === 'corridor' ? THREE.MathUtils.degToRad(THREE.MathUtils.lerp(-28, ret.angle, Math.min(1, t / CORRIDOR_TIME) ** 0.5)) : 0
@@ -869,7 +889,7 @@ function Scene() {
       w.fireGlow.visible = false
       w.glowMat.intensity = 0
     }
-    if (lunar || step === 'coast' || step === 'cmSep') for (const b of parts.burn) ((b.m.metalness = b.metal), b.m.color.copy(b.from))
+    if (lunar || step === 'coast' || step === 'eva' || step === 'cmSep') for (const b of parts.burn) ((b.m.metalness = b.metal), b.m.color.copy(b.from))
 
     // ---- パラシュート ----
     const apex = _a.set(0, 0, 0).applyQuaternion(csm.quaternion).add(csm.position)
@@ -976,6 +996,34 @@ function Scene() {
         want.copy(look).add(_b.set(span * 0.8, span * 0.22, -span * 0.25))
         fov = 42
       }
+    } else if (step === 'eva') {
+      // 船外活動：船の外向き（ハッチの側）と、うしろの月の向き
+      const out = _u.set(1, 0, 0).applyQuaternion(csm.quaternion)
+      const toMoon = _a.copy(w.moonG.position).normalize()
+      const ev = tmp.evans
+      if (cam === 'window') {
+        // ハッチから見守るシュミット飛行士の目：殻にそって、機械船の方のエバンス飛行士を見る（この絵ではシュミット飛行士を出さない）
+        //（エバンス飛行士の体が通る所はさける：ハッチの少し上、横へずらした所）
+        want.set(3.0, 0.3, -1.8).applyQuaternion(csm.quaternion).add(csm.position)
+        w.eva.schmitt.root.visible = false
+        look.copy(ev)
+        fov = 62
+        near = 0.05
+      } else if (cam === 'wide') {
+        // 日の当たる横から：司令船から機械船まで全部と、科学機器室のエバンス飛行士
+        const mid = _b.set(0, -4.2, 0).applyQuaternion(csm.quaternion).add(csm.position)
+        want.copy(mid).addScaledVector(out, tall ? 12.5 : 10).addScaledVector(toMoon, -5)
+        want.y += 2.5
+        look.copy(mid).lerp(ev, 0.4)
+        fov = tall ? 60 : 46
+      } else {
+        // エバンス飛行士のすぐそば
+        want.copy(ev).addScaledVector(out, 2.6).addScaledVector(toMoon, -1.8)
+        want.y += 0.7
+        look.copy(ev)
+        fov = tall ? 60 : 50
+        near = 0.05
+      }
     } else if (lunar || step === 'coast' || step === 'cmSep') {
       if (cam === 'window') {
         // 船長の窓のすぐ外（大気の中の窓と同じ所。殻の内側に入らないように）。横の窓から前を見る
@@ -985,7 +1033,11 @@ function Scene() {
         near = 0.05
         snap = true
       } else if (cam === 'wide') {
-        if (step === 'coast') {
+        if (step === 'coast' && ret.coastLeg === 1) {
+          // 船外活動のあと：うしろから、船と、前の三日月の地球
+          want.set(-10, 4, 26)
+          look.set(0, -2, -30)
+        } else if (step === 'coast') {
           // 前から振り返る：司令船と、うしろの月
           want.set(-14, 4, -46)
           look.set(0, -1, 30)
@@ -1105,7 +1157,7 @@ function Scene() {
     }
     // ホイール・2 本指で宇宙船に寄る（うしろからのカメラのとき）
     if (cam === 'chase') applyCraftZoom(want, look, c, 5)
-    const key = `${cam}-${lunar ? 'moon' : sea ? 'sea' : step === 'coast' || step === 'cmSep' ? 'space' : 'air'}`
+    const key = `${cam}-${lunar ? 'moon' : sea ? 'sea' : step === 'coast' || step === 'eva' || step === 'cmSep' ? 'space' : 'air'}`
     if (!rig.init || snap || rig.key !== key) {
       rig.pos.copy(want)
       rig.look.copy(look)
@@ -1141,6 +1193,7 @@ function Scene() {
       <primitive object={w.ocean} />
       <primitive object={w.ship.group} />
       <primitive object={w.recovery} />
+      <primitive object={w.eva.group} />
       <primitive object={craft.lm} />
       <primitive object={craft.csm} />
       <primitive object={w.fire.group} />
@@ -1178,6 +1231,7 @@ const RETURN_CUTS: Partial<Record<ReturnStep, MissionCam[]>> = {
   teiWait: ['chase', 'wide'],
   tei: ['chase', 'wide', 'window'],
   coast: ['chase', 'wide', 'window'],
+  eva: ['wide', 'chase', 'window'],
   cmSep: ['chase', 'wide'],
   corridor: ['chase', 'wide', 'window'],
   entry: ['chase', 'window', 'wide'],
