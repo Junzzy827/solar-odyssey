@@ -776,9 +776,10 @@ const RETURN_CUTS: Partial<Record<ReturnStep, MissionCam[]>> = {
   cmSep: ['chase', 'wide'],
   corridor: ['chase', 'wide', 'window'],
   entry: ['chase', 'window', 'wide'],
-  chutes: ['chase', 'window', 'wide'],
-  splash: ['chase', 'wide'],
-  end: ['wide', 'chase'],
+  // 海の上の「遠くから」（回収船の甲板からの望遠）は、自動では使わない（画面が灰色一色になる場面がある）
+  chutes: ['chase', 'window'],
+  splash: ['chase'],
+  end: ['chase'],
 }
 const rcuts = { t: 0, i: 0, step: '' as string }
 function returnCuts(step: ReturnStep, dt: number) {
