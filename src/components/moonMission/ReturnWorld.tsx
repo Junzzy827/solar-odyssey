@@ -13,7 +13,7 @@ import { glowTexture, plumeGeometry, plumeMaterial } from './plume'
 import { APOLLO_URL, DROGUE, useCraft } from './craft'
 import { applyCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv, type SpaceBody } from './spaceEnv'
-import { foamTexture, makeChute, makeClouds, makeShip, oceanMaterial, shapeChute } from './returnSea'
+import { makeChute, makeClouds, makeShip, oceanMaterial, shapeChute } from './returnSea'
 import { SkyLut, skyDomeMaterial, sunTransmit } from './returnSky'
 import { OUT_CHUNK, encodeOutput } from './shaderOut'
 import { makeFireball, updateFireball } from './returnPlasma'
@@ -259,12 +259,8 @@ function Scene() {
     const sprayMat = new THREE.PointsMaterial({ color: '#f4f8fb', map: glowTexture(), size: 0.35, transparent: true, opacity: 0, depthWrite: false })
     const spray = new THREE.Points(sprayGeo, sprayMat)
     spray.frustumCulled = false
-    const foamTex = foamTexture()
-    const foamMat = new THREE.MeshBasicMaterial({ map: foamTex, transparent: true, opacity: 0, depthWrite: false })
-    const foam = new THREE.Mesh(new THREE.CircleGeometry(1, 40), foamMat)
-    foam.rotation.x = -Math.PI / 2
-    const owned: { dispose: () => void }[] = [moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, lut, cloud, ship, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat, foam.geometry, foamMat, foamTex]
-    return { fireGlow, nozzle, moonG, earthMat, atmo, earthG, lut, sky, ocean, cloud, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, foam, owned }
+    const owned: { dispose: () => void }[] = [moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, lut, cloud, ship, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat]
+    return { fireGlow, nozzle, moonG, earthMat, atmo, earthG, lut, sky, ocean, cloud, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, owned }
   }, [moonTex, day, night, clouds, water])
   useEffect(() => () => w.owned.forEach((o) => o.dispose()), [w])
   // 確かめる用（#debug のときだけ）
@@ -394,10 +390,15 @@ function Scene() {
       w.earthMat.uniforms.uNear2.value = THREE.MathUtils.clamp(1 - h / 3_000_000, 0, 1)
     } else if (lunar) sun.copy(SUN_MOON)
     else if (sea) {
-      // 着水地点の空：東の高さ約 37°（朝 8 時半ごろ）
+      // 着水地点の空：朝 8 時半ごろの太陽
       earthOrient(_a.set(0, 1, 0), _b.set(0, 0, -1), tmp.qe)
       tmp.qe.premultiply(_q.setFromAxisAngle(X, P_EI.angleTo(P_SPLASH)))
       sun.copy(SUN_E).applyQuaternion(tmp.qe)
+      // 高さは計算で決める：1972 年 12 月 19 日 19:24 UTC、南緯 17.9° 西経 166.1°（地方時 8 時 20 分ごろ）で約 38°。
+      // 上の回転だけでは 22° ほどにしかならなかったので、向き（方位）だけ使い、高さを合わせる
+      const az = Math.atan2(sun.z, sun.x)
+      const el = THREE.MathUtils.degToRad(38)
+      sun.set(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el))
     }
 
     // 船を照らす日の光の色
@@ -605,7 +606,6 @@ function Scene() {
     // ---- 着水のしぶき ----
     const splashing = step === 'splash' && ret.splashT < 4
     w.spray.visible = splashing
-    w.foam.visible = step === 'splash' || step === 'end'
     if (splashing) {
       const p = w.spray.geometry.getAttribute('position') as THREE.BufferAttribute
       const st = ret.splashT
@@ -618,12 +618,10 @@ function Scene() {
       p.needsUpdate = true
       ;(w.spray.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - st / 3.5)
     }
-    if (w.foam.visible) {
-      const ft = step === 'end' ? 10 : ret.splashT
-      w.foam.position.set(0, -h + 0.05, 0)
-      w.foam.scale.setScalar(4 + Math.min(ft, 8) * 1.2)
-      ;(w.foam.material as THREE.MeshBasicMaterial).opacity = Math.max(0.25, 0.9 - ft * 0.07)
-    }
+    // 着水の泡は、海の素材の中で描く（波と同じ面に、まだらな白い輪）
+    const splashU = ((w.ocean.material as THREE.ShaderMaterial).uniforms.uSplash.value as THREE.Vector4)
+    if (step === 'splash' || step === 'end') splashU.set(0, 0, step === 'end' ? Math.max(10, ret.splashT) : ret.splashT, 1)
+    else splashU.set(0, 0, -1, 0)
 
     // ---- カメラ ----
     const cam = ms.cam
@@ -799,7 +797,6 @@ function Scene() {
         <primitive key={`d${i}`} object={c.group} />
       ))}
       <primitive object={w.spray} />
-      <primitive object={w.foam} />
     </>
   )
 }
