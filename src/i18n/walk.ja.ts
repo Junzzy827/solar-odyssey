@@ -41,6 +41,8 @@ export const walkJa = {
   rideHint: 'W 進む・S ブレーキ／後ろへ・A D 曲がる・Shift ブースト・スペース ホップ・G 空を飛ぶ・マウス 見回す・F 降りる',
   walkTo: (name: string) => `${name}に降りて歩く`,
   keysHint: 'W A S D 歩く・Shift 走る・スペース ジャンプ・マウス 見回す（クリックで固定）・ホイール 距離・E 座る・F ホバースクーター・V 見方・J 船へ',
+  /** 軸の駅で（スクーターもベンチもない。翼をつけられる） */
+  stationHint: 'W A S D 歩く・Shift 走る・スペース ジャンプ・マウス 見回す（クリックで固定）・ホイール 距離・R 翼をつける・V 見方・J 船へ',
   arrived: (name: string) => `${name}の公園に降りました。見上げると、向こう側の大地が空の代わりに広がっています`,
   gee: (g: number) => `重さ ${g.toFixed(2)} G`,
   elevUp: '軸へのエレベーターに乗る',

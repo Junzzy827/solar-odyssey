@@ -177,7 +177,7 @@ function WalkPanel() {
         </button>
       )}
       {note && <div className="walk-note">{ui().walk.arrived(name)}</div>}
-      <div className="walk-hint">{wings ? ui().walk.wingsHint : flying ? ui().walk.skyHint : riding ? ui().walk.rideHint : ui().walk.keysHint}</div>
+      <div className="walk-hint">{wings ? ui().walk.wingsHint : flying ? ui().walk.skyHint : riding ? ui().walk.rideHint : wingsHere ? ui().walk.stationHint : ui().walk.keysHint}</div>
       <Stick />
       <div className="walk-pad" onPointerDown={stop}>
         {/* iPhone はスティックを押さえたままの 2 本目の指だと click が来ないので、押した瞬間に切り替える */}
