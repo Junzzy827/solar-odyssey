@@ -197,6 +197,7 @@ function Player() {
     }
   }, [st])
 
+  // 優先 -1：自分とカメラを先に動かす（エレベーターのかご・日の光など、まわりはこのコマの位置を読む）
   useFrame(({ scene }, rawDt) => {
     const dt = Math.min(rawDt, 0.05)
     if (!st.me.group.parent) scene.add(st.me.group)
@@ -733,7 +734,7 @@ function Player() {
     }
     camera.quaternion.copy(qc)
     camera.up.copy(up)
-  })
+  }, -1)
   return null
 }
 
