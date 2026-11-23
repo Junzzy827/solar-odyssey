@@ -140,8 +140,10 @@ const RING_PX = 9
 const ROOM_PX = 4
 
 /** 全体を見せたときに印の輪が出る星は、となりとのすき間を、画面で輪と余白がはいるだけ広げる（ほかのすき間はそのまま）。輪が出るかは画面での大きさで、大きさは全体の幅で決まるので、ならべ方が落ちつくまでくり返す */
-function roomy(id: string, picks: readonly string[], width: number, height: number, vt: number): Item[] {
+function roomy(id: string | null, picks: readonly string[], width: number, height: number, vt: number): Item[] {
   const base = lineup(id, picks)
+  // なにも選んでいなければ、ならべるものもない
+  if (!base.length) return base
   const wide = (a: Item[]) => a[a.length - 1].x + a[a.length - 1].width / 2
   let items = base
   for (let n = 0; n < 100; n++) {
@@ -170,6 +172,8 @@ function Rig({ items, focus }: { items: Item[]; focus: string | null }) {
   const { camera, size } = useThree()
   const cur = useRef<{ x: number; y: number; logD: number } | null>(null)
   useFrame((_, dt) => {
+    // なにもならべていないときは、カメラはそのまま
+    if (!items.length) return
     const cam = camera as THREE.PerspectiveCamera
     const f = items.find((i) => i.id === focus)
     // 見せたい幅と高さ・まん中
@@ -202,7 +206,9 @@ function Rig({ items, focus }: { items: Item[]; focus: string | null }) {
 function Shelf({ id, picks, focus }: { id: string; picks: readonly string[]; focus: string | null }) {
   const size = useThree((s) => s.size)
   const fov = useThree((s) => (s.camera as THREE.PerspectiveCamera).fov)
-  const items = useMemo(() => roomy(id, picks, size.width, size.height, Math.tan(THREE.MathUtils.degToRad(fov) / 2)), [id, picks, size.width, size.height, fov])
+  // くらべている星をボタンではずしていれば、選んだものだけをならべる
+  const at = picks.includes(id) ? id : null
+  const items = useMemo(() => roomy(at, picks, size.width, size.height, Math.tan(THREE.MathUtils.degToRad(fov) / 2)), [at, picks, size.width, size.height, fov])
   return (
     <>
       {items.map((it, i) => (
@@ -216,7 +222,7 @@ function Shelf({ id, picks, focus }: { id: string; picks: readonly string[]; foc
 function Stage({ id }: { id: string }) {
   const picks = useSizeCompare((s) => s.picks)
   const focus = useSizeCompare((s) => s.focus)
-  const items = useMemo(() => lineup(id, picks), [id, picks])
+  const items = useMemo(() => lineup(picks.includes(id) ? id : null, picks), [id, picks])
   const t = ui().sizeCompare
   useLang()
 
@@ -237,16 +243,15 @@ function Stage({ id }: { id: string }) {
     return () => timers.forEach(clearTimeout)
   }, [items])
 
-  // ひとこと：地球と（なければ最初に選んだものと）くらべる
-  const body = items.find((i) => i.id === id)!
-  const other = items.find((i) => i.id === 'earth' && i.id !== id) ?? items.find((i) => i.id !== id)
-  const caption = focus
-    ? null
-    : other
-      ? body.height >= other.height
-        ? t.across(nameOf(id), nameOf(other.id), across(body, other))
-        : t.across(nameOf(other.id), nameOf(id), across(other, body))
-      : null
+  // ひとこと：くらべている星を（はずしていれば地球を、それもなければいちばん小さいものを）、地球と（なければ最初に選んだものと）くらべる
+  const body = items.find((i) => i.id === id) ?? items.find((i) => i.id === 'earth') ?? items[0]
+  const other = body && (items.find((i) => i.id === 'earth' && i.id !== body.id) ?? items.find((i) => i.id !== body.id))
+  const caption =
+    focus || !body || !other
+      ? null
+      : body.height >= other.height
+        ? t.across(nameOf(body.id), nameOf(other.id), across(body, other))
+        : t.across(nameOf(other.id), nameOf(body.id), across(other, body))
 
   return (
     <section className="size-compare" role="dialog" aria-label={t.title}>
@@ -267,13 +272,13 @@ function Stage({ id }: { id: string }) {
           <button className="secondary sc-back" onClick={() => focusOn(null)}>
             ← {t.back}
           </button>
-        ) : (
+        ) : items.length ? (
           <p className="sc-hint muted small">{t.tapHint}</p>
-        )}
+        ) : null}
       </div>
-      {/* くらべるもの：たてにならべて、たくさん選べる（太陽・惑星と、その衛星を少し下げて） */}
+      {/* くらべるもの：たてにならべて、たくさん選べる（太陽・惑星と、その衛星を少し下げて）。くらべている星も、はずせるように */}
       <nav className="sc-picks" aria-label={t.picks}>
-        {PICKS.filter((p) => p !== id).map((p) => (
+        {PICKS.map((p) => (
           <button key={p} className={`sc-chip${picks.includes(p) ? ' on' : ''}${parentOf(p) ? ' moon' : ''}`} onClick={() => togglePick(p)} aria-pressed={picks.includes(p)}>
             {nameOf(p)}
           </button>

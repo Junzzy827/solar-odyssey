@@ -36,9 +36,9 @@ export function defaultPicks(id: string): Pick[] {
   return picks
 }
 
-/** ならべ方：小さいものから左へ。すき間は、となりの大きいほうの幅の 1/4（minGap があれば、それより狭くはしない） */
-export function lineup(id: string, picks: readonly string[], minGap?: (a: Item, b: Item) => number): Item[] {
-  const ids = [id, ...picks.filter((p) => p !== id)]
+/** ならべ方：小さいものから左へ。すき間は、となりの大きいほうの幅の 1/4（minGap があれば、それより狭くはしない）。id が null なら picks だけ */
+export function lineup(id: string | null, picks: readonly string[], minGap?: (a: Item, b: Item) => number): Item[] {
+  const ids = id ? [id, ...picks.filter((p) => p !== id)] : [...new Set(picks)]
   const items = ids
     .map((i): Item => ({ id: i, width: r(i) * 2, height: r(i) * 2, x: 0 }))
     .filter((i) => i.width > 0)
