@@ -487,7 +487,8 @@ function Player() {
           motion = 'jump'
           deckPlaced = true
         } else {
-          st.sc.body.updateMatrixWorld(true)
+          // placeObj で動かしたばかりの group から行列を新しくする（body だけだと、親の 1 コマ前の位置に乗ってしまう）
+          st.sc.group.updateMatrixWorld(true)
           st.me.group.position.set(0, 0.016, RIDER_Z).applyMatrix4(st.sc.body.matrixWorld)
           st.sc.body.getWorldQuaternion(st.me.group.quaternion)
           walker.h = st.sc.body.position.y + 0.016
