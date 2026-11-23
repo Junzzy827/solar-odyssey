@@ -66,8 +66,24 @@ export const walker = {
 
 /* ---------- 自分 ---------- */
 
+/** 塔の柱から押し出す。h：地面からの高さ m。柱は根元が太く（半径 CORE.r × 1.6）、駅で CORE.r（WalkAxis の coreGeo と同じ形） */
+function pushOffTower(p: { s: number; y: number }, r: number, h: number) {
+  if (h > STATION_H + 1) return
+  const sm = sMeters(h)
+  const min = CORE.r * (1.6 - (0.6 * (h + 1)) / (STATION_H + 2)) + r
+  const cs = (p.s - TOWER.s) * sm
+  const cy = p.y - CORE.y
+  const cd = Math.hypot(cs, cy)
+  if (cd >= min) return
+  const k = min / Math.max(1e-3, cd)
+  p.s = TOWER.s + (cs * k) / sm
+  p.y = CORE.y + cy * k
+}
+
 /** ぶつかるもの・池・柵から押し出す（ホバースクーターは池の上も走れる）。fly：空を飛んでいる高さ m（低い物は越える） */
 function collide(p: { s: number; y: number }, r: number, pond = true, fly = 0) {
+  // 塔の柱は、歩いても・スクーターでも・飛んでいても、家と同じようにぶつかる
+  pushOffTower(p, r, fly)
   if (fly > 3) {
     pushWorld(p, r, { water: false, fly })
     return
@@ -577,6 +593,8 @@ function Player() {
       if (walker.h > STATION_H - 40) walker.y = Math.max(STATION.y0 + 0.5, walker.y)
       // 街の建物の壁（高い所では、その高さより低い建物は数えない）
       if (walker.h < 200) collide(walker, 0.4, false, walker.h)
+      // 塔の柱は駅まで続く
+      else pushOffTower(walker, 0.4, walker.h)
       // 床・地面に着いたら立つ
       const fl = walker.h > STATION_H - 40 && onStation(walker.y) ? STATION_H : 0
       if (walker.h <= fl) {
@@ -607,15 +625,8 @@ function Player() {
       walker.s += (-Math.sin(st.body) * st.speed * pace * dt + st.drift * dt) / sm
       walker.y += -Math.cos(st.body) * st.speed * pace * dt
       if (walker.h < 30) collide(walker, 0.3)
-      // 塔の柱
-      const cs = (walker.s - TOWER.s) * sm
-      const cy = walker.y - CORE.y
-      const cd = Math.hypot(cs, cy)
-      if (cd < CORE.r + 0.35 && (walker.h < 30 || walker.h > STATION_H - 40)) {
-        const k = (CORE.r + 0.35) / Math.max(1e-3, cd)
-        walker.s = TOWER.s + (cs * k) / sm
-        walker.y = CORE.y + cy * k
-      }
+      // 塔の柱：地面の近くでは collide が押し出す。駅では柱の頭が床から出ているので、ここで
+      if (walker.h > STATION_H - 40) pushOffTower(walker, 0.35, walker.h)
       // 軸の駅とデッキは手すりの内側だけ（翼をつけていれば、デッキの先から飛び出せる）
       if (walker.h > STATION_H - 40) walker.y = Math.min(useWalk.getState().wings ? Infinity : DECK_END - 0.5, Math.max(STATION.y0 + 0.5, walker.y))
       // ジャンプ。宙にいるあいだは、回転のせいで横へ流される（上がると回転の向きへ、落ちると逆へ）
