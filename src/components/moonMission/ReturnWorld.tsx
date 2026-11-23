@@ -270,21 +270,22 @@ function Scene() {
     const cm = craft.csm.getObjectByName('CM')!
     const sm = craft.csm.getObjectByName('SM')!
     const probe: THREE.Object3D[] = []
-    const burn: { m: THREE.MeshStandardMaterial; from: THREE.Color; to: THREE.Color }[] = []
+    const burn: { m: THREE.MeshStandardMaterial; from: THREE.Color; to: THREE.Color; metal: number; toMetal: number }[] = []
     cm.traverse((o) => {
       const mesh = o as THREE.Mesh
       if (!mesh.isMesh) return
       const m = mesh.material as THREE.MeshStandardMaterial
       if (m.name === 'Strut') probe.push(mesh)
-      // 本物の司令船は、帰ってくると茶色く焦げている
-      if (m.name === 'Ablator') burn.push({ m, from: m.color.clone(), to: new THREE.Color('#1c1410') })
-      if (m.name === 'CMSilver') burn.push({ m, from: m.color.clone(), to: new THREE.Color('#5a4535') })
+      // 本物の司令船は、帰ってくると茶色く焦げている（海に浮かぶアメリカ号の写真：こげ茶〜あめ色。真っ黒ではない）。
+      // 焦げた面は金属の照りをなくす：金属のままだと、まわりの映りこみに色を掛けるだけなので、昼の海でも真っ黒な影になった
+      if (m.name === 'Ablator') burn.push({ m, from: m.color.clone(), to: new THREE.Color('#5c4a3c'), metal: m.metalness, toMetal: 0 })
+      if (m.name === 'CMSilver') burn.push({ m, from: m.color.clone(), to: new THREE.Color('#9a7c5c'), metal: m.metalness, toMetal: 0.3 })
     })
     return { cm, sm, probe, burn }
   }, [craft])
   useEffect(() => {
     // 次に開いたときのために、焦げを戻す
-    return () => parts.burn.forEach((b) => b.m.color.copy(b.from))
+    return () => parts.burn.forEach((b) => ((b.m.metalness = b.metal), b.m.color.copy(b.from)))
   }, [parts])
   useEffect(() => {
     parts.cm.add(w.plume)
@@ -522,14 +523,17 @@ function Scene() {
       w.fireGlow.scale.setScalar(9 + heat * 12)
       w.fireGlow.material.opacity = Math.min(1, heat * 1.2) * (0.8 + 0.2 * Math.sin(time * 23))
       // 焦げ
-      for (const b of parts.burn) b.m.color.copy(b.from).lerp(b.to, ret.char * 0.85)
+      for (const b of parts.burn) {
+        b.m.color.copy(b.from).lerp(b.to, ret.char * 0.85)
+        b.m.metalness = THREE.MathUtils.lerp(b.metal, b.toMetal, ret.char)
+      }
     }
     if (!inAir) {
       w.fire.group.visible = false
       w.fireGlow.visible = false
       w.glowMat.intensity = 0
     }
-    if (lunar || step === 'coast' || step === 'cmSep') for (const b of parts.burn) b.m.color.copy(b.from)
+    if (lunar || step === 'coast' || step === 'cmSep') for (const b of parts.burn) ((b.m.metalness = b.metal), b.m.color.copy(b.from))
 
     // ---- パラシュート ----
     const apex = _a.set(0, 0, 0).applyQuaternion(csm.quaternion).add(csm.position)
@@ -603,6 +607,8 @@ function Scene() {
     let near = 0.3
     let snap = false
     const c = tmp.cmPos
+    // 縦長の画面（スマホ）：横に見える広さが足りないので、見る点を船へ寄せる（横長の「船は左、行く先は右」の構図だと船が見切れる）
+    const tall = camera.aspect < 1
     if (step === 'rdv' || step === 'docked' || step === 'lmGone') {
       const lmPos = _u.copy(lm.position).add(_b.set(0, 5, 0).applyQuaternion(LUNAR_FRAME))
       if (cam === 'window') {
@@ -614,10 +620,10 @@ function Scene() {
         snap = true
       } else if (cam === 'wide') {
         want.copy(c).add(_b.set(70, 18, 40))
-        look.copy(c).add(_b.set(0, -25, 30))
+        look.copy(c).add(tall ? _b.set(0, -14, 8) : _b.set(0, -25, 30))
         fov = 50
       } else {
-        const span = Math.max(16, c.distanceTo(lmPos) + 12)
+        const span = Math.max(16, c.distanceTo(lmPos) + 12) * (tall ? 1.6 : 1)
         look.copy(c).lerp(lmPos, 0.5)
         want.copy(look).add(_b.set(span * 0.8, span * 0.22, -span * 0.25))
         fov = 42
@@ -637,7 +643,8 @@ function Scene() {
           look.set(0, -1, 30)
         } else {
           want.set(50, 22, 60)
-          look.set(0, -30, -80)
+          if (tall) look.set(0, -16, -18)
+          else look.set(0, -30, -80)
         }
         fov = 50
       } else if (step === 'cmSep') {
@@ -648,6 +655,8 @@ function Scene() {
         if (step === 'coast') want.set(8, 4.5, 24)
         else want.set(17, 5, 15)
         look.set(0, step === 'coast' ? -0.5 : -2, -8)
+        // 機械船つきの船のまん中（司令船から 4 m うしろ）
+        if (tall) look.lerp(_b.set(0, -4, 0).applyQuaternion(csm.quaternion), 0.8)
         fov = step === 'coast' ? 40 : 46
       }
     } else if (!sea) {
@@ -663,7 +672,7 @@ function Scene() {
         snap = true
       } else if (cam === 'wide') {
         want.copy(c).addScaledVector(side, 60).addScaledVector(vel, -25).add(_b.set(0, 10, 0))
-        look.copy(c).addScaledVector(vel, -40)
+        look.copy(c).addScaledVector(vel, tall ? -8 : -40)
         fov = 50
       } else {
         want.copy(c).addScaledVector(side, 12).addScaledVector(vel, -13).add(_b.set(0, 4.5, 0))
@@ -713,6 +722,11 @@ function Scene() {
         fov = 45
       }
       want.y = Math.max(want.y, water + 1.6)
+    }
+    // 縦長の画面：縦の画角を広げて、ほぼ正方形の画面と同じ横の広さにする（海の「遠くから」は自分で広さを決めている）
+    if (cam !== 'window' && tall && !(sea && cam === 'wide')) {
+      const k = Math.min(1.9, 0.9 / camera.aspect)
+      fov = (2 * Math.atan(Math.tan((fov * Math.PI) / 360) * k) * 180) / Math.PI
     }
     // ホイール・2 本指で宇宙船に寄る（うしろからのカメラのとき）
     if (cam === 'chase') applyCraftZoom(want, look, c, 5)
