@@ -324,7 +324,8 @@ function Player() {
       // 右へ跳んで降りる
       walker.s += Math.cos(st.body) * 0.65
       walker.y += -Math.sin(st.body) * 0.65
-      collide(walker, 0.3)
+      // 屋上では、そのビルは足の下（押し出さない）
+      collide(walker, 0.3, true, st.base > 3 ? st.base + 1.05 : 0)
       walker.h = st.base + DECK_TOP
       st.vh = 1.2
       st.spd = st.vs = st.vy = 0
@@ -653,7 +654,7 @@ function Player() {
       }
       if (walker.h > STATION_H - 40) walker.y = Math.max(STATION.y0 + 0.5, walker.y)
       // 街の建物の壁（高い所では、その高さより低い建物は数えない）
-      if (walker.h < 200) collide(walker, 0.4, false, walker.h)
+      if (walker.h < 200) collide(walker, 0.4, false, walker.h + 1.05)
       // 塔の柱は駅まで続く
       else pushOffTower(walker, 0.4, walker.h)
       // 床・地面に着いたら立つ（駅の床は、上から来たときだけ）
