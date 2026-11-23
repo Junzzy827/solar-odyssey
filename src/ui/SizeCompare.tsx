@@ -19,6 +19,9 @@ import './sizeCompare.css'
 
 const nameOf = (id: string) => ui().bodies[id]?.name ?? id
 
+/** 画面でこれより小さい（px）星は、星そのものがほとんど見えないので、代わりに印の輪を出す（名札を上へずらす 14 px より小さく） */
+const DOT_PX = 3
+
 function colorOf(id: string) {
   if (id === 'sun') return SUN.color
   for (const p of PLANETS) {
@@ -96,6 +99,8 @@ function Thing({ item, index, isBody }: { item: Item; index: number; isBody: boo
     const px = (item.height / (2 * dist * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2))) * size.height
     el.classList.toggle('tiny', px < 14)
     el.style.setProperty('--stack', String(px < 14 ? index : 0))
+    // 見えている星に印を重ねると、同じ星が 2 つあるように見えるので、印は見えないほど小さいときだけ
+    el.classList.toggle('dot', px < DOT_PX)
     el.style.opacity = age > 0.3 ? '1' : '0'
   })
 
