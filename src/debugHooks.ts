@@ -18,6 +18,7 @@ import { asteroids, bodies, markerOverride, beamTargets, ports, rockBreaks, sim 
 import { useRace } from './state/race'
 import { useMission } from './state/mission'
 import { MISSIONS } from './data/missions'
+import { startChapter } from './state/missionChapters'
 import { useBridge } from './state/bridge'
 import { shipZoom } from './state/zoom'
 import { dockAtPort, observeRun, startObserve, stopObserve, useObserve } from './state/observe'
@@ -123,7 +124,7 @@ const sv = {
   wide: wideNow,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus, ctl: roverCtl, pose: roverPose },
   // 月ミッション（アポロ17号の追体験）
-  moonMission: { state: useMoonMission, sim: moonSim, input: missionInput, start: startMoonMission, go: pressGo, auto: setAuto, skip: moonSkip, filmForce, cabinEye: CABIN_EYE, cabinLook: CABIN_LOOK, observe: startSaturnObserve, explorer: useExplorer, toNight: toLaunchNight, orbit, now: missionNow, sky: liveSky },
+  moonMission: { state: useMoonMission, sim: moonSim, input: missionInput, start: startMoonMission, go: pressGo, auto: setAuto, skip: moonSkip, filmForce, cabinEye: CABIN_EYE, cabinLook: CABIN_LOOK, observe: startSaturnObserve, explorer: useExplorer, toNight: toLaunchNight, orbit, now: missionNow, sky: liveSky, chapter: startChapter },
   moonDock: { state: useMoonDock, sim: dockSim, skip: dockSkip, auto: setDockAuto, shutter: pressShutter, dock: startDock, marble: startMarble },
   moonReturn: { state: useMoonReturn, sim: returnSim, skip: returnSkip, auto: setReturnAuto, start: startReturn, tei: pressTei, retry: retryEntry, tick: tickReturn },
   apolloEva: { state: useApolloEva, begin: beginApolloEva, skip: skipDrive, take: takeSample, next: nextLeg, liftoff: watchLiftoff, pose: roverPoseRef, tv: tvDebug },
