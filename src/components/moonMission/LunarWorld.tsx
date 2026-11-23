@@ -862,7 +862,8 @@ function CameraRig({ craft, cabin: lmc }: { craft: Craft; cabin: LmCabin }) {
         want.copy(LM_EYE).applyMatrix4(lm.matrixWorld)
         look.copy(LM_LOOK).applyMatrix4(lm.matrixWorld)
         up.set(0, 1, 0).applyQuaternion(tmp.q.copy(lm.quaternion))
-        fov = 72
+        // 窓のまわりの壁より、窓の外（月面）が大きく入るように、窓のまん中をねらって狭めに
+        fov = 62
         snap = true
       } else if (cam === 'wide' || phase === 'landed') {
         // 地面から見上げる（着陸地点の近く）。着陸したら、まわりをゆっくり回る

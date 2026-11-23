@@ -103,7 +103,8 @@ for (let sec = 0; sec < MAX; sec++) {
   }
   if (info.phase === 'none' || info.phase === 'leave') break
   // 別の章に移ったら、おしまい
-  if (info.ch && info.ch !== CH) break
+  // UNTIL=loi なら、章が変わっても、その場面になるまで続ける
+  if (process.env.UNTIL ? info.phase === process.env.UNTIL : info.ch && info.ch !== CH) break
   // 「次へ」のボタン（#debug では数えて自動で進まない）は、本物の数え（6〜10 秒）のかわりに 8 秒で押す
   ends = info.end ? ends + 1 : 0
   if (ends >= 8) {
