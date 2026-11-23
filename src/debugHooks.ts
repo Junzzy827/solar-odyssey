@@ -44,7 +44,7 @@ import { liveSky } from './components/moonMission/launchClock'
 import { debugSkip as moonSkip, missionInput, missionNow, pressGo, setAuto, sim as moonSim, startMoonMission, useMoonMission } from './state/moonMission'
 import { filmForce } from './components/moonMission/launchFilm'
 import { CABIN_EYE, CABIN_LOOK } from './components/moonMission/cmCabin'
-import { mobDebug, walker } from './components/walk/WalkActors'
+import { mobDebug, walker, wingFlight } from './components/walk/WalkActors'
 import { walkDebug } from './components/walk/WalkWorld'
 import { chunkDebug } from './components/walk/WalkChunks'
 import { useSkyClock } from './components/surface/skyClock'
@@ -134,6 +134,7 @@ const sv = {
     state: useWalk,
     input: walkInput,
     walker,
+    wing: wingFlight,
     mobs: mobDebug,
     debug: walkDebug,
     chunks: chunkDebug,

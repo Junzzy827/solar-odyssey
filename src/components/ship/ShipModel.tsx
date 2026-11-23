@@ -91,6 +91,7 @@ export function ShipModel({
   tint,
   floods = true,
   env = true,
+  own = false,
 }: {
   unitScale?: number | (() => number)
   registry?: string
@@ -100,6 +101,8 @@ export function ShipModel({
   floods?: boolean
   /** 宇宙の場面の映りこみ（環境マップ）を使う。別の Canvas（船外活動）に置くときは false */
   env?: boolean
+  /** 乗っている船（ブリッジの中から見ることがある） */
+  own?: boolean
 }) {
   const root = useRef<THREE.Group>(null!)
 
@@ -219,6 +222,8 @@ export function ShipModel({
   const impulse = useRef<THREE.MeshBasicMaterial>(null!)
   const strobes = useRef<THREE.MeshBasicMaterial[]>([])
   const halos = useRef<THREE.SpriteMaterial[]>([])
+  /** 艦橋のてっぺんのストロボ（乗っている船のブリッジの中からは見せない） */
+  const bridgeStrobe = useRef<THREE.Group>(null)
   const navLights = useRef<THREE.MeshBasicMaterial[]>([])
 
   useFrame(({ clock }, delta) => {
@@ -250,6 +255,12 @@ export function ShipModel({
     const flash = on ? 5 : 0.3
     strobes.current.forEach((m) => m.color.setRGB(flash, flash, flash))
     halos.current.forEach((m) => (m.opacity = on ? 1 : 0))
+    // ブリッジの中からは、真上 6 m ほどのこのストロボ（光る玉と、幅 8 m のにじみ）が光るたびに天窓が白くなるので、
+    // 灯の下向きの光はさえぎってあるものとして見せない（ほかの灯と、外からの見え方はそのまま）
+    if (bridgeStrobe.current) {
+      const st = useStore.getState()
+      bridgeStrobe.current.visible = !(own && st.mode === 'flight' && st.cameraMode === 'bridge')
+    }
     const nav = 0.7 + 0.5 * (Math.sin(t * Math.PI) > 0 ? 1 : 0)
     navLights.current.forEach((m, i) => (i % 2 === 0 ? m.color.setRGB(1.3 * nav, 0.04, 0.04) : m.color.setRGB(0.04, 1.3 * nav, 0.15)))
   })
@@ -271,8 +282,8 @@ export function ShipModel({
     if (m && !halos.current.includes(m)) halos.current.push(m)
   }
   /** ストロボ：小さな光る玉と、光ったときだけ広がる光のにじみ */
-  const strobe = (position: [number, number, number], size: number) => (
-    <group position={position}>
+  const strobe = (position: [number, number, number], size: number, ref?: React.Ref<THREE.Group>) => (
+    <group ref={ref} position={position}>
       <mesh>
         <sphereGeometry args={[size, 10, 10]} />
         <meshBasicMaterial ref={glowMat(strobes)} toneMapped={false} />
@@ -301,7 +312,7 @@ export function ShipModel({
         </mesh>
       </group>
       {/* 艦橋のてっぺんのストロボ（ブリッジの縦の縮みを受けないよう外に置く） */}
-      {strobe([0, saucerTop - 0.004 + 0.0148, SAUCER_POS[2] + 0.01], 0.00075)}
+      {strobe([0, saucerTop - 0.004 + 0.0148, SAUCER_POS[2] + 0.01], 0.00075, bridgeStrobe)}
       {/* 下部センサードーム */}
       <mesh position={[0, saucerBottom + 0.002, SAUCER_POS[2]]} scale={[1, 0.6, 1]}>
         <sphereGeometry args={[0.02, 24, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />

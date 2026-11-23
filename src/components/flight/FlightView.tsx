@@ -158,7 +158,12 @@ function MoonGlobe({ map, sun, earth }: { map: GlobalMap; sun: THREE.Vector3; ea
       const size = chunkSize(k.level)
       chunkCenterDir(k, cd)
       const ang = Math.acos(THREE.MathUtils.clamp(cd.dot(camDir), -1, 1))
-      if (k.level > 1 && ang - (size / MOON_R) * 0.8 > horizon) return
+      if (k.level > 1 && ang - (size / MOON_R) * 0.8 > horizon) {
+        // 地平線の向こうのかけらも、親が分かれているあいだは使ったことにする（捨てると親の 4 つの子がそろわず、粗い親が 1 コマ出る）
+        const s = chunks.get(keyOf(k))
+        if (s) s.used = f
+        return
+      }
       const dist = Math.max(0, cd.multiplyScalar(MOON_R).distanceTo(cam) - size * 0.75)
       const self = chunks.get(keyOf(k))
       if (k.level < settings.max && dist < size * settings.split) {
