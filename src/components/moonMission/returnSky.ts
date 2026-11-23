@@ -216,7 +216,8 @@ const sstep = (a: number, b: number, x: number) => {
 export function cloudCover(x: number, z: number, off: THREE.Vector2) {
   const qx = (x + off.x) / 1500, qz = (z + off.y) / 1500
   const n = noise2(qx, qz) * 0.55 + noise2(qx * 2.03 + 7.1, qz * 2.03 + 7.1) * 0.28 + noise2(qx * 4.1 + 3.3, qz * 4.1 + 3.3) * 0.17
-  return sstep(0.42, 0.85, n)
+  const m = noise2(qx * 0.031 + 3.7, qz * 0.031 + 3.7) * 0.6 + noise2(qx * 0.0127 + 11.3, qz * 0.0127 + 11.3) * 0.4
+  return sstep(0.42, 0.85, n + Math.min(0, m - 0.52) * 1.5)
 }
 /** 雲の下（海面からの高さ h）にいる船やパラシュートに、雲の影がかかる割合（1：日なた） */
 export function cloudShadeAt(x: number, z: number, h: number, sun: THREE.Vector3, off: THREE.Vector2) {
@@ -225,23 +226,31 @@ export function cloudShadeAt(x: number, z: number, h: number, sun: THREE.Vector3
   return 1 - 0.8 * sstep(0, 0.25, cloudCover(x + sun.x * k, z + sun.z * k, off))
 }
 
-export const CLOUD_GLSL = /* glsl */ `
-  uniform float uSeaH;
+/** 雲の多さの地図（海の上の積雲。宇宙から見た地球の球も、同じ地図を使う） */
+export const CLOUD_COVER_GLSL = /* glsl */ `
   uniform vec2 uCloudOff;
   uniform float uCloudOn;
-  const float CB = 650.0;
-  const float CT = 2100.0;
   // なめらかな乱数は、前もって作った絵（くり返す 2 次元・3 次元の表）から引く（その場で計算するより、ずっと軽い）
   uniform sampler2D uCN2;
-  uniform highp sampler3D uCN3;
   float cNoise(vec2 p) { return texture2D(uCN2, p / ${N2_CELLS}.0).r; }
-  float cNoise3(vec3 p) { return texture(uCN3, p / ${N3_CELLS}.0).r; }
   // 雲の強さ（0：晴れ、1：いちばん高い雲）。貿易風の積雲で、空の 2〜3 割。厚さは 1.5 km まで
   float cCover(vec2 p) {
     vec2 q = (p + uCloudOff) / 1500.0;
     float n = cNoise(q) * 0.55 + cNoise(q * 2.03 + 7.1) * 0.28 + cNoise(q * 4.1 + 3.3) * 0.17;
-    return smoothstep(0.42, 0.85, n) * uCloudOn;
+    // 数十〜百 km の大きなまとまり：雲の集まった所と、晴れた所（上から見ると、一面に同じ雲がならばない）。
+    // 晴れる方へだけ動かす（雲の多い所でも、海の上の場面の空より雲が増えすぎないように）
+    float m = cNoise(q * 0.031 + 3.7) * 0.6 + cNoise(q * 0.0127 + 11.3) * 0.4;
+    return smoothstep(0.42, 0.85, n + min(0.0, m - 0.52) * 1.5) * uCloudOn;
   }
+`
+
+export const CLOUD_GLSL = /* glsl */ `
+  ${CLOUD_COVER_GLSL}
+  uniform float uSeaH;
+  const float CB = 650.0;
+  const float CT = 2100.0;
+  uniform highp sampler3D uCN3;
+  float cNoise3(vec3 p) { return texture(uCN3, p / ${N3_CELLS}.0).r; }
   // 雲の中の濃さ（1 m あたりの光の弱まり）。
   // 雲の多い所（cCover）ほど、高さの形（底は平ら、上へ行くほど細る）の中で、3 次元のもこもこした乱数が雲になりやすい。
   // だから一つ一つの雲は、丸いこぶの集まり（積雲の頭）になり、雲の多い所ほど高く育つ
@@ -286,6 +295,15 @@ export const CLOUD_GLSL = /* glsl */ `
     float T = 1.0;
     vec3 L = vec3(0.0);
     float t = t0 + jit * ds;
+    // 目から雲までの空気の量（雲の高さの濃さで何 m 分）：濃さは高さ 2.5 km ごとに 1/e。雲の真ん中の高さまでのまっすぐな線で。
+    // 下や横から見る雲は今までどおり（1 倍まで）、高い所から見下ろす雲は、間の空気がうすいので遠くてもくっきり
+    float hazeAir;
+    {
+      const float HH = 2500.0;
+      float dy = ro.y - 0.5 * (CB + CT);
+      float tc = abs(rd.y) > 1e-4 ? clamp(-dy / rd.y, t0, t1) : t0;
+      hazeAir = tc * (abs(dy) > 1.0 ? min(1.0, HH * (1.0 - exp(-dy / HH)) / dy) : 1.0);
+    }
     for (int i = 0; i < N; i++) {
       if (t > t1) break;
       vec3 pa = ro + rd * t;
@@ -323,8 +341,8 @@ export const CLOUD_GLSL = /* glsl */ `
         float hh = clamp((pa.y - CB) / (CT - CB) * 1.6, 0.0, 1.0);
         vec3 lit = eSun * Ts * (ph + 0.2) + eSky / 3.14159 * mix(0.8, 1.4, hh) + eSun * 0.04;
         float a = 1.0 - exp(-s * ds);
-        // 遠くの雲は、間の空気で空の色にとける
-        L += T * a * mix(lit, haze, 1.0 - exp(-t / 20000.0));
+        // 遠くの雲は、間の空気で空の色にとける。空気の量は高さで減る（高い所から見下ろす雲は、遠くてもくっきり）
+        L += T * a * mix(lit, haze, 1.0 - exp(-hazeAir / 20000.0));
         T *= 1.0 - a;
         if (T < 0.02) break;
       }

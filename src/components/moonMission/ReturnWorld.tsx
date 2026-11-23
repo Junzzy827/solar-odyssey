@@ -14,7 +14,7 @@ import { APOLLO_URL, DROGUE, useCraft } from './craft'
 import { applyCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv, type SpaceBody } from './spaceEnv'
 import { makeChute, makeShip, oceanMaterial, shapeChute } from './returnSea'
-import { SkyLut, cloudQuality, cloudShadeAt, skyDomeMaterial, sunTransmit } from './returnSky'
+import { CLOUD_COVER_GLSL, SkyLut, cloudQuality, cloudShadeAt, cloudUniforms, skyDomeMaterial, sunTransmit } from './returnSky'
 import { OUT_CHUNK, encodeOutput } from './shaderOut'
 import { makeFireball, updateFireball } from './returnPlasma'
 
@@ -100,6 +100,18 @@ const shadowAt = new THREE.Vector3()
 const shade = { k: 1 }
 /** 影の範囲（真ん中から ± m）：司令船と、上に開いた 3 つの主パラシュート（ひも 30 m ＋ 直径 25 m）まで入る */
 const SHADOW_HALF = 48
+/**
+ * 地球の真ん中から r の所にいるとき、船の真下の点が、大気に入る所（高さ 122 km）からどれだけうしろか（ラジアン）。
+ * 帰り道はほぼ放物線（月からの速さは、地球から逃げる速さとほぼ同じ）：r = 2q / (1 + cos ν)。
+ * 大気に入る角度 −6.5° は ν/2 なので、近地点の半径 q は約 6,410 km
+ */
+const APPROACH_Q = 6_410_000
+function approachSwing(r: number) {
+  const nu = (rr: number) => Math.acos(THREE.MathUtils.clamp((2 * APPROACH_Q) / rr - 1, -1, 1))
+  return Math.max(0, nu(r) - nu(RE + EI_ALT))
+}
+/** 大気に入ってから進んだ道のり（m）。雲を地面といっしょに流すのに使う。パラシュートから先は最後の値のまま */
+const cloudRun = { range: 0 }
 
 /** 映りこむ景色（Scene が毎フレーム書く）：いちばん大きく見える天体か、大気の中の空と海 */
 const envBody: SpaceBody = { down: new THREE.Vector3(0, -1, 0), angR: 0, sun, earth: false, air: 0 }
@@ -224,11 +236,12 @@ function Scene() {
   // 地球は打ち上げの場面と同じ：NASA Blue Marble の 12 月と Black Marble の夜の明かり、光の散乱で描く大気
   const big = !small && currentLevel() !== 'low'
   const steps = small || currentLevel() === 'low' ? 8 : currentLevel() === 'medium' ? 12 : 16
+  // スマホでも地球は 4K の Blue Marble（大気に入る前の大きな地球が、ぼやけないように）。そのぶん月は 2K に
   const [moonTex, day, night, clouds, water] = useTexture([
-    `${base}textures/4k_moon.jpg`,
-    big ? `${base}textures/earth/bm_dec_8k.jpg` : `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
+    `${base}textures/${small ? '2k' : '4k'}_moon.jpg`,
+    big ? `${base}textures/earth/bm_dec_8k.jpg` : `${base}textures/earth/bm_dec_4k.jpg`,
     big ? `${base}textures/earth/bm_night_8k.jpg` : `${base}textures/earth/bm_night_2k.jpg`,
-    `${base}textures/${small ? '2k' : '4k'}_earth_clouds.jpg`,
+    `${base}textures/4k_earth_clouds.jpg`,
     `${base}textures/earth/bm_water_4k.png`,
   ])
   const stars = useStars()
@@ -245,7 +258,8 @@ function Scene() {
     moon.name = 'return-moon'
     const moonG = new THREE.Group()
     moonG.add(moon)
-    const earthMat = encodeOutput(earthMaterial(day, night, clouds, { scatter: true, steps, water }))
+    // 船の下のあたりには、海の上の場面と同じ積雲（高さ 100 km からは一つ一つの綿雲が見える）
+    const earthMat = encodeOutput(earthMaterial(day, night, clouds, { scatter: true, steps, water, localClouds: { glsl: CLOUD_COVER_GLSL, uniforms: cloudUniforms() } }))
     earthMat.uniforms.uLights.value = 0.5
     earthMat.uniforms.uR.value = RE
     const atmo = encodeOutput(atmosphereMaterial({ scatter: true, steps }))
@@ -423,6 +437,11 @@ function Scene() {
       const fwd = _b.set(0, 0, -1).projectOnPlane(up).normalize()
       earthOrient(up.clone(), fwd.clone(), tmp.qe)
       if (range > 0) tmp.qe.premultiply(_q.setFromAxisAngle(_w.crossVectors(fwd, up).normalize().negate(), -range / RE))
+      // 大気に入る前：船の真下は、大気に入る所よりうしろ（落ちてくる道は、地球のまわりを回りこむ放物線）。
+      // 遠くでは夜の側（帰り道の地球は細い三日月。1972 年 12 月 19 日は満月の前日で、月から見た地球は新月に近い）、
+      // 近づくにつれて昼の側へ回りこみ、朝の空で大気に入る
+      const swing = approachSwing(dist)
+      if (swing > 0) tmp.qe.premultiply(_q.setFromAxisAngle(_w.crossVectors(fwd, up).normalize().negate(), swing))
       w.earthG.quaternion.copy(tmp.qe)
       w.earthMat.uniforms.uCenter.value.copy(w.earthG.position)
       w.atmo.uniforms.uCenter.value.copy(w.earthG.position)
@@ -495,10 +514,20 @@ function Scene() {
     // うすく重ねている間は、奥の大気の光を隠さないように、奥行きを書かない
     ;(w.ocean.material as THREE.ShaderMaterial).depthWrite = oceanA > 0.99
     // 雲の層（空と海の素材の中で描く）：海面からの高さと、貿易風（約 6 m/s）で流れる分
+    // 雲は地面といっしょに流れる（大気に入ってから進んだ道のりの分、海の波と同じく）
+    if (e && (inAir || sea)) cloudRun.range = e.range
+    else if (!inAir && !sea) cloudRun.range = 0
     for (const m of [w.sky.material, w.ocean.material] as THREE.ShaderMaterial[]) {
       m.uniforms.uSeaH.value = h
       m.uniforms.uCloudOn.value = inAir || sea ? 1 : 0
-      m.uniforms.uCloudOff.value.set(-time * 6, -time * 2)
+      m.uniforms.uCloudOff.value.set(-time * 6, -time * 2 - cloudRun.range)
+    }
+    // 地球の球の上の同じ積雲：高さ 900 km より下で（それより上では、地図の雲だけ）
+    {
+      const eu = w.earthMat.uniforms
+      eu.uCloudOff.value.set(-time * 6, -time * 2 - cloudRun.range)
+      eu.uCloudOn.value = 1 - THREE.MathUtils.smoothstep(h, 300_000, 900_000)
+      eu.uUp.value.copy(w.earthG.position).negate().normalize()
     }
     w.ship.group.visible = sea
     w.ship.group.position.set(-2_600, -h + 0.2, -3_900)
@@ -726,11 +755,12 @@ function Scene() {
         }
         fov = 50
       } else if (step === 'cmSep') {
-        want.set(15, 4, 18)
+        // 太陽は前の左下（帰り道の地球は三日月なので、太陽は地球の向こう寄り）。日の当たる左の側から
+        want.set(-15, 4, 18)
         look.set(0, -1, 3)
         fov = 46
       } else {
-        if (step === 'coast') want.set(8, 4.5, 24)
+        if (step === 'coast') want.set(-12, 3.5, 22)
         else want.set(17, 5, 15)
         look.set(0, step === 'coast' ? -0.5 : -2, -8)
         // 機械船つきの船のまん中（司令船から 4 m うしろ）
