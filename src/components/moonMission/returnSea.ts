@@ -286,7 +286,8 @@ export function makeChute(kind: 'main' | 'drogue'): Chute {
   const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, side: THREE.DoubleSide, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.06, emissiveMap: tex })
   const canopy = new THREE.Mesh(geo, mat)
   canopy.position.y = length
-  canopy.castShadow = false
+  // 布は日の光で影を落とし、ほかの傘の影も受ける
+  canopy.castShadow = canopy.receiveShadow = true
   // 吊りひも：ふちの点から原点へ
   const M = kind === 'main' ? 24 : 12
   const lp = new Float32Array(M * 6)

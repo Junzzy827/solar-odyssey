@@ -145,7 +145,7 @@ export class SkyLut {
 // 2 次元：32 × 32 の格子を 256 × 256 に。3 次元：16 × 16 × 16 の格子を 64 × 64 × 64 に。一度だけ作って使い回す
 const N2_CELLS = 32
 const N3_CELLS = 16
-let noiseTex: { n2: THREE.DataTexture; n3: THREE.Data3DTexture } | null = null
+let noiseTex: { n2: THREE.DataTexture; n3: THREE.Data3DTexture; d2: Uint8Array } | null = null
 function cloudNoise() {
   if (noiseTex) return noiseTex
   let seed = 913
@@ -191,8 +191,38 @@ function cloudNoise() {
   n3.magFilter = n3.minFilter = THREE.LinearFilter
   n3.unpackAlignment = 1
   n3.needsUpdate = true
-  noiseTex = { n2, n3 }
+  noiseTex = { n2, n3, d2 }
   return noiseTex
+}
+
+/** シェーダーの cNoise と同じ値（2 次元の表を、くり返し・なめらかに引く） */
+function noise2(x: number, y: number) {
+  const d = cloudNoise().d2
+  const S = 256
+  const u = (x / N2_CELLS) * S - 0.5
+  const v = (y / N2_CELLS) * S - 0.5
+  const i = Math.floor(u), j = Math.floor(v)
+  const fu = u - i, fv = v - j
+  const at = (a: number, b: number) => d[(((b % S) + S) % S) * S + (((a % S) + S) % S)] / 255
+  const a = at(i, j) + (at(i + 1, j) - at(i, j)) * fu
+  const b = at(i, j + 1) + (at(i + 1, j + 1) - at(i, j + 1)) * fu
+  return a + (b - a) * fv
+}
+const sstep = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
+  return t * t * (3 - 2 * t)
+}
+/** シェーダーの cCover と同じ雲の強さ（0〜1） */
+export function cloudCover(x: number, z: number, off: THREE.Vector2) {
+  const qx = (x + off.x) / 1500, qz = (z + off.y) / 1500
+  const n = noise2(qx, qz) * 0.55 + noise2(qx * 2.03 + 7.1, qz * 2.03 + 7.1) * 0.28 + noise2(qx * 4.1 + 3.3, qz * 4.1 + 3.3) * 0.17
+  return sstep(0.42, 0.85, n)
+}
+/** 雲の下（海面からの高さ h）にいる船やパラシュートに、雲の影がかかる割合（1：日なた） */
+export function cloudShadeAt(x: number, z: number, h: number, sun: THREE.Vector3, off: THREE.Vector2) {
+  if (sun.y <= 0.02 || h > 1300) return 1
+  const k = (1300 - h) / sun.y
+  return 1 - 0.8 * sstep(0, 0.25, cloudCover(x + sun.x * k, z + sun.z * k, off))
 }
 
 export const CLOUD_GLSL = /* glsl */ `

@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { loadCatalog } from '../Sky'
-import { currentLevel, lowMemory } from '../../state/quality'
+import { QUALITY, currentLevel, lowMemory, useLevel } from '../../state/quality'
 import { autoCam, useMoonMission, type MissionCam } from '../../state/moonMission'
 import { COAST_TIME, CMSEP_TIME, CORRIDOR_TIME, TEI_BURN, TEI_WARP, ret, tickReturn, useMoonReturn, type ReturnStep } from '../../state/moonReturn'
 import { EARTH_MOON, coastDistance } from '../../data/apolloTimeline'
@@ -14,7 +14,7 @@ import { APOLLO_URL, DROGUE, useCraft } from './craft'
 import { applyCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv, type SpaceBody } from './spaceEnv'
 import { makeChute, makeShip, oceanMaterial, shapeChute } from './returnSea'
-import { SkyLut, cloudQuality, skyDomeMaterial, sunTransmit } from './returnSky'
+import { SkyLut, cloudQuality, cloudShadeAt, skyDomeMaterial, sunTransmit } from './returnSky'
 import { OUT_CHUNK, encodeOutput } from './shaderOut'
 import { makeFireball, updateFireball } from './returnPlasma'
 
@@ -95,11 +95,19 @@ const sun = new THREE.Vector3().copy(SUN_MOON)
 const sunCol = new THREE.Color(1, 1, 1)
 const SUN_WHITE = new THREE.Color('#fff6ea')
 
+/** 影を作る範囲の真ん中（司令船。Scene が毎フレーム書く）と、雲の影がかかる割合（1：日なた） */
+const shadowAt = new THREE.Vector3()
+const shade = { k: 1 }
+/** 影の範囲（真ん中から ± m）：司令船と、上に開いた 3 つの主パラシュート（ひも 30 m ＋ 直径 25 m）まで入る */
+const SHADOW_HALF = 48
+
 /** 映りこむ景色（Scene が毎フレーム書く）：いちばん大きく見える天体か、大気の中の空と海 */
 const envBody: SpaceBody = { down: new THREE.Vector3(0, -1, 0), angR: 0, sun, earth: false, air: 0 }
 
 function Lights() {
-  const camera = useThree((s) => s.camera)
+  const gl = useThree((s) => s.gl)
+  const level = useLevel()
+  const shadowSize = QUALITY[level].shadow
   useSpaceEnv(() => envBody, 'moon')
   const light = useMemo(() => {
     const l = new THREE.DirectionalLight('#fff6ea', 4.2)
@@ -109,11 +117,38 @@ function Lights() {
     const tone = { space: new THREE.Color('#06080c'), spaceG: new THREE.Color('#2c3440'), sky: new THREE.Color('#8fb4e0'), skyG: new THREE.Color('#1d3a52') }
     return { l, t, hemi, tone }
   }, [])
+  // 影（画質が「軽量」のときはなし）：日の光で、パラシュートの影が司令船に、司令船の自分の影が、本物のように落ちる
+  useEffect(() => {
+    if (!shadowSize) return
+    const prev = { enabled: gl.shadowMap.enabled, type: gl.shadowMap.type }
+    gl.shadowMap.enabled = true
+    gl.shadowMap.type = THREE.PCFSoftShadowMap
+    const l = light.l
+    l.castShadow = true
+    l.shadow.mapSize.set(shadowSize, shadowSize)
+    const c = l.shadow.camera
+    c.left = c.bottom = -SHADOW_HALF
+    c.right = c.top = SHADOW_HALF
+    c.near = 1
+    c.far = 2000
+    c.updateProjectionMatrix()
+    l.shadow.bias = -0.0003
+    l.shadow.normalBias = 0.04
+    return () => {
+      l.castShadow = false
+      l.shadow.map?.dispose()
+      l.shadow.map = null
+      gl.shadowMap.enabled = prev.enabled
+      gl.shadowMap.type = prev.type
+    }
+  }, [gl, light, shadowSize])
   useFrame(() => {
-    light.t.position.copy(camera.position)
+    light.t.position.copy(shadowAt)
     light.t.updateMatrixWorld()
-    light.l.position.copy(camera.position).addScaledVector(sun, 1000)
+    light.l.position.copy(shadowAt).addScaledVector(sun, 1000)
     light.l.color.copy(SUN_WHITE).multiply(sunCol)
+    // 雲の影の中では、日の光が弱まる
+    light.l.intensity = 4.2 * shade.k
     // 大気の中では、空からの青い光と海からの照り返し（空が青くなる高さから、少しずつ）。
     // 火の玉が消えたあとの高い空でも、海の上でも、影の側の司令船が真っ黒な影にならないように
     const air = seaStep(useMoonReturn.getState().step) ? 1 : (envBody.air ?? 0)
@@ -292,8 +327,18 @@ function Scene() {
       if (m.name === 'Ablator') burn.push({ m, from: m.color.clone(), to: new THREE.Color('#5c4a3c'), metal: m.metalness, toMetal: 0 })
       if (m.name === 'CMSilver') burn.push({ m, from: m.color.clone(), to: new THREE.Color('#9a7c5c'), metal: m.metalness, toMetal: 0.3 })
     })
-    return { cm, sm, probe, burn }
+    // 影を落とす・受ける（司令船・機械船・着陸船の上の段）
+    const shadowed: THREE.Mesh[] = []
+    for (const root of [craft.csm, craft.lm])
+      root.traverse((o) => {
+        const mesh = o as THREE.Mesh
+        if (!mesh.isMesh) return
+        if (!mesh.castShadow) shadowed.push(mesh)
+        mesh.castShadow = mesh.receiveShadow = true
+      })
+    return { cm, sm, probe, burn, shadowed }
   }, [craft])
+  useEffect(() => () => parts.shadowed.forEach((m) => (m.castShadow = m.receiveShadow = false)), [parts])
   useEffect(() => {
     // 次に開いたときのために、焦げを戻す
     return () => parts.burn.forEach((b) => ((b.m.metalness = b.metal), b.m.color.copy(b.from)))
@@ -626,6 +671,10 @@ function Scene() {
     const splashU = ((w.ocean.material as THREE.ShaderMaterial).uniforms.uSplash.value as THREE.Vector4)
     if (step === 'splash' || step === 'end') splashU.set(0, 0, step === 'end' ? Math.max(10, ret.splashT) : ret.splashT, 1)
     else splashU.set(0, 0, -1, 0)
+
+    // 影の範囲の真ん中（司令船）と、雲の影
+    shadowAt.copy(csm.position)
+    shade.k = inAir || sea ? cloudShadeAt(csm.position.x, csm.position.z, h, sun, (w.ocean.material as THREE.ShaderMaterial).uniforms.uCloudOff.value) : 1
 
     // ---- カメラ ----
     const cam = ms.cam
