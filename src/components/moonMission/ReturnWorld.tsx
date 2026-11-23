@@ -100,17 +100,19 @@ function Lights() {
     const t = new THREE.Object3D()
     l.target = t
     const hemi = new THREE.HemisphereLight('#06080c', '#2c3440', 0.3)
-    return { l, t, hemi }
+    const tone = { space: new THREE.Color('#06080c'), spaceG: new THREE.Color('#2c3440'), sky: new THREE.Color('#8fb4e0'), skyG: new THREE.Color('#1d3a52') }
+    return { l, t, hemi, tone }
   }, [])
   useFrame(() => {
     light.t.position.copy(camera.position)
     light.t.updateMatrixWorld()
     light.l.position.copy(camera.position).addScaledVector(sun, 1000)
-    // 海の上では、空からの青い光と海からの照り返し
-    const sea = seaStep(useMoonReturn.getState().step)
-    light.hemi.color.set(sea ? '#8fb4e0' : '#06080c')
-    light.hemi.groundColor.set(sea ? '#1d3a52' : '#2c3440')
-    light.hemi.intensity = sea ? 0.9 : 0.3
+    // 大気の中では、空からの青い光と海からの照り返し（空が青くなる高さから、少しずつ）。
+    // 火の玉が消えたあとの高い空でも、海の上でも、影の側の司令船が真っ黒な影にならないように
+    const air = seaStep(useMoonReturn.getState().step) ? 1 : (envBody.air ?? 0)
+    light.hemi.color.lerpColors(light.tone.space, light.tone.sky, air)
+    light.hemi.groundColor.lerpColors(light.tone.spaceG, light.tone.skyG, air)
+    light.hemi.intensity = THREE.MathUtils.lerp(0.3, 1.6, air)
   })
   return (
     <>
