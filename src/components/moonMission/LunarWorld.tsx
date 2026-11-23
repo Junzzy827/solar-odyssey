@@ -14,6 +14,7 @@ import { APOLLO_URL, DROGUE, useCraft, type Craft } from './craft'
 import { applyCraftZoom, resetCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv } from './spaceEnv'
 import { buildLmCabin, LM_EYE, LM_LOOK, type LmCabin } from './lmCabin'
+import { radialGlowTexture } from '../radialGlow'
 
 // 月ミッション第2弾の場面：月を丸ごと（月の中心が原点、向きは moonGlobe.ts と同じ）。
 // 月の地面は四分木のかけら（着陸地点のまわりは本物の谷の地形と、前もって計算した山の影）、空には星・太陽・地球。
@@ -494,20 +495,17 @@ function Sky() {
 
 /** 太陽のまるい光（まん中は白く、まわりへぼんやり） */
 function glowTexture() {
-  const c = document.createElement('canvas')
-  c.width = c.height = 128
-  const g = c.getContext('2d')!
-  const r = g.createRadialGradient(64, 64, 0, 64, 64, 64)
-  r.addColorStop(0, 'rgba(255,255,255,1)')
-  r.addColorStop(0.14, 'rgba(255,255,255,1)')
-  r.addColorStop(0.2, 'rgba(255,250,240,0.35)')
-  r.addColorStop(0.45, 'rgba(255,245,230,0.08)')
-  r.addColorStop(1, 'rgba(255,245,230,0)')
-  g.fillStyle = r
-  g.fillRect(0, 0, 128, 128)
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  return t
+  return radialGlowTexture(
+    [
+      [0, 255, 255, 255, 1],
+      [0.14, 255, 255, 255, 1],
+      [0.2, 255, 250, 240, 0.35],
+      [0.45, 255, 245, 230, 0.08],
+      [1, 255, 245, 230, 0],
+    ],
+    128,
+    true,
+  )
 }
 
 const _q = new THREE.Quaternion()

@@ -676,7 +676,6 @@ function Scene() {
       want.y += (Math.random() - 0.5) * k
     } else {
       const water = -h
-      const shipEye = _u.copy(w.ship.group.position).add(_b.set(0, 22, 0))
       if (cam === 'window') {
         // 窓から上を見る：パラシュート
         want.copy(WINDOW_EYE).applyQuaternion(csm.quaternion).add(csm.position)
@@ -685,11 +684,14 @@ function Scene() {
         near = 0.05
         snap = true
       } else if (cam === 'wide' && step === 'chutes') {
-        // 回収船の甲板から、望遠で、降りてくるパラシュートを見上げる
-        want.copy(shipEye)
-        look.copy(c).add(_b.set(0, 18, 0))
+        // 回収の飛行機から：横 260 m・少し上から、パラシュートと司令船を、下の雲と海を背に見る。
+        // 回収船の甲板からの望遠は、あいだの雲（1〜2 km の高さ）が画面いっぱいに入って、灰色一色になった
+        const toShip = _u.copy(w.ship.group.position).sub(c).setY(0).normalize()
+        want.copy(c).addScaledVector(toShip, -260).add(_b.set(0, 70, 0))
+        look.copy(c).add(_b.set(0, 14, 0))
+        // 縦長の画面でも、パラシュート 3 つ（横 約 50 m）がおさまる広さ
         const d = want.distanceTo(look)
-        fov = THREE.MathUtils.clamp((2 * Math.atan(90 / d) * 180) / Math.PI, 0.5, 40)
+        fov = THREE.MathUtils.clamp((2 * Math.atan(48 / d / Math.min(1, camera.aspect)) * 180) / Math.PI, 12, 60)
         snap = true
       } else if (cam === 'wide') {
         // 着水のあと：回収のヘリコプターから（本物の着水の写真も、ヘリから撮ったもの）。司令船のうしろ遠くに回収船。
