@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { OUT_CHUNK, encodeOutput } from './shaderOut'
 
 // 章8 の再突入の火の玉（components/moonMission/ReturnWorld.tsx）：熱よけの前の衝撃波の光・うしろへ長くのびる尾・はがれて飛ぶ火の粉。
 // どれも「熱よけの面の中心が原点、進む向きが -Y」の形で作り、ReturnWorld が向きをそろえる。
@@ -54,6 +55,7 @@ const shockFrag = /* glsl */ `
     float a = (0.35 + 0.65 * pow(max(0.0, 1.0 - face), 1.5)) * uHeat * (0.75 + 0.5 * n);
     vec3 col = mix(plasma(uHeat, 0.0), vec3(1.0, 0.55, 0.3), 0.35) * 1.6;
     gl_FragColor = vec4(col * a, a);
+    ${OUT_CHUNK}
   }
 `
 
@@ -76,11 +78,12 @@ const wakeFrag = /* glsl */ `
     float a = body * pow(face, 1.2) * uHeat * (0.35 + 0.9 * flow) * 0.75;
     vec3 col = plasma(uHeat, s) * 1.1;
     gl_FragColor = vec4(col * a, a);
+    ${OUT_CHUNK}
   }
 `
 
 function mat(frag: string) {
-  return new THREE.ShaderMaterial({
+  return encodeOutput(new THREE.ShaderMaterial({
     vertexShader: vert,
     fragmentShader: frag,
     uniforms: { uHeat: { value: 0 }, uTime: { value: 0 } },
@@ -89,7 +92,7 @@ function mat(frag: string) {
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
     toneMapped: false,
-  })
+  }))
 }
 
 // ---- 火の粉（熱よけがはがれて飛ぶ。シェーダーの中で時間から位置を出す） ----
@@ -124,6 +127,7 @@ const sparkFrag = /* glsl */ `
     float d = length(gl_PointCoord - 0.5) * 2.0;
     float a = exp(-d * d * 3.0) * vA;
     gl_FragColor = vec4(vec3(1.0, 0.75, 0.4) * a * 2.0, a);
+    ${OUT_CHUNK}
   }
 `
 
@@ -160,7 +164,7 @@ export function makeFireball(): Fireball {
   const seeds = new Float32Array(N)
   for (let i = 0; i < N; i++) seeds[i] = Math.random()
   pg.setAttribute('seed', new THREE.BufferAttribute(seeds, 1))
-  const sparks = new THREE.ShaderMaterial({
+  const sparks = encodeOutput(new THREE.ShaderMaterial({
     vertexShader: sparkVert,
     fragmentShader: sparkFrag,
     uniforms: { uTime: { value: 0 }, uHeat: { value: 0 }, uLen: { value: 60 } },
@@ -168,7 +172,7 @@ export function makeFireball(): Fireball {
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     toneMapped: false,
-  })
+  }))
   const pts = new THREE.Points(pg, sparks)
   pts.frustumCulled = false
   pts.renderOrder = 7

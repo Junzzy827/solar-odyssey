@@ -13,7 +13,9 @@ import { glowTexture, plumeGeometry, plumeMaterial } from './plume'
 import { APOLLO_URL, DROGUE, useCraft } from './craft'
 import { applyCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv, type SpaceBody } from './spaceEnv'
-import { foamTexture, makeChute, makeClouds, makeShip, oceanMaterial, shapeChute, skyMaterial } from './returnSea'
+import { foamTexture, makeChute, makeClouds, makeShip, oceanMaterial, shapeChute } from './returnSea'
+import { SkyLut, skyDomeMaterial, sunTransmit } from './returnSky'
+import { OUT_CHUNK, encodeOutput } from './shaderOut'
 import { makeFireball, updateFireball } from './returnPlasma'
 
 // 章8（state/moonReturn.ts）の世界。宇宙船がいつも原点のそば。月・地球・海は宇宙船に対して動かす。
@@ -89,6 +91,10 @@ const seaStep = (s: ReturnStep) => s === 'chutes' || s === 'splash' || s === 'en
 /** いまの太陽の向き（場面ごとに Scene が書く） */
 const sun = new THREE.Vector3().copy(SUN_MOON)
 
+/** 日の光の色（Scene が毎フレーム書く）：大気の中では、空気を通って弱く黄色く（低い太陽ほど赤く） */
+const sunCol = new THREE.Color(1, 1, 1)
+const SUN_WHITE = new THREE.Color('#fff6ea')
+
 /** 映りこむ景色（Scene が毎フレーム書く）：いちばん大きく見える天体か、大気の中の空と海 */
 const envBody: SpaceBody = { down: new THREE.Vector3(0, -1, 0), angR: 0, sun, earth: false, air: 0 }
 
@@ -107,6 +113,7 @@ function Lights() {
     light.t.position.copy(camera.position)
     light.t.updateMatrixWorld()
     light.l.position.copy(camera.position).addScaledVector(sun, 1000)
+    light.l.color.copy(SUN_WHITE).multiply(sunCol)
     // 大気の中では、空からの青い光と海からの照り返し（空が青くなる高さから、少しずつ）。
     // 火の玉が消えたあとの高い空でも、海の上でも、影の側の司令船が真っ黒な影にならないように
     const air = seaStep(useMoonReturn.getState().step) ? 1 : (envBody.air ?? 0)
@@ -136,7 +143,7 @@ function useStars() {
   }, [])
   const mat = useMemo(
     () =>
-      new THREE.ShaderMaterial({
+      encodeOutput(new THREE.ShaderMaterial({
         vertexShader: /* glsl */ `
           attribute float mag;
           attribute vec3 color;
@@ -153,12 +160,13 @@ function useStars() {
           void main() {
             float r = length(gl_PointCoord - 0.5) * 2.0;
             gl_FragColor = vec4(vColor * exp(-r * r * 3.0), 1.0);
+            ${OUT_CHUNK}
           }`,
         blending: THREE.AdditiveBlending,
         depthTest: false,
         depthWrite: false,
         toneMapped: false,
-      }),
+      })),
     [],
   )
   useEffect(() => () => mat.dispose(), [mat])
@@ -176,6 +184,7 @@ function Scene() {
   const craft = useCraft()
   useCraftZoom()
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
+  const gl = useThree((s) => s.gl)
   const small = lowMemory()
   // 地球は打ち上げの場面と同じ：NASA Blue Marble の 12 月と Black Marble の夜の明かり、光の散乱で描く大気
   const big = !small && currentLevel() !== 'low'
@@ -201,20 +210,22 @@ function Scene() {
     moon.name = 'return-moon'
     const moonG = new THREE.Group()
     moonG.add(moon)
-    const earthMat = earthMaterial(day, night, clouds, { scatter: true, steps, water })
+    const earthMat = encodeOutput(earthMaterial(day, night, clouds, { scatter: true, steps, water }))
     earthMat.uniforms.uLights.value = 0.5
     earthMat.uniforms.uR.value = RE
-    const atmo = atmosphereMaterial({ scatter: true, steps })
+    const atmo = encodeOutput(atmosphereMaterial({ scatter: true, steps }))
     atmo.uniforms.uR.value = RE
     const earthG = new THREE.Group()
     earthG.name = 'return-earth'
     const earth = new THREE.Mesh(new THREE.SphereGeometry(RE, 160, 100), earthMat)
     const air = new THREE.Mesh(new THREE.SphereGeometry(RE + 100_000, 96, 64), atmo)
     earthG.add(earth, air)
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(90_000, 48, 24), skyMaterial())
+    // 空の表（光の散乱の計算）：空のドーム・海・海に映る空が引く
+    const lut = new SkyLut(RE, 16)
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(90_000, 48, 24), encodeOutput(skyDomeMaterial(lut)))
     sky.renderOrder = -2
     sky.frustumCulled = false
-    const ocean = new THREE.Mesh(new THREE.PlaneGeometry(420_000, 420_000), oceanMaterial())
+    const ocean = new THREE.Mesh(new THREE.PlaneGeometry(2_400_000, 2_400_000, 120, 120), encodeOutput(oceanMaterial(lut, RE)))
     ocean.rotation.x = -Math.PI / 2
     ocean.renderOrder = -1
     ocean.frustumCulled = false
@@ -228,7 +239,7 @@ function Scene() {
     fireGlow.renderOrder = 8
     const nozzle = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(3, 1.9, 1.1), depthWrite: false, toneMapped: false, transparent: true, blending: THREE.AdditiveBlending }))
     const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(7, 6.6, 6), depthWrite: false, toneMapped: false, transparent: true, blending: THREE.AdditiveBlending }))
-    const sps = plumeMaterial({ core: '#ffe2b8', edge: '#ff8a40', soft: 1.4 })
+    const sps = encodeOutput(plumeMaterial({ core: '#ffe2b8', edge: '#ff8a40', soft: 1.4 }))
     const plumeGeo = plumeGeometry()
     const plume = new THREE.Mesh(plumeGeo, sps)
     plume.position.y = -10.35
@@ -252,19 +263,21 @@ function Scene() {
     const foamMat = new THREE.MeshBasicMaterial({ map: foamTex, transparent: true, opacity: 0, depthWrite: false })
     const foam = new THREE.Mesh(new THREE.CircleGeometry(1, 40), foamMat)
     foam.rotation.x = -Math.PI / 2
-    const owned: { dispose: () => void }[] = [moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, cloud, ship, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat, foam.geometry, foamMat, foamTex]
-    return { fireGlow, nozzle, moonG, earthMat, atmo, earthG, sky, ocean, cloud, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, foam, owned }
+    const owned: { dispose: () => void }[] = [moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, lut, cloud, ship, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat, foam.geometry, foamMat, foamTex]
+    return { fireGlow, nozzle, moonG, earthMat, atmo, earthG, lut, sky, ocean, cloud, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, foam, owned }
   }, [moonTex, day, night, clouds, water])
   useEffect(() => () => w.owned.forEach((o) => o.dispose()), [w])
   // 確かめる用（#debug のときだけ）
   useEffect(() => {
     if (!location.hash.includes('debug')) return
-    const g = window as unknown as { __returnWorld?: unknown }
+    const g = window as unknown as { __returnWorld?: unknown; __returnGl?: unknown }
     g.__returnWorld = w
+    g.__returnGl = gl
     return () => {
       delete g.__returnWorld
+      delete g.__returnGl
     }
-  }, [w])
+  }, [w, gl])
 
   // 模型：着陸船は上の段だけ。司令船の探り棒（Strut）、焦げる面（Ablator・CMSilver）
   const parts = useMemo(() => {
@@ -372,8 +385,8 @@ function Scene() {
       w.earthG.quaternion.copy(tmp.qe)
       w.earthMat.uniforms.uCenter.value.copy(w.earthG.position)
       w.atmo.uniforms.uCenter.value.copy(w.earthG.position)
-      // 大気の中に入ったら、空は低い所の空（skyMaterial）にまかせる
-      w.atmo.uniforms.uSky.value = THREE.MathUtils.smoothstep(h, 15_000, 45_000)
+      // 大気の中では、空の層は内側から見た空（同じ散乱の計算）。外から見た縁の光の見え方は使わない
+      w.atmo.uniforms.uSky.value = inAir || sea ? 1 : THREE.MathUtils.smoothstep(h, 15_000, 45_000)
       sun.copy(SUN_E).applyQuaternion(tmp.qe)
       w.earthMat.uniforms.uSun.value.copy(sun)
       w.atmo.uniforms.uSun.value.copy(sun)
@@ -386,6 +399,10 @@ function Scene() {
       tmp.qe.premultiply(_q.setFromAxisAngle(X, P_EI.angleTo(P_SPLASH)))
       sun.copy(SUN_E).applyQuaternion(tmp.qe)
     }
+
+    // 船を照らす日の光の色
+    if (inAir || sea) sunTransmit(RE, h, sun.y, sunCol)
+    else sunCol.setRGB(1, 1, 1)
 
     // ---- 空と海（低い所） ----
     const skyA = (1 - THREE.MathUtils.smoothstep(h, 22_000, 70_000)) * (inAir || sea ? 1 : 0)
@@ -410,32 +427,40 @@ function Scene() {
         envBody.earth = true
       } else envBody.angR = 0
     }
-    w.sky.visible = skyA > 0.001
+    // 空のドーム：地球の球と大気の層を描いている間（高さ 30 km 以上）は、そちらが空を描くので出さない（二重にならないように）
+    const oceanA = (1 - THREE.MathUtils.smoothstep(h, 30_000, 50_000)) * (inAir || sea ? 1 : 0)
+    w.sky.visible = skyA > 0.001 && !earthOn
+    w.ocean.visible = oceanA > 0.001
+    const camH = Math.max(0, h + camera.position.y)
+    if (w.sky.visible || w.ocean.visible) w.lut.update(gl, camH, sun)
     w.sky.position.copy(camera.position)
     const skyU = (w.sky.material as THREE.ShaderMaterial).uniforms
-    skyU.uAlpha.value = skyA
-    skyU.uHigh.value = THREE.MathUtils.smoothstep(h, 3_000, 45_000)
+    skyU.uAlpha.value = 1
     skyU.uSun.value.copy(sun)
-    const oceanA = (1 - THREE.MathUtils.smoothstep(h, 30_000, 50_000)) * (inAir || sea ? 1 : 0)
-    w.ocean.visible = oceanA > 0.001
     const ou = (w.ocean.material as THREE.ShaderMaterial).uniforms
     ou.uAlpha.value = oceanA
     ou.uTime.value = time
     ou.uSun.value.copy(sun)
     ou.uOffset.value.set(0, -range)
-    // 大気の中では、地球の球（角ばった面）より少し上に
-    w.ocean.position.set(camera.position.x, -h + (inAir ? Math.min(2_000, h * 0.04) : 0), camera.position.z)
+    // 地球の球を描いている間（高さ 30〜50 km）は、球の角ばった面より少し上に
+    w.ocean.position.set(camera.position.x, -h + (earthOn ? Math.min(2_000, h * 0.04) : 0), camera.position.z)
+    // 水平線より上は描かない（本当の地球の球で決める。持ち上げた分は入れない）
+    ou.uCenter.value.set(camera.position.x, -h - RE, camera.position.z)
+    // うすく重ねている間は、奥の大気の光を隠さないように、奥行きを書かない
+    ;(w.ocean.material as THREE.ShaderMaterial).depthWrite = oceanA > 0.99
     w.cloud.group.visible = (inAir || sea) && h < 40_000
     w.cloud.group.position.set(0, -h, sea ? 0 : (((-range % 60_000) + 60_000) % 60_000) - 30_000)
     w.ship.group.visible = sea
     w.ship.group.position.set(-2_600, -h + 0.2, -3_900)
     w.ship.group.rotation.y = 0.9
-    w.sunSprite.visible = !sea && skyA < 0.5
+    // 太陽：空のドームを描くときはドームが描く（空気を通った色で）
+    w.sunSprite.visible = !w.sky.visible
     w.sunSprite.position.copy(camera.position).addScaledVector(sun, 4e9)
     w.sunSprite.scale.setScalar(4e9 * 0.03)
     if (stars) {
       stars.position.copy(camera.position)
-      stars.visible = skyA < 0.98
+      // 昼の空の中（高さ 50 km より下）では、星は空の明るさに負けて見えない
+      stars.visible = !(inAir || sea) || h > 50_000
     }
 
     // ---- 宇宙船 ----

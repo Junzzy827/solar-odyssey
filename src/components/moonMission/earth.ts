@@ -66,6 +66,9 @@ export const SCATTER_CHUNK = /* glsl */ `
     vec3 tau = vec3(0.0);
     vec3 sumR = vec3(0.0);
     vec3 sumM = vec3(0.0);
+    #ifdef SCATTER_MS
+    vec3 sumMS = vec3(0.0);
+    #endif
     const int HALF = SCATTER_N / 2;
     for (int side = 0; side < 2; side++) {
       float L = side == 0 ? tm - t0 : t1 - tm;
@@ -91,15 +94,25 @@ export const SCATTER_CHUNK = /* glsl */ `
         float dR = exp(-h / H_R) * ds;
         float dM = exp(-h / H_M) * ds;
         vec3 ext = (B_R + B_O) * dR + B_M * 1.11 * dM;
-        vec3 T = exp(-(tau + 0.5 * ext + sunTau(r, dot(p, sun) / r)));
+        vec3 st = sunTau(r, dot(p, sun) / r);
+        vec3 T = exp(-(tau + 0.5 * ext + st));
         sumR += T * dR;
         sumM += T * dM;
+        #ifdef SCATTER_MS
+        // 何度も散らされてから目に入る光（空じゅうから来る、青い光）。日の光の弱まりを少しだけ受ける
+        sumMS += exp(-(tau + 0.5 * ext + 0.3 * st)) * (B_R * dR + B_M * dM) * smoothstep(-0.12, 0.08, dot(p, sun) / r);
+        #endif
         tau += ext;
       }
     }
     trans = exp(-tau);
     float mu = dot(rd, sun);
-    return (sumR * B_R * phaseR(mu) + sumM * B_M * phaseM(mu)) * SUN_E;
+    vec3 single = (sumR * B_R * phaseR(mu) + sumM * B_M * phaseM(mu)) * SUN_E;
+    #ifdef SCATTER_MS
+    // 空の中（地上近く）から見る空だけ：1 回だけの散乱では、空の上の方が暗く、地平線が茶色くなりすぎる
+    single += sumMS * SUN_E * SCATTER_MS * 0.0795775;
+    #endif
+    return single;
   }
   // 光の量 → 画面の明るさ（後で OUT_CHUNK が 2.2 乗で光の量へもどす）
   vec3 expose(vec3 L) { return pow(1.0 - exp(-EXPO * L), vec3(1.0 / 2.2)); }
@@ -340,7 +353,10 @@ const atmoFrag = /* glsl */ `
       // 地球に当たらない視線：大気を通りぬける間に散らされた光（地平線の上の層）
       vec3 ro = cameraPosition - uCenter;
       float bb = dot(ro, d);
-      float cc = dot(ro, ro) - uR * uR;
+      // 地球の球は角ばった面（へこみ 最大 約 1.2 km）。高い所から見ると、面と本当の球のすきまが、水平線の黒い線になる。
+      // すきまを通る視線は「地面に当たらない」ことにして、明るい大気の縁で埋める
+      float rG = uR - 1500.0 * smoothstep(10000.0, 30000.0, length(ro) - uR);
+      float cc = dot(ro, ro) - rG * rG;
       float disc = bb * bb - cc;
       float tHit = disc > 0.0 && -bb - sqrt(disc) > 0.0 ? -bb - sqrt(disc) : 1e12;
       vec3 trans;

@@ -1,4 +1,7 @@
 import * as THREE from 'three'
+import { SCATTER_CHUNK } from './earth'
+import { SKY_LUT_GLSL, type SkyLut } from './returnSky'
+import { OUT_CHUNK } from './shaderOut'
 
 // 章8 の終わりの、海と空（components/moonMission/ReturnWorld.tsx）：太平洋の波・空の青・貿易風の積雲・回収船・パラシュート。
 // 宇宙船のまわりの座標（宇宙船が原点、海面は y = -高さ）で使う。どれも画像ファイルなし（その場で作る）
@@ -8,9 +11,13 @@ import * as THREE from 'three'
 const oceanVert = /* glsl */ `
   #include <common>
   #include <logdepthbuf_pars_vertex>
+  uniform float uR;
   varying vec3 vPw;
   void main() {
     vec4 w = modelMatrix * vec4(position, 1.0);
+    // 地球は丸い：遠くの海ほど下がる（d² / 2R）。高い所から見ても、水平線が本物の位置（少し下）になる
+    vec2 dxz = w.xz - cameraPosition.xz;
+    w.y -= dot(dxz, dxz) / (2.0 * uR);
     vPw = w.xyz;
     gl_Position = projectionMatrix * viewMatrix * w;
     #include <logdepthbuf_vertex>
@@ -24,60 +31,122 @@ const oceanFrag = /* glsl */ `
   uniform float uTime;
   uniform vec2 uOffset;
   uniform float uAlpha;
-  uniform vec3 uHaze;
+  ${SCATTER_CHUNK}
+  ${SKY_LUT_GLSL}
   varying vec3 vPw;
-  // 波：向きと長さのちがう波を重ねる（傾きだけ。遠い所は細かい波を消す）
+  // 波：向きと長さのちがう波を重ねる（傾きだけ）。
+  // 1 画素より細かくなった波は、形を描かずに「面のざらつき」（照り返しの広がり σ²）へ移す。
+  // 遠くや高い所から見た海が、規則正しい点の模様にならず、本物のように、ぼんやり広い照り返しになる
+  float gFp;
+  float gS2;
+  float hash2(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
+  float vnoise(vec2 q) {
+    vec2 i = floor(q), f = fract(q);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash2(i), hash2(i + vec2(1.0, 0.0)), f.x), mix(hash2(i + vec2(0.0, 1.0)), hash2(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
   vec2 wave(vec2 p, vec2 d, float len, float amp, float speed) {
     float k = 6.2831 / len;
     float ph = dot(p, d) * k - uTime * speed * k;
-    return d * cos(ph) * amp * k;
+    float f = 1.0 - smoothstep(len / 14.0, len / 5.0, gFp);
+    float sl = amp * k;
+    gS2 += (1.0 - f * f) * sl * sl * 0.5;
+    return d * cos(ph) * sl * f;
   }
   void main() {
     #include <logdepthbuf_fragment>
     vec2 p = vPw.xz + uOffset;
     float dist = length(cameraPosition - vPw);
-    // 遠い所の細かい波は、画面の 1 画素より小さくなってちらつくので消す（斜めに見るほど早く）
-    float graze = max(0.08, abs(normalize(cameraPosition - vPw).y));
-    float fine = clamp(1.0 - dist / (2500.0 + 9000.0 * graze), 0.0, 1.0);
-    float mid = clamp(1.0 - dist / (6000.0 + 40000.0 * graze), 0.0, 1.0);
+    // 本当の水平線より上には描かない（平らな板の海は、丸い地球の水平線より上までのびて、空をかくしてしまう）
+    {
+      vec3 oc = cameraPosition - uCenter;
+      vec3 rd = normalize(vPw - cameraPosition);
+      float b = dot(oc, rd);
+      if (b > 0.0 || b * b - (dot(oc, oc) - uR * uR) < 0.0) discard;
+    }
+    // 1 画素が海の上で何 m か（斜めに見るほど長い）
+    vec2 fw = fwidth(vPw.xz);
+    gFp = max(fw.x, fw.y);
+    // 描く波より細かい、さざ波の分（風 5 m/s の海の傾きの散らばりは σ² ≈ 0.03。Cox & Munk 1954。描く波で約 0.027）
+    gS2 = 0.004;
     vec2 s = vec2(0.0);
-    s += wave(p, normalize(vec2(1.0, 0.35)), 180.0, 2.2, 14.0) * mid;
-    s += wave(p, normalize(vec2(0.7, -0.6)), 95.0, 1.0, 10.0) * mid;
-    s += wave(p, normalize(vec2(-0.2, 1.0)), 41.0, 0.45, 7.0) * fine;
-    s += wave(p, normalize(vec2(0.9, 0.9)), 17.0, 0.16, 4.5) * fine;
-    s += wave(p, normalize(vec2(-0.8, 0.3)), 7.0, 0.06, 3.0) * fine;
-    vec3 n = normalize(vec3(-s.x, 1.0, -s.y));
+    s += wave(p, normalize(vec2(1.0, 0.35)), 180.0, 2.2, 14.0);
+    s += wave(p, normalize(vec2(0.7, -0.6)), 95.0, 1.0, 10.0);
+    s += wave(p, normalize(vec2(-0.2, 1.0)), 41.0, 0.45, 7.0);
+    s += wave(p, normalize(vec2(0.9, 0.9)), 17.0, 0.16, 4.5);
+    s += wave(p, normalize(vec2(-0.8, 0.3)), 7.0, 0.06, 3.0);
+    // さざ波（風が立てる短い波。近くでは照り返しが、たくさんのきらめきに割れる）
+    s += wave(p, normalize(vec2(0.95, 0.31)), 4.3, 0.0431, 2.59);
+    s += wave(p, normalize(vec2(0.55, 0.83)), 3.1, 0.0311, 2.20);
+    s += wave(p, normalize(vec2(1.0, -0.2)), 2.2, 0.0221, 1.85);
+    s += wave(p, normalize(vec2(0.3, 0.95)), 1.6, 0.0160, 1.58);
+    s += wave(p, normalize(vec2(0.85, -0.53)), 1.1, 0.0110, 1.31);
+    s += wave(p, normalize(vec2(0.7, 0.7)), 0.8, 0.0080, 1.12);
+    s += wave(p, normalize(vec2(0.98, 0.12)), 0.55, 0.0055, 0.93);
+    s += wave(p, normalize(vec2(0.2, -0.98)), 0.38, 0.0038, 0.77);
+    // 丸い海面の傾き（遠くの海は、こちらへ少し傾いて見える）＋ 波の傾き
+    vec2 cur = (vPw.xz - cameraPosition.xz) / uR;
+    vec3 n = normalize(vec3(-s.x - cur.x, 1.0, -s.y - cur.y));
+    // 風の強い所・弱い所（風のむら、油膜のような静かな筋）：海の面のざらつきが場所でちがう。
+    // 上から見た照り返しが、一様な白いもやではなく、まだらや筋になる
+    vec2 pw = vec2(p.x * 0.8 + p.y * 0.6, -p.x * 0.6 + p.y * 0.8);
+    float wn = vnoise(pw / vec2(2600.0, 900.0)) * 0.6 + vnoise(pw / vec2(700.0, 260.0)) * 0.4;
+    gS2 *= mix(0.35, 1.6, wn);
     vec3 v = normalize(cameraPosition - vPw);
-    float fres = 0.02 + 0.98 * pow(1.0 - max(0.0, dot(n, v)), 5.0);
+    float nv = max(0.02, dot(n, v));
+    float fres = 0.02 + 0.98 * pow(1.0 - nv, 5.0);
+    // 低い所から斜めに見ても、海が空の映りこみ一色にならないように（本物は波の陰で暗い所がまじる）
+    fres = min(fres, 0.7 + 0.3 * smoothstep(0.0, 1.0, dist / 9000.0));
     vec3 r = reflect(-v, n);
-    vec3 sky = mix(vec3(0.55, 0.69, 0.84), vec3(0.16, 0.38, 0.72), clamp(r.y * 4.0, 0.0, 1.0));
-    // 低い所から斜めに見ても、海が空の色一色にならないように（本物は波の陰で暗い所がまじる）
-    fres = min(fres, 0.55 + 0.45 * smoothstep(0.0, 1.0, dist / 9000.0));
-    vec3 deep = vec3(0.015, 0.13, 0.27);
-    // 太陽の照り返し（波の面ごとにきらきら）
-    float glint = pow(max(0.0, dot(r, uSun)), 4000.0) * 1.6 + pow(max(0.0, dot(r, uSun)), 80.0) * 0.08;
-    vec3 col = mix(deep * (0.55 + 0.45 * max(0.0, uSun.y)), sky, fres) + vec3(1.0, 0.95, 0.85) * glint * max(0.0, uSun.y);
-    // 遠くはかすむ（水平線は空の色）
-    float haze = 1.0 - exp(-dist / 70000.0);
-    col = mix(col, uHaze, haze);
+    r.y = abs(r.y);
+    // ここからは光の量（空の表と同じ単位。大気の外の日の光の強さが π）
+    // 海面に届く日の光（空気を通って、太陽が低いほど黄色く弱い）と、空からの光
+    vec3 sunT = exp(-sunTau(uR + 2.0, uSun.y));
+    vec3 eSun = 3.14159 * sunT * max(0.0, uSun.y);
+    vec3 eSky = 3.14159 * skyIn(vec3(0.0, 1.0, 0.0)) * 0.9;
+    // 映りこむ空（本当の空の表から）
+    vec3 refl = skyIn(r) * fres;
+    // 海の中からもどる光：外洋の深い青（反射率 数 %）
+    vec3 body = vec3(0.004, 0.018, 0.04) * (1.0 - fres) * (eSun + eSky) / 3.14159;
+    // 太陽の照り返し：波の面ごとのきらめき（画素より細かい波の傾きの散らばり σ²：細かいさざ波 ＋ 描かなかった波）
+    vec3 hv = normalize(uSun + v);
+    float nh = max(1e-3, dot(n, hv));
+    float S2 = gS2;
+    float t2 = (1.0 - nh * nh) / (nh * nh);
+    float D = exp(-t2 / S2) / (3.14159 * S2 * nh * nh * nh * nh);
+    float Fs = 0.02 + 0.98 * pow(1.0 - max(0.0, dot(hv, v)), 5.0);
+    vec3 glint = 3.14159 * sunT * Fs * D / (4.0 * nv) * step(0.0, uSun.y);
+    vec3 surf = refl + body + glint;
+    // 目までの空気：遠くの海ほど、かすんで空にとける（同じ向きの空の表の値）
+    vec3 vd = -v;
+    vec3 L = surf * skyTrans(vd) + skyIn(vd);
+    vec3 col = expose(L);
+    // まぶしい照り返しは画面の白より明るく（光のにじみが出る）
+    col += max(vec3(0.0), glint * skyTrans(vd) - 1.5) * 0.08;
     gl_FragColor = vec4(col, uAlpha);
+    ${OUT_CHUNK}
   }
 `
 
-export function oceanMaterial() {
-  return new THREE.ShaderMaterial({
+/** 海。空の表（SkyLut）を使う：映りこむ空と、遠くのかすみは、空と同じ計算から */
+export function oceanMaterial(lut: SkyLut, radius: number) {
+  const m = new THREE.ShaderMaterial({
     vertexShader: oceanVert,
     fragmentShader: oceanFrag,
+    defines: { SCATTER_N: 2 },
     uniforms: {
       uSun: { value: new THREE.Vector3(0, 1, 0) },
       uTime: { value: 0 },
       uOffset: { value: new THREE.Vector2() },
       uAlpha: { value: 1 },
-      uHaze: { value: new THREE.Color(0.7, 0.8, 0.9) },
+      uR: { value: radius },
+      uCenter: { value: new THREE.Vector3() },
     },
     transparent: true,
     depthWrite: true,
   })
+  lut.bind(m)
+  return m
 }
 
 /** 着水の泡：まん中が白く、ふちへ消える */
@@ -102,55 +171,6 @@ export function foamTexture() {
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
   return t
-}
-
-// ---- 空 ----------------------------------------------------------------------------------------
-
-const skyVert = /* glsl */ `
-  #include <common>
-  #include <logdepthbuf_pars_vertex>
-  varying vec3 vDir;
-  void main() {
-    vDir = normalize(position);
-    vec4 w = modelMatrix * vec4(position, 1.0);
-    gl_Position = projectionMatrix * viewMatrix * w;
-    #include <logdepthbuf_vertex>
-  }
-`
-
-const skyFrag = /* glsl */ `
-  #include <common>
-  #include <logdepthbuf_pars_fragment>
-  uniform vec3 uSun;
-  uniform float uAlpha;
-  uniform float uHigh;
-  varying vec3 vDir;
-  void main() {
-    #include <logdepthbuf_fragment>
-    vec3 d = normalize(vDir);
-    float up = clamp(d.y, -0.2, 1.0);
-    // 高い所ほど、空の上は暗い紺
-    vec3 zenith = mix(vec3(0.13, 0.36, 0.75), vec3(0.01, 0.03, 0.12), uHigh);
-    vec3 horizon = mix(vec3(0.72, 0.83, 0.94), vec3(0.35, 0.55, 0.85), uHigh);
-    vec3 col = mix(horizon, zenith, pow(max(0.0, up), 0.55));
-    col = mix(col, vec3(0.62, 0.72, 0.82), smoothstep(0.02, -0.12, d.y));
-    float sd = max(0.0, dot(d, uSun));
-    col += vec3(1.0, 0.92, 0.75) * (smoothstep(0.99996, 0.99999, sd) * 12.0 + pow(sd, 3000.0) * 3.0 + pow(sd, 60.0) * 0.3 + pow(sd, 6.0) * 0.12);
-    // 宇宙に近い高さでは黒（ふたつの空を、色でまぜる）
-    gl_FragColor = vec4(col * uAlpha, 1.0);
-  }
-`
-
-export function skyMaterial() {
-  return new THREE.ShaderMaterial({
-    vertexShader: skyVert,
-    fragmentShader: skyFrag,
-    uniforms: { uSun: { value: new THREE.Vector3(0, 1, 0) }, uAlpha: { value: 1 }, uHigh: { value: 0 } },
-    side: THREE.BackSide,
-    depthWrite: false,
-    depthTest: false,
-    toneMapped: false,
-  })
 }
 
 // ---- 雲（貿易風の積雲） --------------------------------------------------------------------------
