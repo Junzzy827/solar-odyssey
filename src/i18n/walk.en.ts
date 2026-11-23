@@ -43,6 +43,7 @@ export const walkEn: Translation<typeof walkJa> = {
   rideHint: 'W go · S brake/back · A D steer · Shift boost · Space hop · G fly · Mouse look · F get off',
   walkTo: (name: string) => `Go down and walk in ${name}`,
   keysHint: 'W A S D walk · Shift run · Space jump · Mouse look (click to lock) · Wheel distance · E sit · F hover scooter · V view · J ship',
+  stationHint: 'W A S D walk · Shift run · Space jump · Mouse look (click to lock) · Wheel distance · R put on wings · V view · J ship',
   arrived: (name: string) => `You are in a park in ${name}. Look up: the land on the far side is your sky`,
   gee: (g: number) => `${g.toFixed(2)} g`,
   elevUp: 'Elevator to the axis',
