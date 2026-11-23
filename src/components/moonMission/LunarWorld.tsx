@@ -30,6 +30,8 @@ const moonVertex = /* glsl */ `
   #include <common>
   #include <logdepthbuf_pars_vertex>
   attribute vec3 dir;
+  // 世界の向き → 月の向き（月をまわして置くとき。ふだんは単位行列）
+  uniform mat3 uToMoon;
   varying vec3 vN;
   varying vec3 vDir;
   varying vec3 vRel;
@@ -38,7 +40,7 @@ const moonVertex = /* glsl */ `
     vDir = dir;
     // カメラからの向き（月の中心から測ると float では 10 cm ほどの粗さになるので、視点の座標から戻す）
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    vRel = (vec4(mv.xyz, 0.0) * viewMatrix).xyz;
+    vRel = uToMoon * (vec4(mv.xyz, 0.0) * viewMatrix).xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     #include <logdepthbuf_vertex>
   }
@@ -225,12 +227,48 @@ function lodSettings() {
 const _hd = new THREE.Vector3()
 const height = (x: number, y: number, z: number, minWave: number) => groundAt(_hd.set(x, y, z), minWave)
 
-function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
-  const [tex, trackTex] = useTexture([`${base}textures/4k_moon.jpg`, `${base}terrain/moon_track_albedo.jpg`])
+type GlobeProps = {
+  maps: LunarMaps
+  /** 着陸船の影を落とすとき */
+  craft?: Craft
+  /** 月をまわして・動かして置く親（その中の向きが月の向き）。ないときは月の中心が原点 */
+  frame?: THREE.Object3D
+  /** 太陽の向き（月の向き）。ないときは着陸の日 */
+  sun?: THREE.Vector3
+  /** スマホ：月全体の絵を 2K に（地球の大きな絵と一緒に持つとき） */
+  lite?: boolean
+  /** 降下の道すじの細かい明るさの絵（1 画素 238 m）を使う。lite のときは、これを true にしたときだけ */
+  track?: boolean
+  /** 着陸の日の影（谷の影・帯の日なた）を使う。日がちがう場面では使わない */
+  landingShade?: boolean
+  /** 大きな絵が使えない端末で、帯のうち使う所（軌道の面の角度 θ の範囲）。1 画素 238 m のまま切り出す */
+  trackSpan?: readonly [number, number]
+}
+
+/** 帯の明るさの絵から、θ の範囲 span を切り出す（横は size まで。帯の縦 1024 画素はそのまま） */
+function cropTrack(src: THREE.Texture, span: readonly [number, number], size: number) {
+  const img = src.image as CanvasImageSource & { width: number; height: number }
+  if (!img?.width) return null
+  const x0 = Math.max(0, Math.floor(((span[0] - TRACK.th0) / (TRACK.th1 - TRACK.th0)) * img.width))
+  const x1 = Math.min(img.width, Math.ceil(((span[1] - TRACK.th0) / (TRACK.th1 - TRACK.th0)) * img.width))
+  if (x1 <= x0) return null
+  const c = document.createElement('canvas')
+  c.width = Math.min(size, x1 - x0)
+  c.height = Math.min(size, img.height)
+  c.getContext('2d')!.drawImage(img, x0, 0, x1 - x0, img.height, 0, 0, c.width, c.height)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.NoColorSpace
+  t.anisotropy = 4
+  return t
+}
+
+export function LunarGlobe({ maps, craft, frame, sun = SUN_DIR, lite = false, track = !lite, landingShade = true, trackSpan }: GlobeProps) {
+  const [tex, trackTex] = useTexture([`${base}textures/${lite ? '2k' : '4k'}_moon.jpg`, `${base}terrain/moon_track_albedo.jpg`])
   const camera = useThree((s) => s.camera)
   const gl = useThree((s) => s.gl)
   const [shadow, setShadow] = useState<{ far: ShadowMap; near: ShadowMap } | null>(null)
   useEffect(() => {
+    if (!landingShade) return
     let alive = true
     valleyShadows().then((s) => alive && setShadow(s), () => {})
     return () => {
@@ -245,17 +283,23 @@ function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
     const blank = new THREE.DataTexture(new Uint8Array([255]), 1, 1, THREE.RedFormat)
     blank.needsUpdate = true
     // 降下の道すじの帯（大きな絵が使えない端末では、高さだけ使う）
-    const trackOk = !!maps.track && gl.capabilities.maxTextureSize >= TRACK.w
+    const full = gl.capabilities.maxTextureSize >= TRACK.w
+    // スマホ（テクスチャは 1024 まで）：帯のうち trackSpan の所だけを切り出して、細かさを保つ
+    const crop = !full && trackSpan ? cropTrack(trackTex, trackSpan, gl.capabilities.maxTextureSize) : null
+    const trackOk = track && !!maps.track && (full || !!crop)
+    const span = crop ? trackSpan! : ([TRACK.th0, TRACK.th1] as const)
     let trackSun: THREE.Texture = blank
-    if (trackOk && maps.track) {
+    if (trackOk && !crop) {
       trackTex.colorSpace = THREE.NoColorSpace
       trackTex.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy())
       trackTex.needsUpdate = true
-      const sun = new THREE.DataTexture(maps.track.sun, TRACK.w, TRACK.h, THREE.RedFormat, THREE.UnsignedByteType)
-      sun.magFilter = THREE.LinearFilter
-      sun.minFilter = THREE.LinearFilter
-      sun.needsUpdate = true
-      trackSun = sun
+    }
+    if (trackOk && maps.track && landingShade && !crop) {
+      const sunTex = new THREE.DataTexture(maps.track.sun, TRACK.w, TRACK.h, THREE.RedFormat, THREE.UnsignedByteType)
+      sunTex.magFilter = THREE.LinearFilter
+      sunTex.minFilter = THREE.LinearFilter
+      sunTex.needsUpdate = true
+      trackSun = sunTex
     }
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -265,19 +309,20 @@ function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
         uFarHalf: { value: 50_000 },
         uNearHalf: { value: 8_000 },
         uShadowOn: { value: 0 },
-        uSun: { value: SUN_DIR },
+        uSun: { value: sun },
+        uToMoon: { value: new THREE.Matrix3() },
         uEarth: { value: EARTH_POS.clone().normalize() },
         uUp: { value: FRAME.up },
         uEast: { value: FRAME.east },
         uNorth: { value: FRAME.north },
         uDetail: { value: 0 },
-        uTrackAlb: { value: trackOk ? trackTex : blank },
+        uTrackAlb: { value: crop ?? (trackOk ? trackTex : blank) },
         uTrackSun: { value: trackSun },
         uTrackOn: { value: trackOk ? 1 : 0 },
         uTP: { value: TRACK_PLANE.P },
         uTQ: { value: TRACK_PLANE.Q },
         uTN: { value: TRACK_PLANE.N },
-        uTrack: { value: new THREE.Vector4(TRACK.th0, TRACK.th1, TRACK.ph, TRACK.albedoScale) },
+        uTrack: { value: new THREE.Vector4(span[0], span[1], TRACK.ph, TRACK.albedoScale) },
         uCamMod: { value: new THREE.Vector3() },
         uLmOn: { value: 0 },
         uLmPos: { value: new THREE.Vector3() },
@@ -288,7 +333,7 @@ function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
       vertexShader: moonVertex,
       fragmentShader: moonFragment,
     })
-  }, [tex, trackTex, gl, maps])
+  }, [tex, trackTex, gl, maps, sun, track, landingShade, trackSpan])
   useEffect(() => {
     if (!shadow) return
     const u = material.uniforms
@@ -305,6 +350,7 @@ function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
     const make = (k: ChunkKey) => {
       const { geometry, center } = buildChunk(maps.global, k, height)
       const mesh = new THREE.Mesh(geometry, material)
+      if (frame) mesh.onBeforeRender = syncFrame
       mesh.position.copy(center)
       mesh.visible = false
       mesh.name = 'lunar-chunk'
@@ -313,9 +359,14 @@ function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
       chunks.set(keyOf(k), c)
       return c
     }
+    // 月をまわして置くとき：描く直前に、世界の向き → 月の向きを渡す（親の行列は、描く前に計算ずみ）
+    const toMoon = material.uniforms.uToMoon.value as THREE.Matrix3
+    const syncFrame = () => {
+      if (frame) toMoon.setFromMatrix4(frame.matrixWorld).transpose()
+    }
     for (let f = 0; f < 6; f++) make({ face: f, level: 0, i: 0, j: 0 })
     return { chunks, queue, make, frame: 0, settings: lodSettings() }
-  }, [maps, material, group])
+  }, [maps, material, group, frame])
   useEffect(
     () => () => {
       for (const c of lod.chunks.values()) c.mesh.geometry.dispose()
@@ -325,10 +376,12 @@ function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
   )
   const cd = useMemo(() => new THREE.Vector3(), [])
   const camDir = useMemo(() => new THREE.Vector3(), [])
+  const camLocal = useMemo(() => new THREE.Vector3(), [])
   useFrame(() => {
     const { chunks, queue, make, settings } = lod
     const f = ++lod.frame
-    const cam = camera.position
+    // カメラの位置（月の向き・月の中心から）
+    const cam = frame ? frame.worldToLocal(camLocal.copy(camera.position)) : camera.position
     const camR = cam.length()
     camDir.copy(cam).normalize()
     const pm = (v: number) => v - Math.floor(v / 1000) * 1000
@@ -336,9 +389,9 @@ function LunarGlobe({ maps, craft }: { maps: LunarMaps; craft: Craft }) {
     u.uCamMod.value.set(pm(cam.x), pm(cam.y), pm(cam.z))
     // 着陸船の影（低いときだけ）。位置はカメラからの差で渡す（float の粗さをさける）
     const d = lunar.desc
-    const lm = craft.lm
-    u.uLmOn.value = d && d.alt < 400 && lm.visible ? 1 : 0
-    if (u.uLmOn.value) {
+    const lm = craft?.lm
+    u.uLmOn.value = lm && d && d.alt < 400 && lm.visible ? 1 : 0
+    if (lm && u.uLmOn.value) {
       u.uLmPos.value.copy(lm.position).sub(cam)
       u.uLmX.value.set(1, 0, 0).applyQuaternion(lm.quaternion)
       u.uLmY.value.set(0, 1, 0).applyQuaternion(lm.quaternion)
