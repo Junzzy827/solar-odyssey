@@ -485,7 +485,8 @@ export function Ship() {
       }
       if (launchFx.camera > 0 && !bridgeView) launchCamera(cam, dt)
       if (flyIn.t < 1) flyInCamera(cam, rawDelta)
-      if (st.settings.beamFx.shake) shakeCamera(cam, rawDelta, shipScale())
+      // ブリッジの中では揺らさない（部屋は揺れないので、宇宙のカメラだけ数 m 跳ねて、窓の下の船体がばたばた動き、目が船体にもぐる）
+      if (st.settings.beamFx.shake && !bridgeView) shakeCamera(cam, rawDelta, shipScale())
       else beamFx.shake = 0
     }
 
