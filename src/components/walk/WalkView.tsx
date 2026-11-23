@@ -92,6 +92,8 @@ function WalkPanel() {
   const view = useWalk((w) => w.view)
   const sitting = useWalk((w) => w.sitting)
   const benchNear = useWalk((w) => w.benchNear)
+  const edgeNear = useWalk((w) => w.edgeNear)
+  const overRoof = useWalk((w) => w.overRoof)
   const run = useWalk((w) => w.run)
   const riding = useWalk((w) => w.riding)
   const flying = useWalk((w) => w.flying)
@@ -142,7 +144,7 @@ function WalkPanel() {
         )}
         {riding && (
           <button className={flying ? 'on' : ''} onPointerDown={() => (walkInput.sky = true)}>
-            {flying ? ui().walk.skyOff : ui().walk.sky}
+            {flying ? (overRoof ? ui().walk.roofLand : ui().walk.skyOff) : ui().walk.sky}
             <kbd>G</kbd>
           </button>
         )}
@@ -171,9 +173,9 @@ function WalkPanel() {
       {axisNote > 0 && !wings && <AxisNote at={axisNote} />}
       {!peopleReady && <div className="walk-loading">{ui().walk.peopleLoading}</div>}
       {wingsAt > 0 && <TimedNote at={wingsAt} secs={12} text={ui().walk.wingsNote} />}
-      {!elevNear && (benchNear || sitting) && (
+      {!elevNear && (benchNear || edgeNear || sitting) && (
         <button className="walk-sit" onPointerDown={stop} onClick={() => (walkInput.sit = true)}>
-          {sitting ? ui().walk.stand : ui().walk.sit}
+          {sitting ? ui().walk.stand : edgeNear ? ui().walk.sitEdge : ui().walk.sit}
           <kbd>E</kbd>
         </button>
       )}
