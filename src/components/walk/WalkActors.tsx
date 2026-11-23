@@ -13,7 +13,7 @@ import { JUNGLE, inJungle } from './jungle'
 import { FOREST_START } from './forestLayout'
 import { BOUNDS, G, GROUND_LIFT, HALF_L, LOOP, NS_S, PLAY, POND, STREETS, STREET_W, WALK_W, frameAt, landPoint, loopPoint, parkLayout, pondValue, pushOutOfBoxes, inTown, upAt, type Bench } from './park'
 import { CIRC, inBuilding, pushWorld, roofAt, standable, wetAt, worldArea, wrapS } from './cylinder'
-import { CORE, DECK_END, OMEGA, RIDE_S, STATION, STATION_H, TOWER, elevCar, elevH, gAt, nearDoor, onStation, sMeters } from './axis'
+import { CORE, DECK_END, OMEGA, RIDE_S, STATION, STATION_H, TOWER, elevCar, elevH, floorUnder, gAt, nearDoor, sMeters } from './axis'
 import { Wings } from './wings'
 
 // 歩く場面の人：自分（後ろから・自分の目で）と、公園のまわりの人たち。
@@ -307,7 +307,7 @@ function Player() {
     // 翼をつける（軸の駅で）・はずす（床や地面に立っているとき）
     if (walkInput.wings) {
       walkInput.wings = false
-      const onFloor = walker.h <= (walker.h > STATION_H - 40 && onStation(walker.y) ? STATION_H : 0) + 0.05
+      const onFloor = walker.h <= floorUnder(walker.h, walker.y) + 0.05
       if (w.wings && onFloor) useWalk.setState({ wings: false })
       else if (!w.wings && !w.riding && !st.elevDir && walker.h > STATION_H - 40) {
         if (!st.wings) {
@@ -552,7 +552,7 @@ function Player() {
         useWalk.setState(top ? { inElev: false, axisNote: walkNow() } : { inElev: false })
       }
       motion = 'idle'
-    } else if (!sitting && useWalk.getState().wings && walker.h > (walker.h > STATION_H - 40 && onStation(walker.y) ? STATION_H : 0) + 0.02) {
+    } else if (!sitting && useWalk.getState().wings && walker.h > floorUnder(walker.h, walker.y) + 0.02) {
       // ---- 翼で飛ぶ：グライダーのように、重さを前へ進む速さに変えながら、ゆっくり沈んでいく。
       // 軸の近くは重さがほぼ 0 なので、羽ばたいて外へ出る。宙にいるあいだは回転のせいで横へ流される ----
       const g = gAt(walker.h)
@@ -585,6 +585,7 @@ function Player() {
       const sm = sMeters(walker.h)
       walker.s += (-Math.sin(st.body) * st.gs + st.drift) * dt / sm
       walker.y += -Math.cos(st.body) * st.gs * dt
+      const h0 = walker.h
       walker.h += st.vh * dt
       if (walker.h > G - 2) {
         walker.h = G - 2
@@ -595,8 +596,8 @@ function Player() {
       if (walker.h < 200) collide(walker, 0.4, false, walker.h)
       // 塔の柱は駅まで続く
       else pushOffTower(walker, 0.4, walker.h)
-      // 床・地面に着いたら立つ
-      const fl = walker.h > STATION_H - 40 && onStation(walker.y) ? STATION_H : 0
+      // 床・地面に着いたら立つ（駅の床は、上から来たときだけ）
+      const fl = floorUnder(h0, walker.y)
       if (walker.h <= fl) {
         walker.h = fl
         st.vh = st.drift = 0
@@ -618,7 +619,7 @@ function Player() {
       }
       // 重さは回転の遠心力（地面で 1G、軸に近いほど軽い）。軽いと、足が地面をけれないのでゆっくりしか進めない
       const g = gAt(walker.h)
-      const floor = walker.h > STATION_H - 40 && onStation(walker.y) ? STATION_H : 0
+      const floor = floorUnder(walker.h, walker.y)
       const grounded = walker.h <= floor + 0.02
       const pace = grounded ? Math.max(0.3, Math.sqrt(g / GRAVITY)) : 0.15
       const sm = sMeters(walker.h)
@@ -742,9 +743,9 @@ function Player() {
         if (d <= 0.9 || !inBuilding(Math.atan2(camera.position.x, camera.position.z) * G, camera.position.y + HALF_L, G - r)) break
         d = Math.max(0.9, d * 0.8)
       }
-      // 地面より下（軸の駅なら床より下）に入らない
+      // 地面より下（軸の駅の床の上にいるなら、床より下）に入らない。エレベーターの中は、駅に近づいたら駅の床より上に
       const r = Math.hypot(camera.position.x, camera.position.z)
-      const above = G - r - (walker.h > STATION_H - 40 ? STATION_H : 0)
+      const above = G - r - (st.elevDir ? (walker.h > STATION_H - 40 ? STATION_H : 0) : floorUnder(walker.h, walker.y))
       if (above < 0.3) camera.position.addScaledVector(up, 0.3 - above)
     }
     camera.quaternion.copy(qc)
