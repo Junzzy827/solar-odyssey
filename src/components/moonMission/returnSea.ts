@@ -1,9 +1,9 @@
 import * as THREE from 'three'
 import { SCATTER_CHUNK } from './earth'
-import { SKY_LUT_GLSL, type SkyLut } from './returnSky'
+import { CLOUD_GLSL, CLOUD_HIGH, SKY_LUT_GLSL, cloudUniforms, type CloudQuality, type SkyLut } from './returnSky'
 import { OUT_CHUNK } from './shaderOut'
 
-// 章8 の終わりの、海と空（components/moonMission/ReturnWorld.tsx）：太平洋の波・空の青・貿易風の積雲・回収船・パラシュート。
+// 章9 の終わりの、海（components/moonMission/ReturnWorld.tsx）：太平洋の波・回収船・パラシュート。空と雲は returnSky.ts。
 // 宇宙船のまわりの座標（宇宙船が原点、海面は y = -高さ）で使う。どれも画像ファイルなし（その場で作る）
 
 // ---- 海 ----------------------------------------------------------------------------------------
@@ -24,6 +24,32 @@ const oceanVert = /* glsl */ `
   }
 `
 
+// 波の成分：風（貿易風、約 6 m/s）の向きのまわりに、長さのちがう波を、向き・位相をばらばらにして重ねる。
+// 長い波ほど風の向きにそろい、短い波ほど向きが散らばる。速さは深い海の波の速さ（√(g × 長さ / 2π)）。
+// ほかに、遠くの嵐から来るうねり（長さ 220 m）を 1 本。決まった乱数で作るので、毎回同じ海
+function waveCalls() {
+  let seed = 17
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  const wind = Math.atan2(0.35, 1)
+  const calls: string[] = []
+  const add = (len: number, ang: number, sl: number) => {
+    const amp = (sl * len) / (2 * Math.PI)
+    const speed = 1.249 * Math.sqrt(len)
+    calls.push(`s += wave(p, vec2(${Math.cos(ang).toFixed(4)}, ${Math.sin(ang).toFixed(4)}), ${len.toFixed(3)}, ${amp.toFixed(4)}, ${speed.toFixed(3)}, ${(rnd() * 6.2831).toFixed(3)});`)
+  }
+  add(220, wind + 0.9, 0.022)
+  const N = 26
+  for (let i = 0; i < N; i++) {
+    const x = i / (N - 1)
+    const len = 150 * Math.pow(0.36 / 150, x) * (0.9 + rnd() * 0.2)
+    const spread = 0.35 + 0.9 * x
+    // 長い波は少し険しく、短い波はゆるく（描く波の傾きの散らばりの合計 ≈ 0.026）
+    const sl = 0.052 - 0.014 * x
+    add(len, wind + (rnd() * 2 - 1) * spread, sl)
+  }
+  return calls.join('\n    ')
+}
+
 const oceanFrag = /* glsl */ `
   #include <common>
   #include <logdepthbuf_pars_fragment>
@@ -31,26 +57,35 @@ const oceanFrag = /* glsl */ `
   uniform float uTime;
   uniform vec2 uOffset;
   uniform float uAlpha;
+  uniform vec4 uSplash; // 着水の泡：xy 海の上の位置、z 着水してからの秒（負ならなし）、w 強さ
   ${SCATTER_CHUNK}
   ${SKY_LUT_GLSL}
+  ${CLOUD_GLSL}
   varying vec3 vPw;
   // 波：向きと長さのちがう波を重ねる（傾きだけ）。
   // 1 画素より細かくなった波は、形を描かずに「面のざらつき」（照り返しの広がり σ²）へ移す。
   // 遠くや高い所から見た海が、規則正しい点の模様にならず、本物のように、ぼんやり広い照り返しになる
   float gFp;
   float gS2;
+  // 白波用：長い波の高さの合計と、そのばらつき（標準偏差の 2 乗）
+  float gH;
+  float gHv;
   float hash2(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
   float vnoise(vec2 q) {
     vec2 i = floor(q), f = fract(q);
     f = f * f * (3.0 - 2.0 * f);
     return mix(mix(hash2(i), hash2(i + vec2(1.0, 0.0)), f.x), mix(hash2(i + vec2(0.0, 1.0)), hash2(i + vec2(1.0, 1.0)), f.x), f.y);
   }
-  vec2 wave(vec2 p, vec2 d, float len, float amp, float speed) {
+  vec2 wave(vec2 p, vec2 d, float len, float amp, float speed, float ph0) {
     float k = 6.2831 / len;
-    float ph = dot(p, d) * k - uTime * speed * k;
+    float ph = dot(p, d) * k - uTime * speed * k + ph0;
     float f = 1.0 - smoothstep(len / 14.0, len / 5.0, gFp);
     float sl = amp * k;
     gS2 += (1.0 - f * f) * sl * sl * 0.5;
+    if (len > 2.0 && len < 18.0) {
+      gH += sin(ph) * amp * f;
+      gHv += amp * amp * 0.5;
+    }
     return d * cos(ph) * sl * f;
   }
   void main() {
@@ -69,21 +104,10 @@ const oceanFrag = /* glsl */ `
     gFp = max(fw.x, fw.y);
     // 描く波より細かい、さざ波の分（風 5 m/s の海の傾きの散らばりは σ² ≈ 0.03。Cox & Munk 1954。描く波で約 0.027）
     gS2 = 0.004;
+    gH = 0.0;
+    gHv = 1e-6;
     vec2 s = vec2(0.0);
-    s += wave(p, normalize(vec2(1.0, 0.35)), 180.0, 2.2, 14.0);
-    s += wave(p, normalize(vec2(0.7, -0.6)), 95.0, 1.0, 10.0);
-    s += wave(p, normalize(vec2(-0.2, 1.0)), 41.0, 0.45, 7.0);
-    s += wave(p, normalize(vec2(0.9, 0.9)), 17.0, 0.16, 4.5);
-    s += wave(p, normalize(vec2(-0.8, 0.3)), 7.0, 0.06, 3.0);
-    // さざ波（風が立てる短い波。近くでは照り返しが、たくさんのきらめきに割れる）
-    s += wave(p, normalize(vec2(0.95, 0.31)), 4.3, 0.0431, 2.59);
-    s += wave(p, normalize(vec2(0.55, 0.83)), 3.1, 0.0311, 2.20);
-    s += wave(p, normalize(vec2(1.0, -0.2)), 2.2, 0.0221, 1.85);
-    s += wave(p, normalize(vec2(0.3, 0.95)), 1.6, 0.0160, 1.58);
-    s += wave(p, normalize(vec2(0.85, -0.53)), 1.1, 0.0110, 1.31);
-    s += wave(p, normalize(vec2(0.7, 0.7)), 0.8, 0.0080, 1.12);
-    s += wave(p, normalize(vec2(0.98, 0.12)), 0.55, 0.0055, 0.93);
-    s += wave(p, normalize(vec2(0.2, -0.98)), 0.38, 0.0038, 0.77);
+    ${waveCalls()}
     // 丸い海面の傾き（遠くの海は、こちらへ少し傾いて見える）＋ 波の傾き
     vec2 cur = (vPw.xz - cameraPosition.xz) / uR;
     vec3 n = normalize(vec3(-s.x - cur.x, 1.0, -s.y - cur.y));
@@ -102,7 +126,9 @@ const oceanFrag = /* glsl */ `
     // ここからは光の量（空の表と同じ単位。大気の外の日の光の強さが π）
     // 海面に届く日の光（空気を通って、太陽が低いほど黄色く弱い）と、空からの光
     vec3 sunT = exp(-sunTau(uR + 2.0, uSun.y));
-    vec3 eSun = 3.14159 * sunT * max(0.0, uSun.y);
+    // 雲の影
+    float shade = cloudShadow(vPw.xz, uSun);
+    vec3 eSun = 3.14159 * sunT * max(0.0, uSun.y) * shade;
     vec3 eSky = 3.14159 * skyIn(vec3(0.0, 1.0, 0.0)) * 0.9;
     // 映りこむ空（本当の空の表から）
     vec3 refl = skyIn(r) * fres;
@@ -115,11 +141,34 @@ const oceanFrag = /* glsl */ `
     float t2 = (1.0 - nh * nh) / (nh * nh);
     float D = exp(-t2 / S2) / (3.14159 * S2 * nh * nh * nh * nh);
     float Fs = 0.02 + 0.98 * pow(1.0 - max(0.0, dot(hv, v)), 5.0);
-    vec3 glint = 3.14159 * sunT * Fs * D / (4.0 * nv) * step(0.0, uSun.y);
+    vec3 glint = 3.14159 * sunT * Fs * D / (4.0 * nv) * step(0.0, uSun.y) * shade;
     vec3 surf = refl + body + glint;
+    // 白波：波の山が重なって高くなった所で、風の強い所ほど砕ける（風 6 m/s で海の 1〜2 %）。
+    // 泡の形は、細かいまだら。泡の面は白い紙のように光を散らす（新しい泡の反射率 約 0.8）
+    float z = gH / sqrt(gHv);
+    float foamN = vnoise(p * 0.9 + vec2(uTime * 0.6, 0.0)) * 0.6 + vnoise(p * 2.7 - vec2(0.0, uTime * 0.4)) * 0.4;
+    float cap = smoothstep(1.75, 2.05, z + (wn - 0.5) * 1.2) * smoothstep(0.42, 0.62, foamN);
+    // 遠くで白波が画素より小さくなったら、平均の明るさ（少しだけ白っぽい）として足す
+    float res = 1.0 - smoothstep(0.5, 3.0, gFp);
+    float foam = cap * res + (1.0 - res) * 0.012 * mix(0.3, 1.7, wn);
+    // 着水の泡：司令船のまわりに広がる白い輪（はじめは濃く、だんだんまばらに、うすく）
+    if (uSplash.z >= 0.0) {
+      float rr = length(vPw.xz - uSplash.xy);
+      float R = 3.0 + 5.0 * (1.0 - exp(-uSplash.z / 4.0)) + uSplash.z * 0.05;
+      float ring = smoothstep(R + 2.0, R - 1.0, rr) * (0.55 + 0.45 * smoothstep(R * 0.2, R * 0.9, rr));
+      float age = exp(-uSplash.z / 20.0);
+      float bubbles = smoothstep(0.4 + 0.4 * (1.0 - age) + 0.15 * rr / R, 0.85, vnoise(vPw.xz * 1.6) * 0.65 + vnoise(vPw.xz * 4.0) * 0.35);
+      foam = max(foam, ring * bubbles * uSplash.w * mix(0.2, 0.9, age));
+    }
+    vec3 foamL = 0.8 * (eSun * max(0.0, dot(n, uSun)) / max(0.05, uSun.y) + eSky) / 3.14159;
+    surf = mix(surf, foamL, clamp(foam, 0.0, 1.0));
     // 目までの空気：遠くの海ほど、かすんで空にとける（同じ向きの空の表の値）
     vec3 vd = -v;
     vec3 L = surf * skyTrans(vd) + skyIn(vd);
+    // 目と海のあいだの雲（上から見下ろすとき、雲の上の面が日に照らされて白い）
+    vec4 cl = cloudMarch(vec3(cameraPosition.x, cameraPosition.y + uSeaH, cameraPosition.z), vd, dist, uSun, 3.14159 * sunT, eSky, skyIn(vd), fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))));
+    L = L * cl.a + cl.rgb;
+    glint *= cl.a;
     vec3 col = expose(L);
     // まぶしい照り返しは画面の白より明るく（光のにじみが出る）
     col += max(vec3(0.0), glint * skyTrans(vd) - 1.5) * 0.08;
@@ -129,16 +178,18 @@ const oceanFrag = /* glsl */ `
 `
 
 /** 海。空の表（SkyLut）を使う：映りこむ空と、遠くのかすみは、空と同じ計算から */
-export function oceanMaterial(lut: SkyLut, radius: number) {
+export function oceanMaterial(lut: SkyLut, radius: number, cloud: CloudQuality = CLOUD_HIGH) {
   const m = new THREE.ShaderMaterial({
     vertexShader: oceanVert,
     fragmentShader: oceanFrag,
-    defines: { SCATTER_N: 2 },
+    defines: { SCATTER_N: 2, CLOUD_N: cloud.steps, CLOUD_LIGHT: cloud.light },
     uniforms: {
       uSun: { value: new THREE.Vector3(0, 1, 0) },
       uTime: { value: 0 },
       uOffset: { value: new THREE.Vector2() },
       uAlpha: { value: 1 },
+      uSplash: { value: new THREE.Vector4(0, 0, -1, 0) },
+      ...cloudUniforms(),
       uR: { value: radius },
       uCenter: { value: new THREE.Vector3() },
     },
@@ -147,87 +198,6 @@ export function oceanMaterial(lut: SkyLut, radius: number) {
   })
   lut.bind(m)
   return m
-}
-
-/** 着水の泡：まん中が白く、ふちへ消える */
-export function foamTexture() {
-  const c = document.createElement('canvas')
-  c.width = c.height = 128
-  const g = c.getContext('2d')!
-  const grd = g.createRadialGradient(64, 64, 6, 64, 64, 64)
-  grd.addColorStop(0, 'rgba(255,255,255,0.9)')
-  grd.addColorStop(0.5, 'rgba(240,248,250,0.5)')
-  grd.addColorStop(1, 'rgba(240,248,250,0)')
-  g.fillStyle = grd
-  g.fillRect(0, 0, 128, 128)
-  // まだらに
-  g.globalCompositeOperation = 'destination-out'
-  for (let i = 0; i < 90; i++) {
-    g.fillStyle = `rgba(0,0,0,${0.2 + Math.random() * 0.5})`
-    g.beginPath()
-    g.arc(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 7, 0, Math.PI * 2)
-    g.fill()
-  }
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  return t
-}
-
-// ---- 雲（貿易風の積雲） --------------------------------------------------------------------------
-
-function cloudTexture(seed: number) {
-  const c = document.createElement('canvas')
-  c.width = 256
-  c.height = 128
-  const g = c.getContext('2d')!
-  let s = seed
-  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647)
-  // やわらかい丸をいくつも重ねる。下は平ら
-  for (let i = 0; i < 26; i++) {
-    const x = 40 + rnd() * 176
-    const top = 22 + Math.abs(x - 128) * 0.45
-    const y = top + rnd() * (100 - top)
-    const r = 16 + rnd() * 30 * (1 - Math.abs(x - 128) / 180)
-    const grd = g.createRadialGradient(x, y - r * 0.2, 0, x, y, r)
-    const sh = 0.82 + (1 - y / 128) * 0.18
-    grd.addColorStop(0, `rgba(${Math.round(255 * sh)},${Math.round(255 * sh)},${Math.round(255 * sh)},0.95)`)
-    grd.addColorStop(0.6, `rgba(${Math.round(235 * sh)},${Math.round(240 * sh)},${Math.round(248 * sh)},0.6)`)
-    grd.addColorStop(1, 'rgba(220,228,240,0)')
-    g.fillStyle = grd
-    g.beginPath()
-    g.arc(x, y, r, 0, Math.PI * 2)
-    g.fill()
-  }
-  // 底を平らに切る
-  const fade = g.createLinearGradient(0, 96, 0, 112)
-  fade.addColorStop(0, 'rgba(0,0,0,0)')
-  fade.addColorStop(1, 'rgba(0,0,0,1)')
-  g.globalCompositeOperation = 'destination-out'
-  g.fillStyle = fade
-  g.fillRect(0, 96, 256, 32)
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  return t
-}
-
-export function makeClouds(n = 70) {
-  const g = new THREE.Group()
-  g.name = 'return-clouds'
-  const texes = [1, 7, 13, 29].map(cloudTexture)
-  const mats = texes.map((map) => new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, fog: false }))
-  let s = 42
-  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647)
-  for (let i = 0; i < n; i++) {
-    const sp = new THREE.Sprite(mats[i % mats.length])
-    const size = 500 + rnd() * 1400
-    sp.scale.set(size * 2, size, 1)
-    const a = rnd() * Math.PI * 2
-    const r = 1500 + Math.pow(rnd(), 0.7) * 38_000
-    sp.position.set(Math.cos(a) * r, 900 + rnd() * 900 + size * 0.35, Math.sin(a) * r)
-    sp.renderOrder = -1
-    g.add(sp)
-  }
-  return { group: g, dispose: () => (texes.forEach((t) => t.dispose()), mats.forEach((m) => m.dispose())) }
 }
 
 // ---- 回収船（航空母艦タイコンデロガ。全長 270 m） --------------------------------------------------
@@ -316,7 +286,8 @@ export function makeChute(kind: 'main' | 'drogue'): Chute {
   const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, side: THREE.DoubleSide, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.06, emissiveMap: tex })
   const canopy = new THREE.Mesh(geo, mat)
   canopy.position.y = length
-  canopy.castShadow = false
+  // 布は日の光で影を落とし、ほかの傘の影も受ける
+  canopy.castShadow = canopy.receiveShadow = true
   // 吊りひも：ふちの点から原点へ
   const M = kind === 'main' ? 24 : 12
   const lp = new Float32Array(M * 6)
