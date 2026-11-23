@@ -16,7 +16,8 @@ import { useSpaceEnv, type SpaceBody } from './spaceEnv'
 import { makeChute, makeShip, oceanMaterial, shapeChute } from './returnSea'
 import { CLOUD_COVER_GLSL, SkyLut, cloudQuality, cloudShadeAt, cloudUniforms, skyDomeMaterial, sunTransmit } from './returnSky'
 import { OUT_CHUNK, encodeOutput } from './shaderOut'
-import { makeFireball, updateFireball } from './returnPlasma'
+import { makeFireball, makeWindowPlasma, updateFireball } from './returnPlasma'
+import { startEntryRoar } from '../../audio/sfx'
 
 // 章8（state/moonReturn.ts）の世界。宇宙船がいつも原点のそば。月・地球・海は宇宙船に対して動かす。
 // 月のまわり：月は真下（高さ 115 km）。地球へ：地球は前（-Z）から、近づくにつれて真下へ。
@@ -112,6 +113,8 @@ function approachSwing(r: number) {
 }
 /** 大気に入ってから進んだ道のり（m）。雲を地面といっしょに流すのに使う。パラシュートから先は最後の値のまま */
 const cloudRun = { range: 0 }
+/** 大気圏突入の音（鳴っている間だけ） */
+const roar: { h: ReturnType<typeof startEntryRoar> } = { h: null }
 
 /** 映りこむ景色（Scene が毎フレーム書く）：いちばん大きく見える天体か、大気の中の空と海 */
 const envBody: SpaceBody = { down: new THREE.Vector3(0, -1, 0), angR: 0, sun, earth: false, air: 0 }
@@ -308,10 +311,19 @@ function Scene() {
     const sprayMat = new THREE.PointsMaterial({ color: '#f4f8fb', map: glowTexture(), size: 0.35, transparent: true, opacity: 0, depthWrite: false })
     const spray = new THREE.Points(sprayGeo, sprayMat)
     spray.frustumCulled = false
-    const owned: { dispose: () => void }[] = [moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, lut, ship, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat]
-    return { fireGlow, nozzle, moonG, earthMat, atmo, earthG, lut, sky, ocean, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, owned }
+    // 窓のカメラのときの、窓の外のプラズマ
+    const winPlasma = makeWindowPlasma()
+    const owned: { dispose: () => void }[] = [winPlasma, moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, lut, ship, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat]
+    return { fireGlow, nozzle, moonG, earthMat, atmo, earthG, lut, sky, ocean, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, winPlasma, owned }
   }, [moonTex, day, night, clouds, water])
-  useEffect(() => () => w.owned.forEach((o) => o.dispose()), [w])
+  useEffect(
+    () => () => {
+      w.owned.forEach((o) => o.dispose())
+      roar.h?.stop()
+      roar.h = null
+    },
+    [w],
+  )
   // 確かめる用（#debug のときだけ）
   useEffect(() => {
     if (!location.hash.includes('debug')) return
@@ -626,15 +638,45 @@ function Scene() {
       // 火の玉のまわりの、まるい光
       w.fireGlow.visible = heat > 0.02
       w.fireGlow.position.copy(w.fire.group.position).addScaledVector(vel, 1)
-      w.fireGlow.scale.setScalar(9 + heat * 12)
-      w.fireGlow.material.opacity = Math.min(1, heat * 1.2) * (0.8 + 0.2 * Math.sin(time * 23))
+      w.fireGlow.scale.setScalar(6 + heat * 7)
+      w.fireGlow.material.opacity = Math.min(1, heat * 1.2) * 0.55 * (0.8 + 0.2 * Math.sin(time * 23))
+      // 窓の外：流れの向き（空気は進む向きの逆へ流れる）を画面の上の向きにして、光の筋と火の粉を流す
+      {
+        const wp = w.winPlasma
+        wp.mesh.visible = ms.cam === 'window' && heat > 0.02
+        if (wp.mesh.visible) {
+          const P = _a.set(0, 0, -10).applyQuaternion(camera.quaternion).add(camera.position)
+          const Q = _b.copy(P).addScaledVector(vel, -1)
+          P.project(camera)
+          Q.project(camera)
+          wp.mat.uniforms.uFlow.value.set((Q.x - P.x) * camera.aspect, Q.y - P.y)
+          if (wp.mat.uniforms.uFlow.value.lengthSq() < 1e-8) wp.mat.uniforms.uFlow.value.set(0, 1)
+          wp.mat.uniforms.uAspect.value = camera.aspect
+          wp.mat.uniforms.uHeat.value = Math.min(1, heat * 1.4)
+          wp.mat.uniforms.uTime.value = time % 1000
+        }
+      }
       // 焦げ
       for (const b of parts.burn) {
         b.m.color.copy(b.from).lerp(b.to, ret.char * 0.85)
         b.m.metalness = THREE.MathUtils.lerp(b.metal, b.toMetal, ret.char)
       }
     }
+    // 突入の音：熱いあいだと、G が強いあいだ
+    {
+      const g = inAir && e ? e.g : 0
+      const want = inAir && (ret.heat > 0.02 || g > 0.4)
+      if (want && !roar.h) roar.h = startEntryRoar()
+      if (roar.h) {
+        if (want) roar.h.set(ret.heat, g)
+        else {
+          roar.h.stop()
+          roar.h = null
+        }
+      }
+    }
     if (!inAir) {
+      w.winPlasma.mesh.visible = false
       w.fire.group.visible = false
       w.fireGlow.visible = false
       w.glowMat.intensity = 0
@@ -787,6 +829,14 @@ function Scene() {
         look.copy(c).addScaledVector(vel, 5)
         fov = 50
       }
+      // 大気に入る前（まだ何千 km も上）：地球は大きな三日月。遠くからのカメラは、日の当たる三日月のふちの方を見る
+      if (step === 'corridor' && cam === 'wide' && w.earthG.visible) {
+        const toEarth = _u.copy(w.earthG.position).sub(c).normalize()
+        const limb = _b.copy(sun).projectOnPlane(toEarth).normalize().multiplyScalar(RE).add(w.earthG.position).sub(c).normalize()
+        // 船の向こうに三日月：船の少しうしろ・横から、ふちの方を見る（船は手前）
+        want.copy(c).addScaledVector(limb, -45).addScaledVector(side, tall ? 8 : 14).add(_a.set(0, 5, 0))
+        look.copy(c).addScaledVector(limb, tall ? 60 : 45)
+      }
       // G と熱のゆれ
       const k = (e ? Math.min(1, e.g / 7) : 0) * 0.06 + ret.heat * 0.05
       want.x += (Math.random() - 0.5) * k
@@ -872,6 +922,7 @@ function Scene() {
       <primitive object={w.fire.group} />
       <primitive object={w.glowMat} />
       <primitive object={w.fireGlow} />
+      <primitive object={w.winPlasma.mesh} />
       {w.mains.map((c, i) => (
         <primitive key={`m${i}`} object={c.group} />
       ))}
