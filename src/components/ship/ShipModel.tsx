@@ -8,6 +8,7 @@ import { useSpaceEnvOn } from '../SpaceLighting'
 import { findBaked, multiplyDetail } from './bakedMaps'
 import type { Flood } from '../../data/ships'
 import { bussardTexture, coilSpillTexture, coilTexture, deflectorTexture, hullTextures, nameTexture, shuttleBayTexture, windowBandTexture } from './hullTextures'
+import { radialGlowTexture } from '../radialGlow'
 
 // 自機「SV-01 ソーラーボイジャー」。円盤部・首・副船体・2本のナセルという構成は借りるが、
 // 寸法と細部はオリジナル。長さ約1、前方は -Z。
@@ -474,22 +475,19 @@ export const STROBE_FLASH = 0.07
 export const STROBE_GAP = 0.25
 
 /** ストロボの光のにじみ（中心が明るく外へ消える丸） */
-let halo: THREE.CanvasTexture | null = null
+let halo: THREE.Texture | null = null
 export function haloTexture() {
   if (halo) return halo
-  const size = 64
-  const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = size
-  const g = canvas.getContext('2d')!
-  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-  grad.addColorStop(0, 'rgba(255,255,255,1)')
-  grad.addColorStop(0.15, 'rgba(255,255,255,0.6)')
-  grad.addColorStop(0.45, 'rgba(255,255,255,0.12)')
-  grad.addColorStop(1, 'rgba(255,255,255,0)')
-  g.fillStyle = grad
-  g.fillRect(0, 0, size, size)
-  halo = new THREE.CanvasTexture(canvas)
-  halo.colorSpace = THREE.SRGBColorSpace
+  halo = radialGlowTexture(
+    [
+      [0, 255, 255, 255, 1],
+      [0.15, 255, 255, 255, 0.6],
+      [0.45, 255, 255, 255, 0.12],
+      [1, 255, 255, 255, 0],
+    ],
+    64,
+    true,
+  )
   return halo
 }
 
