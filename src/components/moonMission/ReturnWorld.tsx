@@ -684,13 +684,21 @@ function Scene() {
         fov = 70
         near = 0.05
         snap = true
-      } else if (cam === 'wide') {
-        // 回収船の甲板から
+      } else if (cam === 'wide' && step === 'chutes') {
+        // 回収船の甲板から、望遠で、降りてくるパラシュートを見上げる
         want.copy(shipEye)
-        look.copy(c).add(_b.set(0, step === 'chutes' ? 18 : 2, 0))
+        look.copy(c).add(_b.set(0, 18, 0))
         const d = want.distanceTo(look)
-        fov = THREE.MathUtils.clamp((2 * Math.atan((step === 'chutes' ? 90 : 40) / d) * 180) / Math.PI, 5, 40)
-        snap = rig.key !== 'wide-sea'
+        fov = THREE.MathUtils.clamp((2 * Math.atan(90 / d) * 180) / Math.PI, 0.5, 40)
+        snap = true
+      } else if (cam === 'wide') {
+        // 着水のあと：回収のヘリコプターから（本物の着水の写真も、ヘリから撮ったもの）。司令船のうしろ遠くに回収船。
+        // 甲板から 4.7 km 先の司令船を望遠で見ると、波にかくれて、空を映す海の灰色一色になった
+        const toShip = _u.copy(w.ship.group.position).sub(c).setY(0).normalize()
+        want.copy(c).addScaledVector(toShip, -48).add(_b.set(0, 17, 0))
+        look.copy(c).add(_b.set(0, 5, 0))
+        fov = 40
+        snap = true
       } else if (step === 'chutes') {
         const lowK = 1 - THREE.MathUtils.smoothstep(h, 60, 400)
         want.copy(c).add(_b.set(46 - lowK * 18, -14 + lowK * 10, 60 - lowK * 22))
@@ -776,10 +784,9 @@ const RETURN_CUTS: Partial<Record<ReturnStep, MissionCam[]>> = {
   cmSep: ['chase', 'wide'],
   corridor: ['chase', 'wide', 'window'],
   entry: ['chase', 'window', 'wide'],
-  // 海の上の「遠くから」（回収船の甲板からの望遠）は、自動では使わない（画面が灰色一色になる場面がある）
-  chutes: ['chase', 'window'],
-  splash: ['chase'],
-  end: ['chase'],
+  chutes: ['chase', 'window', 'wide'],
+  splash: ['chase', 'wide'],
+  end: ['chase', 'wide'],
 }
 const rcuts = { t: 0, i: 0, step: '' as string }
 function returnCuts(step: ReturnStep, dt: number) {
