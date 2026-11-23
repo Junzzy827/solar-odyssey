@@ -11,6 +11,7 @@ import { FRAME, groundAt, loadLunarMaps, lunarMaps, SUN_DIR, TRACK, TRACK_PLANE,
 import { earthMaterial, atmosphereMaterial } from './earth'
 import { plumeGeometry, plumeMaterial } from './plume'
 import { APOLLO_URL, DROGUE, useCraft, type Craft } from './craft'
+import { applyCraftZoom, resetCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv } from './spaceEnv'
 import { buildLmCabin, LM_EYE, LM_LOOK, type LmCabin } from './lmCabin'
 
@@ -759,7 +760,8 @@ function earthShot(t: number, at: number | null, before: number, after: number) 
 function CameraRig({ craft, cabin: lmc }: { craft: Craft; cabin: LmCabin }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const state = useMemo(() => ({ pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), init: false, groundCam: new THREE.Vector3(), phase: '' }), [])
-  const tmp = useMemo(() => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), c: new THREE.Vector3(), q: new THREE.Quaternion() }), [])
+  const tmp = useMemo(() => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), c: new THREE.Vector3(), q: new THREE.Quaternion(), center: new THREE.Vector3() }), [])
+  useCraftZoom()
   useFrame((st, dt) => {
     const ms = useMoonMission.getState()
     const phase = ms.phase
@@ -903,6 +905,11 @@ function CameraRig({ craft, cabin: lmc }: { craft: Craft; cabin: LmCabin }) {
         if (want.length() < minR) want.setLength(minR)
       }
     }
+    // ホイール・2 本指で宇宙船に寄る（窓の中と、望遠で地球を見るときはそのまま）
+    if (cam !== 'window' && fov > 20) {
+      const center = tmp.center.copy(up).multiplyScalar(phase === 'coast' || phase === 'loi' ? 5 : 2.5).add(lm.position)
+      applyCraftZoom(want, look, center, 6)
+    }
     // なめらかに追う（窓・地面のカメラは、ぴったり）。宇宙船は秒速 1.7 km で動くので、宇宙船からの相対で追う
     const anchor = lm.position
     want.sub(anchor)
@@ -911,6 +918,7 @@ function CameraRig({ craft, cabin: lmc }: { craft: Craft; cabin: LmCabin }) {
     if (phase !== state.phase) {
       state.phase = phase
       snap = true
+      resetCraftZoom()
     }
     if (!state.init || snap) {
       state.pos.copy(want)
@@ -975,7 +983,7 @@ export function LunarWorld() {
 }
 
 /**
- * おまかせでは 11 秒ごとにカメラを切りかえる（8 秒ルール：同じ絵が長く続かないように）。
+ * おまかせでは 7 秒ごとにカメラを切りかえる（8 秒ルール：同じ絵が長く続かないように）。
  * 月の裏でブレーキ（章6）：うしろから → 遠くから（月を背に小さく） → 船長の窓（月面が流れる）。エンジンに火が入った瞬間は、炎の見えるうしろから。
  * 章7：切り離し（等速のところ）と制動はうしろ ↔ 遠く（制動のあいだは窓が空を向いているので窓は使わない）。
  * 接近（ピッチオーバーから）は船長の窓を主に、ときどきうしろから。手動にしたら切りかえない。
@@ -1014,7 +1022,7 @@ function loiCuts(dt: number) {
     cuts.i = 0
     cuts.t = 0
     autoCam('chase')
-  } else if (cuts.t >= (mode === 'approach' && cuts.i === 0 ? 14 : 11)) {
+  } else if (cuts.t >= 7) {
     const list = CUTS[mode]
     cuts.t = 0
     cuts.i = (cuts.i + 1) % list.length

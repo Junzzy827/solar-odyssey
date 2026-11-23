@@ -32,6 +32,7 @@ export const moonMissionJa = {
   camLabel: (n: string) => `カメラ：${n}`,
   camTitle: 'カメラをえらぶ',
   camBest: 'おすすめ',
+  camZoom: '外から見るカメラでは、ホイール・2 本指で宇宙船に寄れる',
   camNames: { film: '自動', pad: '地上から', chase: 'うしろから', onboard: '機体カメラ', window: '船長の窓', wide: '遠くから' } as Record<string, string>,
   quit: '終わる',
   warp: (w: number) => `早送り ×${Math.round(w)}`,

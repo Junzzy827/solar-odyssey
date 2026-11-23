@@ -28,6 +28,7 @@ import { earthMaterial, atmosphereMaterial } from './earth'
 import { s4bAft, skinParts } from './rocketSkin'
 import { glowTexture } from './plume'
 import { setLegs, useCraft, type Craft } from './craft'
+import { applyCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv } from './spaceEnv'
 
 // 章3（ドッキング）と章4（青い地球）の世界：第3段（S-IVB、saturn.glb の S3）・アダプタの板 4 枚・着陸船と司令船（apollo.glb）・地球。
@@ -326,6 +327,7 @@ function csmPose(craft: Craft) {
 
 function Scene() {
   const craft = useCraft()
+  useCraftZoom()
   const stage = useStage()
   const target = useTarget()
   useEffect(() => () => stage.owned.forEach((o) => o.dispose()), [stage])
@@ -462,6 +464,8 @@ function Scene() {
         fov = 46
       }
     }
+    // ホイール・2 本指で宇宙船に寄る（窓からのときはそのまま）。中心は着陸船の口（つなぎ目）
+    if (!snap) applyCraftZoom(want, look, lmTop, 5)
     // ガチャン：留め金が閉まった瞬間、画面がゆれる
     if (step === 'latch' && t > KACHUNK_AT && t < KACHUNK_AT + 0.6) {
       const k = (KACHUNK_AT + 0.6 - t) * 0.06

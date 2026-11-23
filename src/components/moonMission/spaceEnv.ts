@@ -67,8 +67,9 @@ void main() {
 }
 `
 
-const MOON = { albedo: new THREE.Color(0.12, 0.115, 0.11), rim: new THREE.Color(0, 0, 0) }
-const EARTH = { albedo: new THREE.Color(0.2, 0.26, 0.36), rim: new THREE.Color(0.25, 0.4, 0.7) }
+// 白さは、画面に描いた月・地球の明るさに合わせる（本物の反射率 0.12 だと、描いた月よりずっと暗く映って、銀の機体が黒っぽく見えた）
+const MOON = { albedo: new THREE.Color(0.42, 0.4, 0.38), rim: new THREE.Color(0, 0, 0) }
+const EARTH = { albedo: new THREE.Color(0.3, 0.37, 0.5), rim: new THREE.Color(0.25, 0.4, 0.7) }
 
 /**
  * scene.environment を宇宙の景色にする。body() は毎フレーム呼ばれ、天体の向き・見かけの大きさ・太陽の向きを返す。

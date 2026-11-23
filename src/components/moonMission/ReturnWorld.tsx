@@ -11,6 +11,7 @@ import { EI_ALT, RE } from '../../data/reentry'
 import { earthMaterial, atmosphereMaterial } from './earth'
 import { glowTexture, plumeGeometry, plumeMaterial } from './plume'
 import { APOLLO_URL, DROGUE, useCraft } from './craft'
+import { applyCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv, type SpaceBody } from './spaceEnv'
 import { foamTexture, makeChute, makeClouds, makeShip, oceanMaterial, shapeChute, skyMaterial } from './returnSea'
 import { makeFireball, updateFireball } from './returnPlasma'
@@ -171,6 +172,7 @@ function useStars() {
 
 function Scene() {
   const craft = useCraft()
+  useCraftZoom()
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const small = lowMemory()
   // 地球は打ち上げの場面と同じ：NASA Blue Marble の 12 月と Black Marble の夜の明かり、光の散乱で描く大気
@@ -702,6 +704,8 @@ function Scene() {
       }
       want.y = Math.max(want.y, water + 1.6)
     }
+    // ホイール・2 本指で宇宙船に寄る（うしろからのカメラのとき）
+    if (cam === 'chase') applyCraftZoom(want, look, c, 5)
     const key = `${cam}-${lunar ? 'moon' : sea ? 'sea' : step === 'coast' || step === 'cmSep' ? 'space' : 'air'}`
     if (!rig.init || snap || rig.key !== key) {
       rig.pos.copy(want)
@@ -759,7 +763,7 @@ export function ReturnWorld() {
 }
 
 /**
- * 帰り道のカメラを 10 秒ごとに切りかえる（8 秒ルール：同じ絵が長く続かないように）。
+ * 帰り道のカメラを 7 秒ごとに切りかえる（8 秒ルール：同じ絵が長く続かないように）。
  * 場面がかわったら、うしろから（その場面のいちばんわかりやすい絵）。自分でカメラを選んだら（camLocked）、切りかえない
  */
 const RETURN_CUTS: Partial<Record<ReturnStep, MissionCam[]>> = {
@@ -789,7 +793,7 @@ function returnCuts(step: ReturnStep, dt: number) {
   }
   if (!list || ms.camLocked || ms.phase !== 'home') return
   rcuts.t += dt
-  if (rcuts.t < 10) return
+  if (rcuts.t < 7) return
   rcuts.t = 0
   rcuts.i = (rcuts.i + 1) % list.length
   autoCam(list[rcuts.i])

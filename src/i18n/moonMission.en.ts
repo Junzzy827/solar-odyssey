@@ -32,6 +32,7 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
   camLabel: (n: string) => `Camera: ${n}`,
   camTitle: 'Choose a camera',
   camBest: 'Recommended',
+  camZoom: 'In the outside views, scroll or pinch to move in close to the spacecraft',
   camNames: { film: 'Auto', pad: 'From the ground', chase: 'Chase', onboard: 'Onboard camera', window: "Commander's window", wide: 'Wide' },
   quit: 'Quit',
   warp: (w: number) => `Time ×${Math.round(w)}`,
