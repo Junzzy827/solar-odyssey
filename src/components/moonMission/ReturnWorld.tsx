@@ -13,8 +13,8 @@ import { glowTexture, plumeGeometry, plumeMaterial } from './plume'
 import { APOLLO_URL, DROGUE, useCraft } from './craft'
 import { applyCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv, type SpaceBody } from './spaceEnv'
-import { makeChute, makeClouds, makeShip, oceanMaterial, shapeChute } from './returnSea'
-import { SkyLut, skyDomeMaterial, sunTransmit } from './returnSky'
+import { makeChute, makeShip, oceanMaterial, shapeChute } from './returnSea'
+import { SkyLut, cloudQuality, skyDomeMaterial, sunTransmit } from './returnSky'
 import { OUT_CHUNK, encodeOutput } from './shaderOut'
 import { makeFireball, updateFireball } from './returnPlasma'
 
@@ -222,14 +222,14 @@ function Scene() {
     earthG.add(earth, air)
     // 空の表（光の散乱の計算）：空のドーム・海・海に映る空が引く
     const lut = new SkyLut(RE, 16)
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(90_000, 48, 24), encodeOutput(skyDomeMaterial(lut)))
+    const cq = cloudQuality(currentLevel(), small)
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(90_000, 48, 24), encodeOutput(skyDomeMaterial(lut, cq)))
     sky.renderOrder = -2
     sky.frustumCulled = false
-    const ocean = new THREE.Mesh(new THREE.PlaneGeometry(2_400_000, 2_400_000, 120, 120), encodeOutput(oceanMaterial(lut, RE)))
+    const ocean = new THREE.Mesh(new THREE.PlaneGeometry(2_400_000, 2_400_000, 120, 120), encodeOutput(oceanMaterial(lut, RE, cq)))
     ocean.rotation.x = -Math.PI / 2
     ocean.renderOrder = -1
     ocean.frustumCulled = false
-    const cloud = makeClouds()
     const ship = makeShip()
     const mains = [makeChute('main'), makeChute('main'), makeChute('main')]
     const drogues = [makeChute('drogue'), makeChute('drogue')]
@@ -259,8 +259,8 @@ function Scene() {
     const sprayMat = new THREE.PointsMaterial({ color: '#f4f8fb', map: glowTexture(), size: 0.35, transparent: true, opacity: 0, depthWrite: false })
     const spray = new THREE.Points(sprayGeo, sprayMat)
     spray.frustumCulled = false
-    const owned: { dispose: () => void }[] = [moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, lut, cloud, ship, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat]
-    return { fireGlow, nozzle, moonG, earthMat, atmo, earthG, lut, sky, ocean, cloud, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, owned }
+    const owned: { dispose: () => void }[] = [moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, lut, ship, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat]
+    return { fireGlow, nozzle, moonG, earthMat, atmo, earthG, lut, sky, ocean, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, owned }
   }, [moonTex, day, night, clouds, water])
   useEffect(() => () => w.owned.forEach((o) => o.dispose()), [w])
   // 確かめる用（#debug のときだけ）
@@ -449,8 +449,12 @@ function Scene() {
     ou.uCenter.value.set(camera.position.x, -h - RE, camera.position.z)
     // うすく重ねている間は、奥の大気の光を隠さないように、奥行きを書かない
     ;(w.ocean.material as THREE.ShaderMaterial).depthWrite = oceanA > 0.99
-    w.cloud.group.visible = (inAir || sea) && h < 40_000
-    w.cloud.group.position.set(0, -h, sea ? 0 : (((-range % 60_000) + 60_000) % 60_000) - 30_000)
+    // 雲の層（空と海の素材の中で描く）：海面からの高さと、貿易風（約 6 m/s）で流れる分
+    for (const m of [w.sky.material, w.ocean.material] as THREE.ShaderMaterial[]) {
+      m.uniforms.uSeaH.value = h
+      m.uniforms.uCloudOn.value = inAir || sea ? 1 : 0
+      m.uniforms.uCloudOff.value.set(-time * 6, -time * 2)
+    }
     w.ship.group.visible = sea
     w.ship.group.position.set(-2_600, -h + 0.2, -3_900)
     w.ship.group.rotation.y = 0.9
@@ -783,7 +787,6 @@ function Scene() {
       <primitive object={w.moonG} />
       <primitive object={w.earthG} />
       <primitive object={w.ocean} />
-      <primitive object={w.cloud.group} />
       <primitive object={w.ship.group} />
       <primitive object={craft.lm} />
       <primitive object={craft.csm} />
