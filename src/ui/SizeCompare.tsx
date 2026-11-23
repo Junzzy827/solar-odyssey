@@ -125,6 +125,46 @@ function Thing({ item, index, isBody }: { item: Item; index: number; isBody: boo
   )
 }
 
+/** 全体を見せるときの、見せたい幅と高さ・まん中（Rig） */
+function overview(items: Item[], width: number) {
+  const last = items[items.length - 1]
+  const left = items[0].x - items[0].width / 2
+  const right = last.x + last.width / 2
+  const big = Math.max(...items.map((i) => i.height))
+  const pad = width / Math.max(120, width - 60)
+  return { w: (right - left) * 1.04 * pad, h: big * 1.9, cx: (left + right) / 2, cy: big * 0.32 }
+}
+
+/** 印の輪の半径（ふちまで、px：sizeCompare.css の .sc-label.dot::before）と、輪のまわりにあける余白（px） */
+const RING_PX = 9
+const ROOM_PX = 4
+
+/** 全体を見せたときに印の輪が出る星は、となりとのすき間を、画面で輪と余白がはいるだけ広げる（ほかのすき間はそのまま）。輪が出るかは画面での大きさで、大きさは全体の幅で決まるので、ならべ方が落ちつくまでくり返す */
+function roomy(id: string, picks: readonly string[], width: number, height: number, vt: number): Item[] {
+  const base = lineup(id, picks)
+  const wide = (a: Item[]) => a[a.length - 1].x + a[a.length - 1].width / 2
+  let items = base
+  for (let n = 0; n < 100; n++) {
+    // 落ちついたときのカメラ（Rig と同じ式）
+    const { w, h, cx, cy } = overview(items, width)
+    const d = Math.max(w / (2 * vt * (width / height)), h / (2 * vt))
+    // 輪が出る星：Thing と同じはかり方で
+    const ring = new Set(items.filter((it) => (it.height / (2 * Math.hypot(it.x - cx, cy + d * 0.12, d) * vt)) * height < DOT_PX).map((it) => it.id))
+    // 下の線の上で 1 km が何 px か（カメラは少し上から見下ろしている）
+    const perKm = height / (2 * vt * ((d + (cy + d * 0.12) * 0.12) / Math.hypot(1, 0.12)))
+    const next = lineup(id, picks, (a, b) => {
+      const [ra, rb] = [ring.has(a.id), ring.has(b.id)]
+      return ra || rb ? ((ra ? RING_PX : 0) + (rb ? RING_PX : 0) + ROOM_PX) / perKm - (ra ? a.width / 2 : 0) - (rb ? b.width / 2 : 0) : 0
+    })
+    // 輪がとても多くて、場所をあけると棚が倍より広くなるときは、あけずにもとのならべ方（輪は重なる）
+    if (wide(next) > 2 * wide(base)) return base
+    if (next.every((it, i) => Math.abs(it.x - items[i].x) <= wide(next) * 1e-9)) return next
+    items = next
+  }
+  console.error('ERROR size compare: the room for the rings did not settle', id, picks.join(','))
+  return items
+}
+
 /** カメラ：全体、またはさわったものが入るように、なめらかに寄ったり引いたりする */
 function Rig({ items, focus }: { items: Item[]; focus: string | null }) {
   const { camera, size } = useThree()
@@ -132,17 +172,13 @@ function Rig({ items, focus }: { items: Item[]; focus: string | null }) {
   useFrame((_, dt) => {
     const cam = camera as THREE.PerspectiveCamera
     const f = items.find((i) => i.id === focus)
-    const last = items[items.length - 1]
-    const left = items[0].x - items[0].width / 2
-    const right = last.x + last.width / 2
-    const big = Math.max(...items.map((i) => i.height))
     // 見せたい幅と高さ・まん中
-    const pad = size.width / Math.max(120, size.width - 60)
-    const w = f ? Math.max(f.width, f.height) * 3.2 : (right - left) * 1.04 * pad
-    const h = f ? f.height * 2.6 : big * 1.9
-    const cx = f ? f.x : (left + right) / 2
+    const all = overview(items, size.width)
+    const w = f ? Math.max(f.width, f.height) * 3.2 : all.w
+    const h = f ? f.height * 2.6 : all.h
+    const cx = f ? f.x : all.cx
     // 下の文字とボタンのぶん、ものを少し上に見せる
-    const cy = f ? f.height * 0.25 : big * 0.32
+    const cy = f ? f.height * 0.25 : all.cy
     const vt = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2)
     const d = Math.max(w / (2 * vt * (size.width / size.height)), h / (2 * vt))
     if (!cur.current) cur.current = { x: cx, y: cy, logD: Math.log(d) }
@@ -160,6 +196,21 @@ function Rig({ items, focus }: { items: Item[]; focus: string | null }) {
     cam.updateProjectionMatrix()
   })
   return null
+}
+
+/** 棚：輪の場所は画面の大きさで決まるので、ならべるのは Canvas の中で（選ぶものか画面の大きさが変わったときだけ） */
+function Shelf({ id, picks, focus }: { id: string; picks: readonly string[]; focus: string | null }) {
+  const size = useThree((s) => s.size)
+  const fov = useThree((s) => (s.camera as THREE.PerspectiveCamera).fov)
+  const items = useMemo(() => roomy(id, picks, size.width, size.height, Math.tan(THREE.MathUtils.degToRad(fov) / 2)), [id, picks, size.width, size.height, fov])
+  return (
+    <>
+      {items.map((it, i) => (
+        <Thing key={it.id} item={it} index={i} isBody={it.id === id} />
+      ))}
+      <Rig items={items} focus={focus} />
+    </>
+  )
 }
 
 function Stage({ id }: { id: string }) {
@@ -202,10 +253,7 @@ function Stage({ id }: { id: string }) {
       <Canvas className="sc-canvas" dpr={[1, 1.5]} gl={{ alpha: true, antialias: true }} camera={{ fov: 32, near: 0.01, far: 1e9, position: [0, 0, 10] }} onPointerMissed={() => useSizeCompare.getState().focus && focusOn(null)}>
         <ambientLight intensity={0.35} />
         <directionalLight position={[-0.6, 0.5, 1]} intensity={2.4} />
-        {items.map((it, i) => (
-          <Thing key={it.id} item={it} index={i} isBody={it.id === id} />
-        ))}
-        <Rig items={items} focus={focus} />
+        <Shelf id={id} picks={picks} focus={focus} />
       </Canvas>
       <header className="sc-head">
         <h2>{t.title}</h2>

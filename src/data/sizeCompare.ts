@@ -36,8 +36,8 @@ export function defaultPicks(id: string): Pick[] {
   return picks
 }
 
-/** ならべ方：小さいものから左へ。すき間は、となりの大きいほうの幅の 1/4 */
-export function lineup(id: string, picks: readonly string[]): Item[] {
+/** ならべ方：小さいものから左へ。すき間は、となりの大きいほうの幅の 1/4（minGap があれば、それより狭くはしない） */
+export function lineup(id: string, picks: readonly string[], minGap?: (a: Item, b: Item) => number): Item[] {
   const ids = [id, ...picks.filter((p) => p !== id)]
   const items = ids
     .map((i): Item => ({ id: i, width: r(i) * 2, height: r(i) * 2, x: 0 }))
@@ -45,7 +45,7 @@ export function lineup(id: string, picks: readonly string[]): Item[] {
     .sort((a, b) => a.height - b.height)
   let cursor = 0
   items.forEach((it, i) => {
-    if (i > 0) cursor += Math.max(it.width, items[i - 1].width) * 0.25
+    if (i > 0) cursor += Math.max(Math.max(it.width, items[i - 1].width) * 0.25, minGap?.(items[i - 1], it) ?? 0)
     it.x = cursor + it.width / 2
     cursor += it.width
   })
