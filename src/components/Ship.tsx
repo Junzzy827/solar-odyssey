@@ -513,7 +513,7 @@ export function Ship() {
       <group ref={group} name="ownship" scale={SHIP_SCALE}>
         <group ref={bank}>
           <Suspense fallback={null}>
-            <OwnShipModel spec={spec} unitScale={shipScale} />
+            <OwnShipModel spec={spec} unitScale={shipScale} own />
           </Suspense>
           <EngineFx key={spec.id} spec={spec} />
           {spec.id === 'arcadia' && (
