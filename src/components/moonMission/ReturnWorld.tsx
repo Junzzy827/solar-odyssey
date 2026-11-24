@@ -415,6 +415,10 @@ function Scene() {
     const earthMat = encodeOutput(earthMaterial(day, night, clouds, { scatter: true, steps, water, localClouds: { glsl: CLOUD_COVER_GLSL, uniforms: cloudUniforms() } }))
     earthMat.uniforms.uLights.value = 0.5
     earthMat.uniforms.uR.value = RE
+    // 雲の大きな模様を地面に固定する座標：大気に入る所が原点、着水する所の向きが -前（地球の向きを決める earthOrient と同じ向き）
+    earthMat.uniforms.uQ0.value.copy(P_EI)
+    earthMat.uniforms.uE2.value.copy(T_EI).negate()
+    earthMat.uniforms.uE1.value.crossVectors(P_EI, earthMat.uniforms.uE2.value)
     const atmo = encodeOutput(atmosphereMaterial({ scatter: true, steps }))
     atmo.uniforms.uR.value = RE
     const earthG = new THREE.Group()
@@ -713,12 +717,17 @@ function Scene() {
       m.uniforms.uCloudOn.value = inAir || sea ? 1 : 0
       m.uniforms.uCloudOff.value.set(-time * 6, -time * 2 - cloudRun.range)
     }
-    // 地球の球の上の同じ積雲：高さ 900 km より下で（それより上では、地図の雲だけ）
+    // 地球の球の上の雲：海の上の場面と同じ積雲と、地面に固定した大きな雲のかたまり
     {
       const eu = w.earthMat.uniforms
       eu.uCloudOff.value.set(-time * 6, -time * 2 - cloudRun.range)
-      eu.uCloudOn.value = 1 - THREE.MathUtils.smoothstep(h, 300_000, 900_000)
+      eu.uDrift.value.set(-time * 6, -time * 2)
+      // 遠くからずっと描く（一つ一つの積雲は、小さく見えるあいだは平均の白さになる）。
+      // 高さ 900 km から急に出すと、点々の雲が下からふわっと現れて、急に高さが下がったように見えた
+      eu.uCloudOn.value = 1
       eu.uUp.value.copy(w.earthG.position).negate().normalize()
+      // 低くなったら、船の真下は海の上の場面と同じ雲に（空と海の場面へ、雲の形が変わらずにつながる）
+      eu.uKeep.value = 220_000 * (1 - THREE.MathUtils.smoothstep(h, 45_000, 90_000))
     }
     w.ship.group.visible = sea
     w.ship.group.position.set(-2_600, -h + 0.2, -3_900)
