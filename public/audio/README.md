@@ -16,6 +16,7 @@ Cut from recordings published in the Apollo Flight Journal and the Apollo Lunar 
 - `harddock.mp3`: probe retract, "Ka-chunk. By gosh!" and "ripple fire" at hard dock, GET 003:57:20 (AFJ clip `a17_0033704.mp3`, 1216.0–1229.4 s)
 - `ejection.mp3`: "on my mark, S-IVB/LM Sep: 3, 2, 1… There she goes. LM came with us", GET 004:45:23 (AFJ clip `a17_0043913.mp3`, 369.4–384.6 s)
 - `earthview.mp3`: Cernan on the full Earth, "these kind of views that stick with you forever… Africa dominates the world", GET 005:22:59 (AFJ clip `a17_0051716.mp3`, 342.6–369.6 s)
+- `descent-*.mp3`: ten short pieces of the powered descent, all from the ALSJ clip `a17a_1124856_to_1130348.mp3` (file time ≈ GET − 112:48:57.5), words per the ALSJ landing transcript (a17.landing.html): `earthwindow` "we've got the Earth right out the front window" 112:55:04 (366.9–373.4 s); `throttle` "Throttle down… computer likes it. Beautiful." 112:57:21 (502.9–508.4 s); `massifs` "I've got Nansen… we're level with the top of the Massifs" 112:58:35 (575.1–583.2 s); `pitchover` "Pitchover… There's Camelot!… We got them all." 112:59:18 (620.4–629.1 s); `p66` "I've got P66" 113:00:51 (713.2–715.7 s); Schmitt's altitude calls `at200` 113:00:55 (717.2–721.8 s), `forward` 113:01:15 (737.6–742.9 s), `touchdown` 113:01:42 (762.8–772.4 s), `tenfeet` (774.4–777.4 s); `contact` "Contact." 113:01:58 (780.3–781.6 s). Loudness matched to the other clips.
 
 ## planets/ — Gustav Holst, The Planets, Op. 32 (composed 1914–16, public domain)
 

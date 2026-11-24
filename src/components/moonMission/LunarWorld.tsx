@@ -1099,7 +1099,7 @@ export function LunarWorld() {
  * おまかせでは 7 秒ごとにカメラを切りかえる（8 秒ルール：同じ絵が長く続かないように）。
  * 月の裏でブレーキ（章6）：うしろから → 遠くから（月を背に小さく） → 船長の窓（月面が流れる）。エンジンに火が入った瞬間は、炎の見えるうしろから。
  * 章7：切り離し（等速のところ）と制動はうしろ ↔ 遠く（制動のあいだは窓が空を向いているので窓は使わない）。
- * 接近（ピッチオーバーから）は船長の窓を主に、ときどきうしろから。手動にしたら切りかえない。
+ * 接近（ピッチオーバーから）は船長の窓を主に、ときどきうしろから。最後の降下（おまかせ）は窓・うしろ・遠く。高さ 12 m からは切りかえない。手動にしたら切りかえない。
  * 自分でカメラを選んだら（camLocked）、切りかえない
  */
 const cuts = { t: 0, i: 0, burning: false, mode: '' }
@@ -1108,6 +1108,8 @@ const CUTS: Record<string, MissionCam[]> = {
   undock: ['chase', 'wide'],
   brake: ['chase', 'wide'],
   approach: ['window', 'chase'],
+  // 最後の降下（おまかせのとき）：窓 → うしろ → 遠く（着陸船と谷が一緒に見える）
+  terminal: ['window', 'chase', 'wide'],
 }
 function cutMode() {
   const s = useMoonMission.getState()
@@ -1116,7 +1118,7 @@ function cutMode() {
   if (!d) return ''
   if (s.phase === 'undock') return 'undock'
   if (s.phase !== 'descent' || d.manual) return ''
-  return d.mode === 'braking' ? 'brake' : d.mode === 'approach' ? 'approach' : ''
+  return d.mode === 'braking' ? 'brake' : d.mode === 'approach' ? 'approach' : d.mode === 'terminal' && d.alt > 12 ? 'terminal' : ''
 }
 function loiCuts(dt: number) {
   const s = useMoonMission.getState()
