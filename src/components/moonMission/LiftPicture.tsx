@@ -1,10 +1,13 @@
 import { ui } from '../../i18n'
 import { CORRIDOR, EI_ANGLE, entryAuto, type Entry } from '../../data/reentry'
 import { inCorridor } from '../../state/moonReturn'
+import { useMoonMission } from '../../state/moonMission'
+import { isTouchDevice } from '../../state/input'
 
 // 章9 の大気圏突入：子ども向けの「揚力と重力」の絵（ReturnHud の中）。
 // 角度を決めるあいだは、横から見た「大気に入る道」：浅いと はねて宇宙へ、深いと 地面へ急に。
-// 火の玉のあいだは、うしろから見た司令船：重力はいつも下、揚力は船の傾きと一緒に回る。点線は今の目安の向き。
+// 火の玉のあいだは、うしろから見た司令船：重力はいつも下、揚力は船の傾きと一緒に回る。うすい点線の船が目安の向きで、
+// 黄色の弧が回す向き（どのボタンを押すか）。
 // 絵は船の値（ret.angle、e.lift）を読むだけで、船の回し方は変えない
 
 const DEG = 180 / Math.PI
@@ -95,20 +98,45 @@ export function AnglePicture({ angle }: { angle: number }) {
   )
 }
 
+/** うしろから見た司令船：丸い熱よけと、少し傾いた円すい（とがった先は揚力の側へ寄る）、窓。ghost は目安のうすい形 */
+function Capsule({ x, y, ghost }: { x: number; y: number; ghost?: boolean }) {
+  const stroke = ghost ? 'rgba(255,255,255,0.85)' : '#8d97a3'
+  const dash = ghost ? '3 2.5' : undefined
+  const fill = ghost ? 'none' : '#c9d0d8'
+  return (
+    <>
+      <circle cx={x} cy={y} r="17" fill={fill} stroke={stroke} strokeWidth="1.5" strokeDasharray={dash} />
+      <path d={`M${x - 15.5},${y + 3} L${x - 4.5},${y - 8} M${x + 15.5},${y + 3} L${x + 4.5},${y - 8}`} stroke={ghost ? stroke : '#9aa3ae'} strokeWidth="1.2" strokeDasharray={dash} />
+      <circle cx={x} cy={y - 8} r="5" fill={ghost ? 'none' : '#7b8592'} stroke={stroke} strokeWidth="1.2" strokeDasharray={dash} />
+      {!ghost && <rect x={x - 4} y={y - 16} width="8" height="4" rx="1" fill="#2b3644" />}
+    </>
+  )
+}
+
 export function LiftPicture({ e }: { e: Entry }) {
   const T = ui().moonReturn
+  const auto = useMoonMission((s) => s.auto)
+  const touch = isTouchDevice()
   const bank = Math.acos(Math.max(-1, Math.min(1, e.lift))) * DEG
   const want = Math.acos(Math.max(-1, Math.min(1, entryAuto(e)))) * DEG
   // 揚力の大きさ（重力を 1 として）：空気の力のうち、横向きの分（揚抗比 0.3）
   const liftG = e.g * 0.287
-  const len = 30 * Math.min(1.7, Math.max(0.2, liftG))
+  const len = 24 + 26 * Math.min(1.1, liftG)
   const cx = 80
   const cy = 62
   const line = e.lift > 0.5 ? T.picLiftUp : e.lift < -0.5 ? T.picLiftDown : T.picLiftSide
-  const close = Math.abs(bank - want) < 25
-  // 揚力が下のときは、重力の矢と重ならないように、重力の矢を少し横へ
-  const down = Math.cos(bank / DEG) < -0.3
-  const gx = Math.cos(bank / DEG) < -0.5 ? cx + 14 : cx
+  // 目安の形へ、どちらへ回すか（揚力を上へ＝左回り、下へ＝右回り）
+  const diff = want - bank
+  const turn = Math.abs(diff) < 10 ? 0 : diff > 0 ? 1 : -1
+  const hint = auto ? T.picAutoTurn : turn === 0 ? T.picAligned : turn < 0 ? (touch ? T.picTurnUpTouch : T.picTurnUpKey) : touch ? T.picTurnDownTouch : T.picTurnDownKey
+  // 揚力が下のときは、重力の矢と重ならないように、重力の矢を少し左へ（揚力の名前は右、重力の名前は左）
+  const gx = Math.cos(bank / DEG) < -0.5 ? cx - 14 : cx
+  // 回す向きの弧（いまの向き → 目安の向き）
+  const R = 33
+  const at = (a: number) => [cx + R * Math.sin(a / DEG), cy - R * Math.cos(a / DEG)] as const
+  const [ax, ay] = at(bank)
+  const [bx, by] = at(want)
+  const tang = turn > 0 ? Math.atan2(Math.sin(want / DEG), Math.cos(want / DEG)) : Math.atan2(-Math.sin(want / DEG), -Math.cos(want / DEG))
   return (
     <div className="rt-pic">
       <div className="rt-pic-title">{T.picBack}</div>
@@ -116,38 +144,38 @@ export function LiftPicture({ e }: { e: Entry }) {
         {/* 地平線（下が地球） */}
         <circle cx="80" cy="560" r="454" fill="rgba(110,170,255,0.2)" />
         <circle cx="80" cy="560" r="442" fill="#1d4f8a" />
-        {/* 目安の向き（点線） */}
-        <g transform={`rotate(${want} ${cx} ${cy})`}>
-          <line x1={cx} y1={cy} x2={cx} y2={cy - 50} stroke="rgba(255,255,255,0.8)" strokeWidth="1.6" strokeDasharray="4 3" />
-          <path d={arrowHead(cx, cy - 54, -Math.PI / 2, 6)} fill="rgba(255,255,255,0.8)" />
-        </g>
-        {/* 司令船（うしろから：丸い熱よけと、とがった先）と揚力。船と一緒に回る */}
+        {/* 船と揚力（船と一緒に回る） */}
         <g transform={`rotate(${bank} ${cx} ${cy})`}>
-          <circle cx={cx} cy={cy} r="17" fill="#c9d0d8" stroke="#8d97a3" strokeWidth="1.5" />
-          <circle cx={cx} cy={cy} r="6" fill="#6f7884" />
-          {/* 窓・ハッチの側（揚力が出る側） */}
-          <rect x={cx - 4} y={cy - 15} width="8" height="5" rx="1" fill="#2b3644" />
-          <line x1={cx} y1={cy - 18} x2={cx} y2={cy - len + 4} stroke="#9ff0b8" strokeWidth="3" />
+          <g transform={`translate(${cx} ${cy}) scale(1.35) translate(${-cx} ${-cy})`}>
+            <Capsule x={cx} y={cy} />
+          </g>
+          <line x1={cx} y1={cy - 19} x2={cx} y2={cy - len + 4} stroke="#9ff0b8" strokeWidth="3" />
           <path d={arrowHead(cx, cy - len - 2, -Math.PI / 2, 8)} fill="#9ff0b8" />
         </g>
+        {/* 目安の形（うすい点線の船。上に重ねて、とがった先の向きが見えるように） */}
+        <g transform={`rotate(${want} ${cx} ${cy}) translate(${cx} ${cy}) scale(1.35) translate(${-cx} ${-cy})`}>
+          <Capsule x={cx} y={cy} ghost />
+        </g>
+        {/* 回す向き */}
+        {turn !== 0 && (
+          <>
+            <path d={`M${ax},${ay} A${R},${R} 0 0 ${turn > 0 ? 1 : 0} ${bx},${by}`} fill="none" stroke="#ffd27a" strokeWidth="2.4" strokeDasharray="1 0" opacity="0.95" />
+            <path d={arrowHead(bx, by, tang, 7)} fill="#ffd27a" />
+          </>
+        )}
         {/* 揚力の名前（字は回さない）：矢の先の横 */}
-        <text
-          x={cx + Math.sin(bank / DEG) * (len + 8) + (down ? -8 : 6)}
-          y={cy - Math.cos(bank / DEG) * (len + 8) + 4}
-          textAnchor={down ? 'end' : 'start'}
-          className="rt-pic-l"
-        >
+        <text x={cx + Math.sin(bank / DEG) * (len + 6) + 6} y={cy - Math.cos(bank / DEG) * (len + 6) + 4} className="rt-pic-l">
           {T.picLift}
         </text>
         {/* 重力はいつも下 */}
-        <line x1={gx} y1={cy + 18} x2={gx} y2={cy + 48} stroke="#ffd27a" strokeWidth="3" />
+        <line x1={gx} y1={cy + 23} x2={gx} y2={cy + 48} stroke="#ffd27a" strokeWidth="3" />
         <path d={arrowHead(gx, cy + 54, Math.PI / 2, 8)} fill="#ffd27a" />
-        <text x={gx + 6} y={cy + 46} className="rt-pic-g">
+        <text x={gx - 6} y={cy + 46} textAnchor="end" className="rt-pic-g">
           {T.picGravity}
         </text>
       </svg>
       <div className="rt-pic-line">{line}</div>
-      <div className={`rt-pic-note ${close ? 'good' : ''}`}>{liftG < 0.3 ? T.picThin : T.picMatch}</div>
+      <div className={`rt-pic-note ${turn === 0 || auto ? 'good' : 'turn'}`}>{liftG < 0.3 && !auto ? T.picThin : hint}</div>
     </div>
   )
 }
