@@ -411,7 +411,9 @@ const MUSIC_AT: Partial<Record<CaptionKey, MusicCue | 'stop'>> = {
   // 章3：第3段から離れて向きを変え、着陸船を迎えに行く（宇宙のワルツ）。章4：青い地球と 3 日の旅
   tdSep: 'blueDanube',
   marble: 'neptune',
-  lowGate: 'mars',
+  // 章7：ピッチオーバー（窓から谷が見えた瞬間）から接地まで、火星（約 64 秒。接近と最後の降下にちょうど合う）。
+  // 前は最後の降下（lowGate）からだったが、手動に切り替えると lowGate が出ないので、曲が鳴らなかった
+  highGate: 'mars',
   contact: 'stop',
   touchdown: 'stop',
   outOfFuel: 'stop',
