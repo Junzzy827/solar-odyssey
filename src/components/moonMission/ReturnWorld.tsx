@@ -752,6 +752,10 @@ function Scene() {
     const showLm = step === 'rdv' || step === 'docked' || step === 'lmGone'
     lm.visible = showLm
     csm.visible = true
+    // 船外活動の 2 人と命綱は、船外活動の場面（下の update）だけで出す。
+    // 毎コマ消しておく：読み込みの待ち（Suspense）が明けると、React が中の物を全部「見える」に戻すので、
+    // はじめに消しておくだけでは、月のまわりの場面に宇宙服が浮いてしまった
+    w.eva.group.visible = false
     parts.sm.visible = lunar || step === 'coast' || step === 'eva' || (step === 'cmSep' && t < CMSEP_TIME)
     for (const p of parts.probe) p.visible = lunar || step === 'coast' || step === 'eva'
     w.plume.visible = step === 'tei' && t * TEI_WARP < TEI_BURN
