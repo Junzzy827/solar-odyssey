@@ -132,6 +132,42 @@ const moonFragment = /* glsl */ `
     return mix(mix(mix(hp(i, per), hp(i + vec3(1,0,0), per), f.x), mix(hp(i + vec3(0,1,0), per), hp(i + vec3(1,1,0), per), f.x), f.y),
                mix(mix(hp(i + vec3(0,0,1), per), hp(i + vec3(1,0,1), per), f.x), mix(hp(i + vec3(0,1,1), per), hp(i + vec3(1,1,1), per), f.x), f.y), f.z);
   }
+  #ifdef MOON_CRATERS
+  // 高い所（軌道の 115 km）から見る月：地図（1 画素 5 km）より小さいクレーター（約 0.5〜16 km）を、作って足す。
+  // 3 次元の升ごとに 1 つ（ないこともある）。お椀の形（深さは直径の 2 割）と、少し盛り上がったふち。
+  // 返すのは、面の傾き（高さの勾配、3 次元）と、ふちの明るさ
+  vec3 crHash(vec3 p3) {
+    p3 = fract(p3 * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yxz + 33.33);
+    return fract((p3.xxy + p3.yxx) * p3.zyx);
+  }
+  vec4 craterOct(vec3 q, vec3 up, float seed) {
+    vec3 base = floor(q - 0.5);
+    vec3 g = vec3(0.0);
+    float al = 0.0;
+    for (int i = 0; i < 8; i++) {
+      vec3 c = base + vec3(float(i - (i / 2) * 2), float((i / 2) - (i / 4) * 2), float(i / 4));
+      vec3 h = crHash(c + seed);
+      if (h.x > 0.66) continue;
+      vec3 v = q - (c + 0.2 + 0.6 * crHash(c + seed + 17.0));
+      v -= up * dot(v, up);
+      // 大きさはばらばら（小さいものほど多い）。古いクレーターは、浅く、ふちが丸くなっている
+      float r = 0.1 + 0.38 * h.y * h.y;
+      float lv = length(v);
+      float x = lv / r;
+      if (x > 1.6) continue;
+      vec3 u = v / max(lv, 1e-5);
+      float fresh = h.z * h.z;
+      float deep = mix(0.3, 1.0, fresh);
+      // お椀（中）と、ふちの外の盛り上がり。新しいものほど、ふちがくっきり
+      float soft = mix(0.55, 0.9, fresh);
+      float dhdx = x < soft ? 0.8 * x : x < 1.0 ? 0.8 * soft * (1.0 - x) / (1.0 - soft) : -0.1 * exp(-4.0 * (x - 1.0));
+      g += u * dhdx * deep;
+      al += max(0.0, 1.0 - abs(x - 0.97) * 6.0) * fresh;
+    }
+    return vec4(g, al);
+  }
+  #endif
   void main() {
     #include <logdepthbuf_fragment>
     vec3 d = normalize(vDir);
@@ -158,6 +194,28 @@ const moonFragment = /* glsl */ `
       }
     }
     vec3 n = normalize(vN);
+    #ifdef MOON_CRATERS
+    {
+      vec3 P = d * ${MOON_R.toFixed(1)};
+      float fp = length(fwidth(P));
+      vec3 gs = vec3(0.0);
+      float asum = 0.0;
+      // 海（暗い所）はクレーターが少なく、高地（明るい所）は多い
+      float lum = dot(albedo, vec3(0.333));
+      float dens = mix(0.5, 1.0, smoothstep(0.04, 0.12, lum));
+      for (int o = 0; o < 4; o++) {
+        float S = 16000.0 / pow(3.1, float(o));
+        // 1 画素より小さいクレーターは描かない（ちらつき止め）
+        float w = 1.0 - smoothstep(0.07 * S, 0.25 * S, fp);
+        if (w <= 0.0) continue;
+        vec4 c = craterOct(P / S, d, float(o) * 41.7);
+        gs += c.xyz * w;
+        asum += c.w * w;
+      }
+      n = normalize(n - gs * dens * 0.75);
+      albedo *= 1.0 + asum * 0.12 * dens;
+    }
+    #endif
     // 細かいまだら（近いときだけ）と、急な斜面ほど明るい（新しい岩が出ている）
     vec3 p = d * ${MOON_R.toFixed(1)};
     float m = vnoise(p / 90.0) * 0.45 + vnoise(p / 23.0) * 0.35 + vnoise(p / 5.5) * 0.2;
@@ -243,6 +301,8 @@ type GlobeProps = {
   landingShade?: boolean
   /** 大きな絵が使えない端末で、帯のうち使う所（軌道の面の角度 θ の範囲）。1 画素 238 m のまま切り出す */
   trackSpan?: readonly [number, number]
+  /** 高い所から見る場面：地図より小さいクレーターを作って足す（着陸の場面では使わない。本物の高さの地図があるので） */
+  craters?: boolean
 }
 
 /** 帯の明るさの絵から、θ の範囲 span を切り出す（横は size まで。帯の縦 1024 画素はそのまま） */
@@ -262,7 +322,7 @@ function cropTrack(src: THREE.Texture, span: readonly [number, number], size: nu
   return t
 }
 
-export function LunarGlobe({ maps, craft, frame, sun = SUN_DIR, lite = false, track = !lite, landingShade = true, trackSpan }: GlobeProps) {
+export function LunarGlobe({ maps, craft, frame, sun = SUN_DIR, lite = false, track = !lite, landingShade = true, trackSpan, craters = false }: GlobeProps) {
   const [tex, trackTex] = useTexture([`${base}textures/${lite ? '2k' : '4k'}_moon.jpg`, `${base}terrain/moon_track_albedo.jpg`])
   const camera = useThree((s) => s.camera)
   const gl = useThree((s) => s.gl)
@@ -330,10 +390,11 @@ export function LunarGlobe({ maps, craft, frame, sun = SUN_DIR, lite = false, tr
         uLmY: { value: new THREE.Vector3(0, 1, 0) },
         uLmZ: { value: new THREE.Vector3(0, 0, 1) },
       },
+      defines: craters ? { MOON_CRATERS: '' } : {},
       vertexShader: moonVertex,
       fragmentShader: moonFragment,
     })
-  }, [tex, trackTex, gl, maps, sun, track, landingShade, trackSpan])
+  }, [tex, trackTex, gl, maps, sun, track, landingShade, trackSpan, craters])
   useEffect(() => {
     if (!shadow) return
     const u = material.uniforms
