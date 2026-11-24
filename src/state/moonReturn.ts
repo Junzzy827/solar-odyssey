@@ -238,6 +238,8 @@ export function tickReturn(dt: number) {
       if (t >= LMGONE_TIME) {
         set('teiWait')
         preloadMusic('newWorld')
+        preloadMusic('newWorldFinale')
+        preloadMusic('venus')
         setCaption('teiWait')
       }
       break

@@ -114,7 +114,7 @@ export const moonMissionEn: Translation<typeof moonMissionJa> = {
     resume: (name: string) => `Continue: ${name}`,
     close: 'Close',
     names: ['Launch pad at night', 'Ascent', 'Earth orbit and the burn for the Moon', 'Turnaround and docking', 'The Blue Marble and the three-day coast', 'Braking behind the Moon', 'Landing in Taurus-Littrow', 'Exploring the Moon', 'Lift-off, rendezvous and the return to Earth'],
-    music: 'Music: Holst, The Planets (Jupiter, Mars, Saturn, Neptune); J. Strauss II, The Blue Danube; R. Strauss, Also sprach Zarathustra (performed by Kevin MacLeod, CC BY 3.0); Debussy, Clair de lune; Dvořák, Symphony No. 9 "From the New World", 2nd movement',
+    music: 'Music: Holst, The Planets (Jupiter, Mars, Saturn, Venus); J. Strauss II, The Blue Danube; R. Strauss, Also sprach Zarathustra (performed by Kevin MacLeod, CC BY 3.0); Debussy, Clair de lune; Wagner, Ride of the Valkyries (conducted by Philip Milman, CC BY 3.0); Dvořák, Symphony No. 9 "From the New World", 2nd and 4th movements',
     lines: [
       "Countdown and ignition. Apollo's only night launch",
       'Pitch over, drop the stages and reach space',
