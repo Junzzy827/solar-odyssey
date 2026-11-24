@@ -18,7 +18,7 @@ import { makeEvaScene } from './returnEva'
 import { makeCarrier, makeCollar, makeDownwash, makeHelicopter, makeRaft, makeSwimmer } from './returnRecovery'
 import { CLOUD_COVER_GLSL, SkyLut, cloudQuality, cloudShadeAt, cloudUniforms, skyDomeMaterial, sunTransmit } from './returnSky'
 import { OUT_CHUNK, encodeOutput } from './shaderOut'
-import { makeFireball, makeWindowPlasma, updateFireball } from './returnPlasma'
+import { SHOCK_Y, makeFireball, makeWindowPlasma, updateFireball } from './returnPlasma'
 import { startEntryRoar, startHeliSound } from '../../audio/sfx'
 import { LunarGlobe } from './LunarWorld'
 import { TRACK, TRACK_PLANE, loadLunarMaps, lunarMaps, type LunarMaps } from './lunarTerrain'
@@ -852,6 +852,9 @@ function Scene() {
       const heat = inAir ? ret.heat : 0
       w.fire.group.position.set(0, SHIELD_Y, 0).applyQuaternion(csm.quaternion).add(csm.position)
       w.fire.group.quaternion.setFromUnitVectors(_w.set(0, -1, 0), vel)
+      // 衝撃波の光（おわん）は熱よけの面にそって。尾と火の粉は、流れにそってうしろへ
+      w.fire.shockMesh.quaternion.copy(w.fire.group.quaternion).invert().multiply(csm.quaternion)
+      w.fire.shockMesh.position.set(0, SHOCK_Y, 0).applyQuaternion(w.fire.shockMesh.quaternion)
       updateFireball(w.fire, heat, time)
       w.glowMat.position.copy(w.fire.group.position).addScaledVector(vel, 3)
       w.glowMat.intensity = heat * 900
