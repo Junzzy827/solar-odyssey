@@ -1198,7 +1198,7 @@ function Scene() {
       <primitive object={w.moonG}>
         {lmaps && (
           <Suspense fallback={null}>
-            <LunarGlobe maps={lmaps} frame={w.moonG} sun={MOON_SUN} lite={small} track trackSpan={RDV_SPAN} landingShade={false} />
+            <LunarGlobe maps={lmaps} frame={w.moonG} sun={MOON_SUN} lite={small} track trackSpan={RDV_SPAN} landingShade={false} craters />
           </Suspense>
         )}
       </primitive>
