@@ -30,6 +30,8 @@ export function News() {
       if (++wait < 4) return
       // キャンペーンの集中モードのあいだは出さない（あとで自由探検のときに出す）
       if (campaignFocus()) return
+      // 起動時の「新しい遊び」のお知らせ（ui/NewContent.tsx）が出ているあいだは待つ
+      if (document.querySelector('.new-content')) return
       clearInterval(timer)
       const id = todo[0]
       useStore.getState().showToast(ui().news[id])
