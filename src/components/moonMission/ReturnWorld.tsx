@@ -18,7 +18,7 @@ import { makeEvaScene } from './returnEva'
 import { makeCarrier, makeCollar, makeDownwash, makeHelicopter, makeRaft, makeSwimmer } from './returnRecovery'
 import { CLOUD_COVER_GLSL, SkyLut, cloudQuality, cloudShadeAt, cloudUniforms, skyDomeMaterial, sunTransmit } from './returnSky'
 import { OUT_CHUNK, encodeOutput } from './shaderOut'
-import { makeFireball, makeWindowPlasma, updateFireball } from './returnPlasma'
+import { SHOCK_Y, makeFireball, makeWindowPlasma, updateFireball } from './returnPlasma'
 import { startEntryRoar, startHeliSound } from '../../audio/sfx'
 import { LunarGlobe } from './LunarWorld'
 import { TRACK, TRACK_PLANE, loadLunarMaps, lunarMaps, type LunarMaps } from './lunarTerrain'
@@ -830,7 +830,6 @@ function Scene() {
       const lift = e ? e.lift : 1
       const upPerp = tmp.up.set(0, 1, 0).projectOnPlane(vel).normalize()
       const bank = Math.acos(THREE.MathUtils.clamp(lift, -1, 1))
-      const liftDir = upPerp.clone().applyAxisAngle(vel, bank)
       if (sea) {
         // パラシュートの下：ドローグのあいだは大きくゆれ、主パラシュートでは 27.5° 傾いてつり下がる
         const mainsOn = ret.mainAt >= 0
@@ -840,10 +839,10 @@ function Scene() {
         tmp.qcm.setFromAxisAngle(X, (tilt + sway) * (1 - floatK) + floatK * 0.06 * Math.sin(time * 0.9))
         tmp.qcm.multiply(_q.setFromAxisAngle(_v.set(0, 0, 1), floatK * 0.05 * Math.sin(time * 0.7 + 1)))
       } else {
-        const axis = _v.copy(vel).negate().multiplyScalar(Math.cos(TRIM)).addScaledVector(liftDir, Math.sin(TRIM)).normalize()
+        // 揚力が上のときの姿勢を、進む向きのまわりにバンクの分だけ、機体ごと回す（本物の司令船も、揚力の向きはこうして変えた）
+        const axis = _v.copy(vel).negate().multiplyScalar(Math.cos(TRIM)).addScaledVector(upPerp, Math.sin(TRIM)).normalize()
         tmp.qcm.setFromUnitVectors(Y, axis)
-        // 機体のまわりの回転（バンク）も見えるように
-        tmp.qcm.premultiply(_q.setFromAxisAngle(axis, bank))
+        tmp.qcm.premultiply(_q.setFromAxisAngle(vel, bank))
       }
       csm.quaternion.copy(tmp.qcm)
       csm.position.set(0, -CM_MID, 0).applyQuaternion(csm.quaternion)
@@ -853,6 +852,9 @@ function Scene() {
       const heat = inAir ? ret.heat : 0
       w.fire.group.position.set(0, SHIELD_Y, 0).applyQuaternion(csm.quaternion).add(csm.position)
       w.fire.group.quaternion.setFromUnitVectors(_w.set(0, -1, 0), vel)
+      // 衝撃波の光（おわん）は熱よけの面にそって。尾と火の粉は、流れにそってうしろへ
+      w.fire.shockMesh.quaternion.copy(w.fire.group.quaternion).invert().multiply(csm.quaternion)
+      w.fire.shockMesh.position.set(0, SHOCK_Y, 0).applyQuaternion(w.fire.shockMesh.quaternion)
       updateFireball(w.fire, heat, time)
       w.glowMat.position.copy(w.fire.group.position).addScaledVector(vel, 3)
       w.glowMat.intensity = heat * 900
