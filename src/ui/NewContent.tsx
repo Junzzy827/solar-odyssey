@@ -42,6 +42,8 @@ export function NewContent() {
   useEffect(() => {
     if (lang === null || open) return
     if (slot.load().includes(CURRENT)) return
+    // 行き先つきのリンク（#… や ?…）で開いたときは、その人の目的をじゃましない（覚えずに、次のふつうの起動で出す）
+    if (location.hash.length > 1 || location.search.length > 1) return
     // もう月ミッションで遊んだことがあれば、案内はいらない
     if (saveData.get('moon-mission') !== null) {
       markSeen()
