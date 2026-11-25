@@ -272,7 +272,7 @@ class Part:
             nf.smooth = True
         bm2.free()
 
-    def build(self, joint, subdiv=0, wrinkle=0.0, wrinkle_scale=0.06, budget=4000):
+    def build(self, joint, subdiv=0, wrinkle=0.0, wrinkle_scale=0.06, budget=4000, folds=None):
         me = bpy.data.meshes.new(self.name)
         bmesh.ops.remove_doubles(self.bm, verts=self.bm.verts, dist=1e-5)
         self.bm.normal_update()
@@ -308,6 +308,8 @@ class Part:
         for mod in list(ob.modifiers):
             with bpy.context.temp_override(object=ob):
                 bpy.ops.object.modifier_apply(modifier=mod.name)
+        if folds:
+            add_folds(me, **folds)
         # 面を減らす（スマホのため）：形の大事なところは残る collapse
         tris = sum(len(p.vertices) - 2 for p in me.polygons)
         if tris > budget:
@@ -322,6 +324,45 @@ class Part:
         # 織り目のための UV（箱の投影、5 cm で 1 回くり返す）
         uv_box(me, 0.022)
         return ob
+
+
+def add_folds(me, origin, axis, t0, t1, lam=0.055, amp=0.006, ends=(0.6, 1.0), seed=0.0):
+    """布のしわ：腕や脚の軸にそって、たたまれた布の折り目（谷は細く鋭く、山はなだらか）。
+    折り目は軸のまわりで斜めに波打ち、ところどころ消える。関節に近い両端ほど深い。ベータ布の面だけ"""
+    from mathutils import noise
+    origin, axis = Vector(origin), Vector(axis).normalized()
+    ref = Vector((0, -1, 0)) if abs(axis.y) < 0.9 else Vector((1, 0, 0))
+    e1 = (ref - axis * ref.dot(axis)).normalized()
+    e2 = axis.cross(e1)
+    beta = me.materials.find('Beta')
+    ok = np.zeros(len(me.vertices), bool)
+    for poly in me.polygons:
+        if poly.material_index == beta:
+            ok[list(poly.vertices)] = True
+    n = len(me.vertices)
+    co = np.zeros(n * 3, np.float32)
+    nr = np.zeros(n * 3, np.float32)
+    me.vertices.foreach_get('co', co)
+    me.vertices.foreach_get('normal', nr)
+    co, nr = co.reshape(-1, 3), nr.reshape(-1, 3)
+    o, ax, a1, a2 = np.array(origin), np.array(axis), np.array(e1), np.array(e2)
+    rel = co - o
+    t = rel @ ax
+    sel = ok & (t >= t0) & (t <= t1)
+    th = np.arctan2(rel @ a2, rel @ a1)
+    d = np.zeros(n, np.float32)
+    for i in np.nonzero(sel)[0]:
+        p = Vector(co[i])
+        x = t[i] / lam + 0.45 * math.sin(th[i] + seed) + 0.18 * math.sin(3 * th[i] + seed * 2.3) + 0.25 * noise.noise(p * 4.0)
+        crease = abs(math.sin(math.pi * x)) ** 0.5 - 0.62
+        env = min(1.0, max(0.15, 0.7 + 1.1 * noise.noise(p * 5.0 + Vector((seed, 0, 0)))))
+        u = (t[i] - t0) / max(1e-6, t1 - t0)
+        w = 0.35 + 0.65 * max(ends[0] * math.exp(-(u / 0.18) ** 2), ends[1] * math.exp(-((1 - u) / 0.22) ** 2))
+        fade = min(1.0, (t[i] - t0) / 0.02, (t1 - t[i]) / 0.02)
+        d[i] = amp * crease * env * w * fade
+    co += nr * d[:, None]
+    me.vertices.foreach_set('co', co.ravel())
+    me.update()
 
 
 def noise1(x):
@@ -708,7 +749,9 @@ def build_arm(i):
     # 船長の赤い帯（ひじの上と下）
     S = Part(f'shoulder{i}__cdr')
     S.lathe([(0.115, -0.2), (0.1195, -0.207), (0.1185, -0.243), (0.114, -0.25)], 'Stripe', center=sh, seg=20)
-    return [(U, 1, 0.008), (F, 1, 0.006), (S, 1, 0.008)]
+    U.folds = dict(origin=sh, axis=(0, 0, -1), t0=0.06, t1=0.33, lam=0.06, amp=0.014, ends=(0.5, 1.0), seed=i * 1.7)
+    F.folds = dict(origin=el, axis=(0, 0, -1), t0=0.0, t1=0.185, lam=0.05, amp=0.012, ends=(1.0, 0.4), seed=i * 2.9 + 1)
+    return [(U, 1, 0.005), (F, 1, 0.004), (S, 1, 0.008)]
 
 
 def build_glove(P, base, side):
@@ -762,7 +805,9 @@ def build_leg(i):
         v.co = Vector((kn.x + (v.co.x - kn.x) * 1.3, kn.y - 0.02 + (v.co.y - kn.y) * 1.25, v.co.z * 1.35))
     S = Part(f'hip{i}__cdr')
     S.lathe([(0.143, -0.352), (0.1475, -0.36), (0.146, -0.398), (0.142, -0.405)], 'Stripe', center=hp, seg=22)
-    return [(T, 1, 0.005), (K, 1, 0.005), (S, 1, 0.005)]
+    T.folds = dict(origin=hp, axis=(0, 0, -1), t0=0.08, t1=0.46, lam=0.07, amp=0.017, ends=(0.7, 1.0), seed=i * 3.1 + 0.5)
+    K.folds = dict(origin=kn, axis=(0, 0, -1), t0=0.0, t1=0.27, lam=0.065, amp=0.016, ends=(1.0, 0.5), seed=i * 1.3 + 2)
+    return [(T, 1, 0.004), (K, 1, 0.004), (S, 1, 0.005)]
 
 
 def build_boot(P, ank, side):
@@ -879,7 +924,9 @@ def build_patches(torso, arm0):
 def build_all():
     objs = []
     T = build_torso()
-    torso = T.build('torso', subdiv=2, wrinkle=0.009, wrinkle_scale=0.07, budget=9000)
+    # 胴のしわ：腹から腰（体を前にかがめるところ）に横の折り目
+    torso = T.build('torso', subdiv=2, wrinkle=0.007, wrinkle_scale=0.07, budget=10000,
+                    folds=dict(origin=(0, 0, HIP_Y + 0.24), axis=(0, 0, -1), t0=0.0, t1=0.3, lam=0.055, amp=0.008, ends=(0.4, 1.0), seed=0.7))
     objs.append(torso)
     H = Part('torso__helmet')
     build_helmet(H)
@@ -907,7 +954,8 @@ def build_all():
     for i in range(2):
         for P, sub, wr in build_arm(i) + build_leg(i):
             joint = P.name.split('__')[0]
-            objs.append(P.build(joint, subdiv=sub, wrinkle=wr, wrinkle_scale=0.05, budget=600 if '__' in P.name else 3200))
+            objs.append(P.build(joint, subdiv=sub, wrinkle=wr, wrinkle_scale=0.05, budget=600 if '__' in P.name else 3800,
+                                folds=getattr(P, 'folds', None)))
     objs += build_patches(torso, next(o for o in objs if o.name == 'shoulder0'))
     return objs
 
