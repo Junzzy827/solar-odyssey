@@ -15,7 +15,7 @@ import { APOLLO17 } from '../../data/apollo17'
 import { WheelDust, meshHeight, drawnHeight, nearRocks, rockBodies } from './Rover'
 import { WheelTracks } from './wheelTracks'
 import { Sway } from './roverSway'
-import { loadSuit, makeSuitRig } from './suitModel'
+import { makeApolloAstronaut } from './apolloSuit'
 import type { Rig } from './astronaut'
 
 // アポロ15〜17号の月面車 LRV（全長 3.1 m、4 輪、乗員 2 人）。模型は tools/blender/build_lrv.py で作った lrv.glb。
@@ -149,25 +149,23 @@ export function LunarRover({
   }, [scene, prepare])
   useEffect(() => () => built.owned.forEach((m) => m.dispose()), [built])
 
-  // 座っている 2 人（宇宙服のモデルを読みこんでから）。船長は左、シュミット飛行士は右
+  // 座っている 2 人：アポロ 17 号の宇宙服（A7LB）。船長サーナン（左・赤い帯）と、シュミット飛行士（右）。
+  // 月面を歩いたあとなので、ひざから下に砂ぼこり
   const rigs = useRef<Rig[]>([])
   useEffect(() => {
-    let dead = false
-    void loadSuit().then(async (src) => {
-      if (!src || dead) return
-      for (let i = 0; i < 2; i++) {
-        const r = await makeSuitRig(src, false)
-        if (!r || dead) return
-        r.root.position.set(SEAT_X[i], 0, SEAT_Z)
-        r.root.rotation.y = Math.PI
-        seat(r, i === 0)
-        built.crew.add(r.root)
-        rigs.current.push(r)
-      }
-    })
+    for (let i = 0; i < 2; i++) {
+      const r = makeApolloAstronaut({ back: 'plss', leva: true, cdr: i === 0, rcu: true, dust: true })
+      r.root.position.set(SEAT_X[i], 0, SEAT_Z)
+      r.root.rotation.y = Math.PI
+      seat(r, i === 0)
+      built.crew.add(r.root)
+      rigs.current.push(r)
+    }
     return () => {
-      dead = true
-      for (const r of rigs.current) built.crew.remove(r.root)
+      for (const r of rigs.current) {
+        built.crew.remove(r.root)
+        for (const m of r.materials) m.dispose()
+      }
       rigs.current = []
     }
   }, [built])
