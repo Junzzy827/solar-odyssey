@@ -412,6 +412,19 @@ def uv_box(me, size):
             uv.data[li].uv = (u / size, v / size)
 
 
+def far_hit(tree, o, d, maxd):
+    """内側から外へ：いちばん外の面（重なった玉の内側の面をとばす）"""
+    last = (None, None)
+    p = Vector(o)
+    for _ in range(12):
+        hit, nrm, _, dist = tree.ray_cast(p, d, maxd - (p - o).length)
+        if hit is None:
+            break
+        last = (hit, nrm if nrm.dot(d) > 0 else -nrm)
+        p = hit + d * 0.0005
+    return last
+
+
 def spiral(P, pts, r, pitch, mat='Dark', w=0.0026):
     """ホースに巻いた黒いらせんの補強帯"""
     C = catmull(pts, 180)
@@ -646,12 +659,40 @@ def build_plss(P):
     """月面の背中の箱（PLSS）と上の非常用酸素（OPS）、肩の帯、アンテナ"""
     z0 = HIP_Y
     P.box((0, 0.34, z0 + 0.36), (0.52, 0.27, 0.68), 'Hard', bevel=0.04, seg=3)
-    # 箱のふたの線とベルト、下の水の口
-    P.box((0, 0.477, z0 + 0.36), (0.46, 0.01, 0.56), 'Hard', bevel=0.006)
-    for z in (z0 + 0.2, z0 + 0.48):
-        P.box((0, 0.482, z), (0.47, 0.012, 0.03), 'Beta', bevel=0.004)
+    # 背中の面（三面図の後ろ姿）：ふちの枠、6 枚の板、上の丸い水の口、真ん中の弁の箱とホース、取っ手、下の V の帯
+    yb = 0.475
+    P.box((0, yb + 0.002, z0 + 0.36), (0.46, 0.008, 0.6), 'Hard', bevel=0.006)
+    for x, w in ((-0.225, 0.016), (0.225, 0.016)):
+        P.box((x, yb + 0.008, z0 + 0.36), (w, 0.012, 0.6), 'Hard', bevel=0.005)
+    for z in (z0 + 0.065, z0 + 0.655):
+        P.box((0, yb + 0.008, z), (0.46, 0.012, 0.016), 'Hard', bevel=0.005)
+    for col in (-1, 1):
+        for zc, h in ((z0 + 0.56, 0.13), (z0 + 0.39, 0.15), (z0 + 0.2, 0.17)):
+            P.box((col * 0.13, yb + 0.009, zc), (0.13, 0.006, h), 'Hard', bevel=0.012, seg=2)
+            P.box((col * 0.13, yb + 0.0125, zc + h * 0.5 - 0.02), (0.1, 0.002, 0.004), 'Dark', bevel=0.001)  # 板のすき間の影
+    P.lathe([(0.036, 0.0), (0.036, 0.014), (0.03, 0.018)], 'Metal', center=(0, yb + 0.006, z0 + 0.6), seg=24, axis=(0, 1, 0), cap1=True)
+    P.lathe([(0.022, 0.018), (0.022, 0.022)], 'Dark', center=(0, yb + 0.006, z0 + 0.6), seg=20, axis=(0, 1, 0), cap1=True)
+    # 取っ手（横の棒、両はしは斜めに下りる）
+    P.tube([(-0.12, yb + 0.012, z0 + 0.43), (-0.08, yb + 0.03, z0 + 0.47), (0.08, yb + 0.03, z0 + 0.47), (0.12, yb + 0.012, z0 + 0.43)], 0.008, 'Metal', seg=8, n=24)
+    # 真ん中の弁の箱
+    P.box((0, yb + 0.03, z0 + 0.36), (0.11, 0.05, 0.12), 'Hard', bevel=0.01, seg=2)
+    P.box((0, yb + 0.057, z0 + 0.36), (0.08, 0.006, 0.09), 'Metal', bevel=0.004)
+    for x in (-0.03, 0.03):
+        P.lathe([(0.012, 0.0), (0.012, 0.012)], 'Metal', center=(x, yb + 0.03, z0 + 0.3), seg=12, axis=(0, 0, -1), cap1=True)
+        P.tube([(x, yb + 0.03, z0 + 0.29), (x * 1.4, yb + 0.045, z0 + 0.2), (x * 2.4, yb + 0.035, z0 + 0.12), (x * 3.2, yb + 0.02, z0 + 0.09)],
+               0.009, 'Beta', seg=8, n=24, ribs=0.12, ribn=8)
+    # 下の V の帯と留め具
+    for side in (1, -1):
+        P.tube([(0.2 * side, yb + 0.012, z0 + 0.05), (0.07 * side, yb + 0.014, z0 + 0.14)], 0.006, 'Beta', seg=6, n=4)
+        P.box((0.17 * side, yb + 0.016, z0 + 0.11), (0.02, 0.008, 0.05), 'Beta', bevel=0.003)
+        P.box((0.17 * side, yb + 0.021, z0 + 0.12), (0.022, 0.004, 0.014), 'Metal', bevel=0.002)
     P.box((0, 0.31, z0 + 0.86), (0.48, 0.22, 0.28), 'Hard', bevel=0.035, seg=3)  # OPS
     P.box((0, 0.31, z0 + 0.86), (0.49, 0.225, 0.025), 'Beta', bevel=0.005)
+    # OPS の後ろの面の窓（くぼんだ板）と、横の赤い印、横のホース
+    P.box((0, 0.42, z0 + 0.88), (0.34, 0.006, 0.16), 'Hard', bevel=0.02, seg=2)
+    P.box((0.244, 0.3, z0 + 0.93), (0.006, 0.08, 0.025), 'Stripe', bevel=0.002)
+    P.box((0.244, 0.38, z0 + 0.36), (0.006, 0.05, 0.08), 'Metal', bevel=0.004)  # 横の口
+    P.tube([(0.24, 0.36, z0 + 0.78), (0.285, 0.34, z0 + 0.66), (0.28, 0.36, z0 + 0.5), (0.25, 0.38, z0 + 0.4)], 0.011, 'Beta', seg=8, n=30, ribs=0.12, ribn=12)
     # アンテナ（上の短い棒）
     P.tube([(0.17, 0.33, z0 + 1.0), (0.17, 0.34, z0 + 1.17)], 0.006, 'Metal', seg=6)
     # 背中から胸の口へのホース（左右に回る、じゃばら）
@@ -738,7 +779,7 @@ def build_arm(i):
     # 手のひらを体の内側へ向ける（腕の軸のまわりに 90 度）、大きさ 1.32 倍
     R = Matrix.Rotation(-math.pi / 2 * side, 3, 'Z')
     for v in F.bm.verts[n0:]:
-        v.co = gb + R @ ((v.co - gb) * 1.5)
+        v.co = gb + R @ ((v.co - gb) * 1.55)
     # 左の手首の手順書（カフ・チェックリスト）
     if side > 0:
         F.box(el + Vector((0.0, -0.075, -0.15)), (0.11, 0.035, 0.12), 'Beta', bevel=0.01)
@@ -749,28 +790,36 @@ def build_arm(i):
     # 船長の赤い帯（ひじの上と下）
     S = Part(f'shoulder{i}__cdr')
     S.lathe([(0.115, -0.2), (0.1195, -0.207), (0.1185, -0.243), (0.114, -0.25)], 'Stripe', center=sh, seg=20)
+    F.budget = 5200
     U.folds = dict(origin=sh, axis=(0, 0, -1), t0=0.06, t1=0.33, lam=0.06, amp=0.014, ends=(0.5, 1.0), seed=i * 1.7)
     F.folds = dict(origin=el, axis=(0, 0, -1), t0=0.0, t1=0.185, lam=0.05, amp=0.012, ends=(1.0, 0.4), seed=i * 2.9 + 1)
     return [(U, 1, 0.005), (F, 1, 0.004), (S, 1, 0.008)]
 
 
 def build_glove(P, base, side):
-    """月面用の手袋：白い甲のカバーと、青灰色の指先。指は軽く曲げる"""
-    palm_c = base + Vector((0, -0.008, -0.065))
-    P.lathe([(0.06, 0.04), (0.064, 0.0), (0.056, -0.035)], 'Beta', center=base, seg=18, sx=1.0, sy=0.85)  # 手首の布
-    P.box(palm_c, (0.098, 0.052, 0.105), 'Beta', bevel=0.022, seg=3)
-    # 指（4 本）：根元 → 先（ゆるく前に曲がる）
+    """月面用の手袋：手首の布のカフ、ふくらんだ甲と手のひら（白い布）、軽く曲げた太い指（青灰色のゴムの指先）"""
+    palm_c = base + Vector((0, -0.006, -0.05))
+    P.lathe([(0.058, 0.045), (0.066, 0.02), (0.064, 0.0), (0.056, -0.025)], 'Beta', center=base, seg=20, sy=0.85)  # カフ
+    P.lathe([(0.067, 0.022), (0.069, 0.016), (0.069, 0.004), (0.066, -0.002)], 'Metal', center=base, seg=20, sy=0.85)  # カフの金具
+    elems = [
+        (palm_c + Vector((0, 0, 0.0)), (0.05, 0.03, 0.044)),  # 手のひら・甲
+        (palm_c + Vector((0, 0.004, 0.035)), (0.046, 0.027, 0.026)),  # 手首へ
+    ]
+    tips = []
     for k in range(4):
-        x = (-0.034 + k * 0.0225) * side
-        root = palm_c + Vector((x, -0.006, -0.048))
-        ln = 1.0 if k in (1, 2) else 0.85
-        pts = [root, root + Vector((0, -0.018, -0.028 * ln)), root + Vector((0, -0.04 * ln, -0.036 * ln)), root + Vector((0, -0.048 * ln, -0.016 * ln))]
-        P.tube(pts, 0.0125, 'Beta', seg=8, n=8)
-        P.sphere(pts[-1] + Vector((0, -0.007, -0.002)), 0.0128, 'Silicone', seg=10, rings=6)
-    # 親指（体の内側）
-    root = palm_c + Vector((-0.05 * side, -0.016, -0.0))
-    P.tube([root, root + Vector((-0.01 * side, -0.034, -0.028))], 0.014, 'Beta', seg=8, n=6)
-    P.sphere(root + Vector((-0.011 * side, -0.04, -0.034)), 0.0135, 'Silicone', seg=10, rings=6)
+        x = (-0.031 + k * 0.0207) * side
+        ln = 1.25 if k in (1, 2) else 1.08
+        root = palm_c + Vector((x, -0.004, -0.036))
+        path = [root, root + Vector((0, -0.01, -0.028 * ln)), root + Vector((0, -0.028 * ln, -0.048 * ln)), root + Vector((0, -0.046 * ln, -0.05 * ln))]
+        for q in catmull(path, 7):
+            elems.append((q, (0.0122, 0.0122, 0.0128)))
+        tips.append(path[3] + (path[3] - path[2]).normalized() * 0.004)
+    troot = palm_c + Vector((-0.045 * side, -0.016, 0.004))
+    for q in catmull([troot, troot + Vector((-0.006 * side, -0.016, -0.016)), troot + Vector((-0.01 * side, -0.03, -0.028))], 5):
+        elems.append((q, (0.0128, 0.0128, 0.0135)))
+    tips.append(troot + Vector((-0.01 * side, -0.032, -0.03)))
+    P.blob(elems, 'Beta', res=0.0045, smooth=2)
+    P.blob([(t, (0.0108, 0.0108, 0.0112)) for t in tips], 'Silicone', res=0.004, smooth=2)
 
 
 def build_leg(i):
@@ -828,16 +877,40 @@ def build_boot(P, ank, side):
         ((x, y - 0.06, 0.026), (0.104, 0.11, 0.032)),
         ((x, y - 0.16, 0.032), (0.092, 0.075, 0.032)),
     ], 'Silicone', res=0.008, smooth=1)
-    # 底の横のみぞ（周りを回るギザギザ）
-    for k in range(11):
-        t = k / 10
-        yy = y + 0.09 - t * 0.29
-        w = 0.094 - 0.012 * abs(t - 0.45) ** 2 * 4
-        for sd in (1, -1):
-            P.box((x + (w - 0.016) * sd, yy, 0.022), (0.012, 0.014, 0.03), 'Silicone', bevel=0.002, seg=1)
-    # 甲のベルト（金属の留め具つき）と、かかとのベルト
-    P.box((x, y - 0.075, 0.1), (0.175, 0.04, 0.012), 'Boot', bevel=0.004, rot=(0.35, 0, 0))
-    P.box((x + 0.07 * side, y - 0.07, 0.1), (0.02, 0.03, 0.02), 'Metal', bevel=0.004)
+    # 底の横の筋（周りを回る段）：靴底の面を内側から外へ探して、そのすぐ外に輪を回す
+    from mathutils.bvhtree import BVHTree
+    P.bm.verts.ensure_lookup_table()
+    tree = BVHTree.FromBMesh(P.bm)
+    for zz in (0.01, 0.026, 0.042):
+        pts = []
+        for k in range(48):
+            a = 2 * math.pi * k / 48
+            o = Vector((x, y - 0.06, zz))
+            d = Vector((math.cos(a), math.sin(a), 0))
+            hit = far_hit(tree, o, d, 0.4)[0]
+            pts.append(hit + d * 0.001 if hit else o + d * 0.1)
+        pts.append(pts[0])
+        P.tube(pts, 0.004, 'Silicone', seg=5, n=96, cap=False)
+    # 筒の上のふち（ゲートル）
+    P.lathe([(0.1, 0.0), (0.104, 0.008), (0.104, 0.02), (0.098, 0.026)], 'Boot', center=(x, y + 0.005, z + 0.155), seg=22)
+    # 甲のベルト：甲の面の上を横切る帯（面を上から探して沿わせる）と、外側の金属の留め具
+    P.bm.verts.ensure_lookup_table()
+    tree = BVHTree.FromBMesh(P.bm)
+    for yy, buckle in ((y - 0.115, True),):
+        pts = []
+        for k in range(13):
+            u = -1 + 2 * k / 12
+            a = u * 1.35
+            d = Vector((math.sin(a), 0, math.cos(a)))
+            o = Vector((x, yy, 0.05))
+            hit, nrm = far_hit(tree, o, d, 0.3)
+            if hit:
+                pts.append(hit + nrm * 0.004)
+        if len(pts) > 4:
+            P.tube(pts, 0.0065, 'Boot', seg=6, n=40)
+            if buckle:
+                q = pts[-2] if side > 0 else pts[1]
+                P.box(tuple(q), (0.012, 0.024, 0.02), 'Metal', bevel=0.004)
 
 
 # ---- 組み立て・AO・書き出し ---------------------------------------------------------------------
@@ -954,7 +1027,7 @@ def build_all():
     for i in range(2):
         for P, sub, wr in build_arm(i) + build_leg(i):
             joint = P.name.split('__')[0]
-            objs.append(P.build(joint, subdiv=sub, wrinkle=wr, wrinkle_scale=0.05, budget=600 if '__' in P.name else 3800,
+            objs.append(P.build(joint, subdiv=sub, wrinkle=wr, wrinkle_scale=0.05, budget=600 if '__' in P.name else getattr(P, 'budget', 3800),
                                 folds=getattr(P, 'folds', None)))
     objs += build_patches(torso, next(o for o in objs if o.name == 'shoulder0'))
     return objs
@@ -1130,6 +1203,7 @@ def preview(objs):
         'front': ((0, -6, 1.0), 'ORTHO'), 'side': ((6, 0, 1.0), 'ORTHO'), 'back': ((0, 6, 1.0), 'ORTHO'),
         'hero': ((1.4, -3.4, 1.5), 'PERSP'), 'chest': ((0.35, -1.3, 1.45), 'PERSP'),
         'head': ((0.75, -1.25, 1.95), 'PERSP'),
+        'boot': ((1.0, -0.9, 0.35), 'PERSP'), 'hand': ((0.9, -0.9, 0.95), 'PERSP'),
     }
     for tag in views:
         pos, kind = spots[tag]
@@ -1137,7 +1211,7 @@ def preview(objs):
         cam.data.type = kind
         cam.data.ortho_scale = 2.25
         cam.data.lens = 50 if tag == 'hero' else 70
-        tgt = Vector((0, 0, {'chest': 1.45, 'head': 1.78}.get(tag, 1.0)))
+        tgt = Vector({'chest': (0, 0, 1.45), 'head': (0, 0, 1.78), 'boot': (0.12, -0.05, 0.12), 'hand': (0.33, -0.1, 0.72)}.get(tag, (0, 0, 1.0)))
         cam.rotation_euler = (tgt - Vector(pos)).to_track_quat('-Z', 'Y').to_euler()
         sc.render.filepath = os.path.join(PREVIEW, f'suit-{kit}-{tag}.png')
         bpy.ops.render.render(write_still=True)
