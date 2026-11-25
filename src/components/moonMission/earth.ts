@@ -66,6 +66,9 @@ export const SCATTER_CHUNK = /* glsl */ `
     vec3 tau = vec3(0.0);
     vec3 sumR = vec3(0.0);
     vec3 sumM = vec3(0.0);
+    #ifdef SCATTER_MS
+    vec3 sumMS = vec3(0.0);
+    #endif
     const int HALF = SCATTER_N / 2;
     for (int side = 0; side < 2; side++) {
       float L = side == 0 ? tm - t0 : t1 - tm;
@@ -91,15 +94,25 @@ export const SCATTER_CHUNK = /* glsl */ `
         float dR = exp(-h / H_R) * ds;
         float dM = exp(-h / H_M) * ds;
         vec3 ext = (B_R + B_O) * dR + B_M * 1.11 * dM;
-        vec3 T = exp(-(tau + 0.5 * ext + sunTau(r, dot(p, sun) / r)));
+        vec3 st = sunTau(r, dot(p, sun) / r);
+        vec3 T = exp(-(tau + 0.5 * ext + st));
         sumR += T * dR;
         sumM += T * dM;
+        #ifdef SCATTER_MS
+        // 何度も散らされてから目に入る光（空じゅうから来る、青い光）。日の光の弱まりを少しだけ受ける
+        sumMS += exp(-(tau + 0.5 * ext + 0.3 * st)) * (B_R * dR + B_M * dM) * smoothstep(-0.12, 0.08, dot(p, sun) / r);
+        #endif
         tau += ext;
       }
     }
     trans = exp(-tau);
     float mu = dot(rd, sun);
-    return (sumR * B_R * phaseR(mu) + sumM * B_M * phaseM(mu)) * SUN_E;
+    vec3 single = (sumR * B_R * phaseR(mu) + sumM * B_M * phaseM(mu)) * SUN_E;
+    #ifdef SCATTER_MS
+    // 空の中（地上近く）から見る空だけ：1 回だけの散乱では、空の上の方が暗く、地平線が茶色くなりすぎる
+    single += sumMS * SUN_E * SCATTER_MS * 0.0795775;
+    #endif
+    return single;
   }
   // 光の量 → 画面の明るさ（後で OUT_CHUNK が 2.2 乗で光の量へもどす）
   vec3 expose(vec3 L) { return pow(1.0 - exp(-EXPO * L), vec3(1.0 / 2.2)); }
@@ -111,8 +124,10 @@ const vert = /* glsl */ `
   varying vec2 vUv;
   varying vec3 vNw;
   varying vec3 vPw;
+  varying vec3 vNl;
   void main() {
     vUv = uv;
+    vNl = normal;
     vNw = normalize(mat3(modelMatrix) * normal);
     vec4 w = modelMatrix * vec4(position, 1.0);
     vPw = w.xyz;
@@ -139,6 +154,67 @@ const frag = /* glsl */ `
   uniform sampler2D uWater;
   uniform float uGlint;
   ${SCATTER_CHUNK}
+  #ifdef MM_LOCAL_CLOUDS
+  uniform vec3 uUp;
+  uniform float uKeep;
+  // 地面に固定した雲の座標：大気に入る所（地球の模型の中の向き uQ0）からの距離（m）。uE1・uE2 はその横・前の向き
+  uniform vec3 uQ0;
+  uniform vec3 uE1;
+  uniform vec3 uE2;
+  uniform vec2 uDrift;
+  varying vec3 vNl;
+  /*LOCAL_CLOUDS*/
+  vec2 groundXY(vec3 nl) {
+    float cs = dot(nl, uQ0);
+    vec3 tv = nl - uQ0 * cs;
+    float sn = length(tv);
+    return sn > 1e-7 ? vec2(dot(tv, uE1), dot(tv, uE2)) / sn * atan(sn, cs) * uR : vec2(0.0);
+  }
+  /**
+   * 帰り道の地球の雲（0〜1）。白い点が一面に同じようにならぶのではなく、本物の雲の写真のように：
+   * ・地図の雲の多さ（region、数十〜数百 km のまとまり）で、晴れた海・積雲の集まった所・一面の雲を分ける
+   * ・数十 km のゆがんだ模様で、積雲を集めたり（雲の島・すじ）、すき間をあけたりする
+   * ・一つ一つの積雲（1〜2 km）は、画面の 1 画素より小さくなったら、その場所の平均の白さにする（ちらつかない）
+   * 船の真下（uKeep の半径の中）は、海の上の場面と同じ雲（低くなったときに、空と海の場面へつながるように）
+   */
+  float wxCover(vec2 ps, vec2 gl, float region, float fp, float fpl) {
+    // 大きな模様（数十〜数百 km）は地面に固定した座標で（遠くから近づくあいだ、雲の模様が地面といっしょに動く）。
+    // 一つ一つの積雲は、海の上の場面と同じ座標で
+    vec2 g = ps + uCloudOff;
+    vec2 G = gl + uDrift;
+    // 数百 km のまとまり（前線・低気圧の雲のかたまりと、晴れた海）。ゆがめて、丸い模様のくり返しにならないように
+    vec2 a = G / 420000.0;
+    vec2 w1 = vec2(cNoise(a + 1.7), cNoise(a + 6.2)) - 0.5;
+    float syn = cNoise(G / 260000.0 + w1 * 2.0) * 0.7 + cNoise(G / 110000.0 + w1 * 1.4 + 2.9) * 0.3;
+    // 数十 km のまとまり（積雲の島・すじ・すき間）
+    vec2 b = G / 70000.0;
+    vec2 w2 = vec2(cNoise(b + 3.1), cNoise(b * 1.3 + 8.7)) - 0.5;
+    float meso = cNoise(G / 30000.0 + w2 * 1.8) * 0.65 + mix(cNoise(G / 9000.0 + w2 * 1.2 + 5.3), 0.5, smoothstep(2500.0, 9000.0, fpl)) * 0.35;
+    meso = mix(meso, 0.5, smoothstep(9000.0, 40000.0, fpl));
+    float big = region * 0.9 + 0.18 + (syn - 0.5) * 1.8 + (meso - 0.5) * 0.3;
+    // 一面の雲のかたまり：ふちはくっきり（晴れた海との境目が、はっきり分かれる）
+    float deck = smoothstep(0.66, 0.73, big);
+    // 積雲の野：雲の多さは場所で変わる。晴れた海（big が小さい所）には出ない
+    float dens = clamp(smoothstep(0.34, 0.66, big) + (meso - 0.5) * 1.1, 0.0, 1.0) * smoothstep(0.26, 0.36, big);
+    float thr = mix(0.98, 0.4, dens);
+    // 小さい積雲（約 2 km）と、大きく育った積雲の集まり（約 6 km）。1 画素より小さくなったら、その場所の平均の白さ
+    vec2 q = g / 1800.0;
+    float n = cNoise(q) * 0.5 + cNoise(q * 2.03 + 7.1) * 0.3 + cNoise(q * 4.1 + 3.3) * 0.2;
+    float cu = mix(smoothstep(thr, thr + 0.22, n), clamp((0.72 - thr) / 0.45, 0.0, 1.0) * 0.8, smoothstep(350.0, 1800.0, fp));
+    vec2 q2 = g / 6000.0;
+    float n2 = cNoise(q2 + 11.0) * 0.6 + cNoise(q2 * 2.1 + 4.0) * 0.4;
+    float cu2 = mix(smoothstep(thr + 0.04, thr + 0.3, n2), clamp((0.74 - thr) / 0.5, 0.0, 1.0) * 0.7, smoothstep(1200.0, 6000.0, fp));
+    float sm = mix(n, 0.5, smoothstep(350.0, 1800.0, fp));
+    float c = max(max(cu, cu2 * 0.9), deck * (0.82 + 0.18 * sm));
+    // 船の真下（低くなったとき）は、海の上の場面と同じ雲
+    float keep = 1.0 - smoothstep(uKeep * 0.55, uKeep + 1.0, length(ps));
+    if (keep > 0.0) {
+      float c0 = mix(smoothstep(0.15, 0.6, cCover(ps)), 0.1 * uCloudOn, smoothstep(500.0, 3000.0, fp));
+      return mix(c * uCloudOn, c0, keep);
+    }
+    return c * uCloudOn;
+  }
+  #endif
   #endif
   float lhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float vnoise(vec2 p) {
@@ -203,7 +279,8 @@ const frag = /* glsl */ `
       float cd = cloudDetail(vUv);
       float clx = clamp(cl + (cd - 0.5) * 1.6 * cl * (1.0 - cl) * 2.2, 0.0, 1.0);
       float cover = smoothstep(0.2, 0.75, clx) * 0.94;
-      alb = mix(alb, vec3(0.72), cover);
+      // 厚い雲のかたまりも、のっぺりした灰色ではなく、明るい頭と少し暗いすき間
+      alb = mix(alb, vec3(0.6 + 0.22 * cd), cover);
       alb *= mix(1.0, 0.55, uNear);
       vec3 sunT = exp(-sunTau(uR + 200.0, l));
       // 空からの青い光（影の側をほんの少し）
@@ -225,8 +302,42 @@ const frag = /* glsl */ `
           if (th > 0.0) dist = th;
         }
       }
+      // 船の下のあたり（着水する海）だけ：海の上の積雲（空と海の場面と同じ雲の地図）と、その影。
+      // 地図の雲（1 画素 10 km）では見えない、1〜2 km の綿雲が、高さ 100 km からは一つ一つ見える
+      float lcov = 0.0;
+      #ifdef MM_LOCAL_CLOUDS
+      {
+        vec3 nn = normalize(ro + rd * dist);
+        float cs = dot(nn, uUp);
+        vec3 tv = nn - uUp * cs;
+        float sn = length(tv);
+        float ang = atan(sn, cs);
+        vec3 ex = normalize(vec3(1.0, 0.0, 0.0) - uUp * uUp.x);
+        vec3 ez = cross(ex, uUp);
+        // 船の真下からの、海の上の場面と同じ向きの座標（m）
+        vec2 ps = sn > 1e-7 ? vec2(dot(tv, ex), dot(tv, ez)) / sn * ang * uR : vec2(0.0);
+        // 地面に固定した座標。大気に入る所から着水する所までの道（約 2,500 km）を中心に、広く
+        vec2 gl = groundXY(normalize(vNl));
+        float reg = 1.0 - smoothstep(3500000.0, 5000000.0, length(gl - vec2(0.0, -1300000.0)));
+        if (reg > 0.0) {
+          float fp = length(fwidth(ps));
+          float fpl = length(fwidth(gl));
+          float sy = max(0.08, dot(uSun, nn));
+          vec2 st = vec2(dot(uSun, ex), dot(uSun, ez)) / sy * 1300.0;
+          // 地図の雲を、ぼかして引く（約 50〜100 km のまとまり）
+          float region = texture2D(uClouds, vUv, 3.0).r;
+          float c0 = wxCover(ps, gl, region, fp, fpl) * reg;
+          float c1 = smoothstep(0.0, 0.4, wxCover(ps + st, gl, region, fp, fpl)) * reg;
+          // 雲の影（雲のない所の海に落ちる）と、雲そのもの（日の当たる頭は明るい）
+          ground *= 1.0 - 0.7 * c1 * (1.0 - c0);
+          vec3 cAlb = vec3(0.78) * (max(0.0, l) * sunT * mix(1.0, 0.7, c1) + sky * 2.0);
+          ground = mix(ground, cAlb, c0 * (1.0 - cover));
+          lcov = c0;
+        }
+      }
+      #endif
       // 海の照り返し（サングリント）：風で波立った海面（波の傾きの散らばり σ² ≈ 0.02）に映る太陽
-      float water = texture2D(uWater, vUv).r * (1.0 - cover);
+      float water = texture2D(uWater, vUv).r * (1.0 - cover) * (1.0 - lcov);
       if (water > 0.0 && l > 0.0) {
         vec3 vv = -rd;
         float nv = max(0.02, dot(n, vv));
@@ -262,12 +373,23 @@ const frag = /* glsl */ `
 `
 
 /** scatter：大気の光の散乱を計算する（打ち上げの場面）。steps：視線にそって調べる点の数 */
-export function earthMaterial(day: THREE.Texture, night: THREE.Texture, clouds: THREE.Texture, opt?: { scatter?: boolean; steps?: number; water?: THREE.Texture }) {
+/**
+ * localClouds：船の下のあたりに、海の上の場面と同じ積雲を描く（帰りの場面）。glsl は cCover(vec2) を定める。
+ * uniforms はその雲の地図の値（空と海の素材と同じものを、毎フレーム書く）
+ */
+export function earthMaterial(
+  day: THREE.Texture,
+  night: THREE.Texture,
+  clouds: THREE.Texture,
+  opt?: { scatter?: boolean; steps?: number; water?: THREE.Texture; localClouds?: { glsl: string; uniforms: Record<string, THREE.IUniform> } },
+) {
+  const local = opt?.scatter ? opt.localClouds : undefined
   return new THREE.ShaderMaterial({
     vertexShader: vert,
-    fragmentShader: frag,
-    defines: opt?.scatter ? { MM_SCATTER: '', SCATTER_N: opt.steps ?? 16 } : {},
+    fragmentShader: frag.replace('/*LOCAL_CLOUDS*/', local?.glsl ?? ''),
+    defines: opt?.scatter ? { MM_SCATTER: '', SCATTER_N: opt.steps ?? 16, ...(local ? { MM_LOCAL_CLOUDS: '' } : {}) } : {},
     uniforms: {
+      ...(local ? { ...local.uniforms, uUp: { value: new THREE.Vector3(0, 1, 0) }, uKeep: { value: 0 }, uQ0: { value: new THREE.Vector3(0, 1, 0) }, uE1: { value: new THREE.Vector3(1, 0, 0) }, uE2: { value: new THREE.Vector3(0, 0, 1) }, uDrift: { value: new THREE.Vector2() } } : {}),
       uCenter: { value: new THREE.Vector3() },
       uR: { value: 6_371_000 },
       uWater: { value: opt?.water ?? null },
@@ -319,7 +441,9 @@ const atmoFrag = /* glsl */ `
     float rim = 1.0 - abs(dot(n, v));
     float a = pow(rim, 5.0);
     float lit = smoothstep(-0.35, 0.25, dot(n, uSun));
-    vec3 col = mix(vec3(0.02, 0.04, 0.12), vec3(0.35, 0.6, 1.0), lit) * a;
+    // 夜の側のふちは光らない（本物の写真でも、夜の側の大気は見えない。うすい青の輪が点線のように見えていた）
+    vec3 col = vec3(0.35, 0.6, 1.0) * lit * a;
+    a *= lit;
     // 夜の大気光（酸素の緑の光）：高さ 90〜100 km の薄い層を真横から見るので、地平線の上に細い線になる
     vec3 d = -v;
     vec3 oc = uCenter - cameraPosition;
@@ -340,7 +464,10 @@ const atmoFrag = /* glsl */ `
       // 地球に当たらない視線：大気を通りぬける間に散らされた光（地平線の上の層）
       vec3 ro = cameraPosition - uCenter;
       float bb = dot(ro, d);
-      float cc = dot(ro, ro) - uR * uR;
+      // 地球の球は角ばった面（へこみ 最大 約 1.2 km）。高い所から見ると、面と本当の球のすきまが、水平線の黒い線になる。
+      // すきまを通る視線は「地面に当たらない」ことにして、明るい大気の縁で埋める
+      float rG = uR - 1500.0 * smoothstep(10000.0, 30000.0, length(ro) - uR);
+      float cc = dot(ro, ro) - rG * rG;
       float disc = bb * bb - cc;
       float tHit = disc > 0.0 && -bb - sqrt(disc) > 0.0 ? -bb - sqrt(disc) : 1e12;
       vec3 trans;

@@ -11,6 +11,7 @@ import { useLanding } from '../../state/landing'
 import { loadCatalog } from '../Sky'
 import { currentLevel, lowMemory, useDpr } from '../../state/quality'
 import { FlightPanel, flightPad } from './FlightPanel'
+import { radialGlowTexture } from '../radialGlow'
 
 // 着陸船で月の空を飛ぶ場面。月は丸ごと一つの球（moonGlobe.ts の四分木のかけら）、空には星・太陽・地球。
 // 着陸船のうしろから追いかけるカメラ。操縦は flightControl.ts。
@@ -288,16 +289,14 @@ function SkyDome({ sun, earth }: { sun: THREE.Vector3; earth: THREE.Vector3 }) {
 
 /** 丸い光の点のテクスチャ */
 function dotTexture() {
-  const c = document.createElement('canvas')
-  c.width = c.height = 32
-  const g = c.getContext('2d')!
-  const r = g.createRadialGradient(16, 16, 0, 16, 16, 16)
-  r.addColorStop(0, 'rgba(255,255,255,1)')
-  r.addColorStop(0.35, 'rgba(255,255,255,0.8)')
-  r.addColorStop(1, 'rgba(255,255,255,0)')
-  g.fillStyle = r
-  g.fillRect(0, 0, 32, 32)
-  return new THREE.CanvasTexture(c)
+  return radialGlowTexture(
+    [
+      [0, 255, 255, 255, 1],
+      [0.35, 255, 255, 255, 0.8],
+      [1, 255, 255, 255, 0],
+    ],
+    32,
+  )
 }
 
 /** 金属が真っ黒にならないように、部屋の光の映りこみ（宇宙なので弱く） */

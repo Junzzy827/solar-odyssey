@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { loadCatalog } from '../Sky'
-import { currentLevel, lowMemory } from '../../state/quality'
+import { QUALITY, currentLevel, lowMemory, useLevel } from '../../state/quality'
 import { autoCam, useMoonMission, type MissionCam } from '../../state/moonMission'
-import { COAST_TIME, CMSEP_TIME, CORRIDOR_TIME, TEI_BURN, TEI_WARP, ret, tickReturn, useMoonReturn, type ReturnStep } from '../../state/moonReturn'
+import { coastK, CMSEP_TIME, CORRIDOR_TIME, RECOVERY_TIME, SWIMMERS_AT, TEI_BURN, TEI_WARP, ret, tickReturn, useMoonReturn, type ReturnStep } from '../../state/moonReturn'
 import { EARTH_MOON, coastDistance } from '../../data/apolloTimeline'
 import { EI_ALT, RE } from '../../data/reentry'
 import { earthMaterial, atmosphereMaterial } from './earth'
@@ -13,8 +13,16 @@ import { glowTexture, plumeGeometry, plumeMaterial } from './plume'
 import { APOLLO_URL, DROGUE, useCraft } from './craft'
 import { applyCraftZoom, useCraftZoom } from './craftZoom'
 import { useSpaceEnv, type SpaceBody } from './spaceEnv'
-import { foamTexture, makeChute, makeClouds, makeShip, oceanMaterial, shapeChute, skyMaterial } from './returnSea'
-import { makeFireball, updateFireball } from './returnPlasma'
+import { makeChute, oceanMaterial, shapeChute } from './returnSea'
+import { makeEvaScene } from './returnEva'
+import { makeCarrier, makeCollar, makeDownwash, makeHelicopter, makeRaft, makeSwimmer } from './returnRecovery'
+import { CLOUD_COVER_GLSL, SkyLut, cloudQuality, cloudShadeAt, cloudUniforms, skyDomeMaterial, sunTransmit } from './returnSky'
+import { OUT_CHUNK, encodeOutput } from './shaderOut'
+import { SHOCK_Y, makeFireball, makeWindowPlasma, updateFireball } from './returnPlasma'
+import { startEntryRoar, startHeliSound } from '../../audio/sfx'
+import { LunarGlobe } from './LunarWorld'
+import { TRACK, TRACK_PLANE, loadLunarMaps, lunarMaps, type LunarMaps } from './lunarTerrain'
+import { planeDir } from '../../data/lunarDescent'
 
 // 章8（state/moonReturn.ts）の世界。宇宙船がいつも原点のそば。月・地球・海は宇宙船に対して動かす。
 // 月のまわり：月は真下（高さ 115 km）。地球へ：地球は前（-Z）から、近づくにつれて真下へ。
@@ -81,36 +89,126 @@ function earthOrient(up: THREE.Vector3, fwd: THREE.Vector3, out: THREE.Quaternio
   return out.setFromRotationMatrix(_m)
 }
 
+// ---- 月を回る場面の、本物の月面 ---------------------------------------------------------------
+// 6〜7 章と同じ月面（LOLA の高さ・かぐやの明るさ）を、船の下に置く。船は着陸の時と同じ軌道の面を、西へ回る。
+// 太陽は本物の日付で：月の上の太陽の真下の経度は、着陸（12 月 11 日）の東経 107° から、1 日に 12.2° ずつ西へ。
+// 再会とお別れ（12 月 15 日）は東経 68°、帰りの点火（12 月 16 日 23 時 UTC）は東経 44°。
+/** 月の向きの太陽（場面ごとに書く。月面の絵はこれで照らす） */
+const MOON_SUN = new THREE.Vector3()
+const moonSunAt = (lon: number, out: THREE.Vector3) => out.set(Math.cos((lon * Math.PI) / 180), -0.02, -Math.sin((lon * Math.PI) / 180)).normalize()
+/**
+ * 船の下の月面：軌道の面の角度 θ（0 が着陸地点の真上、+ が西、- が東）。
+ * 再会とお別れは、着陸地点の東 26°（豊かの海のあたり）。降下の道すじの細かい地図（1 画素 238 m）の上で、昼の高い太陽。
+ * 帰りの点火は月の裏（本当は東経 180° 近くの夜の側。夜では何も見えないので、日の当たる東のふち、東経 107° の裏側）
+ */
+const RDV_TH = -0.45
+const TEI_TH = -1.3
+/** スマホで細かい絵を使う所：再会の真下の少しうしろから、前（西）へ 約 450 km（2048 画素を 1024 に。1 画素 約 480 m） */
+const RDV_SPAN = [RDV_TH - 0.04, RDV_TH - 0.04 + (TRACK.th1 - TRACK.th0) * (2048 / TRACK.w)] as const
+/** 1 秒に回る角度（周期 約 2 時間） */
+const ORBIT_RATE = (2 * Math.PI) / 7140
+const _mg = new THREE.Vector3()
+const _mv = new THREE.Vector3()
+const _mx = new THREE.Vector3()
+const _mm = new THREE.Matrix4()
+/** 月の向き：θ の地点を真上（+Y）に、進む向き（西）を前（-Z）に */
+function moonQuat(th: number, out: THREE.Quaternion) {
+  planeDir(TRACK_PLANE, th, _mg)
+  planeDir(TRACK_PLANE, th + Math.PI / 2, _mv).negate()
+  _mx.crossVectors(_mg, _mv)
+  _mm.makeBasis(_mx, _mg, _mv)
+  return out.setFromRotationMatrix(_mm).invert()
+}
+
 const lunarStep = (s: ReturnStep) => s === 'rdv' || s === 'docked' || s === 'lmGone' || s === 'teiWait' || s === 'tei'
-const seaStep = (s: ReturnStep) => s === 'chutes' || s === 'splash' || s === 'end'
+const seaStep = (s: ReturnStep) => s === 'chutes' || s === 'splash' || s === 'recovery' || s === 'end'
+/** 着水したあと（海に浮いている） */
+const afloat = (s: ReturnStep) => s === 'splash' || s === 'recovery' || s === 'end'
 
 // ---- 光 -------------------------------------------------------------------------------------
 
 /** いまの太陽の向き（場面ごとに Scene が書く） */
 const sun = new THREE.Vector3().copy(SUN_MOON)
 
+/** 日の光の色（Scene が毎フレーム書く）：大気の中では、空気を通って弱く黄色く（低い太陽ほど赤く） */
+const sunCol = new THREE.Color(1, 1, 1)
+const SUN_WHITE = new THREE.Color('#fff6ea')
+
+/** 影を作る範囲の真ん中（司令船。Scene が毎フレーム書く）と、雲の影がかかる割合（1：日なた） */
+const shadowAt = new THREE.Vector3()
+const shade = { k: 1 }
+/** 影の範囲（真ん中から ± m）：司令船と、上に開いた 3 つの主パラシュート（ひも 30 m ＋ 直径 25 m）まで入る */
+const SHADOW_HALF = 48
+/**
+ * 地球の真ん中から r の所にいるとき、船の真下の点が、大気に入る所（高さ 122 km）からどれだけうしろか（ラジアン）。
+ * 帰り道はほぼ放物線（月からの速さは、地球から逃げる速さとほぼ同じ）：r = 2q / (1 + cos ν)。
+ * 大気に入る角度 −6.5° は ν/2 なので、近地点の半径 q は約 6,410 km
+ */
+const APPROACH_Q = 6_410_000
+function approachSwing(r: number) {
+  const nu = (rr: number) => Math.acos(THREE.MathUtils.clamp((2 * APPROACH_Q) / rr - 1, -1, 1))
+  return Math.max(0, nu(r) - nu(RE + EI_ALT))
+}
+/** 大気に入ってから進んだ道のり（m）。雲を地面といっしょに流すのに使う。パラシュートから先は最後の値のまま */
+const cloudRun = { range: 0 }
+/** 大気圏突入の音（鳴っている間だけ） */
+const roar: { h: ReturnType<typeof startEntryRoar> } = { h: null }
+const heliSnd: { h: ReturnType<typeof startHeliSound> } = { h: null }
+
 /** 映りこむ景色（Scene が毎フレーム書く）：いちばん大きく見える天体か、大気の中の空と海 */
 const envBody: SpaceBody = { down: new THREE.Vector3(0, -1, 0), angR: 0, sun, earth: false, air: 0 }
 
 function Lights() {
-  const camera = useThree((s) => s.camera)
+  const gl = useThree((s) => s.gl)
+  const level = useLevel()
+  const shadowSize = QUALITY[level].shadow
   useSpaceEnv(() => envBody, 'moon')
   const light = useMemo(() => {
     const l = new THREE.DirectionalLight('#fff6ea', 4.2)
     const t = new THREE.Object3D()
     l.target = t
     const hemi = new THREE.HemisphereLight('#06080c', '#2c3440', 0.3)
-    return { l, t, hemi }
+    const tone = { space: new THREE.Color('#06080c'), spaceG: new THREE.Color('#2c3440'), sky: new THREE.Color('#8fb4e0'), skyG: new THREE.Color('#1d3a52') }
+    return { l, t, hemi, tone }
   }, [])
+  // 影（画質が「軽量」のときはなし）：日の光で、パラシュートの影が司令船に、司令船の自分の影が、本物のように落ちる
+  useEffect(() => {
+    if (!shadowSize) return
+    const prev = { enabled: gl.shadowMap.enabled, type: gl.shadowMap.type }
+    gl.shadowMap.enabled = true
+    gl.shadowMap.type = THREE.PCFSoftShadowMap
+    const l = light.l
+    l.castShadow = true
+    l.shadow.mapSize.set(shadowSize, shadowSize)
+    const c = l.shadow.camera
+    c.left = c.bottom = -SHADOW_HALF
+    c.right = c.top = SHADOW_HALF
+    c.near = 1
+    c.far = 2000
+    c.updateProjectionMatrix()
+    l.shadow.bias = -0.0003
+    l.shadow.normalBias = 0.04
+    return () => {
+      l.castShadow = false
+      l.shadow.map?.dispose()
+      l.shadow.map = null
+      gl.shadowMap.enabled = prev.enabled
+      gl.shadowMap.type = prev.type
+    }
+  }, [gl, light, shadowSize])
   useFrame(() => {
-    light.t.position.copy(camera.position)
+    light.t.position.copy(shadowAt)
     light.t.updateMatrixWorld()
-    light.l.position.copy(camera.position).addScaledVector(sun, 1000)
-    // 海の上では、空からの青い光と海からの照り返し
-    const sea = seaStep(useMoonReturn.getState().step)
-    light.hemi.color.set(sea ? '#8fb4e0' : '#06080c')
-    light.hemi.groundColor.set(sea ? '#1d3a52' : '#2c3440')
-    light.hemi.intensity = sea ? 0.9 : 0.3
+    light.l.position.copy(shadowAt).addScaledVector(sun, 1000)
+    light.l.color.copy(SUN_WHITE).multiply(sunCol)
+    // 雲の影の中では、日の光が弱まる
+    light.l.intensity = 4.2 * shade.k
+    // 大気の中では、空からの青い光と海からの照り返し（空が青くなる高さから、少しずつ）。
+    // 火の玉が消えたあとの高い空でも、海の上でも、影の側の司令船が真っ黒な影にならないように
+    const air = seaStep(useMoonReturn.getState().step) ? 1 : (envBody.air ?? 0)
+    light.hemi.color.lerpColors(light.tone.space, light.tone.sky, air)
+    light.hemi.groundColor.lerpColors(light.tone.spaceG, light.tone.skyG, air)
+    light.hemi.intensity = THREE.MathUtils.lerp(0.3, 1.6, air)
   })
   return (
     <>
@@ -134,7 +232,7 @@ function useStars() {
   }, [])
   const mat = useMemo(
     () =>
-      new THREE.ShaderMaterial({
+      encodeOutput(new THREE.ShaderMaterial({
         vertexShader: /* glsl */ `
           attribute float mag;
           attribute vec3 color;
@@ -151,12 +249,13 @@ function useStars() {
           void main() {
             float r = length(gl_PointCoord - 0.5) * 2.0;
             gl_FragColor = vec4(vColor * exp(-r * r * 3.0), 1.0);
+            ${OUT_CHUNK}
           }`,
         blending: THREE.AdditiveBlending,
         depthTest: false,
         depthWrite: false,
         toneMapped: false,
-      }),
+      })),
     [],
   )
   useEffect(() => () => mat.dispose(), [mat])
@@ -170,19 +269,131 @@ function useStars() {
   }, [stars, mat])
 }
 
+/** 回収のときの、着水からの時刻（秒）。回収の前は負、終わったあとは最後の形のまま */
+function recoveryTime(step: ReturnStep) {
+  if (step === 'recovery') return ret.t
+  if (step === 'end') return RECOVERY_TIME
+  return -1
+}
+
+/** ヘリの位置（司令船から。回収の時刻 rt で）と向き。空母の方から飛んできて、止まり、潜水員を下ろし、上がって見守る */
+const HELI_HOVER = new THREE.Vector3(14, 18, -6)
+const HELI_DROP = new THREE.Vector3(10, 5.5, -5)
+const HELI_WATCH = new THREE.Vector3(14, 12, -8)
+function heliAt(rt: number, from: THREE.Vector3, out: THREE.Vector3) {
+  if (rt < 9) {
+    const k = THREE.MathUtils.smootherstep(rt / 9, 0, 1)
+    out.copy(from).lerp(HELI_HOVER, k)
+    // 遠くでは高く、近づくと下がる（まっすぐな線より、少しふくらむ）
+    out.y += Math.sin(k * Math.PI) * 25
+  } else if (rt < SWIMMERS_AT + 3) out.copy(HELI_HOVER).lerp(HELI_DROP, THREE.MathUtils.smootherstep((rt - 9) / 3, 0, 1))
+  else out.copy(HELI_DROP).lerp(HELI_WATCH, THREE.MathUtils.smootherstep((rt - SWIMMERS_AT - 3) / 5, 0, 1))
+  return out
+}
+const _hp = new THREE.Vector3()
+const _hq = new THREE.Vector3()
+const _hs = new THREE.Vector3()
+
+/** 回収の場面：ヘリ・しぶき・潜水員・浮き輪・いかだを、時刻で動かす */
+function recoveryScene(
+  w: {
+    recovery: THREE.Group
+    heli: ReturnType<typeof makeHelicopter>
+    wash: ReturnType<typeof makeDownwash>
+    collar: ReturnType<typeof makeCollar>
+    swimmers: ReturnType<typeof makeSwimmer>[]
+    raft: ReturnType<typeof makeRaft>
+    ship: { group: THREE.Group }
+  },
+  step: ReturnStep,
+  h: number,
+  time: number,
+) {
+  const rt = recoveryTime(step)
+  w.recovery.visible = rt >= 0
+  if (rt < 0) return
+  const water = -h
+  const bob = 0.25 * Math.sin(time * 1.1)
+  // ヘリ：空母の方の 700 m 先、高さ 90 m から
+  const from = _hs.copy(w.ship.group.position).setY(0).normalize().multiplyScalar(700).setY(90)
+  const pos = heliAt(rt, from, _hp)
+  const ahead = heliAt(rt + 0.2, from, _hq).sub(pos)
+  w.heli.group.position.set(pos.x, water + pos.y, pos.z)
+  const speed = ahead.length() / 0.2
+  // 向き：飛んでいるあいだは進む向き、止まってからは司令船の方へ
+  const yawFly = Math.atan2(-ahead.z, ahead.x)
+  const yawHover = Math.atan2(pos.z, -pos.x)
+  const yaw = speed > 4 ? yawFly : yawHover
+  w.heli.group.rotation.set(0, 0, 0)
+  w.heli.group.rotation.y = THREE.MathUtils.lerp(w.heli.group.userData.yaw ?? yaw, yaw, 0.05)
+  w.heli.group.userData.yaw = w.heli.group.rotation.y
+  // 速いと機首を下げ、止まる前に上げる
+  w.heli.group.rotation.z = -THREE.MathUtils.clamp(speed / 120, 0, 0.18) + (rt > 6 && rt < 9.5 ? 0.12 * Math.sin(((rt - 6) / 3.5) * Math.PI) : 0)
+  w.heli.rotor.rotation.y = time * 21
+  w.heli.disc.uniforms.uSpin.value = time * 21
+  w.heli.tailRotor.rotation.z = time * 95
+  // 真下の海：ヘリの風でしぶきの輪（低いほど強い）
+  w.wash.mesh.position.set(pos.x, water + 0.25, pos.z)
+  w.wash.mat.uniforms.uTime.value = time % 1000
+  w.wash.mat.uniforms.uK.value = THREE.MathUtils.clamp(1 - (pos.y - 4) / 28, 0, 1)
+  // 潜水員：ヘリの横の戸から 1 人ずつ飛びこみ、司令船のまわりへ泳ぐ
+  w.swimmers.forEach((sw, i) => {
+    const jump = SWIMMERS_AT + 0.6 + i * 0.7
+    const g = sw.group
+    g.visible = rt >= jump
+    if (!g.visible) return
+    const door = _hq.set(HELI_DROP.x - 0.5, HELI_DROP.y - 1.2, HELI_DROP.z + 1.8)
+    const a = (i / 3) * Math.PI * 2 + 0.8
+    const at = _hs.set(Math.cos(a) * 3.1, 0, Math.sin(a) * 3.1)
+    const fall = rt - jump
+    const tFall = Math.sqrt((2 * door.y) / 9.8)
+    if (fall < tFall) {
+      g.position.set(door.x, water + door.y - 4.9 * fall * fall, door.z)
+      g.rotation.set(0, 0, 0)
+    } else {
+      const k = THREE.MathUtils.smootherstep((fall - tFall) / 4, 0, 1)
+      g.position.set(THREE.MathUtils.lerp(door.x, at.x, k), water - 0.35 + 0.12 * Math.sin(time * 1.3 + i), THREE.MathUtils.lerp(door.z, at.z, k))
+      g.rotation.set(0, Math.atan2(-(at.z - g.position.z), at.x - g.position.x) * (1 - k) + (Math.atan2(at.z, -at.x) + Math.PI) * k, 0)
+    }
+  })
+  // 浮き輪：潜水員が着いてから、3 秒でふくらむ
+  const inflate = THREE.MathUtils.smoothstep(rt, SWIMMERS_AT + 4, SWIMMERS_AT + 7)
+  w.collar.mesh.visible = inflate > 0.01
+  w.collar.mesh.position.set(0, water + 0.1 + bob, 0)
+  w.collar.mesh.scale.set(0.8 + 0.2 * inflate, 0.2 + 0.8 * inflate, 0.8 + 0.2 * inflate)
+  // いかだ：浮き輪のあとに、横でふくらむ
+  const rk = THREE.MathUtils.smoothstep(rt, SWIMMERS_AT + 8, SWIMMERS_AT + 10)
+  w.raft.group.visible = rk > 0.01
+  w.raft.group.position.set(4.6, water - 0.05 + 0.2 * Math.sin(time * 1.2 + 1), 2.2)
+  w.raft.group.rotation.set(0.04 * Math.sin(time * 0.9), 0.5, 0.05 * Math.sin(time * 1.1))
+  w.raft.group.scale.set(rk, 0.3 + 0.7 * rk, rk)
+}
+
 function Scene() {
   const craft = useCraft()
   useCraftZoom()
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
+  const gl = useThree((s) => s.gl)
   const small = lowMemory()
+  // 6〜7 章と同じ月面の地図（7 章から来たときは、もう読んである）
+  const [lmaps, setLmaps] = useState<LunarMaps | null>(lunarMaps)
+  useEffect(() => {
+    if (lmaps) return
+    let alive = true
+    loadLunarMaps().then((m) => alive && setLmaps(m), () => {})
+    return () => {
+      alive = false
+    }
+  }, [lmaps])
   // 地球は打ち上げの場面と同じ：NASA Blue Marble の 12 月と Black Marble の夜の明かり、光の散乱で描く大気
   const big = !small && currentLevel() !== 'low'
   const steps = small || currentLevel() === 'low' ? 8 : currentLevel() === 'medium' ? 12 : 16
+  // スマホでも地球は 4K の Blue Marble（大気に入る前の大きな地球が、ぼやけないように）。そのぶん月は 2K に
   const [moonTex, day, night, clouds, water] = useTexture([
-    `${base}textures/4k_moon.jpg`,
-    big ? `${base}textures/earth/bm_dec_8k.jpg` : `${base}textures/${small ? '2k' : '4k'}_earth_daymap.jpg`,
+    `${base}textures/${small ? '2k' : '4k'}_moon.jpg`,
+    big ? `${base}textures/earth/bm_dec_8k.jpg` : `${base}textures/earth/bm_dec_4k.jpg`,
     big ? `${base}textures/earth/bm_night_8k.jpg` : `${base}textures/earth/bm_night_2k.jpg`,
-    `${base}textures/${small ? '2k' : '4k'}_earth_clouds.jpg`,
+    `${base}textures/4k_earth_clouds.jpg`,
     `${base}textures/earth/bm_water_4k.png`,
   ])
   const stars = useStars()
@@ -197,36 +408,54 @@ function Scene() {
     const moonMat = new THREE.MeshStandardMaterial({ map: moonTex, roughness: 1, metalness: 0 })
     const moon = new THREE.Mesh(new THREE.SphereGeometry(MOON_R, 192, 128), moonMat)
     moon.name = 'return-moon'
+    const moonSphere = moon
     const moonG = new THREE.Group()
     moonG.add(moon)
-    const earthMat = earthMaterial(day, night, clouds, { scatter: true, steps, water })
+    // 船の下のあたりには、海の上の場面と同じ積雲（高さ 100 km からは一つ一つの綿雲が見える）
+    const earthMat = encodeOutput(earthMaterial(day, night, clouds, { scatter: true, steps, water, localClouds: { glsl: CLOUD_COVER_GLSL, uniforms: cloudUniforms() } }))
     earthMat.uniforms.uLights.value = 0.5
     earthMat.uniforms.uR.value = RE
-    const atmo = atmosphereMaterial({ scatter: true, steps })
+    // 雲の大きな模様を地面に固定する座標：大気に入る所が原点、着水する所の向きが -前（地球の向きを決める earthOrient と同じ向き）
+    earthMat.uniforms.uQ0.value.copy(P_EI)
+    earthMat.uniforms.uE2.value.copy(T_EI).negate()
+    earthMat.uniforms.uE1.value.crossVectors(P_EI, earthMat.uniforms.uE2.value)
+    const atmo = encodeOutput(atmosphereMaterial({ scatter: true, steps }))
     atmo.uniforms.uR.value = RE
     const earthG = new THREE.Group()
     earthG.name = 'return-earth'
     const earth = new THREE.Mesh(new THREE.SphereGeometry(RE, 160, 100), earthMat)
     const air = new THREE.Mesh(new THREE.SphereGeometry(RE + 100_000, 96, 64), atmo)
     earthG.add(earth, air)
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(90_000, 48, 24), skyMaterial())
+    // 空の表（光の散乱の計算）：空のドーム・海・海に映る空が引く
+    const lut = new SkyLut(RE, 16)
+    const cq = cloudQuality(currentLevel(), small)
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(90_000, 48, 24), encodeOutput(skyDomeMaterial(lut, cq)))
     sky.renderOrder = -2
     sky.frustumCulled = false
-    const ocean = new THREE.Mesh(new THREE.PlaneGeometry(420_000, 420_000), oceanMaterial())
+    const ocean = new THREE.Mesh(new THREE.PlaneGeometry(2_400_000, 2_400_000, 120, 120), encodeOutput(oceanMaterial(lut, RE, cq)))
     ocean.rotation.x = -Math.PI / 2
     ocean.renderOrder = -1
     ocean.frustumCulled = false
-    const cloud = makeClouds()
-    const ship = makeShip()
+    const ship = makeCarrier()
+    // 回収：ヘリコプター・真下のしぶき・浮き輪・潜水員 3 人・いかだ
+    const heli = makeHelicopter()
+    const wash = makeDownwash()
+    const collar = makeCollar()
+    const swimmers = [makeSwimmer(), makeSwimmer(), makeSwimmer()]
+    const raft = makeRaft()
+    const recovery = new THREE.Group()
+    recovery.name = 'return-recovery'
+    recovery.add(heli.group, wash.mesh, collar.mesh, raft.group, ...swimmers.map((x) => x.group))
+    const eva = makeEvaScene()
     const mains = [makeChute('main'), makeChute('main'), makeChute('main')]
     const drogues = [makeChute('drogue'), makeChute('drogue')]
     const fire = makeFireball()
     const glowMat = new THREE.PointLight('#ff9a50', 0, 60, 1.2)
     const fireGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(2.4, 1.1, 0.55), depthWrite: false, toneMapped: false, transparent: true, blending: THREE.AdditiveBlending, opacity: 0 }))
     fireGlow.renderOrder = 8
-    const nozzle = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(3, 1.9, 1.1), depthWrite: false, toneMapped: false, transparent: true, blending: THREE.AdditiveBlending }))
+    const nozzle = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(1.6, 1.05, 0.65), depthWrite: false, toneMapped: false, transparent: true, blending: THREE.AdditiveBlending }))
     const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(7, 6.6, 6), depthWrite: false, toneMapped: false, transparent: true, blending: THREE.AdditiveBlending }))
-    const sps = plumeMaterial({ core: '#ffe2b8', edge: '#ff8a40', soft: 1.4 })
+    const sps = encodeOutput(plumeMaterial({ core: '#ffe2b8', edge: '#ff8a40', soft: 1.4 }))
     const plumeGeo = plumeGeometry()
     const plume = new THREE.Mesh(plumeGeo, sps)
     plume.position.y = -10.35
@@ -246,23 +475,32 @@ function Scene() {
     const sprayMat = new THREE.PointsMaterial({ color: '#f4f8fb', map: glowTexture(), size: 0.35, transparent: true, opacity: 0, depthWrite: false })
     const spray = new THREE.Points(sprayGeo, sprayMat)
     spray.frustumCulled = false
-    const foamTex = foamTexture()
-    const foamMat = new THREE.MeshBasicMaterial({ map: foamTex, transparent: true, opacity: 0, depthWrite: false })
-    const foam = new THREE.Mesh(new THREE.CircleGeometry(1, 40), foamMat)
-    foam.rotation.x = -Math.PI / 2
-    const owned: { dispose: () => void }[] = [moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, cloud, ship, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat, foam.geometry, foamMat, foamTex]
-    return { fireGlow, nozzle, moonG, earthMat, atmo, earthG, sky, ocean, cloud, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, foam, owned }
+    // 窓のカメラのときの、窓の外のプラズマ
+    const winPlasma = makeWindowPlasma()
+    const owned: { dispose: () => void }[] = [winPlasma, moon.geometry, moonMat, earth.geometry, earthMat, air.geometry, atmo, sky.geometry, sky.material as THREE.Material, ocean.geometry, ocean.material as THREE.Material, lut, ship, heli, wash, collar, raft, eva, ...swimmers, ...mains, ...drogues, fire, sunSprite.material, nozzle.material, fireGlow.material, sps, plumeGeo, sprayGeo, sprayMat]
+    return { fireGlow, nozzle, moonG, moonSphere, earthMat, atmo, earthG, lut, sky, ocean, ship, mains, drogues, fire, glowMat, sunSprite, sps, plume, spray, sprayVel, winPlasma, recovery, heli, wash, collar, swimmers, raft, eva, owned }
   }, [moonTex, day, night, clouds, water])
-  useEffect(() => () => w.owned.forEach((o) => o.dispose()), [w])
+  useEffect(
+    () => () => {
+      w.owned.forEach((o) => o.dispose())
+      roar.h?.stop()
+      roar.h = null
+      heliSnd.h?.stop()
+      heliSnd.h = null
+    },
+    [w],
+  )
   // 確かめる用（#debug のときだけ）
   useEffect(() => {
     if (!location.hash.includes('debug')) return
-    const g = window as unknown as { __returnWorld?: unknown }
+    const g = window as unknown as { __returnWorld?: unknown; __returnGl?: unknown }
     g.__returnWorld = w
+    g.__returnGl = gl
     return () => {
       delete g.__returnWorld
+      delete g.__returnGl
     }
-  }, [w])
+  }, [w, gl])
 
   // 模型：着陸船は上の段だけ。司令船の探り棒（Strut）、焦げる面（Ablator・CMSilver）
   const parts = useMemo(() => {
@@ -270,22 +508,40 @@ function Scene() {
     const cm = craft.csm.getObjectByName('CM')!
     const sm = craft.csm.getObjectByName('SM')!
     const probe: THREE.Object3D[] = []
-    const burn: { m: THREE.MeshStandardMaterial; from: THREE.Color; to: THREE.Color }[] = []
+    const burn: { m: THREE.MeshStandardMaterial; from: THREE.Color; to: THREE.Color; metal: number; toMetal: number }[] = []
     cm.traverse((o) => {
       const mesh = o as THREE.Mesh
       if (!mesh.isMesh) return
       const m = mesh.material as THREE.MeshStandardMaterial
       if (m.name === 'Strut') probe.push(mesh)
-      // 本物の司令船は、帰ってくると茶色く焦げている
-      if (m.name === 'Ablator') burn.push({ m, from: m.color.clone(), to: new THREE.Color('#1c1410') })
-      if (m.name === 'CMSilver') burn.push({ m, from: m.color.clone(), to: new THREE.Color('#5a4535') })
+      // 本物の司令船は、帰ってくると茶色く焦げている（海に浮かぶアメリカ号の写真：こげ茶〜あめ色。真っ黒ではない）。
+      // 焦げた面は金属の照りをなくす：金属のままだと、まわりの映りこみに色を掛けるだけなので、昼の海でも真っ黒な影になった
+      if (m.name === 'Ablator') burn.push({ m, from: m.color.clone(), to: new THREE.Color('#5c4a3c'), metal: m.metalness, toMetal: 0 })
+      if (m.name === 'CMSilver') burn.push({ m, from: m.color.clone(), to: new THREE.Color('#9a7c5c'), metal: m.metalness, toMetal: 0.3 })
     })
-    return { cm, sm, probe, burn }
+    // 影を落とす・受ける（司令船・機械船・着陸船の上の段）
+    const shadowed: THREE.Mesh[] = []
+    for (const root of [craft.csm, craft.lm])
+      root.traverse((o) => {
+        const mesh = o as THREE.Mesh
+        if (!mesh.isMesh) return
+        if (!mesh.castShadow) shadowed.push(mesh)
+        mesh.castShadow = mesh.receiveShadow = true
+      })
+    return { cm, sm, probe, burn, shadowed }
   }, [craft])
+  useEffect(() => () => parts.shadowed.forEach((m) => (m.castShadow = m.receiveShadow = false)), [parts])
   useEffect(() => {
     // 次に開いたときのために、焦げを戻す
-    return () => parts.burn.forEach((b) => b.m.color.copy(b.from))
+    return () => parts.burn.forEach((b) => ((b.m.metalness = b.metal), b.m.color.copy(b.from)))
   }, [parts])
+  // 機械船の科学機器室（扉は月へ行く前に外してあるので、月のまわりでも帰り道でも見える）
+  useEffect(() => {
+    parts.sm.add(w.eva.sim.group)
+    return () => {
+      parts.sm.remove(w.eva.sim.group)
+    }
+  }, [parts, w])
   useEffect(() => {
     parts.cm.add(w.plume)
     w.plume.position.y = -10.35
@@ -295,7 +551,7 @@ function Scene() {
   }, [parts, w])
 
   const rig = useMemo(() => ({ pos: new THREE.Vector3(), look: new THREE.Vector3(), init: false, key: '' }), [])
-  const tmp = useMemo(() => ({ qe: new THREE.Quaternion(), qcm: new THREE.Quaternion(), vel: new THREE.Vector3(), up: new THREE.Vector3(), side: new THREE.Vector3(), cmPos: new THREE.Vector3(), moonEnd: new THREE.Vector3(0, -(MOON_R + LUNAR_ALT), 0), roll: new THREE.Quaternion() }), [])
+  const tmp = useMemo(() => ({ qe: new THREE.Quaternion(), qcm: new THREE.Quaternion(), vel: new THREE.Vector3(), up: new THREE.Vector3(), side: new THREE.Vector3(), cmPos: new THREE.Vector3(), moonEnd: new THREE.Vector3(0, -(MOON_R + LUNAR_ALT), 0), roll: new THREE.Quaternion(), chest: new THREE.Vector3(), evans: new THREE.Vector3() }), [])
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.05)
@@ -315,11 +571,13 @@ function Scene() {
     w.sps.uniforms.uTime.value = time
 
     // ---- 月 ----
-    w.moonG.visible = lunar || step === 'coast'
+    w.moonG.visible = lunar || step === 'coast' || step === 'eva'
     if (lunar) {
-      // 月を回る：月面がうしろへ流れる（早送り）
-      const stepAt: Partial<Record<ReturnStep, number>> = { rdv: 0, docked: 0.016, lmGone: 0.022, teiWait: 0.9, tei: 0.905 }
-      w.moonG.rotation.x = (stepAt[step] ?? 0) + t * 0.0009
+      // 月を回る：月面がうしろへ流れる（本物の速さ）
+      const tei = step === 'teiWait' || step === 'tei'
+      const stepAt: Partial<Record<ReturnStep, number>> = { rdv: 0, docked: 0.016, lmGone: 0.022, teiWait: 0, tei: 0.005 }
+      moonQuat((tei ? TEI_TH : RDV_TH) + (stepAt[step] ?? 0) + t * ORBIT_RATE, w.moonG.quaternion)
+      moonSunAt(tei ? 44 : 68, MOON_SUN)
       w.moonG.position.set(0, -(MOON_R + LUNAR_ALT), 0)
       if (step === 'tei') {
         // 点火：前へ加速して、月はうしろへ遠ざかる
@@ -330,9 +588,9 @@ function Scene() {
         w.moonG.position.y -= s * 0.15
       }
       tmp.moonEnd.copy(w.moonG.position)
-    } else if (step === 'coast') {
+    } else if (step === 'coast' || step === 'eva') {
       // 月はうしろで小さくなる
-      const k = Math.min(1, t / COAST_TIME)
+      const k = coastK(step, t)
       const d0 = tmp.moonEnd.length()
       const d = d0 * Math.pow((EARTH_MOON * 0.85) / d0, Math.pow(k, 0.6))
       _v.copy(tmp.moonEnd).normalize().lerp(_w.set(0, -0.18, 1).normalize(), Math.min(1, k * 3)).normalize()
@@ -347,8 +605,8 @@ function Scene() {
     if (earthOn) {
       let dist: number
       let dir: THREE.Vector3
-      if (step === 'coast') {
-        dist = coastDistance(1 - Math.min(1, t / COAST_TIME))
+      if (step === 'coast' || step === 'eva') {
+        dist = coastDistance(1 - coastK(step, t))
         dir = _u.set(0, -0.12, -1).normalize()
       } else if (step === 'cmSep') {
         dist = RE + 36_000_000 - 27_000_000 * Math.min(1, t / CMSEP_TIME)
@@ -366,23 +624,45 @@ function Scene() {
       const fwd = _b.set(0, 0, -1).projectOnPlane(up).normalize()
       earthOrient(up.clone(), fwd.clone(), tmp.qe)
       if (range > 0) tmp.qe.premultiply(_q.setFromAxisAngle(_w.crossVectors(fwd, up).normalize().negate(), -range / RE))
+      // 大気に入る前：船の真下は、大気に入る所よりうしろ（落ちてくる道は、地球のまわりを回りこむ放物線）。
+      // 遠くでは夜の側（帰り道の地球は細い三日月。1972 年 12 月 19 日は満月の前日で、月から見た地球は新月に近い）、
+      // 近づくにつれて昼の側へ回りこみ、朝の空で大気に入る
+      const swing = approachSwing(dist)
+      if (swing > 0) tmp.qe.premultiply(_q.setFromAxisAngle(_w.crossVectors(fwd, up).normalize().negate(), swing))
       w.earthG.quaternion.copy(tmp.qe)
       w.earthMat.uniforms.uCenter.value.copy(w.earthG.position)
       w.atmo.uniforms.uCenter.value.copy(w.earthG.position)
-      // 大気の中に入ったら、空は低い所の空（skyMaterial）にまかせる
-      w.atmo.uniforms.uSky.value = THREE.MathUtils.smoothstep(h, 15_000, 45_000)
+      // 大気の中では、空の層は内側から見た空（同じ散乱の計算）。外から見た縁の光の見え方は使わない
+      w.atmo.uniforms.uSky.value = inAir || sea ? 1 : THREE.MathUtils.smoothstep(h, 15_000, 45_000)
       sun.copy(SUN_E).applyQuaternion(tmp.qe)
       w.earthMat.uniforms.uSun.value.copy(sun)
       w.atmo.uniforms.uSun.value.copy(sun)
       w.earthMat.uniforms.uNear.value = THREE.MathUtils.clamp(1 - h / 80_000, 0, 1) * 0.6
       w.earthMat.uniforms.uNear2.value = THREE.MathUtils.clamp(1 - h / 3_000_000, 0, 1)
-    } else if (lunar) sun.copy(SUN_MOON)
+    } else if (lunar) sun.copy(MOON_SUN).applyQuaternion(w.moonG.quaternion)
     else if (sea) {
-      // 着水地点の空：東の高さ約 37°（朝 8 時半ごろ）
+      // 着水地点の空：朝 8 時半ごろの太陽
       earthOrient(_a.set(0, 1, 0), _b.set(0, 0, -1), tmp.qe)
       tmp.qe.premultiply(_q.setFromAxisAngle(X, P_EI.angleTo(P_SPLASH)))
       sun.copy(SUN_E).applyQuaternion(tmp.qe)
+      // 高さは計算で決める：1972 年 12 月 19 日 19:24 UTC、南緯 17.9° 西経 166.1°（地方時 8 時 20 分ごろ）で約 38°。
+      // 上の回転だけでは 22° ほどにしかならなかったので、向き（方位）だけ使い、高さを合わせる
+      const az = Math.atan2(sun.z, sun.x)
+      const el = THREE.MathUtils.degToRad(38)
+      sun.set(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el))
     }
+
+    // 帰り道の月：うしろの月も、同じ太陽で照らす（月の向きを、太陽が合うように少しだけ回す）
+    if (step === 'coast' || step === 'eva' || step === 'cmSep') {
+      _a.copy(MOON_SUN).applyQuaternion(w.moonG.quaternion)
+      w.moonG.quaternion.premultiply(_q.setFromUnitVectors(_a, sun))
+    }
+    // 本物の月面ができたら、仮の球は消す
+    w.moonSphere.visible = w.moonG.children.length < 2
+
+    // 船を照らす日の光の色
+    if (inAir || sea) sunTransmit(RE, h, sun.y, sunCol)
+    else sunCol.setRGB(1, 1, 1)
 
     // ---- 空と海（低い所） ----
     const skyA = (1 - THREE.MathUtils.smoothstep(h, 22_000, 70_000)) * (inAir || sea ? 1 : 0)
@@ -407,48 +687,97 @@ function Scene() {
         envBody.earth = true
       } else envBody.angR = 0
     }
-    w.sky.visible = skyA > 0.001
+    // 空のドーム：地球の球と大気の層を描いている間（高さ 30 km 以上）は、そちらが空を描くので出さない（二重にならないように）
+    const oceanA = (1 - THREE.MathUtils.smoothstep(h, 30_000, 50_000)) * (inAir || sea ? 1 : 0)
+    w.sky.visible = skyA > 0.001 && !earthOn
+    w.ocean.visible = oceanA > 0.001
+    const camH = Math.max(0, h + camera.position.y)
+    if (w.sky.visible || w.ocean.visible) w.lut.update(gl, camH, sun)
     w.sky.position.copy(camera.position)
     const skyU = (w.sky.material as THREE.ShaderMaterial).uniforms
-    skyU.uAlpha.value = skyA
-    skyU.uHigh.value = THREE.MathUtils.smoothstep(h, 3_000, 45_000)
+    skyU.uAlpha.value = 1
     skyU.uSun.value.copy(sun)
-    const oceanA = (1 - THREE.MathUtils.smoothstep(h, 30_000, 50_000)) * (inAir || sea ? 1 : 0)
-    w.ocean.visible = oceanA > 0.001
     const ou = (w.ocean.material as THREE.ShaderMaterial).uniforms
     ou.uAlpha.value = oceanA
     ou.uTime.value = time
     ou.uSun.value.copy(sun)
     ou.uOffset.value.set(0, -range)
-    // 大気の中では、地球の球（角ばった面）より少し上に
-    w.ocean.position.set(camera.position.x, -h + (inAir ? Math.min(2_000, h * 0.04) : 0), camera.position.z)
-    w.cloud.group.visible = (inAir || sea) && h < 40_000
-    w.cloud.group.position.set(0, -h, sea ? 0 : (((-range % 60_000) + 60_000) % 60_000) - 30_000)
+    // 地球の球を描いている間（高さ 30〜50 km）は、球の角ばった面より少し上に
+    w.ocean.position.set(camera.position.x, -h + (earthOn ? Math.min(2_000, h * 0.04) : 0), camera.position.z)
+    // 水平線より上は描かない（本当の地球の球で決める。持ち上げた分は入れない）
+    ou.uCenter.value.set(camera.position.x, -h - RE, camera.position.z)
+    // うすく重ねている間は、奥の大気の光を隠さないように、奥行きを書かない
+    ;(w.ocean.material as THREE.ShaderMaterial).depthWrite = oceanA > 0.99
+    // 雲の層（空と海の素材の中で描く）：海面からの高さと、貿易風（約 6 m/s）で流れる分
+    // 雲は地面といっしょに流れる（大気に入ってから進んだ道のりの分、海の波と同じく）
+    if (e && (inAir || sea)) cloudRun.range = e.range
+    else if (!inAir && !sea) cloudRun.range = 0
+    for (const m of [w.sky.material, w.ocean.material] as THREE.ShaderMaterial[]) {
+      m.uniforms.uSeaH.value = h
+      m.uniforms.uCloudOn.value = inAir || sea ? 1 : 0
+      m.uniforms.uCloudOff.value.set(-time * 6, -time * 2 - cloudRun.range)
+    }
+    // 地球の球の上の雲：海の上の場面と同じ積雲と、地面に固定した大きな雲のかたまり
+    {
+      const eu = w.earthMat.uniforms
+      eu.uCloudOff.value.set(-time * 6, -time * 2 - cloudRun.range)
+      eu.uDrift.value.set(-time * 6, -time * 2)
+      // 遠くからずっと描く（一つ一つの積雲は、小さく見えるあいだは平均の白さになる）。
+      // 高さ 900 km から急に出すと、点々の雲が下からふわっと現れて、急に高さが下がったように見えた
+      eu.uCloudOn.value = 1
+      eu.uUp.value.copy(w.earthG.position).negate().normalize()
+      // 低くなったら、船の真下は海の上の場面と同じ雲に（空と海の場面へ、雲の形が変わらずにつながる）
+      eu.uKeep.value = 220_000 * (1 - THREE.MathUtils.smoothstep(h, 45_000, 90_000))
+    }
     w.ship.group.visible = sea
     w.ship.group.position.set(-2_600, -h + 0.2, -3_900)
     w.ship.group.rotation.y = 0.9
-    w.sunSprite.visible = !sea && skyA < 0.5
+    recoveryScene(w, step, h, time)
+    // ヘリの音：近いほど大きく。船長の窓からは、船の壁ごしで小さめ
+    {
+      const on = w.recovery.visible && w.heli.group.visible
+      if (on && !heliSnd.h) heliSnd.h = startHeliSound()
+      if (heliSnd.h) {
+        if (on) {
+          const d = camera.position.distanceTo(w.heli.group.position)
+          heliSnd.h.set((40 / (40 + d)) * (ms.cam === 'window' ? 0.55 : 1))
+        } else {
+          heliSnd.h.stop()
+          heliSnd.h = null
+        }
+      }
+    }
+    // 太陽：空のドームを描くときはドームが描く（空気を通った色で）
+    w.sunSprite.visible = !w.sky.visible
     w.sunSprite.position.copy(camera.position).addScaledVector(sun, 4e9)
     w.sunSprite.scale.setScalar(4e9 * 0.03)
     if (stars) {
       stars.position.copy(camera.position)
-      stars.visible = skyA < 0.98
+      // 昼の空の中（高さ 50 km より下）では、星は空の明るさに負けて見えない
+      stars.visible = !(inAir || sea) || h > 50_000
     }
 
     // ---- 宇宙船 ----
     const showLm = step === 'rdv' || step === 'docked' || step === 'lmGone'
     lm.visible = showLm
     csm.visible = true
-    parts.sm.visible = lunar || step === 'coast' || (step === 'cmSep' && t < CMSEP_TIME)
-    for (const p of parts.probe) p.visible = lunar || step === 'coast'
+    // 船外活動の 2 人と命綱は、船外活動の場面（下の update）だけで出す。
+    // 毎コマ消しておく：読み込みの待ち（Suspense）が明けると、React が中の物を全部「見える」に戻すので、
+    // はじめに消しておくだけでは、月のまわりの場面に宇宙服が浮いてしまった
+    w.eva.group.visible = false
+    parts.sm.visible = lunar || step === 'coast' || step === 'eva' || (step === 'cmSep' && t < CMSEP_TIME)
+    for (const p of parts.probe) p.visible = lunar || step === 'coast' || step === 'eva'
     w.plume.visible = step === 'tei' && t * TEI_WARP < TEI_BURN
     // ノズルの口の光（真空の炎はほとんど見えないので、口のまわりだけ）
     w.nozzle.visible = w.plume.visible
     if (w.nozzle.visible) {
-      w.nozzle.position.set(0, -10.6, 0).applyQuaternion(csm.quaternion).add(csm.position)
-      w.nozzle.scale.setScalar(5.5 + Math.sin(time * 40) * 0.3)
+      // 真空の中の SPS の炎（ヒドラジンと四酸化二窒素）は、ほとんどすき通る。ノズルの出口のうすい橙の光だけ
+      //（大きな光の玉にすると、船の向こうに太陽のような円が出て、船の形に欠けて見えた）
+      w.nozzle.position.set(0, -12.2, 0).applyQuaternion(csm.quaternion).add(csm.position)
+      w.nozzle.scale.setScalar(3.2 + Math.sin(time * 40) * 0.15)
     }
-    w.sps.uniforms.uPower.value = 0.55
+    // 真空の炎はうすく（濃くすると、ノズルのうしろに色のついた筒が見えた）
+    w.sps.uniforms.uPower.value = 0.22
     w.sps.uniforms.uExpand.value = 1
     if (step === 'rdv' || step === 'docked' || step === 'lmGone') {
       // 司令船（逆さ）が前、着陸船の上の段がうしろから近づく
@@ -463,13 +792,19 @@ function Scene() {
       }
       lm.position.set(0, -back, 0).applyQuaternion(LUNAR_FRAME)
       tmp.cmPos.set(0, DROGUE.y + 5, 0).applyQuaternion(LUNAR_FRAME)
-    } else if (step === 'teiWait' || step === 'tei' || step === 'coast' || step === 'cmSep') {
+    } else if (step === 'teiWait' || step === 'tei' || step === 'coast' || step === 'eva' || step === 'cmSep') {
       // 司令船の機首を前へ（点火の向き）。待つあいだに向きを変える
       const k = step === 'teiWait' ? THREE.MathUtils.smootherstep(t / 8, 0, 1) : 1
       _q.copy(LUNAR_FRAME).multiply(FLIP)
       _q2.copy(LUNAR_FRAME)
       // 帰り道：太陽の熱を均すため、ゆっくり回る（バーベキュー・ロール）
       if (step === 'coast') _q2.multiply(tmp.roll.setFromAxisAngle(Y, t * 0.25))
+      // 船外活動：回るのを止めて、ハッチと科学機器室の側（+X）を、日の当たる向きへ
+      if (step === 'eva') {
+        _a.copy(sun).applyQuaternion(_q.copy(LUNAR_FRAME).invert())
+        _q2.copy(LUNAR_FRAME).multiply(tmp.roll.setFromAxisAngle(Y, Math.atan2(-_a.z, _a.x) + 0.55))
+        _q.copy(LUNAR_FRAME).multiply(FLIP)
+      }
       csm.quaternion.slerpQuaternions(_q, _q2, k)
       if (step === 'cmSep') {
         // 機械船を切り離して、司令船だけ向きを変える（熱よけを前へ）
@@ -483,6 +818,11 @@ function Scene() {
       }
       csm.position.set(0, -CM_MID, 0).applyQuaternion(csm.quaternion)
       tmp.cmPos.set(0, 0, 0)
+      // 船外活動の人と命綱（模型の中の座標で動かして、船と一緒に置く）
+      w.eva.group.position.copy(csm.position)
+      w.eva.group.quaternion.copy(csm.quaternion)
+      w.eva.update(step === 'eva' ? t : -1, time, tmp.chest)
+      tmp.evans.copy(tmp.chest).applyQuaternion(csm.quaternion).add(csm.position)
     } else {
       // 大気へ：司令船だけ。熱よけ（-Y）を進む向きへ、少し傾けて揚力を出す
       const gamma = e ? e.gamma : step === 'corridor' ? THREE.MathUtils.degToRad(THREE.MathUtils.lerp(-28, ret.angle, Math.min(1, t / CORRIDOR_TIME) ** 0.5)) : 0
@@ -490,46 +830,81 @@ function Scene() {
       const lift = e ? e.lift : 1
       const upPerp = tmp.up.set(0, 1, 0).projectOnPlane(vel).normalize()
       const bank = Math.acos(THREE.MathUtils.clamp(lift, -1, 1))
-      const liftDir = upPerp.clone().applyAxisAngle(vel, bank)
       if (sea) {
         // パラシュートの下：ドローグのあいだは大きくゆれ、主パラシュートでは 27.5° 傾いてつり下がる
         const mainsOn = ret.mainAt >= 0
         const sway = mainsOn ? 0.04 * Math.sin(time * 0.7) : 0.22 * Math.sin(time * 1.3) + 0.08 * Math.sin(time * 2.9)
         const tilt = mainsOn ? THREE.MathUtils.degToRad(27.5) * Math.min(1, (t - ret.mainAt) / 4) : 0
-        const floatK = step === 'splash' || step === 'end' ? Math.min(1, ret.splashT / 2.5) : 0
+        const floatK = afloat(step) ? Math.min(1, ret.splashT / 2.5) : 0
         tmp.qcm.setFromAxisAngle(X, (tilt + sway) * (1 - floatK) + floatK * 0.06 * Math.sin(time * 0.9))
         tmp.qcm.multiply(_q.setFromAxisAngle(_v.set(0, 0, 1), floatK * 0.05 * Math.sin(time * 0.7 + 1)))
       } else {
-        const axis = _v.copy(vel).negate().multiplyScalar(Math.cos(TRIM)).addScaledVector(liftDir, Math.sin(TRIM)).normalize()
+        // 揚力が上のときの姿勢を、進む向きのまわりにバンクの分だけ、機体ごと回す（本物の司令船も、揚力の向きはこうして変えた）
+        const axis = _v.copy(vel).negate().multiplyScalar(Math.cos(TRIM)).addScaledVector(upPerp, Math.sin(TRIM)).normalize()
         tmp.qcm.setFromUnitVectors(Y, axis)
-        // 機体のまわりの回転（バンク）も見えるように
-        tmp.qcm.premultiply(_q.setFromAxisAngle(axis, bank))
+        tmp.qcm.premultiply(_q.setFromAxisAngle(vel, bank))
       }
       csm.quaternion.copy(tmp.qcm)
       csm.position.set(0, -CM_MID, 0).applyQuaternion(csm.quaternion)
-      if (sea && (step === 'splash' || step === 'end')) csm.position.y += -0.5 + 0.25 * Math.sin(time * 1.1)
+      if (sea && afloat(step)) csm.position.y += -0.5 + 0.25 * Math.sin(time * 1.1)
       tmp.cmPos.copy(csm.position).add(_w.set(0, CM_MID, 0).applyQuaternion(csm.quaternion))
       // 火の玉
       const heat = inAir ? ret.heat : 0
       w.fire.group.position.set(0, SHIELD_Y, 0).applyQuaternion(csm.quaternion).add(csm.position)
       w.fire.group.quaternion.setFromUnitVectors(_w.set(0, -1, 0), vel)
+      // 衝撃波の光（おわん）は熱よけの面にそって。尾と火の粉は、流れにそってうしろへ
+      w.fire.shockMesh.quaternion.copy(w.fire.group.quaternion).invert().multiply(csm.quaternion)
+      w.fire.shockMesh.position.set(0, SHOCK_Y, 0).applyQuaternion(w.fire.shockMesh.quaternion)
       updateFireball(w.fire, heat, time)
       w.glowMat.position.copy(w.fire.group.position).addScaledVector(vel, 3)
       w.glowMat.intensity = heat * 900
       // 火の玉のまわりの、まるい光
       w.fireGlow.visible = heat > 0.02
       w.fireGlow.position.copy(w.fire.group.position).addScaledVector(vel, 1)
-      w.fireGlow.scale.setScalar(9 + heat * 12)
-      w.fireGlow.material.opacity = Math.min(1, heat * 1.2) * (0.8 + 0.2 * Math.sin(time * 23))
+      w.fireGlow.scale.setScalar(6 + heat * 7)
+      w.fireGlow.material.opacity = Math.min(1, heat * 1.2) * 0.55 * (0.8 + 0.2 * Math.sin(time * 23))
+      // 窓の外：流れの向き（空気は進む向きの逆へ流れる）を画面の上の向きにして、光の筋と火の粉を流す
+      {
+        const wp = w.winPlasma
+        wp.mesh.visible = ms.cam === 'window' && heat > 0.02
+        if (wp.mesh.visible) {
+          const P = _a.set(0, 0, -10).applyQuaternion(camera.quaternion).add(camera.position)
+          const Q = _b.copy(P).addScaledVector(vel, -1)
+          P.project(camera)
+          Q.project(camera)
+          wp.mat.uniforms.uFlow.value.set((Q.x - P.x) * camera.aspect, Q.y - P.y)
+          if (wp.mat.uniforms.uFlow.value.lengthSq() < 1e-8) wp.mat.uniforms.uFlow.value.set(0, 1)
+          wp.mat.uniforms.uAspect.value = camera.aspect
+          wp.mat.uniforms.uHeat.value = Math.min(1, heat * 1.4)
+          wp.mat.uniforms.uTime.value = time % 1000
+        }
+      }
       // 焦げ
-      for (const b of parts.burn) b.m.color.copy(b.from).lerp(b.to, ret.char * 0.85)
+      for (const b of parts.burn) {
+        b.m.color.copy(b.from).lerp(b.to, ret.char * 0.85)
+        b.m.metalness = THREE.MathUtils.lerp(b.metal, b.toMetal, ret.char)
+      }
+    }
+    // 突入の音：熱いあいだと、G が強いあいだ
+    {
+      const g = inAir && e ? e.g : 0
+      const want = inAir && (ret.heat > 0.02 || g > 0.4)
+      if (want && !roar.h) roar.h = startEntryRoar()
+      if (roar.h) {
+        if (want) roar.h.set(ret.heat, g)
+        else {
+          roar.h.stop()
+          roar.h = null
+        }
+      }
     }
     if (!inAir) {
+      w.winPlasma.mesh.visible = false
       w.fire.group.visible = false
       w.fireGlow.visible = false
       w.glowMat.intensity = 0
     }
-    if (lunar || step === 'coast' || step === 'cmSep') for (const b of parts.burn) b.m.color.copy(b.from)
+    if (lunar || step === 'coast' || step === 'eva' || step === 'cmSep') for (const b of parts.burn) ((b.m.metalness = b.metal), b.m.color.copy(b.from))
 
     // ---- パラシュート ----
     const apex = _a.set(0, 0, 0).applyQuaternion(csm.quaternion).add(csm.position)
@@ -538,12 +913,12 @@ function Scene() {
       c.group.visible = drogueOn
       if (!drogueOn) return
       const open = THREE.MathUtils.smoothstep(t, 0, 0.8) * (t < 2.5 ? 0.55 : 0.55 + 0.45 * THREE.MathUtils.smoothstep(t, 2.5, 3.3))
-      shapeChute(c, open, Math.sin(time * 5 + i))
+      shapeChute(c, open, Math.sin(time * 5 + i), time + i * 3.1)
       c.group.position.copy(apex).add(_v.set(0, 1.5, 0))
       c.group.quaternion.setFromAxisAngle(_v.set(0, 0, 1), (i ? 1 : -1) * 0.16 + 0.05 * Math.sin(time * 2.1 + i))
       c.group.scale.setScalar(1.2)
     })
-    const mainsOn = (step === 'chutes' && ret.mainAt >= 0) || step === 'splash' || step === 'end'
+    const mainsOn = (step === 'chutes' && ret.mainAt >= 0) || afloat(step)
     w.mains.forEach((c, i) => {
       c.group.visible = mainsOn
       if (!mainsOn) return
@@ -552,18 +927,21 @@ function Scene() {
       const late = i === 2 ? 3 : 0
       let open = THREE.MathUtils.smoothstep(since, 0, 1.4) * 0.32
       open += 0.68 * THREE.MathUtils.smoothstep(since, 6 + late, 8 + late)
-      shapeChute(c, open, Math.sin(time * 1.6 + i * 2))
+      shapeChute(c, open, Math.sin(time * 1.6 + i * 2), time + i * 3.1)
       const az = (i / 3) * Math.PI * 2 + 0.4
       c.group.position.copy(apex).add(_v.set(0, 4, 0))
       c.group.quaternion.setFromAxisAngle(_v.set(Math.cos(az), 0, Math.sin(az)), 0.3 * open + 0.03 * Math.sin(time + i))
       c.group.scale.setScalar(1)
       c.lines.visible = true
       c.canopy.position.y = c.length
-      if (step === 'splash' || step === 'end') {
-        // 着水したら切り離す：風下（カメラの向こう）へ流れて、海にぺたんと広がる
-        const dn = step === 'end' ? 1 : THREE.MathUtils.smootherstep(ret.splashT / 4, 0, 1)
+      if (afloat(step)) {
+        // 着水したら切り離す：風下（カメラの向こう）へ流れて、海にぺたんと広がり、水を吸ってしずんでいく
+        //（海面の高さにとどまると、波の山から布のしまが細切れにのぞいて見えた）
+        const dn = step === 'splash' ? THREE.MathUtils.smootherstep(ret.splashT / 4, 0, 1) : 1
+        const sink = Math.max(0, ret.splashT - 4.5) * 0.6
+        c.group.visible = sink < 4
         const spot = FALLEN[i]
-        c.group.position.set(THREE.MathUtils.lerp(apex.x, spot[0], dn), THREE.MathUtils.lerp(apex.y + 4, -h + 0.3, dn), THREE.MathUtils.lerp(apex.z, spot[1], dn))
+        c.group.position.set(THREE.MathUtils.lerp(apex.x, spot[0], dn), THREE.MathUtils.lerp(apex.y + 4, -h + 0.3, dn) - sink, THREE.MathUtils.lerp(apex.z, spot[1], dn))
         c.group.quaternion.setFromAxisAngle(_v.set(Math.cos(az), 0, Math.sin(az)), (0.3 + dn * 1.25) * (1 - dn) + dn * 0.02)
         c.canopy.position.y = c.length * (1 - dn)
         c.canopy.scale.y = 1 - dn * 0.9
@@ -574,7 +952,6 @@ function Scene() {
     // ---- 着水のしぶき ----
     const splashing = step === 'splash' && ret.splashT < 4
     w.spray.visible = splashing
-    w.foam.visible = step === 'splash' || step === 'end'
     if (splashing) {
       const p = w.spray.geometry.getAttribute('position') as THREE.BufferAttribute
       const st = ret.splashT
@@ -587,12 +964,14 @@ function Scene() {
       p.needsUpdate = true
       ;(w.spray.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - st / 3.5)
     }
-    if (w.foam.visible) {
-      const ft = step === 'end' ? 10 : ret.splashT
-      w.foam.position.set(0, -h + 0.05, 0)
-      w.foam.scale.setScalar(4 + Math.min(ft, 8) * 1.2)
-      ;(w.foam.material as THREE.MeshBasicMaterial).opacity = Math.max(0.25, 0.9 - ft * 0.07)
-    }
+    // 着水の泡は、海の素材の中で描く（波と同じ面に、まだらな白い輪）
+    const splashU = ((w.ocean.material as THREE.ShaderMaterial).uniforms.uSplash.value as THREE.Vector4)
+    if (afloat(step)) splashU.set(0, 0, step === 'end' ? Math.max(10, ret.splashT) : ret.splashT, 1)
+    else splashU.set(0, 0, -1, 0)
+
+    // 影の範囲の真ん中（司令船）と、雲の影
+    shadowAt.copy(csm.position)
+    shade.k = inAir || sea ? cloudShadeAt(csm.position.x, csm.position.z, h, sun, (w.ocean.material as THREE.ShaderMaterial).uniforms.uCloudOff.value) : 1
 
     // ---- カメラ ----
     const cam = ms.cam
@@ -603,9 +982,19 @@ function Scene() {
     let near = 0.3
     let snap = false
     const c = tmp.cmPos
+    // 縦長の画面（スマホ）：横に見える広さが足りないので、見る点を船へ寄せる（横長の「船は左、行く先は右」の構図だと船が見切れる）
+    const tall = camera.aspect < 1
     if (step === 'rdv' || step === 'docked' || step === 'lmGone') {
       const lmPos = _u.copy(lm.position).add(_b.set(0, 5, 0).applyQuaternion(LUNAR_FRAME))
-      if (cam === 'window') {
+      if (cam === 'window' && step !== 'rdv') {
+        // ドッキングのあと：照準の先は着陸船のトンネルでふさがるので、船長の横の窓から、下の月面を見る
+        // （この場面の船は向きが逆さで、横の窓の位置からだと機械船の壁が画面をふさいだ。船の月側から、下の月面と前を見る）
+        want.copy(c).add(_b.set(0, -3.4, 0))
+        look.copy(want).add(_b.set(0.2, -0.55, -1))
+        fov = 55
+        near = 0.05
+        snap = true
+      } else if (cam === 'window') {
         // 司令船の照準（COAS）から、うしろの着陸船を見る
         want.set(0.75, -0.6, 0).applyQuaternion(csm.quaternion).add(csm.position)
         look.copy(want).add(_b.set(0, 1, 0).applyQuaternion(csm.quaternion))
@@ -614,13 +1003,41 @@ function Scene() {
         snap = true
       } else if (cam === 'wide') {
         want.copy(c).add(_b.set(70, 18, 40))
-        look.copy(c).add(_b.set(0, -25, 30))
+        look.copy(c).add(tall ? _b.set(0, -14, 8) : _b.set(0, -25, 30))
         fov = 50
       } else {
-        const span = Math.max(16, c.distanceTo(lmPos) + 12)
+        const span = Math.max(16, c.distanceTo(lmPos) + 12) * (tall ? 1.6 : 1)
         look.copy(c).lerp(lmPos, 0.5)
         want.copy(look).add(_b.set(span * 0.8, span * 0.22, -span * 0.25))
         fov = 42
+      }
+    } else if (step === 'eva') {
+      // 船外活動：船の外向き（ハッチの側）と、うしろの月の向き
+      const out = _u.set(1, 0, 0).applyQuaternion(csm.quaternion)
+      const toMoon = _a.copy(w.moonG.position).normalize()
+      const ev = tmp.evans
+      if (cam === 'window') {
+        // ハッチから見守るシュミット飛行士の目：殻にそって、機械船の方のエバンス飛行士を見る（この絵ではシュミット飛行士を出さない）
+        //（エバンス飛行士の体が通る所はさける：ハッチの少し上、横へずらした所）
+        want.set(3.0, 0.3, -1.8).applyQuaternion(csm.quaternion).add(csm.position)
+        w.eva.schmitt.root.visible = false
+        look.copy(ev)
+        fov = 62
+        near = 0.05
+      } else if (cam === 'wide') {
+        // 日の当たる横から：司令船から機械船まで全部と、科学機器室のエバンス飛行士
+        const mid = _b.set(0, -4.2, 0).applyQuaternion(csm.quaternion).add(csm.position)
+        want.copy(mid).addScaledVector(out, tall ? 12.5 : 10).addScaledVector(toMoon, -5)
+        want.y += 2.5
+        look.copy(mid).lerp(ev, 0.4)
+        fov = tall ? 60 : 46
+      } else {
+        // エバンス飛行士のすぐそば
+        want.copy(ev).addScaledVector(out, 2.6).addScaledVector(toMoon, -1.8)
+        want.y += 0.7
+        look.copy(ev)
+        fov = tall ? 60 : 50
+        near = 0.05
       }
     } else if (lunar || step === 'coast' || step === 'cmSep') {
       if (cam === 'window') {
@@ -631,23 +1048,31 @@ function Scene() {
         near = 0.05
         snap = true
       } else if (cam === 'wide') {
-        if (step === 'coast') {
+        if (step === 'coast' && ret.coastLeg === 1) {
+          // 船外活動のあと：うしろから、船と、前の三日月の地球
+          want.set(-10, 4, 26)
+          look.set(0, -2, -30)
+        } else if (step === 'coast') {
           // 前から振り返る：司令船と、うしろの月
           want.set(-14, 4, -46)
           look.set(0, -1, 30)
         } else {
           want.set(50, 22, 60)
-          look.set(0, -30, -80)
+          if (tall) look.set(0, -16, -18)
+          else look.set(0, -30, -80)
         }
         fov = 50
       } else if (step === 'cmSep') {
-        want.set(15, 4, 18)
+        // 太陽は前の左下（帰り道の地球は三日月なので、太陽は地球の向こう寄り）。日の当たる左の側から
+        want.set(-15, 4, 18)
         look.set(0, -1, 3)
         fov = 46
       } else {
-        if (step === 'coast') want.set(8, 4.5, 24)
+        if (step === 'coast') want.set(-12, 3.5, 22)
         else want.set(17, 5, 15)
         look.set(0, step === 'coast' ? -0.5 : -2, -8)
+        // 機械船つきの船のまん中（司令船から 4 m うしろ）
+        if (tall) look.lerp(_b.set(0, -4, 0).applyQuaternion(csm.quaternion), 0.8)
         fov = step === 'coast' ? 40 : 46
       }
     } else if (!sea) {
@@ -663,12 +1088,20 @@ function Scene() {
         snap = true
       } else if (cam === 'wide') {
         want.copy(c).addScaledVector(side, 60).addScaledVector(vel, -25).add(_b.set(0, 10, 0))
-        look.copy(c).addScaledVector(vel, -40)
+        look.copy(c).addScaledVector(vel, tall ? -8 : -40)
         fov = 50
       } else {
         want.copy(c).addScaledVector(side, 12).addScaledVector(vel, -13).add(_b.set(0, 4.5, 0))
         look.copy(c).addScaledVector(vel, 5)
         fov = 50
+      }
+      // 大気に入る前（まだ何千 km も上）：地球は大きな三日月。遠くからのカメラは、日の当たる三日月のふちの方を見る
+      if (step === 'corridor' && cam === 'wide' && w.earthG.visible) {
+        const toEarth = _u.copy(w.earthG.position).sub(c).normalize()
+        const limb = _b.copy(sun).projectOnPlane(toEarth).normalize().multiplyScalar(RE).add(w.earthG.position).sub(c).normalize()
+        // 船の向こうに三日月：船の少しうしろ・横から、ふちの方を見る（船は手前）
+        want.copy(c).addScaledVector(limb, -45).addScaledVector(side, tall ? 8 : 14).add(_a.set(0, 5, 0))
+        look.copy(c).addScaledVector(limb, tall ? 60 : 45)
       }
       // G と熱のゆれ
       const k = (e ? Math.min(1, e.g / 7) : 0) * 0.06 + ret.heat * 0.05
@@ -676,20 +1109,40 @@ function Scene() {
       want.y += (Math.random() - 0.5) * k
     } else {
       const water = -h
-      const shipEye = _u.copy(w.ship.group.position).add(_b.set(0, 22, 0))
+      const rec = step === 'recovery' || step === 'end'
       if (cam === 'window') {
-        // 窓から上を見る：パラシュート
+        // 窓から上を見る：パラシュート（回収のときは、上で止まっているヘリ）
         want.copy(WINDOW_EYE).applyQuaternion(csm.quaternion).add(csm.position)
-        look.copy(c).add(_b.set(4, 40, 0))
+        if (rec) look.copy(w.heli.group.position)
+        else look.copy(c).add(_b.set(4, 40, 0))
         fov = 70
         near = 0.05
         snap = true
+      } else if (rec && cam === 'wide') {
+        // 回収：横から少し上。司令船・浮き輪・潜水員と、上のヘリ、遠くの空母が一つの絵に入る
+        // ヘリの反対側から：司令船が手前、ヘリがその向こうの上。近すぎるヘリが画面をふさがない
+        const dir = _u.set(HELI_WATCH.x, 0, HELI_WATCH.z).normalize()
+        const side = _a.set(-dir.z, 0, dir.x)
+        want.copy(c).addScaledVector(dir, tall ? -40 : -32).addScaledVector(side, 10).add(_b.set(0, 6, 0))
+        // 司令船とヘリのまん中を見る（どちらも画面に入る）
+        look.copy(c).lerp(w.heli.group.position, 0.5)
+        fov = tall ? 72 : 50
+        snap = true
+      } else if (rec) {
+        // 回収：海面に近い所から見上げる（波の上の司令船と浮き輪、上にヘリ）。低すぎると波の山に司令船がかくれる
+        const dir = _u.set(HELI_WATCH.x, 0, HELI_WATCH.z).normalize()
+        want.copy(c).addScaledVector(dir, tall ? -26 : -20).addScaledVector(_a.set(dir.z, 0, -dir.x), 13).add(_b.set(0, 3.6, 0))
+        look.copy(c).lerp(w.heli.group.position, 0.45)
+        fov = 58
       } else if (cam === 'wide' && step === 'chutes') {
-        // 回収船の甲板から、望遠で、降りてくるパラシュートを見上げる
-        want.copy(shipEye)
-        look.copy(c).add(_b.set(0, 18, 0))
+        // 回収の飛行機から：横 260 m・少し上から、パラシュートと司令船を、下の雲と海を背に見る。
+        // 回収船の甲板からの望遠は、あいだの雲（1〜2 km の高さ）が画面いっぱいに入って、灰色一色になった
+        const toShip = _u.copy(w.ship.group.position).sub(c).setY(0).normalize()
+        want.copy(c).addScaledVector(toShip, -260).add(_b.set(0, 70, 0))
+        look.copy(c).add(_b.set(0, 14, 0))
+        // 縦長の画面でも、パラシュート 3 つ（横 約 50 m）がおさまる広さ
         const d = want.distanceTo(look)
-        fov = THREE.MathUtils.clamp((2 * Math.atan(90 / d) * 180) / Math.PI, 0.5, 40)
+        fov = THREE.MathUtils.clamp((2 * Math.atan(48 / d / Math.min(1, camera.aspect)) * 180) / Math.PI, 12, 60)
         snap = true
       } else if (cam === 'wide') {
         // 着水のあと：回収のヘリコプターから（本物の着水の写真も、ヘリから撮ったもの）。司令船のうしろ遠くに回収船。
@@ -712,9 +1165,14 @@ function Scene() {
       }
       want.y = Math.max(want.y, water + 1.6)
     }
+    // 縦長の画面：縦の画角を広げて、ほぼ正方形の画面と同じ横の広さにする（海の「遠くから」は自分で広さを決めている）
+    if (cam !== 'window' && tall && !(sea && cam === 'wide')) {
+      const k = Math.min(1.9, 0.9 / camera.aspect)
+      fov = (2 * Math.atan(Math.tan((fov * Math.PI) / 360) * k) * 180) / Math.PI
+    }
     // ホイール・2 本指で宇宙船に寄る（うしろからのカメラのとき）
     if (cam === 'chase') applyCraftZoom(want, look, c, 5)
-    const key = `${cam}-${lunar ? 'moon' : sea ? 'sea' : step === 'coast' || step === 'cmSep' ? 'space' : 'air'}`
+    const key = `${cam}-${lunar ? 'moon' : sea ? 'sea' : step === 'coast' || step === 'eva' || step === 'cmSep' ? 'space' : 'air'}`
     if (!rig.init || snap || rig.key !== key) {
       rig.pos.copy(want)
       rig.look.copy(look)
@@ -739,16 +1197,24 @@ function Scene() {
       <primitive object={w.sunSprite} />
       <primitive object={w.nozzle} />
       <primitive object={w.sky} />
-      <primitive object={w.moonG} />
+      <primitive object={w.moonG}>
+        {lmaps && (
+          <Suspense fallback={null}>
+            <LunarGlobe maps={lmaps} frame={w.moonG} sun={MOON_SUN} lite={small} track trackSpan={RDV_SPAN} landingShade={false} craters />
+          </Suspense>
+        )}
+      </primitive>
       <primitive object={w.earthG} />
       <primitive object={w.ocean} />
-      <primitive object={w.cloud.group} />
       <primitive object={w.ship.group} />
+      <primitive object={w.recovery} />
+      <primitive object={w.eva.group} />
       <primitive object={craft.lm} />
       <primitive object={craft.csm} />
       <primitive object={w.fire.group} />
       <primitive object={w.glowMat} />
       <primitive object={w.fireGlow} />
+      <primitive object={w.winPlasma.mesh} />
       {w.mains.map((c, i) => (
         <primitive key={`m${i}`} object={c.group} />
       ))}
@@ -756,7 +1222,6 @@ function Scene() {
         <primitive key={`d${i}`} object={c.group} />
       ))}
       <primitive object={w.spray} />
-      <primitive object={w.foam} />
     </>
   )
 }
@@ -781,11 +1246,13 @@ const RETURN_CUTS: Partial<Record<ReturnStep, MissionCam[]>> = {
   teiWait: ['chase', 'wide'],
   tei: ['chase', 'wide', 'window'],
   coast: ['chase', 'wide', 'window'],
+  eva: ['wide', 'chase', 'window'],
   cmSep: ['chase', 'wide'],
   corridor: ['chase', 'wide', 'window'],
   entry: ['chase', 'window', 'wide'],
   chutes: ['chase', 'window', 'wide'],
   splash: ['chase', 'wide'],
+  recovery: ['wide', 'chase', 'window'],
   end: ['chase', 'wide'],
 }
 const rcuts = { t: 0, i: 0, step: '' as string }

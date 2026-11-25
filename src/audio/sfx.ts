@@ -406,3 +406,136 @@ export function beamHum(seconds: number, level: number) {
     gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.1)
   }
 }
+
+/**
+ * 大気圏突入の音（船の中で聞こえる、低いごうごうという音と、空気がこすれるざーっという音）。
+ * set(heat, g)：熱の強さ（0〜1）と G で、大きさと低いゆれを変える。stop() でゆっくり消える
+ */
+export function startEntryRoar() {
+  const c = audio()
+  if (!c) return null
+  const now = c.currentTime
+  const src = c.createBufferSource()
+  src.buffer = noiseBuffer(c, 4)
+  src.loop = true
+  // 低いごうごう（船体を伝わる振動）
+  const low = c.createBiquadFilter()
+  low.type = 'lowpass'
+  low.frequency.value = 140
+  low.Q.value = 0.9
+  const lowGain = c.createGain()
+  lowGain.gain.value = 0
+  // ざーっ（外の空気の流れ）
+  const hiss = c.createBiquadFilter()
+  hiss.type = 'bandpass'
+  hiss.frequency.value = 900
+  hiss.Q.value = 0.6
+  const hissGain = c.createGain()
+  hissGain.gain.value = 0
+  // G が強いほど、低い音が不規則にゆれる（6〜9 Hz のうねり）
+  const lfo = c.createOscillator()
+  lfo.frequency.value = 7
+  const lfoGain = c.createGain()
+  lfoGain.gain.value = 0
+  lfo.connect(lfoGain).connect(lowGain.gain)
+  src.connect(low).connect(lowGain).connect(out(c))
+  src.connect(hiss).connect(hissGain).connect(out(c))
+  src.start(now)
+  lfo.start(now)
+  let stopped = false
+  return {
+    set(heat: number, g: number) {
+      if (stopped) return
+      const t = c.currentTime
+      const k = Math.min(1, heat)
+      const gk = Math.min(1, g / 7)
+      lowGain.gain.setTargetAtTime(0.32 * Math.max(k, gk * 0.6), t, 0.25)
+      lfoGain.gain.setTargetAtTime(0.12 * gk, t, 0.25)
+      lfo.frequency.setTargetAtTime(6 + 3 * Math.random(), t, 0.5)
+      hissGain.gain.setTargetAtTime(0.1 * k, t, 0.25)
+      hiss.frequency.setTargetAtTime(600 + 900 * k, t, 0.4)
+    },
+    stop() {
+      if (stopped) return
+      stopped = true
+      const t = c.currentTime
+      for (const gn of [lowGain.gain, hissGain.gain, lfoGain.gain]) {
+        gn.cancelScheduledValues(t)
+        gn.setValueAtTime(gn.value, t)
+        gn.linearRampToValueAtTime(0, t + 1.5)
+      }
+      src.stop(t + 1.6)
+      lfo.stop(t + 1.6)
+    },
+  }
+}
+
+/**
+ * 回収のヘリコプター（SH-3 シーキング）の音。主ローターは 5 枚・毎分約 200 回転なので、
+ * 羽根が通るたびの「バタバタ」は 1 秒に約 17 回。そこにエンジンのうなりと、下に吹きつける風の音。
+ * set(level)：0〜1（近いほど大きい）
+ */
+export function startHeliSound() {
+  const c = audio()
+  if (!c) return null
+  const now = c.currentTime
+  const src = c.createBufferSource()
+  src.buffer = noiseBuffer(c, 4)
+  src.loop = true
+  // バタバタ：帯域をしぼった雑音を、17 Hz で開け閉めする
+  const slap = c.createBiquadFilter()
+  slap.type = 'bandpass'
+  slap.frequency.value = 260
+  slap.Q.value = 0.8
+  const slapGain = c.createGain()
+  slapGain.gain.value = 0
+  const chop = c.createOscillator()
+  chop.type = 'square'
+  chop.frequency.value = 17
+  const chopGain = c.createGain()
+  chopGain.gain.value = 0
+  chop.connect(chopGain).connect(slapGain.gain)
+  // 吹きおろしの風
+  const wash = c.createBiquadFilter()
+  wash.type = 'lowpass'
+  wash.frequency.value = 500
+  const washGain = c.createGain()
+  washGain.gain.value = 0
+  // タービンのうなり
+  const whine = c.createOscillator()
+  whine.type = 'triangle'
+  whine.frequency.value = 1150
+  const whineGain = c.createGain()
+  whineGain.gain.value = 0
+  src.connect(slap).connect(slapGain).connect(out(c))
+  src.connect(wash).connect(washGain).connect(out(c))
+  whine.connect(whineGain).connect(out(c))
+  src.start(now)
+  chop.start(now)
+  whine.start(now)
+  let stopped = false
+  return {
+    set(level: number) {
+      if (stopped) return
+      const t = c.currentTime
+      const k = Math.max(0, Math.min(1, level))
+      slapGain.gain.setTargetAtTime(0.16 * k, t, 0.3)
+      chopGain.gain.setTargetAtTime(0.16 * k, t, 0.3)
+      washGain.gain.setTargetAtTime(0.12 * k * k, t, 0.3)
+      whineGain.gain.setTargetAtTime(0.012 * k, t, 0.3)
+    },
+    stop() {
+      if (stopped) return
+      stopped = true
+      const t = c.currentTime
+      for (const gn of [slapGain.gain, chopGain.gain, washGain.gain, whineGain.gain]) {
+        gn.cancelScheduledValues(t)
+        gn.setValueAtTime(gn.value, t)
+        gn.linearRampToValueAtTime(0, t + 1.5)
+      }
+      src.stop(t + 1.6)
+      chop.stop(t + 1.6)
+      whine.stop(t + 1.6)
+    },
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { LANDER_POS, type Terrain } from './terrain'
@@ -9,8 +9,8 @@ import { useLanding } from '../../state/landing'
 import { CREW_HALF_L, CREW_HALF_W, CREW_NEAR, CREW_TOP_Y, LRV_HALF_L, LRV_HALF_W, LRV_NEAR, bindSuitKeys, endSuitWalk, suitCam, suitDebug, suitInput, suitPose, suitSpawn, useSuitWalk } from '../../state/suitWalk'
 import { lrvPose } from './LunarRover'
 import { evaOn } from '../../state/apolloEva'
-import { loadSuit, makeSuitRig } from './suitModel'
-import { HIP_Y, SHIN, THIGH, makeAstronaut, type Rig } from './astronaut'
+import { HIP_Y, SHIN, THIGH, type Rig } from './astronaut'
+import { makeApolloAstronaut } from './apolloSuit'
 import { Footprints } from './footprints'
 import { CYCLE_M, legAt } from './walkCycle'
 import { lowMemory } from '../../state/quality'
@@ -121,18 +121,11 @@ function Walker({ terrain, sky }: { terrain: Terrain; landerYaw: number; sky: Sk
   const gG = def.gravity
   const g = gG * 9.81
   const gait = gaitFor(gG)
-  const hand = useMemo(() => makeAstronaut(false), [])
-  const [model, setModel] = useState<Rig | null>(null)
-  useEffect(() => {
-    let dead = false
-    void loadSuit().then(async (src) => {
-      if (!src || dead) return
-      const r = await makeSuitRig(src, false)
-      if (!dead && r) setModel(r)
-    })
-    return () => void (dead = true)
-  }, [])
-  const rig = model ?? hand
+  // 自作のアポロ型の宇宙服（胸の操作箱・背中の生命維持装置、ひざから下に砂ぼこり）。
+  // 月ではアポロ 17 号の船長の姿（赤い帯・NASA の印・パッチ・国旗）。ほかの星では印と赤い帯を外す
+  const moon = def.id === 'moon'
+  const rig = useMemo(() => makeApolloAstronaut({ back: 'plss', leva: true, cdr: moon, rcu: true, dust: true, patches: moon }), [moon])
+  useEffect(() => () => rig.materials.forEach((m) => m.dispose()), [rig])
   useEffect(() => {
     rig.root.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) o.castShadow = true
