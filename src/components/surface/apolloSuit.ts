@@ -16,6 +16,8 @@ export type ApolloKit = {
   cdr: boolean
   /** 月面の胸の操作箱 */
   rcu: boolean
+  /** ひざから下の月の砂ぼこり（月面を歩いたあとの姿）。省くと無し */
+  dust?: boolean
 }
 
 type Src = { parts: Map<string, THREE.Mesh[]> }
@@ -36,6 +38,21 @@ export function loadApolloSuit(): Promise<Src | null> {
         // 部品の名前（ノードの名前）。複数の材質の部品は、子のメッシュに分かれている
         let node: THREE.Object3D = m
         while (node.parent && node.parent !== g.scene) node = node.parent
+        // 頂点の色のアルファ＝砂ぼこりの少なさ（1 = きれい）。色は RGB だけにして、量は dust に分ける
+        const col = m.geometry.getAttribute('color')
+        if (col && col.itemSize === 4 && !m.geometry.getAttribute('dust')) {
+          const n = col.count
+          const rgb = new Float32Array(n * 3)
+          const dust = new Float32Array(n)
+          for (let i = 0; i < n; i++) {
+            rgb[i * 3] = col.getX(i)
+            rgb[i * 3 + 1] = col.getY(i)
+            rgb[i * 3 + 2] = col.getZ(i)
+            dust[i] = 1 - col.getW(i)
+          }
+          m.geometry.setAttribute('color', new THREE.BufferAttribute(rgb, 3))
+          m.geometry.setAttribute('dust', new THREE.BufferAttribute(dust, 1))
+        }
         const list = parts.get(node.name) ?? []
         list.push(m)
         parts.set(node.name, list)
@@ -51,12 +68,29 @@ const JOINTS = ['torso', 'shoulder0', 'elbow0', 'shoulder1', 'elbow1', 'hip0', '
 function wanted(tag: string | undefined, kit: ApolloKit) {
   if (!tag) return true
   if (tag === 'helmet') return true
+  if (tag === 'patch') return true // NASA の印・アポロ 17 号のパッチ・国旗（アポロの宇宙服にだけ）
   if (tag === 'plss') return kit.back === 'plss'
   if (tag === 'ops') return kit.back === 'ops'
   if (tag === 'leva') return kit.leva
   if (tag === 'cdr') return kit.cdr
   if (tag === 'rcu') return kit.rcu
   return false
+}
+
+const DUST = new THREE.Color(0.25, 0.235, 0.21)
+
+/** 頂点の dust の量だけ、月の砂の色を混ぜる */
+function addDust(mat: THREE.MeshStandardMaterial) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.dustColor = { value: DUST }
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float dust;\nvarying float vDust;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDust = dust;')
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 dustColor;\nvarying float vDust;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, dustColor, vDust);')
+  }
+  mat.customProgramCacheKey = () => 'apollo-dust'
 }
 
 /** アポロの宇宙服の宇宙飛行士ひとり。すぐに使える（はじめは手作りの形、モデルが届いたら入れかわる） */
@@ -102,6 +136,7 @@ export function makeApolloAstronaut(kit: ApolloKit): Rig {
             mat.envMapIntensity = 2
             mat.vertexColors = false
           } else mat.envMapIntensity = 0.8
+          if (kit.dust && mn !== 'Bubble' && mn !== 'Gold' && mn !== 'Hard') addDust(mat)
           own.set(orig.material as THREE.Material, mat)
           rig.materials.push(mat)
         }
