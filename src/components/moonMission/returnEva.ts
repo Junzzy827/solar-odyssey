@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { makeAstronaut, type Rig } from '../surface/astronaut'
+import { makeApolloAstronaut } from '../surface/apolloSuit'
+import { HIP_Y } from '../surface/astronaut'
 import { EVA_FILM_AT, EVA_TIME } from '../../state/moonReturn'
 
 // 章9 の帰り道：エバンス飛行士の船外活動（1972 年 12 月 17 日、地球と月のあいだ、1 時間 5 分 44 秒）。
@@ -66,21 +67,16 @@ export function makeSimBay() {
   return { group: g, dispose: () => own.forEach((o) => o.dispose()) }
 }
 
-/** 宇宙飛行士の背中の生命維持装置をはずす（深い宇宙の船外活動は、命綱から酸素をもらう） */
-function noBackpack(rig: Rig) {
-  for (const o of rig.torso.children) if (o.position.z < -0.26) o.visible = false
-}
-
 export type EvaScene = ReturnType<typeof makeEvaScene>
 
 export function makeEvaScene() {
   const group = new THREE.Group()
   group.name = 'eva'
   group.visible = false
-  const evans = makeAstronaut(false)
-  const schmitt = makeAstronaut(false)
-  noBackpack(evans)
-  noBackpack(schmitt)
+  // アポロ 17 号の宇宙服（A7LB）。深い宇宙の船外活動は、命綱から酸素をもらう：エバンス飛行士は背中に非常用の酸素だけ、
+  // 金色のバイザーの日よけ。シュミット飛行士はハッチの中なので、背中に何も無く、泡のヘルメットのまま
+  const evans = makeApolloAstronaut({ back: 'ops', leva: true, cdr: false, rcu: false })
+  const schmitt = makeApolloAstronaut({ back: 'none', leva: false, cdr: false, rcu: false })
   group.add(evans.root, schmitt.root)
   // フィルムの箱（パノラマカメラのフィルムは、重さ 約 40 kg の箱）
   const casGeo = new THREE.BoxGeometry(0.34, 0.26, 0.4)
@@ -89,15 +85,32 @@ export function makeEvaScene() {
   cassette.castShadow = true
   evans.elbows[1].add(cassette)
   cassette.position.set(0, -0.42, 0.12)
-  // 命綱：ハッチからエバンス飛行士の胸へ（たるんでゆれる）
+  // 命綱：ハッチからエバンス飛行士の胸へ（たるんでゆれる）。太さ 4 cm ほどの白い布でおおったホース
   const N = 40
-  const cordPos = new Float32Array(N * 3)
+  const RS = 8
+  const CORD_R = 0.022
+  const cordPos = new Float32Array(N * RS * 3)
+  const cordNor = new Float32Array(N * RS * 3)
+  const cordIdx: number[] = []
+  for (let i = 0; i < N - 1; i++)
+    for (let j = 0; j < RS; j++) {
+      const a = i * RS + j
+      const b = i * RS + ((j + 1) % RS)
+      cordIdx.push(a, b, a + RS, b, b + RS, a + RS)
+    }
   const cordGeo = new THREE.BufferGeometry()
   cordGeo.setAttribute('position', new THREE.BufferAttribute(cordPos, 3))
-  const cordMat = new THREE.LineBasicMaterial({ color: '#e6e1d2' })
-  const cord = new THREE.Line(cordGeo, cordMat)
+  cordGeo.setAttribute('normal', new THREE.BufferAttribute(cordNor, 3))
+  cordGeo.setIndex(cordIdx)
+  const cordMat = new THREE.MeshStandardMaterial({ color: '#e9e5da', roughness: 0.85 })
+  const cord = new THREE.Mesh(cordGeo, cordMat)
   cord.frustumCulled = false
+  cord.castShadow = true
   group.add(cord)
+  const _t = new THREE.Vector3()
+  const _n = new THREE.Vector3()
+  const _b = new THREE.Vector3()
+  const _q = new THREE.Vector3()
   const sim = makeSimBay()
 
   const _p = new THREE.Vector3()
@@ -179,15 +192,36 @@ export function makeEvaScene() {
     chest.copy(_p)
     // 命綱：ハッチから胸へ、外へふくらんでたるむ
     const a = _c.copy(HATCH).addScaledVector(CONE_N, 0.05)
-    const len = a.distanceTo(chest)
+    // 先は胸の酸素の口（体の右の上の口。宇宙服の模型の中で、腰から 0.38 m 上・前へ 0.26 m）
+    const plug = _q.set(-0.055, HIP_Y + 0.38, 0.26).applyQuaternion(evans.root.quaternion).add(evans.root.position)
+    const len = a.distanceTo(plug)
     curve.v0.copy(a)
-    curve.v2.copy(chest)
-    curve.v1.copy(a).lerp(chest, 0.5).add(_d.set(0.9 + len * 0.25, Math.sin(time * 0.6) * 0.3, 0.4 + Math.cos(time * 0.5) * 0.35))
+    curve.v2.copy(plug)
+    curve.v1.copy(a).lerp(plug, 0.5).add(_d.set(0.9 + len * 0.25, Math.sin(time * 0.6) * 0.3, 0.4 + Math.cos(time * 0.5) * 0.35))
+    // 筒の輪：曲線の向き（t）に直角な 2 本（n・b）で回す。n は前の輪からなめらかに受けつぐ
+    _n.set(0, 0, 1)
     for (let i = 0; i < N; i++) {
-      curve.getPoint(i / (N - 1), _p)
-      cordPos.set([_p.x, _p.y, _p.z], i * 3)
+      const u = i / (N - 1)
+      curve.getPoint(u, _p)
+      curve.getTangent(u, _t)
+      _n.addScaledVector(_t, -_n.dot(_t))
+      if (_n.lengthSq() < 1e-6) _n.set(1, 0, 0).addScaledVector(_t, -_t.x)
+      _n.normalize()
+      _b.crossVectors(_t, _n)
+      for (let j = 0; j < RS; j++) {
+        const a = (j / RS) * Math.PI * 2
+        _q.copy(_n).multiplyScalar(Math.cos(a)).addScaledVector(_b, Math.sin(a))
+        const k = (i * RS + j) * 3
+        cordNor[k] = _q.x
+        cordNor[k + 1] = _q.y
+        cordNor[k + 2] = _q.z
+        cordPos[k] = _p.x + _q.x * CORD_R
+        cordPos[k + 1] = _p.y + _q.y * CORD_R
+        cordPos[k + 2] = _p.z + _q.z * CORD_R
+      }
     }
     cordGeo.attributes.position.needsUpdate = true
+    cordGeo.attributes.normal.needsUpdate = true
     group.visible = t >= 0 && t <= EVA_TIME + 0.5
   }
 
