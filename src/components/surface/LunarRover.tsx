@@ -11,6 +11,7 @@ import { useLanding } from '../../state/landing'
 import { roverRangeFor } from './wideGround'
 import { BOARD_SEC, LRV_TOP, ROVER_RANGE, driveInput, roverFocus, roverInput, roverNow, roverPose, setRoverPhase, useRover } from '../../state/rover'
 import { LRV_START, lrvTeleport, tickEva, useApolloEva } from '../../state/apolloEva'
+import { useSuitWalk } from '../../state/suitWalk'
 import { APOLLO17 } from '../../data/apollo17'
 import { WheelDust, meshHeight, drawnHeight, nearRocks, rockBodies } from './Rover'
 import { WheelTracks } from './wheelTracks'
@@ -414,7 +415,9 @@ export function LunarRover({
     lrvPose.matrix.copy(grp.matrixWorld)
     if (mine) roverFocus.set(s.x, s.y, s.z)
     if (mine) Object.assign(roverPose, { x: s.x, y: s.y, z: s.z, heading: s.heading, speed: s.speed, slip: 0, grounded: s.grounded, pitch: s.pitch, roll: s.roll })
-    if (mine) tickEva()
+    // 月面車を降りて歩いているときも、次の場所までの道のりを数える
+    const walking = useSuitWalk.getState().on
+    if (mine || walking) tickEva()
 
     // ---- 砂ぼこり・轍 ----
     const cam = state.camera as THREE.PerspectiveCamera
@@ -431,7 +434,8 @@ export function LunarRover({
     // 船長の目のときは、船長の体はかくす（ヘルメットの中から見ているので）
     // 離陸のときは 2 人とも着陸船の中（月面車には誰も乗っていない）
     const aboard = evaStep !== 'liftoff' && evaStep !== 'done'
-    if (rigs.current[0]) rigs.current[0].root.visible = !seatView && aboard
+    // 船長が降りて歩いているときは、船長の席は空
+    if (rigs.current[0]) rigs.current[0].root.visible = !seatView && aboard && !walking
     if (rigs.current[1]) rigs.current[1].root.visible = aboard
     if (!mine || useLanding.getState().phase !== 'surface' || evaStep === 'liftoff' || evaStep === 'done') return
     const camPos = P.cam
