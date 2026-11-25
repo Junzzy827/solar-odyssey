@@ -66,7 +66,7 @@ _MB = 0
 
 MAT_DEF = {
     # 名前: (色, ラフネス, メタリック)
-    'Beta': ((0.86, 0.86, 0.84), 0.9, 0.0),  # ベータ布（ガラス繊維の白い布）
+    'Beta': ((0.84, 0.82, 0.76), 0.9, 0.0),  # ベータ布（ガラス繊維の白い布）
     'Hard': ((0.9, 0.9, 0.88), 0.45, 0.0),  # 日よけの殻・背中の箱（白い固い殻）
     'Metal': ((0.62, 0.64, 0.66), 0.32, 1.0),  # 首・手首・腰のアルミのリング
     'Red': ((0.7, 0.07, 0.05), 0.28, 0.85),  # アルマイト（色つきの金属）
@@ -1099,7 +1099,26 @@ def bake_ao(objs):
         v = 0.35 + 0.65 * np.clip(v, 0, 1) ** 0.8
         if '__helmet' in ob.name or '__leva' in ob.name:
             v = 0.6 + 0.4 * v
-        a[:, 0] = a[:, 1] = a[:, 2] = v
+        # 布のむら（段階4）：使いこんだベータ布の、ゆるいまだらの明るさと少しの黄ばみ。硬い殻・金属・印には入れない
+        joint = ob.name.split('__')[0]
+        soft = '__' not in ob.name or ob.name.endswith('__cdr')
+        if soft and joint != 'torso' or ob.name == 'torso':
+            from mathutils import noise
+            off = ob.location
+            vi = np.zeros(len(ob.data.loops), np.int32)
+            ob.data.loops.foreach_get('vertex_index', vi)
+            co = np.zeros(len(ob.data.vertices) * 3, np.float32)
+            ob.data.vertices.foreach_get('co', co)
+            co = co.reshape(-1, 3)
+            nz = np.array([noise.noise(Vector(c) * 6.0 + off) * 0.6 + noise.noise(Vector(c) * 19.0 + off) * 0.4 for c in co], np.float32)
+            nz = nz[vi]
+            light = 1 + 0.045 * nz
+            a[:, 0] = v * light
+            a[:, 1] = v * light * (1 - 0.012 * np.clip(nz, 0, 1))
+            a[:, 2] = v * light * (1 - 0.035 * np.clip(nz, 0, 1))
+        else:
+            a[:, 0] = a[:, 1] = a[:, 2] = v
+        a[:, :3] = np.clip(a[:, :3], 0, 1)
         a[:, 3] = 1
         col.data.foreach_set('color', a.ravel())
         print('  ao', ob.name, flush=True)
