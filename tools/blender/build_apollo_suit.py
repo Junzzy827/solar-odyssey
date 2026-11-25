@@ -75,7 +75,7 @@ MAT_DEF = {
     'Dark': ((0.05, 0.05, 0.055), 0.6, 0.2),
     'Gold': ((1.0, 0.72, 0.28), 0.08, 1.0),  # 金のバイザー
     'Bubble': ((0.9, 0.93, 0.95), 0.02, 0.0),  # 透明な泡のヘルメット（three.js で透明にする）
-    'Stripe': ((0.66, 0.05, 0.05), 0.85, 0.0),  # 船長の赤い帯（布）
+    'Stripe': ((0.4, 0.075, 0.065), 0.9, 0.0),  # 船長の赤い帯（布に縫った赤い布：つやなし、少しくすんだ赤）
     'Paper': ((0.82, 0.8, 0.72), 0.95, 0.0),  # 手順書の紙
     'Boot': ((0.5, 0.49, 0.45), 0.9, 0.0),
     'Decal': ((1.0, 1.0, 1.0), 0.75, 0.0),  # 胸と肩の印（tools/blender/apollo_decals.png）  # 月面用ブーツの布（灰色がかったベータ布）
@@ -789,7 +789,7 @@ def build_arm(i):
         U.box(sh + Vector((-0.06, -0.07, -0.15)), (0.05, 0.04, 0.1), 'Beta', bevel=0.012)
     # 船長の赤い帯（ひじの上と下）
     S = Part(f'shoulder{i}__cdr')
-    S.lathe([(0.115, -0.2), (0.1195, -0.207), (0.1185, -0.243), (0.114, -0.25)], 'Stripe', center=sh, seg=20)
+    S.band = (-0.2, -0.25)  # 腕の布の面から写す（make_band）
     F.budget = 5200
     U.folds = dict(origin=sh, axis=(0, 0, -1), t0=0.06, t1=0.33, lam=0.06, amp=0.014, ends=(0.5, 1.0), seed=i * 1.7)
     F.folds = dict(origin=el, axis=(0, 0, -1), t0=0.0, t1=0.185, lam=0.05, amp=0.012, ends=(1.0, 0.4), seed=i * 2.9 + 1)
@@ -838,10 +838,10 @@ def build_leg(i):
     # ももの外側のポケット
     T.box(hp + Vector((0.03 * side, -0.16, -0.25)), (0.13, 0.035, 0.15), 'Beta', bevel=0.012)  # ももの前のポケット
     K = Part(f'knee{i}')
-    convolute(K, kn + Vector((0, 0, 0.0)), 0.13, 0.12, 3, 'Beta', depth=0.03, seg=22)
+    convolute(K, kn + Vector((0, 0, -0.01)), 0.122, 0.1, 3, 'Beta', depth=0.03, seg=22)
     # すね：ふくらはぎがふくらみ、足首へ細く（ブーツの筒へ入る）
     K.blob([
-        (kn + Vector((0, -0.012, 0.02)), (0.138, 0.14, 0.06)),  # ひざ
+        (kn + Vector((0, -0.012, 0.0)), (0.126, 0.128, 0.05)),  # ひざ（上は太ももの布の内側にかくれる）
         (kn + Vector((0, 0.0, -0.06)), (0.14, 0.141, 0.08)),
         (kn + Vector((0, 0.01, -0.15)), (0.138, 0.142, 0.09)),
         (kn + Vector((0, 0.0, -0.25)), (0.128, 0.13, 0.08)),
@@ -853,7 +853,7 @@ def build_leg(i):
         # 月面用のブーツは大きい：横・前後 1.3 倍、高さ 1.35 倍（足の裏は地面のまま）
         v.co = Vector((kn.x + (v.co.x - kn.x) * 1.3, kn.y - 0.02 + (v.co.y - kn.y) * 1.25, v.co.z * 1.35))
     S = Part(f'hip{i}__cdr')
-    S.lathe([(0.143, -0.352), (0.1475, -0.36), (0.146, -0.398), (0.142, -0.405)], 'Stripe', center=hp, seg=22)
+    S.band = (-0.352, -0.405)
     T.folds = dict(origin=hp, axis=(0, 0, -1), t0=0.08, t1=0.46, lam=0.07, amp=0.017, ends=(0.7, 1.0), seed=i * 3.1 + 0.5)
     K.folds = dict(origin=kn, axis=(0, 0, -1), t0=0.0, t1=0.27, lam=0.065, amp=0.016, ends=(1.0, 0.5), seed=i * 1.3 + 2)
     return [(T, 1, 0.004), (K, 1, 0.004), (S, 1, 0.005)]
@@ -994,6 +994,30 @@ def build_patches(torso, arm0):
     return out
 
 
+def make_band(src, name, z_top, z_bot, lift=0.0012):
+    """船長の赤い帯：腕・脚のできあがった面（しわ・折り目つき）の帯の部分を写し取り、ほんの少しだけ浮かせた薄い層"""
+    bm = bmesh.new()
+    bm.from_mesh(src.data)
+    for z, no in ((z_top, (0, 0, 1)), (z_bot, (0, 0, -1))):
+        geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
+        bmesh.ops.bisect_plane(bm, geom=geom, plane_co=(0, 0, z), plane_no=no, clear_outer=True)
+    bm.normal_update()
+    for v in bm.verts:
+        v.co += v.normal * lift
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.clear()
+    me.materials.append(MATS['Stripe'])
+    for poly in me.polygons:
+        poly.material_index = 0
+        poly.use_smooth = True
+    ob = bpy.data.objects.new(name, me)
+    ob.location = src.location.copy()
+    bpy.context.scene.collection.objects.link(ob)
+    return ob
+
+
 def build_all():
     objs = []
     T = build_torso()
@@ -1027,6 +1051,10 @@ def build_all():
     for i in range(2):
         for P, sub, wr in build_arm(i) + build_leg(i):
             joint = P.name.split('__')[0]
+            if hasattr(P, 'band'):
+                P.bm.free()
+                objs.append(make_band(next(o for o in objs if o.name == joint), P.name, *P.band))
+                continue
             objs.append(P.build(joint, subdiv=sub, wrinkle=wr, wrinkle_scale=0.05, budget=600 if '__' in P.name else getattr(P, 'budget', 3800),
                                 folds=getattr(P, 'folds', None)))
     objs += build_patches(torso, next(o for o in objs if o.name == 'shoulder0'))
@@ -1203,7 +1231,7 @@ def preview(objs):
         'front': ((0, -6, 1.0), 'ORTHO'), 'side': ((6, 0, 1.0), 'ORTHO'), 'back': ((0, 6, 1.0), 'ORTHO'),
         'hero': ((1.4, -3.4, 1.5), 'PERSP'), 'chest': ((0.35, -1.3, 1.45), 'PERSP'),
         'head': ((0.75, -1.25, 1.95), 'PERSP'),
-        'boot': ((1.0, -0.9, 0.35), 'PERSP'), 'hand': ((0.9, -0.9, 0.95), 'PERSP'),
+        'boot': ((1.0, -0.9, 0.35), 'PERSP'), 'hand': ((0.9, -0.9, 0.95), 'PERSP'), 'stripe': ((1.3, -1.3, 1.05), 'PERSP'),
     }
     for tag in views:
         pos, kind = spots[tag]
@@ -1211,7 +1239,7 @@ def preview(objs):
         cam.data.type = kind
         cam.data.ortho_scale = 2.25
         cam.data.lens = 50 if tag == 'hero' else 70
-        tgt = Vector({'chest': (0, 0, 1.45), 'head': (0, 0, 1.78), 'boot': (0.12, -0.05, 0.12), 'hand': (0.33, -0.1, 0.72)}.get(tag, (0, 0, 1.0)))
+        tgt = Vector({'chest': (0, 0, 1.45), 'head': (0, 0, 1.78), 'boot': (0.12, -0.05, 0.12), 'hand': (0.33, -0.1, 0.72), 'stripe': (0.25, 0, 0.95)}.get(tag, (0, 0, 1.0)))
         cam.rotation_euler = (tgt - Vector(pos)).to_track_quat('-Z', 'Y').to_euler()
         sc.render.filepath = os.path.join(PREVIEW, f'suit-{kit}-{tag}.png')
         bpy.ops.render.render(write_still=True)
