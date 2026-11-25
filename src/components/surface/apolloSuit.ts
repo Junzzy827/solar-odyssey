@@ -18,6 +18,10 @@ export type ApolloKit = {
   rcu: boolean
   /** ひざから下の月の砂ぼこり（月面を歩いたあとの姿）。省くと無し */
   dust?: boolean
+  /** NASA の印・アポロ 17 号のパッチ・国旗。アポロの場面だけで付ける。省くと付ける */
+  patches?: boolean
+  /** 地球の人（重力ジャンプのくらべ役）：うすい青で透ける。砂ぼこりと印は付けない */
+  ghost?: boolean
 }
 
 type Src = { parts: Map<string, THREE.Mesh[]> }
@@ -68,7 +72,7 @@ const JOINTS = ['torso', 'shoulder0', 'elbow0', 'shoulder1', 'elbow1', 'hip0', '
 function wanted(tag: string | undefined, kit: ApolloKit) {
   if (!tag) return true
   if (tag === 'helmet') return true
-  if (tag === 'patch') return true // NASA の印・アポロ 17 号のパッチ・国旗（アポロの宇宙服にだけ）
+  if (tag === 'patch') return kit.patches !== false && !kit.ghost // NASA の印・アポロ 17 号のパッチ・国旗（アポロの場面だけ）
   if (tag === 'plss') return kit.back === 'plss'
   if (tag === 'ops') return kit.back === 'ops'
   if (tag === 'leva') return kit.leva
@@ -95,7 +99,7 @@ function addDust(mat: THREE.MeshStandardMaterial) {
 
 /** アポロの宇宙服の宇宙飛行士ひとり。すぐに使える（はじめは手作りの形、モデルが届いたら入れかわる） */
 export function makeApolloAstronaut(kit: ApolloKit): Rig {
-  const rig = makeAstronaut(false)
+  const rig = makeAstronaut(!!kit.ghost)
   const groups: Record<(typeof JOINTS)[number], THREE.Group> = {
     torso: rig.torso,
     shoulder0: rig.shoulders[0],
@@ -136,13 +140,24 @@ export function makeApolloAstronaut(kit: ApolloKit): Rig {
             mat.envMapIntensity = 2
             mat.vertexColors = false
           } else mat.envMapIntensity = 0.8
-          if (kit.dust && mn !== 'Bubble' && mn !== 'Gold' && mn !== 'Hard') addDust(mat)
+          if (kit.ghost) {
+            mat.map = null
+            mat.vertexColors = false
+            mat.metalness = 0
+            mat.color.set(mn === 'Bubble' ? '#a9d4ff' : '#86b9ff')
+            mat.transparent = true
+            mat.opacity = mn === 'Bubble' ? 0.12 : 0.5
+            mat.depthWrite = false
+            mat.emissive = new THREE.Color('#2a5aa8')
+            mat.emissiveIntensity = 0.35
+          }
+          if (kit.dust && !kit.ghost && mn !== 'Bubble' && mn !== 'Gold' && mn !== 'Hard') addDust(mat)
           own.set(orig.material as THREE.Material, mat)
           rig.materials.push(mat)
         }
         const m = new THREE.Mesh(orig.geometry, mat)
         m.name = name
-        m.castShadow = mat.name !== 'Bubble'
+        m.castShadow = mat.name !== 'Bubble' && !kit.ghost
         m.receiveShadow = true
         g.add(m)
       }

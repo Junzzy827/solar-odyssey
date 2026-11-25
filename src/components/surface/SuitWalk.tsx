@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { LANDER_POS, type Terrain } from './terrain'
@@ -7,8 +7,7 @@ import { isWide, roverRangeFor, wideNow, type RockBody } from './wideGround'
 import { ROVER_RANGE, crewPose, roverFocus } from '../../state/rover'
 import { useLanding } from '../../state/landing'
 import { CREW_HALF_L, CREW_HALF_W, CREW_NEAR, CREW_TOP_Y, bindSuitKeys, endSuitWalk, suitCam, suitDebug, suitInput, suitPose, useSuitWalk } from '../../state/suitWalk'
-import { loadSuit, makeSuitRig } from './suitModel'
-import { HIP_Y, SHIN, THIGH, makeAstronaut, type Rig } from './astronaut'
+import { HIP_Y, SHIN, THIGH, type Rig } from './astronaut'
 import { makeApolloAstronaut } from './apolloSuit'
 import { Footprints } from './footprints'
 import { CYCLE_M, legAt } from './walkCycle'
@@ -120,21 +119,11 @@ function Walker({ terrain, sky }: { terrain: Terrain; landerYaw: number; sky: Sk
   const gG = def.gravity
   const g = gG * 9.81
   const gait = gaitFor(gG)
-  // 月ではアポロ 17 号の宇宙服（船長の姿：赤い帯・胸の操作箱・背中の生命維持装置、ひざから下に砂ぼこり）。ほかの星は今の宇宙服
+  // 自作のアポロ型の宇宙服（胸の操作箱・背中の生命維持装置、ひざから下に砂ぼこり）。
+  // 月ではアポロ 17 号の船長の姿（赤い帯・NASA の印・パッチ・国旗）。ほかの星では印と赤い帯を外す
   const moon = def.id === 'moon'
-  const hand = useMemo(() => (moon ? makeApolloAstronaut({ back: 'plss', leva: true, cdr: true, rcu: true, dust: true }) : makeAstronaut(false)), [moon])
-  const [model, setModel] = useState<Rig | null>(null)
-  useEffect(() => {
-    let dead = false
-    if (moon) return
-    void loadSuit().then(async (src) => {
-      if (!src || dead) return
-      const r = await makeSuitRig(src, false)
-      if (!dead && r) setModel(r)
-    })
-    return () => void (dead = true)
-  }, [moon])
-  const rig = model ?? hand
+  const rig = useMemo(() => makeApolloAstronaut({ back: 'plss', leva: true, cdr: moon, rcu: true, dust: true, patches: moon }), [moon])
+  useEffect(() => () => rig.materials.forEach((m) => m.dispose()), [rig])
   useEffect(() => {
     rig.root.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) o.castShadow = true
