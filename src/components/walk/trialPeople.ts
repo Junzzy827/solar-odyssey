@@ -3,6 +3,7 @@ import type { Age } from './figure'
 import { bakeClips, type MobModel, type MotionData, type VrmModel } from './vrmPeople'
 import { MOB_SET } from './trialSet'
 import { lowMemory } from '../../state/quality'
+import { MOB_TOON, toonify } from './toonPeople'
 
 // 公園の人の素材。ふだんは Rocketbox（junji さんが 3 つを見比べて、いちばん自然と選んだ。2026-11-18）。
 // 見比べ用に ?mobset=makehuman（前の MakeHuman の人、vrmPeople.ts）・?mobset=quaternius も残している。
@@ -259,6 +260,7 @@ async function loadRocketbox(base: string, info: TrialModel) {
     mesh.receiveShadow = true
     mesh.frustumCulled = false
   })
+  if (MOB_TOON) toonify(root)
   const raw0 = names('rocketbox', root)
   return { scene: stand(root, raw0, info.height), raw: raw0 }
 }
