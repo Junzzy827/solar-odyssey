@@ -13,6 +13,8 @@ type LabState = {
   ev: number
   /** 脚の出し具合（0〜1）を手で決める。null なら降下・離陸の動きのまま */
   legs: number | null
+  /** 地形の影（谷の壁・山の長い影）を落とすか。くらべる写真を撮るときに切る */
+  terrainShadow: boolean
   /** 計算した露出（表示用） */
   exposure: number
   set: (p: Partial<Omit<LabState, 'set'>>) => void
@@ -24,6 +26,7 @@ export const useSurfaceLab = create<LabState>((set) => ({
   haze: 1,
   ev: 0,
   legs: null,
+  terrainShadow: true,
   exposure: 1,
   set: (p) => set(p),
 }))

@@ -30,6 +30,7 @@ import { encounterPace, openProbes, playProbe, probeClock, seekProbe, useProbes 
 import { goToSite, skipDescent, startLanding, startTakeoff, useLanding } from './state/landing'
 import { quitRally, startRally, useRally } from './state/rally'
 import { useSurfaceLab } from './state/surfaceLab'
+import { terrainShadowUniforms } from './components/surface/terrainShadow'
 import { crewPose, launchRover, recallRover, roverCtl, roverDebug, roverFocus, roverInput, roverPose, useRover } from './state/rover'
 import { shipCol } from './components/eva/shipCollider'
 import { evaDebug, evaInput, recallEva, startEva, useEva } from './state/eva'
@@ -121,6 +122,8 @@ const sv = {
   rally: { state: useRally, start: startRally, quit: quitRally },
   skyFlight: { state: useSkyFlight, start: startFlight, end: endFlight, forget: forgetLaps },
   surfaceLab: useSurfaceLab,
+  /** 地形の影の uniform（uTsInfo.z が 1 なら出来上がり） */
+  terrainShadow: terrainShadowUniforms,
   wide: wideNow,
   rover: { state: useRover, launch: launchRover, recall: recallRover, input: roverInput, debug: roverDebug, focus: roverFocus, ctl: roverCtl, pose: roverPose },
   // 月ミッション（アポロ17号の追体験）

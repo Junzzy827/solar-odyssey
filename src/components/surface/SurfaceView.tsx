@@ -26,7 +26,8 @@ import { FlightView } from '../flight/FlightView'
 import { TimeBar } from './TimeBar'
 import { groundMaterial, withRockDetail } from './groundMaterial'
 import { marsSun } from './marsGround'
-import { useDem } from './dem'
+import { DEM_BODIES, useDem } from './dem'
+import { aureoleFor, TerrainShadowMaps, terrainShadowUniforms, withTerrainShadow } from './terrainShadow'
 import { Rally } from './Rally'
 import { RallyGhost } from './RallyGhost'
 import { RallyPanel, RallyStart } from './RallyPanel'
@@ -373,9 +374,44 @@ function Plumes({ def }: { def: SurfaceDef }) {
 /** 雲のある天体か（厚い雲で太陽が見えない金星は除く） */
 const hasClouds = (def: SurfaceDef) => !!def.extras?.includes('clouds') && !def.sunHidden
 
-/** 雲のある天体なら、地面に雲の影を落とす */
+/** 雲のある天体なら、地面に雲の影を落とす。本物の地形がある場所では、谷の壁や山の影も落とす */
 function cloudy<M extends THREE.Material>(def: SurfaceDef, m: M): M {
-  return hasClouds(def) ? withCloudShadow(m) : m
+  const s = DEM_BODIES.has(demIdFor(def)) ? withTerrainShadow(m) : m
+  return hasClouds(def) ? withCloudShadow(s) : s
+}
+
+/**
+ * 地形の影の地図（谷の壁・山の長い影）を着陸したときに作り、太陽の向きを毎フレーム渡す。
+ * 軽くする端末（画質「軽い」・メモリの少ない端末）では作らない
+ */
+function TerrainShadows({ terrain, sky }: { terrain: Terrain; sky: SkyNow }) {
+  const level = useLevel()
+  const on = useSurfaceLab((l) => l.terrainShadow)
+  const gl = useThree((s) => s.gl)
+  const maps = useMemo(() => (terrain.dem && on && level !== 'low' && !lowMemory() ? new TerrainShadowMaps(terrain) : null), [terrain, on, level])
+  useEffect(() => {
+    const u = terrainShadowUniforms
+    if (maps) {
+      u.uTsNear.value = maps.near.texture
+      u.uTsFar.value = maps.far.texture
+      u.uTsInfo.value.set(terrain.dem!.near.extent / 2, terrain.dem!.far.extent / 2, 0, 0.005)
+      u.uTsAureole.value = aureoleFor(terrain.def.id)
+    }
+    return () => {
+      u.uTsInfo.value.z = 0
+      u.uTsNear.value = null
+      u.uTsFar.value = null
+      maps?.dispose()
+    }
+  }, [maps, terrain])
+  useFrame((_, dt) => {
+    const u = terrainShadowUniforms
+    u.uTsSun.value.copy(sky.sunDir)
+    if (!maps) return
+    // 出来上がったら、影を 1 秒ほどでふわっと出す
+    if (maps.step(gl)) u.uTsInfo.value.z = Math.min(1, u.uTsInfo.value.z + dt)
+  })
+  return null
 }
 
 const CLOUD_R = 8200
@@ -1395,6 +1431,7 @@ function Scene({ def }: { def: SurfaceDef }) {
       {def.id === 'mars' && <hemisphereLight ref={stormFill} args={[def.hazeColor, def.ground, 0]} />}
       {/* 空と地面の照り返しの光は、まわりの景色の光（scene.environment）が受け持つ */}
       <Ground terrain={terrain} ap={A.ap} />
+      {terrain.dem && <TerrainShadows terrain={terrain} sky={sky} />}
       {terrain.dem && <FarTerrain terrain={terrain} ap={A.ap} />}
       {!eva && (
         <Suspense fallback={null}>
