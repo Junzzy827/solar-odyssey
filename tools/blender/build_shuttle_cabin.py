@@ -12,6 +12,8 @@
      アプリでは 色 × 光（MeshBasic 相当、光の計算なし）。文字は UV0 なのでくっきり、光はやわらかい。
   4. 光は 2 回焼く：day（窓からの日光・地球の照り返し＋室内灯）と dark（打ち上げ・帰りの暗い操縦室：室内灯を落とし、画面の光だけ）。
      焼くときは色を白にそろえて「光の量」だけを焼く（金属が黒くならない）。
+     焼いた光のざらつきは、焼いた後の生の絵にコンポジターの Denoise を掛けて消す（denoise_lm）。Cycles の bake には
+     レンダー用のデノイザーの設定が効かず、ぼかすだけでは壁や天井がまだらに見えた。夜の光は半分の大きさで焼く。
   5. 焼かない部品は名前の頭で分ける：screen_*（CRT・モニター：アプリで絵を描く）、glass_*（窓）、adi_*（姿勢球）、
      rhc_* / thc_* / rms_*（握り：原点が支点）、seat_*、hatch_*、float_*（浮いている物）、collider（当たり判定）、hs_*（見どころの印）。
 
@@ -20,7 +22,8 @@
 環境変数:
   STAGE=1          形だけ（ブロックアウト）。パネルは灰色の板、細かい部品なし
   PREVIEW=1        Cycles で確認の絵を描く（VIEWS=a,b,…  PREVIEW_DIR=…  PREVIEW_SAMPLES=…  MODE=pt|baked）
-  BAKE=1           アトラスと光を焼いて public/models/shuttle/ に書き出す（ATLAS=4096 BAKE_SIZE=2048 SAMPLES=…）
+  BAKE=1           アトラスと光を焼いて public/models/ に書き出す（ATLAS=4096 BAKE_SIZE=2048 SAMPLES=128。4 コアで 約 35 分）
+                   DENOISE=0 でざらつき取りなし、SOFTEN=px で島の中のならし幅、KEEP_RAW=1 で生の光を WORK に残す
 実行:
   .venv/bin/python -I tools/blender/build_shuttle_cabin.py
 """
@@ -52,6 +55,8 @@ BAKE = os.environ.get('BAKE')
 ATLAS = int(os.environ.get('ATLAS', '4096'))
 BAKE_SIZE = int(os.environ.get('BAKE_SIZE', '2048'))
 SAMPLES = int(os.environ.get('SAMPLES', '96'))
+DENOISE = os.environ.get('DENOISE', '1') != '0'  # 焼いた光のざらつきをデノイザーで消す
+SOFTEN = float(os.environ.get('SOFTEN', '0.6'))  # 焼いた光を島の中でならす幅（px）。0 でならさない
 PI = math.pi
 
 # ==== 寸法表（tools/shuttle/cabin.md） ===================================================
@@ -241,6 +246,85 @@ def ring(a, r0, r1, depth, M, seg=24, uv=None):
         fs.append(bm.faces.new((b1[i_in], b1[i_out], b1[j_out], b1[j_in])))
         fs.append(bm.faces.new((b0[i_out], b0[j_out], b1[j_out], b1[i_out])))
         fs.append(bm.faces.new((b0[i_in], b1[i_in], b1[j_in], b0[j_in])))
+    set_uv(a, fs, uv)
+    return fs
+
+
+def rr_loop(w, h, r, seg=4):
+    """角の丸い四角の輪（x, z の点の列、反時計回り）。w・h を変えても点の数と並びは同じ"""
+    r = max(1e-4, min(r, w / 2 - 1e-4, h / 2 - 1e-4))
+    pts = []
+    for cx, cz, a0 in ((w / 2 - r, h / 2 - r, 0.0), (-w / 2 + r, h / 2 - r, PI / 2), (-w / 2 + r, -h / 2 + r, PI), (w / 2 - r, -h / 2 + r, PI * 1.5)):
+        for k in range(seg + 1):
+            a = a0 + PI / 2 * k / seg
+            pts.append((cx + r * math.cos(a), cz + r * math.sin(a)))
+    return pts
+
+
+def round_frame(a, w, h, border, depth, M, rad=0.03, seg=4, cham=0.006, uv=None):
+    """窓わく：角の丸い 1 つの輪（穴 w×h、太さ border、部屋の中へ depth だけ出る）。
+    ローカル x = 右、z = 上、−y が手前（部屋の中）。箱 4 本を重ねた枠は角が出っ張って太く見えたので、輪 1 つにした"""
+    bm = a.bm
+    c = min(cham, border * 0.3, depth * 0.4)
+    # 輪の列：(広げる量, y)。内側の壁の奥 → 内側の角 → 表の内 → 表の外 → 外側の角 → 外側の壁の奥
+    rows = ((0.0, 0.0), (0.0, -depth + c), (c, -depth), (border - c, -depth), (border, -depth + c), (border, 0.0))
+    loops = []
+    for off, y in rows:
+        loops.append([bm.verts.new(M @ Vector((x, y, z))) for x, z in rr_loop(w + 2 * off, h + 2 * off, rad + off, seg)])
+    n = len(loops[0])
+    mid = M @ Vector((0, -depth * 0.5, 0))
+    front = (M.to_3x3() @ Vector((0, -1, 0))).normalized()
+    fs = []
+    for i in range(len(rows) - 1):
+        for k in range(n):
+            k2 = (k + 1) % n
+            f = bm.faces.new((loops[i][k], loops[i][k2], loops[i + 1][k2], loops[i + 1][k]))
+            f.normal_update()
+            cen = f.calc_center_median()
+            if i < 2:  # 内側の壁：穴の中心へ向く
+                want = (mid - cen)
+                want -= front * want.dot(front)
+            elif i == 2:  # 表
+                want = front
+            else:  # 外側の壁：外へ向く
+                want = (cen - mid)
+                want -= front * want.dot(front)
+            if i in (1, 3):
+                want = want.normalized() + front
+            if f.normal.dot(want) < 0:
+                f.normal_flip()
+            fs.append(f)
+    set_uv(a, fs, uv)
+    return fs
+
+
+def d_plate(a, r, flat, depth, M, seg=40, uv=None):
+    """D 字の板（円の下を弦で切った形：エアロックのハッチ）。ローカル x = 右、z = 上、−y が手前。flat＝中心から弦までの距離"""
+    bm = a.bm
+    pts = []
+    a0 = math.asin(-flat / r)  # 弦の右はし
+    a1 = PI - a0
+    for k in range(seg + 1):
+        t = a0 + (a1 - a0) * k / seg
+        pts.append((r * math.cos(t), r * math.sin(t)))
+    front = [bm.verts.new(M @ Vector((x, -depth, z))) for x, z in pts]
+    back = [bm.verts.new(M @ Vector((x, 0.0, z))) for x, z in pts]
+    fdir = (M.to_3x3() @ Vector((0, -1, 0))).normalized()
+    mid = M @ Vector((0, -depth * 0.5, 0))
+    fs = []
+    f = bm.faces.new(front)
+    f.normal_update()
+    if f.normal.dot(fdir) < 0:
+        f.normal_flip()
+    fs.append(f)
+    n = len(pts)
+    for k in range(n):
+        k2 = (k + 1) % n
+        f = bm.faces.new((front[k], front[k2], back[k2], back[k]))
+        f.normal_update()
+        if f.normal.dot(f.calc_center_median() - mid) < 0:
+            f.normal_flip()
+        fs.append(f)
     set_uv(a, fs, uv)
     return fs
 
@@ -621,6 +705,14 @@ def shell_materials(shell):
     shell.data.materials.clear()
     for n in names:
         shell.data.materials.append(MATS[n])
+    # 内張り（白）と壁（灰）の境目を、高さ 3.95 の水平な辺にする。面の中心だけで分けると、後ろの壁の大きな三角の面が
+    # 丸ごと白になり、斜めのぎざぎざの境目ができていた
+    bm = bmesh.new()
+    bm.from_mesh(shell.data)
+    bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, 3.95), plane_no=(0, 0, 1))
+    bm.to_mesh(shell.data)
+    bm.free()
+    shell.data.update()
     for f in shell.data.polygons:
         c, n = f.center, f.normal
         if c.z < FD_Z - 0.06:  # ミッドデッキ
@@ -724,25 +816,26 @@ def proc_material(name, color, noise=0.06, scale=8.0, seams=None, quilt=False, s
 
 
 def make_materials():
-    proc_material('floor', '#5c6066', noise=0.05, seams=(0.6, 0.55), scuff=0.25)
-    proc_material('md_floor', '#6a6d70', noise=0.05, seams=(0.6, 0.6), scuff=0.25)
-    proc_material('fd_wall', '#5d656e', noise=0.05, seams=(0.45, 0.7), scuff=0.12)
-    proc_material('headliner', '#dedbd1', noise=0.03, quilt=True, scuff=0.08)
-    proc_material('md_wall', '#d9d6cb', noise=0.03, seams=(0.5, 0.8), scuff=0.1)
-    proc_material('md_ceiling', '#d6d3c8', noise=0.03, seams=(0.6, 0.8), scuff=0.06)
+    proc_material('floor', '#5c6066', noise=0.05, seams=(0.6, 0.55), scuff=0.14)
+    proc_material('md_floor', '#6a6d70', noise=0.05, seams=(0.6, 0.6), scuff=0.14)
+    proc_material('fd_wall', '#5d656e', noise=0.05, seams=(0.45, 0.7), scuff=0.07)
+    proc_material('headliner', '#dedbd1', noise=0.03, quilt=True, scuff=0.04)
+    proc_material('md_wall', '#d9d6cb', noise=0.03, seams=(0.5, 0.8), scuff=0.05)
+    proc_material('md_ceiling', '#d6d3c8', noise=0.03, seams=(0.6, 0.8), scuff=0.03)
     proc_material('black', '#18191b', noise=0.03)
-    proc_material('console', '#525a63', noise=0.04, scuff=0.12)
-    proc_material('structure', '#42474e', noise=0.05, scuff=0.15)
-    proc_material('cushion', '#34508c', noise=0.08, scale=30, quilt=True)
+    proc_material('console', '#525a63', noise=0.04, scuff=0.07)
+    proc_material('structure', '#42474e', noise=0.05, scuff=0.09)
+    proc_material('cushion', '#2f4474', noise=0.08, scale=30, quilt=True)
+    proc_material('seat_pan', '#6b7077', noise=0.05, scale=20, scuff=0.08)
     proc_material('seat_frame', '#2d3034', noise=0.05)
     proc_material('cloth', '#b9ab8c', noise=0.08, scale=25, scuff=0.15)
     proc_material('cloth_w', '#d8d5ca', noise=0.06, scale=25, scuff=0.12)
     proc_material('bag_g', '#4e5a3f', noise=0.08, scale=25, quilt=True)
     proc_material('bag_b', '#30508c', noise=0.08, scale=25, quilt=True)
-    proc_material('airlock', '#d6d4cb', noise=0.03, scuff=0.1)
+    proc_material('airlock', '#d6d4cb', noise=0.03, scuff=0.05)
     proc_material('metal', '#9ea3a7', noise=0.05, scale=20)
     proc_material('galley', '#b3b6b8', noise=0.04, seams=(0.25, 0.75))
-    proc_material('wcs', '#c5c6c2', noise=0.04, scuff=0.1)
+    proc_material('wcs', '#c5c6c2', noise=0.04, scuff=0.05)
 
 
 # ==== 部屋の中身 ==========================================================================
@@ -841,6 +934,10 @@ def build_seats():
             tube(fr, [B @ Vector((sx * 0.215, -0.04, -0.04)), B @ Vector((sx * 0.215, -0.04, bh * 0.5)), B @ Vector((sx * 0.20, -0.04, bh))], 0.018, seg=8)
         box(fr, (0.46, 0.03, 0.04), B @ T(0, -0.04, bh), bevel=0.01)
         box(fr, (0.46, 0.03, 0.05), B @ T(0, -0.04, 0.02), bevel=0.01)
+        # 背の板（うすい金属）：後ろから見たとき、青いクッションが枠の間に浮いて見えないように
+        box(surf(name, 'seat_pan'), (0.40, 0.012, bh - 0.06), B @ T(0, -0.036, bh * 0.5 + 0.01), bevel=0.004)
+        for zz in (0.3, 0.62):  # 板の補強の横すじ
+            box(fr, (0.40, 0.016, 0.022), B @ T(0, -0.046, bh * zz), bevel=0.005)
         box(cu, (0.38, 0.06, bh * 0.42), B @ T(0, 0.0, bh * 0.25), bevel=0.025, seg=2)
         box(cu, (0.38, 0.06, bh * 0.44), B @ T(0, 0.0, bh * 0.73), bevel=0.025, seg=2)
         if big:
@@ -927,8 +1024,8 @@ def build_aft():
     for x, z in AFT_WIN:
         b = surf('room', 'black')
         w, h = AFT_WIN_SIZE
-        for sx, sz, ww, hh in ((0, h / 2 + 0.03, w + 0.12, 0.06), (0, -h / 2 - 0.03, w + 0.12, 0.06), (w / 2 + 0.03, 0, 0.06, h), (-w / 2 - 0.03, 0, 0.06, h)):
-            box(b, (ww, 0.06, hh), T(x + sx, 0.03, z + sz), bevel=0.01)
+        # 後ろの壁（y=0）の表は +Y。枠の手前（−y ローカル）を +Y へ向ける
+        round_frame(b, w, h, 0.032, 0.028, T(x, 0.0, z) @ rot_z(PI), rad=0.035)
     # 左右の壁（L9〜L12・R10〜R14）
     for side, ids in ((-1, ['L9', 'L10', 'L11', 'L12']), (1, ['R10', 'R11', 'R12', 'R13'])):
         for i, pid in enumerate(ids):
@@ -945,8 +1042,8 @@ def build_aft():
     # 天井の窓の黒い枠と、天井の明かり（白い四角）
     for x, y0 in TOP_WIN:
         b = surf('room', 'black')
-        for dx, dy, ww, hh in ((0, 0.29, 0.63, 0.07), (0, -0.29, 0.63, 0.07), (0.29, 0, 0.07, 0.51), (-0.29, 0, 0.07, 0.51)):
-            box(b, (ww, hh, 0.08), T(x + dx, y0 + dy, FD_TOP - 0.02), bevel=0.01)
+        # 天井：枠の手前（−y ローカル）を下（−Z）へ向ける。ローカル z（上）は前（+Y）
+        round_frame(b, 0.51, 0.51, 0.036, 0.03, frame((x, y0, FD_TOP), (-1, 0, 0), (0, 1, 0)), rad=0.045)
     d = acc('room_detail')
     for x, y0 in ((-1.0, 0.75), (1.0, 0.75), (0.0, 0.55), (-1.0, 1.85), (1.0, 1.85)):
         box(d, (0.42, 0.14, 0.02), T(x, y0, FD_TOP - 0.06), uv='lamp')
@@ -958,10 +1055,8 @@ def build_frames_fd():
     b = surf('room', 'black')
     for name, c, n, w, h, up in WINDOWS[:6]:
         r = up.cross(n)
-        # 窓の面の少し内側に、4 本の枠
-        for dx, dz, ww, hh in ((0, h / 2 + 0.035, w + 0.14, 0.07), (0, -h / 2 - 0.035, w + 0.14, 0.07), (w / 2 + 0.035, 0, 0.07, h), (-w / 2 - 0.035, 0, 0.07, h)):
-            M = frame(c - n * 0.02 + r * dx + up * dz, r, up)
-            box(b, (ww, 0.08, hh), M, bevel=0.01)
+        # 窓の面から少し内側へ出る、角の丸い枠
+        round_frame(b, w, h, 0.045, 0.05, frame(c + n * 0.01, -r, up), rad=0.05)  # −r：枠の手前（−y ローカル）が部屋の中（−n）を向く
 
 
 # ---- ミッドデッキ ------------------------------------------------------------------------
@@ -1037,10 +1132,23 @@ def build_middeck():
     h = acc('hatch_airlock')
     hy = cy + AIRLOCK_R + AIRLOCK_WALL + 0.01
     HM = T(0, hy, 0.98)
-    cyl(h, 0.51, 0.51, 0.06, HM @ rot_x(-PI / 2), seg=32, uv='cream')
-    box(h, (0.91, 0.05, 0.40), HM @ T(0, 0.024, -0.28), uv='cream')
-    box(h, (0.30, 0.05, 0.06), HM @ T(0, 0.07, 0.1), bevel=0.01, uv='metal')  # 取っ手
-    cyl(h, 0.055, 0.055, 0.03, HM @ T(0, 0.07, 0.30) @ rot_x(-PI / 2), seg=16, uv='black')  # 小さな窓
+    # D 字（直径 1.02 m の円を、幅 0.91 m の弦で切る）。表は +Y（部屋の中）なので、手前（−y ローカル）を +Y へ向ける
+    HF = HM @ rot_z(PI)
+    d_plate(h, 0.51, 0.226, 0.05, HF, seg=44, uv='cream')
+    # ハッチの台（円筒からハッチの板までの D 字の筒）：平らな板を丸い円筒へじかに付けると、左右に 17 cm のすき間が見えた
+    d_plate(al, 0.535, 0.25, 0.20, HF @ T(0, 0.20, 0), seg=44)
+    d_plate(h, 0.44, 0.17, 0.012, HF @ T(0, -0.05, 0), seg=44, uv='white')  # 一段出た内側の板
+    # 小さな窓（黒）と金属の縁
+    ring(h, 0.052, 0.075, 0.016, HM @ T(0, 0.062, 0.26) @ rot_x(-PI / 2), seg=20, uv='metal')
+    cyl(h, 0.052, 0.052, 0.004, HM @ T(0, 0.062, 0.26) @ rot_x(-PI / 2), seg=20, uv='black')
+    # 取っ手（両はしの足で浮いた棒）と、まん中の回す仕掛け
+    tube(h, [HM @ Vector((-0.16, 0.064, 0.02)), HM @ Vector((-0.16, 0.115, 0.02)), HM @ Vector((0.16, 0.115, 0.02)), HM @ Vector((0.16, 0.064, 0.02))], 0.014, seg=8, uv='metal')
+    cyl(h, 0.06, 0.06, 0.03, HM @ T(0, 0.062, -0.14) @ rot_x(-PI / 2), seg=20, uv='lgray')
+    box(h, (0.20, 0.02, 0.03), HM @ T(0, 0.10, -0.14) @ Matrix.Rotation(0.5, 4, 'Y'), bevel=0.006, uv='metal')
+    # ふちの留め金（6 つ）
+    for k in range(6):
+        t = PI * (0.08 + 0.84 * k / 5)
+        box(h, (0.07, 0.03, 0.04), HM @ T(0.475 * math.cos(t), 0.06, 0.475 * math.sin(t)) @ Matrix.Rotation(-t + PI / 2, 4, 'Y'), bevel=0.006, uv='lgray')
     PIVOTS['hatch_airlock'] = Vector((0.45, hy, 0.98))
     # トイレ（左うしろ）
     w = surf('room', 'wcs')
@@ -1066,9 +1174,17 @@ def build_middeck():
     # 横のハッチ（別の部品）：丸い扉と窓の縁
     h = acc('hatch_side')
     HM = T(*SIDE_HATCH) @ Matrix.Rotation(PI / 2, 4, 'Y')  # ローカル z ＝ +X（部屋の中へ）
-    ring(h, 0.15, SIDE_HATCH_R, 0.07, HM, seg=40, uv='cream')
-    ring(h, 0.125, 0.17, 0.10, HM, seg=24, uv='black')
-    box(h, (0.08, 0.36, 0.05), T(SIDE_HATCH.x + 0.03, SIDE_HATCH.y, SIDE_HATCH.z - 0.32), bevel=0.01, uv='metal')
+    ring(h, 0.15, SIDE_HATCH_R, 0.07, HM, seg=48, uv='cream')
+    ring(h, 0.19, SIDE_HATCH_R - 0.07, 0.014, HM @ T(0, 0, 0.07), seg=48, uv='white')  # 一段出た内側の板
+    ring(h, 0.125, 0.17, 0.10, HM, seg=32, uv='black')
+    ring(h, 0.165, 0.19, 0.092, HM, seg=32, uv='metal')  # 窓の金属の縁
+    # 取っ手（板から浮いた棒）。板の表と同じ面に置くと、ちらついて欠けて見えた
+    hx = SIDE_HATCH.x + 0.084
+    tube(h, [Vector((hx, SIDE_HATCH.y - 0.17, SIDE_HATCH.z - 0.30)), Vector((hx + 0.05, SIDE_HATCH.y - 0.17, SIDE_HATCH.z - 0.30)), Vector((hx + 0.05, SIDE_HATCH.y + 0.17, SIDE_HATCH.z - 0.30)), Vector((hx, SIDE_HATCH.y + 0.17, SIDE_HATCH.z - 0.30))], 0.014, seg=8, uv='metal')
+    # ふちの留め金（まわりに 12）
+    for k in range(12):
+        t = 2 * PI * (k + 0.5) / 12
+        box(h, (0.035, 0.07, 0.045), T(SIDE_HATCH.x + 0.085, SIDE_HATCH.y + 0.47 * math.cos(t), SIDE_HATCH.z + 0.47 * math.sin(t)) @ Matrix.Rotation(t, 4, 'X'), bevel=0.006, uv='lgray')
     # 窓の穴の部分だけ開ける：ハッチの円板の中の窓は、ガラスの部品（glass_w11）でふさぐ
     PIVOTS['hatch_side'] = SIDE_HATCH.copy()
     # はしご（左の穴の前のふち）
@@ -1428,17 +1544,18 @@ def white_material():
     return m
 
 
-def bake_light(baked, mode):
+def bake_light(baked, mode, size):
     sc = bpy.context.scene
     lights(mode)
-    img = bake_image(f'lm_{mode}', BAKE_SIZE)
+    img = bake_image(f'lm_{mode}', size)
     set_bake_target(baked, img, 'LM')
     sc.cycles.samples = SAMPLES
-    sc.cycles.use_denoising = False
+    sc.cycles.use_denoising = False  # bake には効かない。ざらつきは焼いた後に denoise_lm で消す
     sc.render.bake.use_pass_direct = True
     sc.render.bake.use_pass_indirect = True
     sc.render.bake.use_pass_color = False
-    sc.render.bake.margin = 8
+    margin = max(4, 8 * size // 2048)
+    sc.render.bake.margin = margin
     sc.render.bake.margin_type = 'EXTEND'
     for o in bpy.data.objects:
         if o.type == 'MESH' and o.name.startswith('screen_'):
@@ -1446,11 +1563,58 @@ def bake_light(baked, mode):
             o.data.materials.append(screen_material('screen', mode))
     select(baked)
     t = time.time()
-    bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, use_clear=True, margin=8)
-    print(f'light bake {mode} {BAKE_SIZE}px x {SAMPLES} in {time.time() - t:.0f}s')
-    px = np.empty(BAKE_SIZE * BAKE_SIZE * 4, dtype=np.float32)
+    bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, use_clear=True, margin=margin)
+    print(f'light bake {mode} {size}px x {SAMPLES} denoise={DENOISE} in {time.time() - t:.0f}s')
+    px = np.empty(size * size * 4, dtype=np.float32)
     img.pixels.foreach_get(px)
-    return px.reshape(BAKE_SIZE, BAKE_SIZE, 4)[::-1, :, :3] / 0.8  # 白 0.8 で焼いたので、光の量へ
+    lm = px.reshape(size, size, 4)[::-1, :, :3] / 0.8  # 白 0.8 で焼いたので、光の量へ
+    if os.environ.get('KEEP_RAW'):
+        np.save(os.path.join(WORK, f'lm_{mode}_raw.npy'), lm)
+    return lm
+
+
+def denoise_lm(lm):
+    """焼いた光のざらつきを、コンポジターの Denoise（OpenImageDenoise）で消す。
+    焼くときのデノイザーの設定は bake には効かないので、焼いた後の絵（生の浮動小数）に掛ける。
+    8 ビットにした後や、ぼかした後では効かない（ノイズとして見分けられなくなる）"""
+    h, w = lm.shape[:2]
+    img = bpy.data.images.new('lm_den_in', w, h, alpha=False, float_buffer=True)
+    img.colorspace_settings.name = 'Non-Color'
+    img.pixels.foreach_set(np.dstack([lm[::-1], np.ones((h, w, 1), np.float32)]).astype(np.float32).ravel())
+    img.update()
+    sc = bpy.data.scenes.new('lm_den')
+    cam = bpy.data.objects.new('lm_den_cam', bpy.data.cameras.new('lm_den_cam'))
+    sc.collection.objects.link(cam)
+    sc.camera = cam
+    tree = bpy.data.node_groups.new('lm_den', 'CompositorNodeTree')
+    sc.compositing_node_group = tree
+    n_img = tree.nodes.new('CompositorNodeImage')
+    n_img.image = img
+    den = tree.nodes.new('CompositorNodeDenoise')
+    tree.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
+    out = tree.nodes.new('NodeGroupOutput')
+    tree.links.new(n_img.outputs['Image'], den.inputs['Image'])
+    tree.links.new(den.outputs['Image'], out.inputs['Image'])
+    den.inputs['HDR'].default_value = True
+    den.inputs['Quality'].default_value = 'High'
+    sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage = w, h, 100
+    sc.render.image_settings.file_format = 'OPEN_EXR'
+    sc.render.image_settings.color_depth = '32'
+    sc.render.compositor_device = 'CPU'  # 画面の無い環境では GPU のコンポジターが動かない
+    path = os.path.join(WORK, 'lm_den.exr')
+    sc.render.filepath = path
+    t = time.time()
+    bpy.ops.render.render(write_still=True, scene=sc.name)
+    res = bpy.data.images.load(path)
+    px = np.empty(w * h * 4, np.float32)
+    res.pixels.foreach_get(px)
+    o = px.reshape(h, w, 4)[::-1, :, :3].copy()
+    print(f'denoise {w}px in {time.time() - t:.1f}s, changed {float(np.abs(o - lm).mean() / max(1e-6, lm.mean())) * 100:.1f}%')
+    bpy.data.images.remove(res)
+    bpy.data.images.remove(img)
+    bpy.data.scenes.remove(sc)
+    bpy.data.node_groups.remove(tree)
+    return o
 
 
 def soften(lm, mask):
@@ -1459,8 +1623,8 @@ def soften(lm, mask):
     m = mask.astype(np.float32)
     out = np.empty_like(lm)
     for c in range(3):
-        num = gaussian_filter(lm[:, :, c] * m, 1.1)
-        den = gaussian_filter(m, 1.1)
+        num = gaussian_filter(lm[:, :, c] * m, SOFTEN)
+        den = gaussian_filter(m, SOFTEN)
         out[:, :, c] = np.where(den > 1e-3, num / np.maximum(den, 1e-3), lm[:, :, c])
     return out
 
@@ -1569,6 +1733,10 @@ def preview(sc, mode='pt'):
         'md_up': ((-1.0, 2.4, 0.6), (-1.2, 1.35, 2.6), 90),
         'pnl_fwd': ((0.0, 2.85, 3.38), (0.0, 3.62, 3.02), 72),
         'pnl_aft': ((0.2, 0.85, 3.4), (0.2, 0.0, 3.3), 66),
+        'aftwin': ((0.0, 1.0, 3.62), (0.0, 0.0, 3.72), 70),
+        'topwin': ((0.0, 1.25, 3.5), (0.0, 1.3, 4.35), 80),
+        'seats': ((0.0, 1.6, 3.45), (0.0, 3.0, 3.1), 70),
+        'hatch_al': ((0.3, 3.0, 1.2), (0.0, 1.7, 1.0), 70),
     }
     only = os.environ.get('VIEWS')
     for name, (eye, look, fov) in views.items():
@@ -1711,8 +1879,15 @@ def bake_all(sc, objs, shell):
             o.hide_render = True
     meta = {}
     for mode in ('day', 'dark'):
-        lm = bake_light(baked, mode)
-        lm = soften(lm, mask)
+        # 夜の光はやわらかいので、初めから半分の大きさで焼く（焼く時間を、昼の光のサンプルへ回す）
+        size = BAKE_SIZE if mode == 'day' else BAKE_SIZE // 2
+        if size != BAKE_SIZE:
+            mask = uv_mask(baked, 'LM', size)
+        lm = bake_light(baked, mode, size)
+        if DENOISE:
+            lm = denoise_lm(lm)
+        if SOFTEN > 0:
+            lm = soften(lm, mask)
         if mode == 'day':
             # 明るさの目安：昼の光の 75% の所が、色をほぼそのまま見せる明るさ
             meta['exposure'] = 0.9 / max(1e-4, float(np.percentile(lm[mask].mean(axis=1), 75)))

@@ -39,6 +39,7 @@ BELLY_Z = -1.55
 ARM_SHOULDER = Vector((-2.45, -1.2, 2.25))
 ARM_UPPER, ARM_LOWER = 6.4, 7.1
 HUBBLE_Y = -15.2  # ハッブルを立てて置く所（荷物室の後ろ）
+HUBBLE_BASE_Z = 1.9  # ハッブルの底の高さ（台の上の面）。荷物室の幅いっぱいの太さなので、縁の高さの近くまで持ち上げて立てる
 
 # 機首の外板の断面（Y, 半幅, 下, 上, 上の角の丸み, 下の角の丸み）
 NOSE_SECTIONS = [
@@ -85,6 +86,9 @@ def materials():
     mat('engine', '#4b4d50', 0.45, 0.7)
     mat('rcc', '#5a5c5f', 0.7)
     mat('gold', '#c9a24a', 0.4, 0.8)
+    mat('frame', '#b4b2aa', 0.8)
+    mat('box_white', '#ecebe6', 0.7)
+    mat('box_silver', '#b9bcc0', 0.45, 0.5)
 
 
 def obj(name, bm, material, parent=None, origin=None):
@@ -302,7 +306,105 @@ def build():
     obj('body_flap', bm, 'tile_black', origin=(0, BAY_Y1 - 5.5, -1.3))
     wing(-1)
     wing(1)
+    build_bay_fittings()
     build_arm()
+
+
+def arc_band(r_out, r_in, a0, a1, y0, y1, seg=16, zc=None, bm=None):
+    """円弧の帯に厚みを付けて Y にのばした立体（荷物室の枠・荷物の受け台）。角度は X 軸から、下半分は π〜2π"""
+    zc = BAY_ZC if zc is None else zc
+    bm = bm or bmesh.new()
+    angs = [a0 + (a1 - a0) * i / seg for i in range(seg + 1)]
+    prof = [(r_out * math.cos(a), zc + r_out * math.sin(a)) for a in angs] + [(r_in * math.cos(a), zc + r_in * math.sin(a)) for a in reversed(angs)]
+    a = [bm.verts.new((x, y0, z)) for x, z in prof]
+    b = [bm.verts.new((x, y1, z)) for x, z in prof]
+    n = len(prof)
+    fs = []
+    for k in range(n):
+        k2 = (k + 1) % n
+        fs.append(bm.faces.new((a[k], a[k2], b[k2], b[k])))
+    for ring in (a, b):
+        for i in range(seg):
+            fs.append(bm.faces.new((ring[i], ring[i + 1], ring[n - 2 - i], ring[n - 1 - i])))
+    bmesh.ops.recalc_face_normals(bm, faces=fs)
+    return bm
+
+
+def ring_bm(r_out, r_in, z0, z1, center, seg=28, bm=None):
+    """水平な輪（ハッブルを立てる台）"""
+    bm = bm or bmesh.new()
+    cx, cy = center
+    rows = []
+    for r, z in ((r_out, z0), (r_out, z1), (r_in, z1), (r_in, z0)):
+        rows.append([bm.verts.new((cx + r * math.cos(2 * PI * k / seg), cy + r * math.sin(2 * PI * k / seg), z)) for k in range(seg)])
+    fs = []
+    for i in range(4):
+        i2 = (i + 1) % 4
+        for k in range(seg):
+            k2 = (k + 1) % seg
+            fs.append(bm.faces.new((rows[i][k], rows[i][k2], rows[i2][k2], rows[i2][k])))
+    bmesh.ops.recalc_face_normals(bm, faces=fs)
+    return bm
+
+
+def build_bay_fittings():
+    """荷物室の中：枠（骨）、ハッブルを立てる台、前と真ん中の荷物の受け台、四すみのカメラ。
+    後ろの窓から見える所なので、何もない白い溝ではなく、奥行きと大きさが分かる物を置く。
+    並び（前から：太陽電池パネルの受け台・交換する装置の受け台・ハッブルの台）は STS-61 の写真を見た見積もりで、形は簡略（FACTS.md では UNVERIFIED）"""
+    floor = BAY_ZC - BAY_R
+    # 枠：1.5 m おき
+    bm = None
+    y = BAY_Y0 - 0.75
+    while y > BAY_Y1 + 0.3:
+        bm = arc_band(BAY_R - 0.004, BAY_R - 0.07, PI, 2 * PI, y + 0.045, y - 0.045, seg=14, bm=bm)
+        for sx in (-1, 1):
+            box_bm((0.066, 0.09, SILL_Z - BAY_ZC), (sx * (BAY_R - 0.037), y, (SILL_Z + BAY_ZC) / 2), bm=bm)
+        y -= 1.5
+    obj('bay_frames', bm, 'frame')
+    # ハッブルを立てる台：荷物室をまたぐ受け台（金色の断熱）と、縁の高さの輪、留め金 3 つ
+    yc = HUBBLE_Y
+    bm = arc_band(BAY_R - 0.08, BAY_R - 0.42, PI * 1.03, PI * 1.97, yc + 1.25, yc - 1.25, seg=14)
+    obj('fss_cradle', bm, 'gold')
+    top = HUBBLE_BASE_Z
+    bm = ring_bm(2.12, 1.45, top - 0.16, top, (0, yc), seg=32)
+    for k in range(3):
+        a = PI / 2 + 2 * PI * k / 3
+        box_bm((0.34, 0.34, 0.3), (1.8 * math.cos(a), yc + 1.8 * math.sin(a), top - 0.02), bm=bm)
+    obj('fss_ring', bm, 'sill')
+    bm = None
+    for sx in (-1, 1):  # 輪を支える左右の柱と、前後の梁
+        bm = box_bm((0.3, 2.3, top - 0.16 - (BAY_ZC - 0.9)), (sx * 1.75, yc, (top - 0.16 + BAY_ZC - 0.9) / 2), bm=bm)
+    for sy in (-1, 1):
+        bm = box_bm((3.4, 0.22, 0.3), (0, yc + sy * 1.05, top - 0.42), bm=bm)
+    bm = box_bm((1.5, 1.2, 0.9), (0, yc, floor + 0.75), bm=bm)  # 下の電源の箱
+    obj('fss_frame', bm, 'box_silver')
+    # 真ん中：交換する装置の受け台（U 字の皿）と、その上の大きな箱 2 つ・小さな箱
+    y0, y1 = -8.3, -11.2
+    obj('pallet_mid', arc_band(BAY_R - 0.06, BAY_R - 0.26, PI * 1.08, PI * 1.92, y0, y1, seg=14), 'gold')
+    bm = box_bm((1.05, 2.3, 1.25), (-0.95, (y0 + y1) / 2, floor + 0.55 + 0.62))
+    obj('pallet_mid_box_a', bm, 'box_white')
+    bm = box_bm((1.35, 2.0, 0.95), (0.8, (y0 + y1) / 2 + 0.1, floor + 0.5 + 0.47))
+    box_bm((0.5, 0.6, 0.5), (0.2, y1 + 0.5, floor + 0.55), bm=bm)
+    obj('pallet_mid_box_b', bm, 'box_silver')
+    # 前：新しい太陽電池パネルの受け台（細長い箱を 2 本、左右に寝かせる）
+    y0, y1 = -3.0, -7.2
+    bm = None
+    for yy in (y0 - 0.25, (y0 + y1) / 2, y1 + 0.25):
+        bm = arc_band(BAY_R - 0.06, BAY_R - 0.3, PI * 1.1, PI * 1.9, yy + 0.2, yy - 0.2, seg=14, bm=bm)
+    for sx in (-1, 1):
+        box_bm((0.12, y0 - y1, 0.12), (sx * 1.35, (y0 + y1) / 2, floor + 0.62), bm=bm)
+    obj('pallet_fwd', bm, 'box_silver')
+    bm = None
+    for sx in (-1, 1):
+        bm = cyl_bm(0.36, 0.36, y0 - y1 - 0.3, Matrix.Translation((sx * 0.72, y1 + 0.15, floor + 0.95)) @ Matrix.Rotation(-PI / 2, 4, 'X'), seg=10, bm=bm)
+    obj('pallet_fwd_arrays', bm, 'gold')
+    # 四すみのカメラ
+    bm = None
+    for sx in (-1, 1):
+        for yy in (BAY_Y0 - 0.25, BAY_Y1 + 0.25):
+            bm = box_bm((0.16, 0.3, 0.16), (sx * 1.95, yy, SILL_Z + 0.02), bm=bm)
+            bm = box_bm((0.06, 0.06, 0.3), (sx * 1.95, yy, SILL_Z - 0.2), bm=bm)
+    obj('bay_cameras', bm, 'arm_joint')
 
 
 def build_arm():
@@ -403,7 +505,22 @@ def cut_windows(nose):
                             break
                         hit.add(fi)
                         o = loc + dvec * 0.002
-    kill = [bm.faces[i] for i in hit]
+    kill = {bm.faces[i] for i in hit}
+    # 穴あけの箱の、部屋の中にある面（窓の面より内側のふたと横の壁）が外板に残ることがある。
+    # 横のハッチの前に 0.6 m 角の板が浮き、ハッチの窓をふさいで見えていた → 窓の内側 0.7 m までの面は消す
+    inside = 0
+    for f in bm.faces:
+        cen = f.calc_center_median()
+        for name, c, n, w, h, up in wins:
+            right = up.cross(n)
+            d = (cen - c).dot(n)
+            if -0.7 < d < -0.03 and abs((cen - c).dot(right)) < w / 2 + 0.2 and abs((cen - c).dot(up)) < h / 2 + 0.2:
+                if f not in kill:
+                    kill.add(f)
+                    inside += 1
+                break
+    print('nose faces removed inside the cabin:', inside)
+    kill = list(kill)
     _bm.ops.delete(bm, geom=kill, context='FACES')
     bm.transform(nose.matrix_world.inverted())
     bm.to_mesh(nose.data)
@@ -505,8 +622,8 @@ def main():
             if o.name.startswith('door_'):
                 o.rotation_euler.y = math.radians(170) * (-1 if 'port' in o.name else 1)
         out = os.environ.get('PREVIEW_DIR', '/tmp')
-        for name, eye, tgt in (('hero', (17, -30, 22), (0, -9, 1)), ('aftwin', (0.3, 0.2, 3.72), (0, -15, 3.0)), ('top', (0, -9, 45), (0, -9, 0))):
-            look(sc, eye, tgt, lens=18 if name == 'aftwin' else 30)
+        for name, eye, tgt in (('hero', (17, -30, 22), (0, -9, 1)), ('aftwin', (0.3, 0.2, 3.72), (0, -15, 3.0)), ('aftwin_down', (-0.36, 0.3, 3.72), (0.2, -8, 0.6)), ('bay', (0.5, -2.0, 7.5), (0, -11, 0.5)), ('top', (0, -9, 45), (0, -9, 0))):
+            look(sc, eye, tgt, lens=18 if name.startswith('aftwin') else 24 if name == 'bay' else 30)
             sc.render.filepath = os.path.join(out, f's0-orbiter-{name}.png')
             bpy.ops.render.render(write_still=True)
         return
