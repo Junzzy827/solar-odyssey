@@ -7,7 +7,7 @@ import { markShuttleReady, shuttleDebug, shuttleInput, useShuttle, type ShuttleS
 import { FloatController, createFloatInput } from './floatControl'
 import { cabinMaterial, flatMaterial, glassMaterial, useCabinMeta } from './cabinMaterial'
 import { OutsideSky } from './outside'
-import { adiTexture, crtTexture, drawCrt, monitorMaterial } from './screens'
+import { adiTexture, crtTexture, drawCrt, monitorMaterial, prepareAdi } from './screens'
 import { shrinkTexture } from '../surface/shrinkTexture'
 import { roomEnvironment } from '../telescope/parts'
 
@@ -84,26 +84,8 @@ export function ShuttleWorld() {
       } else if (o.name.startsWith('float_')) m.material = flat
       else m.material = m.geometry.getAttribute('uv1') ? mat : flat
     })
-    // 姿勢球：形の中心を原点にして回せるように
-    for (const id of ['adi_cdr', 'adi_plt']) {
-      const m = screens[id]
-      if (!m) continue
-      m.geometry = m.geometry.clone()
-      m.geometry.computeBoundingSphere()
-      const c = m.geometry.boundingSphere!.center.clone()
-      m.geometry.translate(-c.x, -c.y, -c.z)
-      m.position.add(c)
-      // 球の UV：書き出した形の UV は全部 0 で、絵の左上の白だけが出ていた。頂点の向きから正距円筒の UV を作る
-      const pos = m.geometry.getAttribute('position')
-      const uv = new Float32Array(pos.count * 2)
-      const d = new THREE.Vector3()
-      for (let i = 0; i < pos.count; i++) {
-        d.set(pos.getX(i), pos.getY(i), pos.getZ(i)).normalize()
-        uv[i * 2] = Math.atan2(d.x, d.z) / (Math.PI * 2) + 0.5
-        uv[i * 2 + 1] = Math.asin(THREE.MathUtils.clamp(d.y, -1, 1)) / Math.PI + 0.5
-      }
-      m.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
-    }
+    // 姿勢球：形の中心を原点にして回せるように（UV も作り直す）
+    for (const id of ['adi_cdr', 'adi_plt']) if (screens[id]) prepareAdi(screens[id])
     // 画面：前の CRT 3 台・後ろの CRT 1 台は緑の文字、後ろのモニター 2 台は荷物室のカメラ
     const crts: { tex: THREE.CanvasTexture; kind: number }[] = []
     let k = 0

@@ -15,7 +15,7 @@ import { glowTexture, plumeGeometry, plumeMaterial } from '../moonMission/plume'
 import { Smoke, SMOKE, STEAM } from '../moonMission/smoke'
 import { encodeOutput } from '../moonMission/shaderOut'
 import { cabinMaterial, flatMaterial, glassMaterial, useCabinMeta } from './cabinMaterial'
-import { adiTexture, crtTexture, drawCrt } from './screens'
+import { adiTexture, crtTexture, drawCrt, prepareAdi } from './screens'
 import { setLaunchAudio } from './rumble'
 import {
   AUTO_IGNITE_AFTER,
@@ -64,9 +64,9 @@ const CABIN_Q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4()
 /** 船長の目（乗員室の座標） */
 const EYE = new THREE.Vector3(-0.58, 3.4, -2.78)
 /** 乗り込む通路の白い部屋（発射台の座標）と、ハッチの前 */
-const ARM_START = new THREE.Vector3(-6.9, 33.0, -17)
-const WHITE_ROOM = new THREE.Vector3(-6.9, 32.9, -5.2)
-const HATCH = new THREE.Vector3(-6.9, 32.7, -1.5)
+const ARM_START = new THREE.Vector3(-13, 35, -19)
+const WHITE_ROOM = new THREE.Vector3(-11.2, 33.6, -6.5)
+const HATCH = new THREE.Vector3(-6.9, 32.7, -2.2)
 /** 乗り込みの長さ（秒）：通路を進む → 暗くなる → 席で明るくなる */
 const BOARD_FLY = 3.4
 const BOARD_DARK = 4.1
@@ -186,6 +186,7 @@ export function ShuttleLaunchWorld() {
       ssme.push({ obj, plume, glow })
     }
     const srb: { obj: THREE.Object3D; core: THREE.Mesh; big: THREE.Mesh; base: THREE.Vector3; q: THREE.Quaternion; side: number }[] = []
+    const srbGlowMat = new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(1.6, 1.3, 0.95), depthWrite: false, transparent: true, blending: THREE.AdditiveBlending, opacity: 0, toneMapped: false })
     for (const [name, side] of [['SRB_N', -1], ['SRB_S', 1]] as const) {
       const obj = by[name]
       if (!obj) continue
@@ -198,7 +199,12 @@ export function ShuttleLaunchWorld() {
       big.position.set(0, -0.6, 0)
       big.renderOrder = 4
       core.visible = big.visible = false
-      obj.add(core, big)
+      // 口のまぶしい光（下から見上げても、炎の根元がまぶしく光る）
+      const glow = new THREE.Sprite(srbGlowMat)
+      glow.position.set(0, -4, 0)
+      glow.scale.setScalar(22)
+      glow.renderOrder = 5
+      obj.add(core, big, glow)
       srb.push({ obj, core, big, base: obj.position.clone(), q: obj.quaternion.clone(), side })
     }
     // 固体ロケットの切り離しの小さなロケット（前と後ろに 4 つずつ）の光
@@ -214,7 +220,7 @@ export function ShuttleLaunchWorld() {
         bsm.push(sp)
       }
     }
-    return { root, by, ssme, srb, bsm, mats: { ssmeMat, srbCore, srbBig, glowMat, bsmMat }, geo }
+    return { root, by, ssme, srb, bsm, mats: { ssmeMat, srbCore, srbBig, glowMat, bsmMat, srbGlowMat }, geo }
   }, [stackGltf])
   useEffect(
     () => () => {
@@ -271,6 +277,7 @@ export function ShuttleLaunchWorld() {
         m.material = mm
         owned.push(mm)
       } else if (o.name.startsWith('adi_')) {
+        prepareAdi(m)
         const mm = new THREE.MeshBasicMaterial({ map: adi, toneMapped: false })
         m.material = mm
         owned.push(mm)
@@ -375,7 +382,8 @@ export function ShuttleLaunchWorld() {
     S.holdAt = -1
     S.sepPuffs = false
     S.look.set(0, 0)
-    if (phase === 'launch') S.boardAt = performance.now() / 1000
+    // 乗り込みの始まりは、次のコマで場面の時計から決める（コマ送りの撮影でも同じ速さになるように）
+    if (phase === 'launch') S.boardAt = -1
   }, [phase, stack])
 
   // 指・マウスで発射台を回る（発射台の章だけ）
@@ -474,8 +482,9 @@ export function ShuttleLaunchWorld() {
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.1)
-    const now = performance.now() / 1000
+    // 場面の時計（コマ送りの撮影では、撮った時間だけ進む）
     const t = state.clock.elapsedTime
+    const now = t
     const S = st.current
     const s = useShuttle.getState()
     if (S.frames < 4 && ++S.frames === 4) markShuttleReady()
@@ -500,6 +509,7 @@ export function ShuttleLaunchWorld() {
     let boarding = false
     let boardK = 0
     if (s.phase === 'launch') {
+      if (S.boardAt === -1) S.boardAt = now
       const since = now - S.boardAt
       if (s.stage === 'board') {
         boarding = true
@@ -592,6 +602,7 @@ export function ShuttleLaunchWorld() {
       b.core.visible = b.big.visible = on
       b.big.scale.y = 110 * (1 + expand * 0.6)
     }
+    stack.mats.srbGlowMat.opacity = sepK > 0 ? 0 : srbK
     stack.mats.srbCore.uniforms.uTime.value = t
     stack.mats.srbCore.uniforms.uPower.value = 4 * srbK
     stack.mats.srbCore.uniforms.uExpand.value = expand * 0.5
@@ -625,8 +636,10 @@ export function ShuttleLaunchWorld() {
 
     // ---- 照らす光 ----
     if (flame.current) {
-      flame.current.position.copy(tail)
-      flame.current.intensity = srbK * 1.1e6 * (0.88 + 0.12 * Math.sin(t * 37)) * (h < 3000 ? 1 : 0.4) + ssmeAll * 6e4
+      // 固体ロケットの炎は機体の下、メインエンジンだけのあいだはエンジンの口のあたり
+      if (srbK > 0) flame.current.position.copy(tail)
+      else flame.current.position.set(dr - 9.5, h + 1, 0)
+      flame.current.intensity = srbK * 1.1e6 * (0.88 + 0.12 * Math.sin(t * 37)) * (h < 3000 ? 1 : 0.4) + (srbK > 0 ? 0 : ssmeAll * 2.5e3)
     }
     if (fill.current) {
       // 月の光（STS-61 の夜は、満月を過ぎた明るい月）
@@ -756,9 +769,9 @@ export function ShuttleLaunchWorld() {
       for (const c of cabin.crts) drawCrt(c.tex, c.kind, now)
     }
     if (work.current) {
-      // 発射台を回って見るとき、カメラの側から機体をうっすら照らす（夜でも形が分かるように）
-      work.current.intensity = shot === 'pad' || shot === 'board' || shot === 'night' ? 2.2e4 : 0
-      work.current.position.copy(pos).lerp(_v3.set(0, 30, 0), 0.55)
+      // 甲板の上のエンジンのカットだけ、作業灯（甲板の下・エンジンのまわりは投光器の光が届かず暗い）
+      work.current.intensity = shot === 'engines' && srbK === 0 ? 220 : 0
+      work.current.position.set(-20, 3, 9)
     }
 
     // ---- 音 ----
@@ -808,15 +821,15 @@ function filmShot(shot: LaunchShot, u: number, tt: number, veh: THREE.Object3D, 
     }
     case 'engines': {
       // 甲板の上、エンジンの斜め下から。湯気がわき、3 基が順に点く
-      pos.set(-27 + u * 0.25, 3.2, 15 - u * 0.3)
-      tgt.set(-9.8, 6.2, 0)
-      return 46
+      pos.set(-36 + u * 0.4, 3.6, 24 - u * 0.5)
+      tgt.set(-9.5, 6.8, 0)
+      return 40
     }
     case 'wide': {
       // 西南西 900 m から：固体ロケットの点火、発射
-      pos.set(-560, moundHeight(-560, 700) + 7, 700)
-      tgt.set(vp.x, Math.max(30, vp.y + 30), 0)
-      return 24
+      pos.set(-330, moundHeight(-330, 420) + 6, 420)
+      tgt.set(vp.x, Math.max(30, vp.y + 20), 0)
+      return fovFor(pos, tgt, 150)
     }
     case 'tower': {
       // 固定の塔の南西の角から見上げる：機体が目の前を上がっていく
@@ -826,9 +839,9 @@ function filmShot(shot: LaunchShot, u: number, tt: number, veh: THREE.Object3D, 
     }
     case 'below': {
       // 発射台の南西の地面から見上げる：回転（ロール）
-      pos.set(-150, moundHeight(-150, 130) + 1.8, 130)
-      tgt.copy(vp).addScaledVector(nose, 18)
-      return 34 - Math.min(10, u * 1.0)
+      pos.set(-420, moundHeight(-420, 380) + 2, 380)
+      tgt.copy(vp).addScaledVector(nose, -10)
+      return fovFor(pos, tgt, 190)
     }
     case 'chase': {
       // 並んで飛ぶ：機体の南の斜め後ろから
@@ -839,8 +852,8 @@ function filmShot(shot: LaunchShot, u: number, tt: number, veh: THREE.Object3D, 
     case 'far': {
       // 遠くの海辺から：弧を描いて上がる炎と、残る煙の柱
       pos.set(-2400, 18, 3600)
-      tgt.copy(vp).addScaledVector(nose, -300)
-      return 16
+      tgt.copy(vp).addScaledVector(nose, -250)
+      return fovFor(pos, tgt, 1100)
     }
     case 'sep': {
       // 高さ 50 km：機体の横に並び、固体ロケットが離れていくのを見る
@@ -855,6 +868,11 @@ function filmShot(shot: LaunchShot, u: number, tt: number, veh: THREE.Object3D, 
       pos.copy(vp).add(_v2.set(-100, 20, 100))
       return 45
   }
+}
+
+/** 見る点のまわり span m が、画面の高さに収まる画角（度） */
+function fovFor(pos: THREE.Vector3, tgt: THREE.Vector3, span: number) {
+  return THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(2 * Math.atan(span / 2 / pos.distanceTo(tgt))), 4, 50)
 }
 
 /** 煙と湯気：水と点火の湯気、溝から噴き出す煙、上がっていく後ろに残る柱、切り離しの煙 */

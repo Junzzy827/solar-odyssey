@@ -289,7 +289,7 @@
 .shuttle-caption {
   position: absolute;
   left: 50%;
-  bottom: max(120px, calc(env(safe-area-inset-bottom) + 110px));
+  bottom: max(160px, calc(env(safe-area-inset-bottom) + 150px));
   transform: translateX(-50%);
   max-width: calc(100vw - 32px);
   padding: 8px 16px;
@@ -316,8 +316,8 @@
 
 .shuttle-ignite {
   pointer-events: auto;
-  width: 112px;
-  height: 112px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   border: 3px solid #ffd7a0;
   background: radial-gradient(circle at 50% 40%, #ff8a3c, #b2340e 70%);
@@ -338,8 +338,9 @@
   letter-spacing: 0.08em;
 }
 .shuttle-ignite small {
-  font-size: 11px;
+  font-size: 10px;
   opacity: 0.9;
+  white-space: nowrap;
 }
 @keyframes shuttle-ignite-pulse {
   0%,

@@ -1,5 +1,5 @@
 import { Suspense, memo, useEffect, useRef, type PointerEvent as RPointerEvent } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { useDpr } from '../../state/quality'
 import { isTouchDevice } from '../../state/input'
 import { closeShuttle, igniteShuttle, leaveSpot, openPadSpot, shuttleInput, useShuttle } from '../../state/shuttle'
@@ -33,9 +33,36 @@ const LaunchCanvas = memo(function LaunchCanvas() {
       <Suspense fallback={null}>
         <ShuttleLaunchWorld />
       </Suspense>
+      <FilmHook />
     </Canvas>
   )
 })
+
+/** 確認用の動画：コマを 1 枚ずつ進める（window.__shuttleFilm.step(dt)）。ふだんは使わない */
+function FilmHook() {
+  const advance = useThree((s) => s.advance)
+  const setFrameloop = useThree((s) => s.setFrameloop)
+  const get = useThree((s) => s.get)
+  useEffect(() => {
+    const w = window as unknown as { __shuttleFilm?: unknown }
+    let ft = 1000
+    w.__shuttleFilm = {
+      begin: () => setFrameloop('never'),
+      step: (dt: number) => {
+        if (get().frameloop !== 'never') setFrameloop('never')
+        const clock = get().clock
+        clock.autoStart = false
+        clock.running = false
+        ft += dt
+        advance(ft)
+      },
+    }
+    return () => {
+      delete w.__shuttleFilm
+    }
+  }, [advance, setFrameloop, get])
+  return null
+}
 
 /** キー：押している間だけ。見どころの中では Esc で出る */
 function useKeys() {
