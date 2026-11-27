@@ -58,11 +58,9 @@ export const openStamps = () => {
 }
 export const closeStamps = () => useStamps.setState({ open: false })
 
-/** 知らせを出す。少し前に別の知らせ（望遠鏡を見つけた、など）が出ていたら、その下に足す */
+/** 知らせを出す（スタンプと、そろった称号を 1 つにまとめて。ほかのお知らせとは重ねず順番に：state/toastQueue.ts） */
 function announce(lines: string[]) {
-  const st = useStore.getState()
-  const prev = st.toast && Date.now() - st.toast.id < 1500 ? st.toast.text + '\n' : ''
-  st.showToast(prev + lines.join('\n'))
+  useStore.getState().showToast(lines.join('\n'))
   playBeep(880, 0.16)
   setTimeout(() => playBeep(1320, 0.28), 130)
 }

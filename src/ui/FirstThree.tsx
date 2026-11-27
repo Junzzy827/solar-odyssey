@@ -9,6 +9,7 @@ import { useLanding } from '../state/landing'
 import { useEva } from '../state/eva'
 import { useWalk } from '../state/walk'
 import { useCampaign } from '../state/campaign'
+import { useArrival } from '../state/arrival'
 import { engage } from '../state/flight'
 import { ui } from '../i18n'
 import { useLang } from '../i18n/lang'
@@ -48,6 +49,8 @@ export function FirstThree() {
   const eva = useEva((e) => e.phase !== 'none')
   const walk = useWalk((w) => w.phase !== 'none')
   const picking = useCampaign((c) => c.picking)
+  // 星に着いたカード（ui/ArrivalMoment.tsx）が出ているあいだは隠す（同じ左側で重なるので）
+  const arriving = useArrival((a) => a.id !== null)
   const mars = marsLanded || marsRock
   // スマホ・タブレットは画面がせまいので、ふだんは小さな札（はじめての3つ 0/3）にたたんでおき、押すとひらく
   const [folded, setFolded] = useState(isTouchDevice)
@@ -57,7 +60,7 @@ export function FirstThree() {
     if (landingPhase === 'surface' && landingBody === 'mars' && !marsLanded) update({ marsLanded: true })
   }, [landingPhase, landingBody, marsLanded])
 
-  if (closed || mode !== 'flight' || landingPhase !== 'idle' || eva || walk || picking) return null
+  if (closed || mode !== 'flight' || landingPhase !== 'idle' || eva || walk || picking || arriving) return null
   const t = ui().firstThree
   const all = moon && mars && rock
   const items: { done: boolean; label: string; go?: () => void; goLabel?: string; hint?: string }[] = [

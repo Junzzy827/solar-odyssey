@@ -21,6 +21,25 @@ export type NavEntryState = {
   label?: ReactNode
   /** 文言の後ろに薄く出すもの（「12/32」など） */
   badge?: ReactNode
+  /** 進み具合（0〜1）。絵のカードの下に細い棒で出す */
+  progress?: number
+}
+
+/** 「遊ぶ」タブの絵のカードの棚：歴史の偉業（本当にあったことの追体験）／物語（続きもの）／自由に遊ぶ */
+export type NavShelf = 'feats' | 'story' | 'free'
+export const NAV_SHELVES: readonly NavShelf[] = ['feats', 'story', 'free']
+
+/** 「遊ぶ」タブで絵のカードにするときの中身（無い入口は、棚の下にふつうのボタンで出る） */
+export type NavCard = {
+  shelf: NavShelf
+  /** 絵（public/ からのパス。'play-cards/apollo17.webp' など。16:9） */
+  image: string
+  /** カードの題（短く。ui() を呼ぶ関数） */
+  title: () => string
+  /** 題の下の 1 行（何ができるか） */
+  desc: () => string
+  /** もう遊んだことがあるか（「次のおすすめ」を決める。フックではなく getState で読む）。無ければ、カードを押したことがあるか */
+  tried?: () => boolean
 }
 
 export type NavEntry = {
@@ -41,6 +60,8 @@ export type NavEntry = {
   use?: () => NavEntryState
   /** 押したとき（スマホでは押す前にパネルを閉じる） */
   run: () => void
+  /** 「遊ぶ」タブの絵のカード */
+  card?: NavCard
 }
 
 const entries = new Map<string, NavEntry>()

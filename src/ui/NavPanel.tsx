@@ -22,6 +22,7 @@ import { toggleObserve, useObserve } from '../state/observe'
 import { SaveDataPanel } from './SaveDataPanel'
 import { NAV_TABS, navEntries, openNavTab, useNavTab, type NavTab } from './nav/registry'
 import { NavEntryButton } from './nav/NavEntryButton'
+import { PlayShelves } from './nav/PlayCards'
 
 // 入口の登録（ui/nav/entries/*.ts）をまとめて読み込む
 import.meta.glob('./nav/entries/*.ts', { eager: true })
@@ -480,7 +481,7 @@ export function NavPanel() {
         </>
       )}
 
-      {tab === 'play' && <Entries tab="play" sf={sf} onPick={pick} />}
+      {tab === 'play' && <PlayShelves sf={sf} onPick={pick} />}
       {tab === 'learn' && <Entries tab="learn" sf={sf} onPick={pick} />}
 
       {/* 設定とセーブは、どのタブでも一番下に */}

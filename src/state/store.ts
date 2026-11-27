@@ -6,6 +6,8 @@ import { DEFAULT_RATE } from '../data/scale'
 import type { ShipId } from '../data/ships'
 import type { QualitySetting } from './quality'
 import { THROTTLE_DEFAULT, THROTTLE_STEPS } from './throttle'
+import { bindToasts, queueToast } from './toastQueue'
+import { isTouchDevice } from './input'
 
 /** 全体マップ・操縦席・鑑賞モード（止まった自機のまわりを回って眺める） */
 export type Mode = 'map' | 'flight' | 'gallery'
@@ -167,7 +169,8 @@ export const useStore = create<State>((set) => ({
     }),
   setLogOpen: (logOpen) => set({ logOpen }),
   setCameraMode: (cameraMode) => set({ cameraMode }),
-  showToast: (text) => set({ toast: { id: Date.now(), text } }),
+  // 順番待ちに入れる（重ねずに 1 つずつ出す。state/toastQueue.ts）
+  showToast: (text) => queueToast(text),
   setScopeNear: (scopeNear) => set({ scopeNear }),
   setScope: (scope) => set(scope ? { scope, logOpen: false, autopilot: false } : { scope }),
   updateSettings: (patch) =>
@@ -181,6 +184,9 @@ export const useStore = create<State>((set) => ({
       return { settings }
     }),
 }))
+
+// お知らせの順番待ちが、いま出すものを toast に入れる
+bindToasts((toast) => useStore.setState({ toast }), isTouchDevice())
 
 // 動作確認用：URL に #debug を付けると、ブラウザのコンソールから状態を見られる
 if (location.hash.includes('debug')) (window as unknown as { __store: typeof useStore }).__store = useStore

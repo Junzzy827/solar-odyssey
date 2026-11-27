@@ -139,15 +139,8 @@ function usePointerLocked() {
 
 function Toast() {
   const toast = useStore((s) => s.toast)
-  const [visible, setVisible] = useState(false)
-  useEffect(() => {
-    if (!toast) return
-    setVisible(true)
-    // 長いお知らせは読み終わるまで長めに出す
-    const timer = setTimeout(() => setVisible(false), Math.max(7000, toast.text.length * 110))
-    return () => clearTimeout(timer)
-  }, [toast])
-  if (!toast || !visible) return null
+  // 出す時間と順番は state/toastQueue.ts が決める（重ねずに 1 つずつ）
+  if (!toast) return null
   return (
     <div className="toast" key={toast.id}>
       {toast.text}

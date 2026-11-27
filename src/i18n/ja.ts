@@ -28,6 +28,7 @@ import { hudJa } from './hud.ja'
 import { landingJa } from './landing.ja'
 import { logPanelJa } from './logPanel.ja'
 import { navPanelJa } from './navPanel.ja'
+import { playCardsJa } from './playCards.ja'
 import { observeJa } from './observe.ja'
 import { observePanelJa } from './observePanel.ja'
 import { photoNoteJa } from './photoNote.ja'
@@ -204,6 +205,7 @@ export const ja = {
   landing: landingJa,
   logPanel: logPanelJa,
   navPanel: navPanelJa,
+  playCards: playCardsJa,
   observe: observeJa,
   observePanel: observePanelJa,
   photoNote: photoNoteJa,

@@ -59,7 +59,9 @@ function useNotices(on: boolean) {
   // 届いたときに、アイコン列の下に少しだけ出す1行（タップで全文）
   const [ticker, setTicker] = useState<string | null>(null)
   useEffect(() => {
-    if (!on || !toast) return
+    if (!on) return
+    // 順番待ちが次のお知らせへ移るとき、いったん消える
+    if (!toast) return setTicker(null)
     setList((l) => [toast, ...l.filter((n) => n.id !== toast.id)].slice(0, NOTICE_KEEP))
     setUnread((n) => n + 1)
     setTicker(toast.text)
