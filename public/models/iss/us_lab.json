@@ -1,0 +1,147 @@
+{
+ "id": "us_lab",
+ "key": "destiny",
+ "glb": "us_lab.glb",
+ "light": {
+  "pc": "us_lab.light.2048.jpg",
+  "phone": "us_lab.light.1024.jpg"
+ },
+ "lightIntensity": 6.283185307179586,
+ "materials": {
+  "Generic_HubAndMetals": {
+   "tex": "generic_hubandmetals",
+   "pc": 2048,
+   "phone": 1024,
+   "alpha": false,
+   "lamp": false,
+   "emissive": false
+  },
+  "Generic_Misc_Details": {
+   "tex": "generic_misc_details",
+   "pc": 1024,
+   "phone": 1024,
+   "alpha": false,
+   "lamp": false,
+   "emissive": false
+  },
+  "USLab_Racks_01": {
+   "tex": "uslab_racks_01",
+   "pc": 2048,
+   "phone": 1024,
+   "alpha": true,
+   "lamp": false,
+   "emissive": false
+  },
+  "USLab_Racks_03": {
+   "tex": "uslab_racks_03",
+   "pc": 2048,
+   "phone": 1024,
+   "alpha": true,
+   "lamp": false,
+   "emissive": false
+  },
+  "USLab_Racks_02": {
+   "tex": "uslab_racks_02",
+   "pc": 1024,
+   "phone": 512,
+   "alpha": false,
+   "lamp": false,
+   "emissive": false
+  },
+  "EXPRESS_Racks_ATLAS": {
+   "tex": "express_racks_atlas",
+   "pc": 2048,
+   "phone": 1024,
+   "alpha": false,
+   "lamp": false,
+   "emissive": false
+  },
+  "USLab_AFT_Bulkhead": {
+   "tex": "uslab_aft_bulkhead",
+   "pc": 1024,
+   "phone": 512,
+   "alpha": false,
+   "lamp": false,
+   "emissive": false
+  },
+  "USLab_FWD_Bulkhead": {
+   "tex": "uslab_fwd_bulkhead",
+   "pc": 1024,
+   "phone": 512,
+   "alpha": false,
+   "lamp": false,
+   "emissive": false
+  },
+  "Generic_Lights": {
+   "tex": "generic_hubandmetals",
+   "pc": 2048,
+   "phone": 1024,
+   "alpha": false,
+   "lamp": true,
+   "emissive": true
+  },
+  "PMM_01": {
+   "tex": "pmm_01",
+   "pc": 1024,
+   "phone": 512,
+   "alpha": false,
+   "lamp": false,
+   "emissive": false
+  },
+  "Generic_Misc_Details_LIGHTS": {
+   "tex": "generic_misc_details",
+   "pc": 1024,
+   "phone": 1024,
+   "alpha": false,
+   "lamp": false,
+   "emissive": true
+  },
+  "USLab_Racks_04": {
+   "tex": "uslab_racks_04",
+   "pc": 1024,
+   "phone": 512,
+   "alpha": false,
+   "lamp": false,
+   "emissive": false
+  }
+ },
+ "bboxMin": [
+  -1.5107,
+  -2.1152,
+  -10.7629
+ ],
+ "bboxMax": [
+  1.3056,
+  1.687,
+  -1.9049
+ ],
+ "center": [
+  -0.1025,
+  -0.2141,
+  -6.3339
+ ],
+ "neighbours": [
+  "node1",
+  "node2"
+ ],
+ "hatches": [
+  {
+   "connector": "Module_Connect.002",
+   "to": "node1",
+   "center": [
+    0.0035,
+    0.0004,
+    -2.0226
+   ]
+  },
+  {
+   "connector": "Module_Connect.003",
+   "to": "node2",
+   "center": [
+    0.0002,
+    -0.0122,
+    -10.6431
+   ]
+  }
+ ]
+}

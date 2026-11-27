@@ -1,0 +1,77 @@
+{
+  "_": "Logos, insignia and mission/crew patches found in the NASA ISS interior textures (contact sheets s0-textures-*.jpg). Each rectangle [x0, y0, x1, y1] is in pixels of the original 4096 px diffuse texture; textures.py fills it with the median colour of its border so it reads as a plain panel. Plain equipment labels, warnings, rack names and national flags stay. Patches1/Patches2 are not painted: the objects that use them are hidden (iss_common.HIDE_MATERIALS) and those textures are never shipped.",
+  "uslab_racks_03": [
+    { "what": "WORF rack round emblem (eagle, Window Observational Research Facility patch)", "rect": [536, 312, 708, 482] },
+    { "what": "Robonaut R2-ISS mission patch (NASA JSC GM) on the stowage cloth", "rect": [2555, 1095, 2770, 1330] }
+  ],
+  "express_racks_atlas": [
+    { "what": "Zero-G Oven: 0GK / DoubleTree / Nanoracks company logos", "rect": [670, 120, 960, 210] },
+    { "what": "Cryo Chiller experiment patch", "rect": [2280, 290, 2380, 400] },
+    { "what": "MERLIN experiment patch", "rect": [320, 460, 410, 580] },
+    { "what": "POLAR experiment patch", "rect": [850, 460, 965, 585] },
+    { "what": "T-CMM: Made In Space logo", "rect": [1165, 370, 1285, 440] },
+    { "what": "T-CMM: Redwire logo", "rect": [1365, 445, 1455, 505] },
+    { "what": "XROOTS: Sierra Nevada Corp (SNC) logo", "rect": [1675, 510, 1765, 560] },
+    { "what": "Bone Densitometer: experiment patch", "rect": [2115, 395, 2225, 525] },
+    { "what": "Bone Densitometer: techshot logo", "rect": [2395, 375, 2485, 435] },
+    { "what": "MVP experiment patch", "rect": [785, 735, 905, 835] },
+    { "what": "BIOFAB small company logo", "rect": [935, 765, 995, 815] },
+    { "what": "ADSEP experiment patch", "rect": [55, 1010, 175, 1135] },
+    { "what": "ADSEP techshot logo", "rect": [325, 1015, 450, 1095] },
+    { "what": "Spectrum experiment logo", "rect": [765, 1035, 875, 1145] },
+    { "what": "Manufacturing Device: Made In Space logo", "rect": [1845, 1010, 1935, 1062] },
+    { "what": "Manufacturing Device: Lowe's logo", "rect": [1835, 1050, 1925, 1100] },
+    { "what": "Mobile SpaceLab: Scorpio logo", "rect": [2325, 1055, 2445, 1110] },
+    { "what": "Nanoracks Mainframe: Nanoracks logo", "rect": [715, 1455, 815, 1505] },
+    { "what": "Biofuel Fridge: BioServe logo", "rect": [1340, 1465, 1475, 1525] },
+    { "what": "Plate Reader: Nanoracks logo", "rect": [1615, 1385, 1715, 1432] },
+    { "what": "Plate Reader: Molecular Devices logo", "rect": [1615, 1428, 1725, 1485] },
+    { "what": "PAUL experiment patch", "rect": [315, 1685, 445, 1805] },
+    { "what": "CAL Pwr Elec: small logo", "rect": [555, 1780, 615, 1840] },
+    { "what": "ANITA-2: ESA logo", "rect": [2155, 1690, 2235, 1745] },
+    { "what": "ANITA-2: OHB logo", "rect": [2235, 1795, 2375, 1845] },
+    { "what": "Spaceborne Computer: HPE logo bar", "rect": [334, 2015, 500, 2073] },
+    { "what": "Space Fibers: FOMS / DSTAR logos", "rect": [1667, 2063, 1781, 2166] },
+    { "what": "Glacier: experiment patch", "rect": [344, 2719, 437, 2812] },
+    { "what": "Iceberg: experiment patch", "rect": [865, 2698, 958, 2823] },
+    { "what": "Techshot: heart patch", "rect": [209, 2917, 323, 3020] },
+    { "what": "Techshot: techshot logo", "rect": [198, 3015, 323, 3083] },
+    { "what": "Techshot: small company logos", "rect": [177, 3292, 343, 3354] },
+    { "what": "SERFE round logo", "rect": [719, 2990, 823, 3083] },
+    { "what": "CAL Sci Inst: CAL logo", "rect": [1125, 3323, 1239, 3448] },
+    { "what": "xPWD: Leidos logo", "rect": [344, 3486, 437, 3535] },
+    { "what": "xPWD: small round logo", "rect": [225, 3725, 302, 3791] },
+    { "what": "xPWD: small yellow logo", "rect": [105, 3480, 166, 3531] },
+    { "what": "MAMS: memorial patch", "rect": [3760, 370, 3910, 510] },
+    { "what": "NASA meatball on rack trim", "rect": [3700, 795, 3755, 860] },
+    { "what": "SAMS-II logo", "rect": [2968, 3001, 3177, 3088] },
+    { "what": "Scrubber experiment patch", "rect": [3401, 3390, 3499, 3499] }
+  ],
+  "columbus_racks01": [
+    { "what": "ESA and DLR logos", "rect": [1440, 1407, 1677, 1510] }
+  ],
+  "columbus_racks03": [
+    { "what": "HRF rack 2 mission patch", "rect": [957, 240, 1060, 343] },
+    { "what": "ICE Cubes logo", "rect": [907, 3190, 1027, 3310] },
+    { "what": "Space Applications Services logo", "rect": [873, 3490, 1060, 3560] },
+    { "what": "ORBITEC logo", "rect": [2990, 3757, 3127, 3817] }
+  ],
+  "newracks59_60": [
+    { "what": "EXPRESS rack 10 mission patch", "rect": [2063, 457, 2243, 643] },
+    { "what": "ISS Life Sciences Glovebox emblem", "rect": [440, 2807, 810, 3193] }
+  ],
+  "jpm_racks_03": [
+    { "what": "NASA meatball (EXPRESS 4 header)", "rect": [1933, 90, 2010, 153] },
+    { "what": "NASA meatball (EXPRESS 5 header)", "rect": [916, 1949, 983, 2013] },
+    { "what": "SAMS-II logo", "rect": [1590, 1590, 1724, 1639] }
+  ],
+  "node3_int_rack_01": [
+    { "what": "Orbital Outhouse Team patch", "rect": [1035, 970, 1230, 1145] }
+  ],
+  "node3_int_rack_02": [
+    { "what": "C.O.L.B.E.R.T. treadmill patch (shows a real person's face)", "rect": [2135, 3595, 2290, 3730] }
+  ],
+  "bishop": [
+    { "what": "Nanoracks company logo plate", "rect": [1935, 3910, 2390, 4050] }
+  ]
+}

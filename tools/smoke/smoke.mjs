@@ -141,6 +141,29 @@ async function visibleButton(page, selector) {
   if (r !== 'ok') throw new Error(`${selector}: ${r}`)
 }
 
+/** 宇宙ステーション（ISS）の見本（#iss=sample）：起動するとデスティニーの中に入り、前へ浮かんで進み、印で遊べて、もどるで宇宙へ */
+async function issScene(page, phone) {
+  await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
+  await page.waitForFunction(() => window.__sv.iss.state.getState().phase === 'inside' && window.__sv.iss.debug.loaded, null, { timeout: 180000, polling: 500 })
+  for (const sel of ['.iss-exit', '.iss-flip', ...(phone ? ['.iss-stick', '.iss-up'] : [])]) await visibleButton(page, sel)
+  const z0 = await page.evaluate(() => window.__sv.iss.debug.pose.z)
+  await page.evaluate(() => (window.__sv.iss.debug.move = [0, 0, 1]))
+  await page.waitForFunction((z0) => window.__sv.iss.debug.pose.z < z0 - 0.4, z0, { timeout: 60000, polling: 250 }).catch(() => {})
+  await page.evaluate(() => (window.__sv.iss.debug.move = null))
+  const z1 = await page.evaluate(() => window.__sv.iss.debug.pose.z)
+  if (!(z1 < z0 - 0.4)) throw new Error(`iss: did not float forward (${z0.toFixed(2)} -> ${z1.toFixed(2)})`)
+  await page.evaluate(() => window.__sv.iss.play('window'))
+  await page.waitForSelector('.iss-card', { timeout: 10000 })
+  const lines = await page.evaluate(() => document.querySelectorAll('.iss-card p').length)
+  if (lines > 3) throw new Error(`iss: card has ${lines} lines`)
+  await page.evaluate(() => window.__sv.iss.play(null))
+  await sleep(1500)
+}
+async function issExit(page) {
+  await page.evaluate(() => document.querySelector('.iss-exit').click())
+  await page.waitForFunction(() => window.__sv.iss.state.getState().phase === 'none' && !document.querySelector('.iss-root'), null, { timeout: 30000 })
+}
+
 const SCENARIOS = {
   // 起動して、操縦席から見る
   flight: { ctx: desktop, hash: '#debug' },
@@ -727,6 +750,9 @@ const SCENARIOS = {
       await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'none', null, { timeout: 30000 })
     },
   },
+  // 宇宙ステーション（ISS）の見本（#iss=sample）：実験棟デスティニーの中を浮かぶ
+  iss: { ctx: desktop, hash: '#debug&iss=sample', run: (page) => issScene(page, false), after: issExit },
+  'iss-phone': { ctx: phone, hash: '#debug&iss=sample', run: (page) => issScene(page, true), after: issExit },
   walk: {
     ctx: desktop,
     hash: '#debug&sf',

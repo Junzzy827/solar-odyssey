@@ -35,6 +35,8 @@ import { shipCol } from './components/eva/shipCollider'
 import { evaDebug, evaInput, recallEva, startEva, useEva } from './state/eva'
 import { evaJobsDebug, jobsRt, useEvaJobs } from './state/evaJobs'
 import { evaSite } from './components/eva/hull'
+import { closeIss, issDebug, issInput, openIss, playSpot, useIss } from './state/iss'
+import { texList as issTexList, texMemory as issTexMemory } from './components/iss/texManager'
 import { colonyWalk, endWalk, startWalk, useWalk, walkInput } from './state/walk'
 import { lunar, lunarGo, lunarSkip, manual as lunarManual, startLunar, tickLunar, useMoonLunar } from './state/moonLunar'
 import { groundAt as lunarGround } from './components/moonMission/lunarTerrain'
@@ -140,6 +142,8 @@ const sv = {
     end: endWalk,
     inside: () => colonyWalk.inside?.id ?? null,
   },
+  // 宇宙ステーション（ISS）の見本（?iss=sample）。open() で実験棟に入る
+  iss: { state: useIss, open: openIss, close: closeIss, play: playSpot, input: issInput, debug: issDebug, tex: issTexList, texMemory: issTexMemory },
   eva: { site: evaSite, state: useEva, start: startEva, recall: recallEva, input: evaInput, debug: evaDebug, jobs: evaJobsDebug, jobsRt, jobsState: useEvaJobs, col: shipCol },
   historic: useHistoric,
   skyClock: useSkyClock,

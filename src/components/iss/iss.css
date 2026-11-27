@@ -1,0 +1,335 @@
+/* 宇宙ステーション（ISS）の場面。画面いっぱいに、宇宙の場面の上に重ねる */
+.iss-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #000;
+  color: #e8f2ff;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.iss-root > div:first-child {
+  position: absolute !important;
+  inset: 0;
+}
+
+/* 見回す：画面全体をドラッグ（ボタンやスティックはこの上） */
+.iss-look {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+}
+.iss-look:active {
+  cursor: grabbing;
+}
+
+.iss-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: inherit;
+}
+.iss-hud button {
+  pointer-events: auto;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* 読みこみの幕 */
+.iss-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: radial-gradient(circle at 50% 45%, #10202e, #000 70%);
+  pointer-events: auto;
+}
+.iss-loading-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.iss-loading-text {
+  font-size: 15px;
+  color: #9fc4e6;
+  animation: iss-pulse 1.4s ease-in-out infinite;
+}
+@keyframes iss-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* モジュールの名前：入ったときは大きく真ん中に、そのあと左上に小さく */
+.iss-name {
+  position: absolute;
+  left: 16px;
+  top: calc(env(safe-area-inset-top) + 14px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: rgba(8, 16, 26, 0.62);
+  transition: all 0.8s ease;
+}
+.iss-name b {
+  font-size: 16px;
+}
+.iss-name small {
+  font-size: 12px;
+  color: #a9c6e2;
+}
+.iss-name.big {
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -50%);
+  padding: 14px 26px;
+  text-align: center;
+  align-items: center;
+}
+.iss-name.big b {
+  font-size: 28px;
+}
+.iss-name.big small {
+  font-size: 15px;
+}
+.iss-root[data-phase='loading'] .iss-name,
+.iss-root[data-phase='loading'] .iss-stamps,
+.iss-root[data-phase='loading'] .iss-anchors,
+.iss-root[data-phase='loading'] .iss-moves {
+  visibility: hidden;
+}
+
+/* 遊んだ印のしるし（左上、名前の下） */
+.iss-stamps {
+  position: absolute;
+  left: 16px;
+  top: calc(env(safe-area-inset-top) + 74px);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: 60vw;
+}
+.iss-stamps span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 4px;
+  border-radius: 12px;
+  background: rgba(8, 16, 26, 0.55);
+  font-size: 12px;
+  color: #b9cde0;
+}
+.iss-stamps i {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(160, 210, 255, 0.55);
+  font-style: normal;
+  font-size: 12px;
+}
+.iss-stamps span.ok {
+  color: #e8fff0;
+}
+.iss-stamps span.ok i {
+  background: #5fd08a;
+  border-color: #5fd08a;
+  color: #04220f;
+}
+
+/* もどる（右上：ほかの場面と同じ形） */
+.iss-exit {
+  position: absolute;
+  right: 16px;
+  top: calc(env(safe-area-inset-top) + 14px);
+  padding: 8px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(160, 210, 255, 0.55);
+  background: rgba(12, 20, 32, 0.72);
+  color: #e6f1ff;
+  font-size: 14px;
+}
+
+/* 操作の説明（はじめに動くと消える） */
+.iss-help {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  max-width: min(640px, 92vw);
+  padding: 8px 16px;
+  border-radius: 14px;
+  background: rgba(8, 16, 26, 0.62);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* 3D の中の光る印と、ハッチの札（IssWorld が位置を動かす） */
+.iss-anchors > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  will-change: transform;
+}
+.iss-dot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -14px 0 0 -14px;
+  padding: 0 10px 0 0;
+  border: none;
+  border-radius: 16px;
+  background: rgba(8, 18, 30, 0.55);
+  color: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.iss-dot i {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 22%, #6fd3ff 30%, rgba(80, 190, 255, 0.25) 62%, transparent 70%);
+  animation: iss-glow 1.6s ease-in-out infinite;
+}
+.iss-dot.done i {
+  background: radial-gradient(circle, #fff 0 22%, #7ee0a0 30%, rgba(120, 220, 150, 0.25) 62%, transparent 70%);
+}
+.iss-dot.on {
+  background: rgba(60, 150, 220, 0.75);
+}
+@keyframes iss-glow {
+  50% {
+    transform: scale(1.18);
+  }
+}
+.iss-soon {
+  margin: -12px 0 0 -90px;
+  width: 180px;
+  padding: 5px 10px;
+  border-radius: 12px;
+  background: rgba(8, 16, 26, 0.7);
+  font-size: 12px;
+  text-align: center;
+  color: #cfe3f7;
+}
+
+/* カード（3 行まで） */
+.iss-card {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: min(460px, 92vw);
+  padding: 14px 18px 12px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(14, 26, 40, 0.9), rgba(6, 12, 20, 0.86));
+  border: 1px solid rgba(140, 200, 255, 0.35);
+  pointer-events: auto;
+}
+.iss-card-name {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.iss-card p {
+  margin: 2px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.iss-card button {
+  margin-top: 8px;
+  float: right;
+  padding: 6px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(160, 210, 255, 0.55);
+  background: rgba(40, 90, 140, 0.6);
+  color: #fff;
+}
+
+/* 宙返り・上下のボタン（右下） */
+.iss-moves {
+  position: absolute;
+  right: 16px;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.iss-moves button {
+  min-width: 64px;
+  padding: 8px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(160, 210, 255, 0.55);
+  background: rgba(12, 20, 32, 0.72);
+  color: #e6f1ff;
+  font-size: 13px;
+}
+.iss-moves button:active {
+  background: rgba(95, 190, 255, 0.75);
+  color: #06121e;
+}
+
+/* スマホ：左下のスティック。カードが出ているときは、ボタンとスティックをカードの上へ */
+.iss-stick {
+  position: absolute;
+  left: 20px;
+  bottom: calc(env(safe-area-inset-bottom) + 26px);
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  background: rgba(20, 40, 60, 0.35);
+  border: 1.5px solid rgba(160, 210, 255, 0.4);
+  pointer-events: auto;
+  touch-action: none;
+}
+.iss-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  border-radius: 50%;
+  background: rgba(160, 210, 255, 0.55);
+}
+.iss-hud.touch .iss-help {
+  bottom: calc(env(safe-area-inset-bottom) + 160px);
+}
+.iss-hud.touch .iss-moves {
+  bottom: calc(env(safe-area-inset-bottom) + 26px);
+}
+.iss-hud.touch .iss-card {
+  bottom: calc(env(safe-area-inset-bottom) + 158px);
+}
+@media (max-width: 600px) {
+  .iss-name {
+    left: 10px;
+    max-width: calc(100vw - 120px);
+  }
+  .iss-name.big {
+    max-width: 88vw;
+    left: 50%;
+  }
+  .iss-name.big b {
+    font-size: 22px;
+  }
+  .iss-stamps {
+    left: 10px;
+    top: calc(env(safe-area-inset-top) + 70px);
+  }
+  .iss-exit {
+    right: 10px;
+  }
+  .iss-moves {
+    right: 10px;
+  }
+}
