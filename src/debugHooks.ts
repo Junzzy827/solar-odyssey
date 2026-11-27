@@ -38,6 +38,7 @@ import { evaSite } from './components/eva/hull'
 import { closeIss, issDebug, issInput, openIss, playSpot, useIss } from './state/iss'
 import { texList as issTexList, texMemory as issTexMemory } from './components/iss/texManager'
 import { colonyWalk, endWalk, startWalk, useWalk, walkInput } from './state/walk'
+import { closeShuttle, enterSpot, leaveSpot, openShuttle, setShuttleLight, shuttleDebug, shuttleInput, useShuttle } from './state/shuttle'
 import { lunar, lunarGo, lunarSkip, manual as lunarManual, startLunar, tickLunar, useMoonLunar } from './state/moonLunar'
 import { groundAt as lunarGround } from './components/moonMission/lunarTerrain'
 import { startSaturnObserve, toLaunchNight, useExplorer } from './state/saturnExplorer'
@@ -126,6 +127,8 @@ const sv = {
   apolloEva: { state: useApolloEva, begin: beginApolloEva, skip: skipDrive, take: takeSample, next: nextLeg, liftoff: watchLiftoff, pose: roverPoseRef, tv: tvDebug },
   moonLunar: { lunar, state: useMoonLunar, start: startLunar, go: lunarGo, manual: lunarManual, skip: lunarSkip, tick: tickLunar, ground: lunarGround },
   // コロニーの中を歩く。start('colony') でコロニーの中にいることにして始める（テスト用）
+  // スペースシャトルの乗員室（見本）。open() で入る、debug.place(x, y, z, yaw) で動かす、debug.info() で重さ
+  shuttle: { state: useShuttle, open: openShuttle, close: closeShuttle, light: setShuttleLight, spot: enterSpot, leave: leaveSpot, input: shuttleInput, debug: shuttleDebug },
   walk: {
     state: useWalk,
     input: walkInput,

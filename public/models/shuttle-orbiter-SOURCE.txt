@@ -1,0 +1,6 @@
+shuttle-orbiter.glb — Space Shuttle orbiter exterior around the crew cabin (nose, open payload bay,
+doors with radiators, robot arm, tail), STS-61 sample (src/components/shuttle/).
+Source: made for this app with tools/blender/build_shuttle.py (Blender bpy, procedural). No third-party
+model or texture. Compared for size only against NASA 3D Resources "Space Shuttle (A)/(D)" (public
+domain; not included). No logos, flags or lettering. meshopt compressed with tools/glb/compress.mjs.
+Hubble in the bay is public/models/hubble.glb (see hubble-SOURCE.txt if present).

@@ -1,0 +1,181 @@
+/* スペースシャトルの乗員室（ShuttleView・ShuttleHud） */
+.shuttle-view canvas {
+  touch-action: none;
+}
+
+.shuttle-curtain {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.9s ease;
+}
+.shuttle-curtain.on {
+  opacity: 1;
+}
+
+.shuttle-loading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  color: #cfe0f2;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+}
+
+.shuttle-ui {
+  z-index: 1;
+  font-size: 14px;
+}
+
+.shuttle-top {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.shuttle-deck {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(8, 12, 20, 0.55);
+  min-width: 0;
+}
+.shuttle-deck b {
+  font-size: 15px;
+}
+.shuttle-deck span {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.shuttle-top-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.shuttle-btn {
+  padding: 8px 14px;
+  border: 1px solid rgba(160, 200, 240, 0.6);
+  border-radius: 16px;
+  background: rgba(12, 20, 34, 0.78);
+  color: #e3eefa;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: none;
+  user-select: none;
+}
+.shuttle-btn:hover {
+  background: rgba(30, 48, 76, 0.9);
+}
+
+.shuttle-help {
+  position: absolute;
+  left: 50%;
+  top: 76px;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(8, 12, 20, 0.6);
+  line-height: 1.6;
+  text-align: center;
+  pointer-events: auto;
+  animation: shuttle-fade 12s ease forwards;
+  max-width: calc(100vw - 32px);
+}
+@keyframes shuttle-fade {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.shuttle-card {
+  position: absolute;
+  left: 50%;
+  top: 76px;
+  transform: translateX(-50%);
+  padding: 12px 18px;
+  border-left: 3px solid #8fc1ff;
+  border-radius: 10px;
+  background: rgba(8, 12, 20, 0.7);
+  line-height: 1.55;
+  font-size: 15px;
+  max-width: calc(100vw - 32px);
+  white-space: nowrap;
+}
+.shuttle-card small {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.shuttle-bottom {
+  position: absolute;
+  left: 50%;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+}
+.shuttle-spot {
+  font-size: 15px;
+  padding: 10px 20px;
+}
+
+.shuttle-stick {
+  position: absolute;
+  left: 22px;
+  bottom: 96px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 1px solid rgba(160, 200, 240, 0.45);
+  background: rgba(10, 16, 28, 0.35);
+  pointer-events: auto;
+  touch-action: none;
+}
+.shuttle-stick i {
+  position: absolute;
+  left: 38px;
+  top: 38px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(180, 210, 240, 0.55);
+}
+
+.shuttle-lift {
+  position: absolute;
+  right: 18px;
+  bottom: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .shuttle-card {
+    font-size: 14px;
+    white-space: normal;
+    width: max-content;
+  }
+  .shuttle-btn {
+    padding: 8px 11px;
+    font-size: 13px;
+  }
+}

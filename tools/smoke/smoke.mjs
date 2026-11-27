@@ -164,6 +164,30 @@ async function issExit(page) {
   await page.waitForFunction(() => window.__sv.iss.state.getState().phase === 'none' && !document.querySelector('.iss-root'), null, { timeout: 30000 })
 }
 
+/** スペースシャトルの乗員室（見本）：開いて、読み終わるのを待ち、少しただよって、見どころに入って出る */
+async function shuttleScene(page, name) {
+  await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'high' }))
+  await page.evaluate(() => window.__sv.shuttle.open())
+  await page.waitForFunction(() => window.__sv.shuttle.state.getState().phase === 'cabin', null, { timeout: 240000 })
+  await sleep(3000)
+  for (const sel of ['.shuttle-exit', '.shuttle-top-buttons .shuttle-btn']) await visibleButton(page, sel)
+  // 前へそっと押す（動いたか確かめる）
+  const before = await page.evaluate(() => window.__sv.shuttle.debug.pose().pos)
+  await page.evaluate(() => window.__sv.shuttle.debug.push(0, 0, 1, 2))
+  await sleep(4000)
+  const after = await page.evaluate(() => window.__sv.shuttle.debug.pose().pos)
+  const moved = Math.hypot(after[0] - before[0], after[1] - before[1], after[2] - before[2])
+  // ヘッドレス（GPU なし）は 1 コマ数秒かかり、1 コマに進む時間は 0.1 秒までなので、動く量はわずか。動いたことだけ見る
+  if (!(moved > 0.005)) throw new Error(`${name}: did not move (${moved})`)
+  await check3d(page, name)
+  // 船長の席に入り、出る
+  await page.evaluate(() => window.__sv.shuttle.spot('seat'))
+  await sleep(3000)
+  await visibleButton(page, '.shuttle-spot')
+  await page.evaluate(() => window.__sv.shuttle.leave())
+  await sleep(1000)
+}
+
 const SCENARIOS = {
   // 起動して、操縦席から見る
   flight: { ctx: desktop, hash: '#debug' },
@@ -753,6 +777,9 @@ const SCENARIOS = {
   // 宇宙ステーション（ISS）の見本（#iss=sample）：実験棟デスティニーの中を浮かぶ
   iss: { ctx: desktop, hash: '#debug&iss=sample', run: (page) => issScene(page, false), after: issExit },
   'iss-phone': { ctx: phone, hash: '#debug&iss=sample', run: (page) => issScene(page, true), after: issExit },
+  // スペースシャトルの乗員室（?shuttle=sample の見本）
+  shuttle: { ctx: desktop, hash: '#debug', run: (page) => shuttleScene(page, 'shuttle') },
+  'shuttle-phone': { ctx: phone, hash: '#debug', run: (page) => shuttleScene(page, 'shuttle-phone') },
   walk: {
     ctx: desktop,
     hash: '#debug&sf',

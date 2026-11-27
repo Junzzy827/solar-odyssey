@@ -1,0 +1,21 @@
+// 乗員室の 1 か所を撮る（確かめ用）：node tools/shuttle/peek.mjs <out.jpg> x y z yaw pitch [day|dark] [spot]
+import { chromium } from 'playwright'
+const [out, x, y, z, yaw, pitch, light = 'day', spot, hide] = process.argv.slice(2)
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] })
+const page = await (await browser.newContext({ viewport: { width: 960, height: 540 } })).newPage()
+await page.addInitScript(() => localStorage.setItem('solar-voyager:settings', JSON.stringify({ lang: 'ja' })))
+page.on('pageerror', (e) => console.log('ERR', String(e)))
+await page.goto('http://localhost:5202/#debug', { timeout: 300000 })
+await page.waitForFunction(() => window.__sv?.shuttle, null, { timeout: 300000 })
+await page.evaluate(() => window.__sv.shuttle.open())
+await page.waitForFunction(() => window.__sv.shuttle.state.getState().phase === 'cabin', null, { timeout: 400000 })
+await page.evaluate(([p, light, spot, hide]) => {
+  window.__sv.shuttle.light(light)
+  window.__sv.shuttle.debug.place(...p)
+  if (spot && spot !== '-') window.__sv.shuttle.spot(spot)
+  if (hide) window.__sv.shuttle.debug.show(hide, false)
+}, [[+x, +y, +z, +yaw, +pitch], light, spot, hide])
+await sleep(spot || light === 'dark' ? 8000 : 4000)
+await page.screenshot({ path: out, type: 'jpeg', quality: 85, timeout: 180000 })
+await browser.close()
