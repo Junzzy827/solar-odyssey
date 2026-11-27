@@ -1,6 +1,6 @@
 // スペースシャトルの打ち上げ（STS-61、1993 年 12 月 2 日の夜、39B 発射台）の時刻表と、上昇の道のり。
-// 時刻は発射（T−0）からの秒。事実の出典は tools/shuttle/FACTS.md の 2 章（NASA の「Launch」の説明ページ）。
-// 上昇の高さと速さは、本物の数字（発射の 2 分 6 秒後に 高さ 約 45 km）に合うように作った見積もり（EST）。
+// 時刻は発射（T−0）からの秒。事実の出典は tools/shuttle/FACTS.md の 2 章（NASA KSC「Countdown!」2003 ほか）。
+// 上昇の高さは、本物の数字（発射の 2 分ほどで 高さ 約 51 km、固体ロケットが燃えつきる）に合うように作った見積もり（EST）。
 
 /** 打ち上げの瞬間（世界時）：1993-12-02 4:27:00 a.m. EST */
 export const STS61_LIFTOFF = Date.UTC(1993, 11, 2, 9, 27, 0)
@@ -8,9 +8,9 @@ export const STS61_LIFTOFF = Date.UTC(1993, 11, 2, 9, 27, 0)
 /** 席に着いてから見せる秒読みの始まり（地上の自動の秒読みが機上のコンピューターへ渡るのが T−31 秒） */
 export const COUNT_FROM = -31
 /** 酸素の排気の帽子（ビーニー帽）の腕は、T−2 分 30 秒に帽子を上げ、T−1 分 45 秒に退く（見せる秒読みの前に終わっている） */
-/** 水をまき始める（メインエンジン点火の少し前） */
-export const WATER_ON = -16
-/** 水素を燃やす火花（エンジンの下の点火器）を出す */
+/** 音をやわらげる水をまき始める：T−6.6 秒（メインエンジンの点火と同じとき。20 秒ほど流れ、T+9 秒でいちばん多い） */
+export const WATER_ON = -6.6
+/** 水素を燃やす火花（尾部の配管塔にある 6 つの点火器）：メインエンジン点火の直前（T−10 秒は UNVERIFIED） */
 export const SPARKLERS = -10
 /** メインエンジン 3 基の点火：T−6.6 秒から 0.12 秒ずつ（3 番・2 番・1 番の順） */
 export const SSME_START = -6.6
@@ -26,7 +26,7 @@ export const ROLL_END = 20
 /** 空気の力がいちばん強い所を前に、エンジンを少し絞る（T+26 秒）、また上げる（T+60 秒） */
 export const THROTTLE_DOWN = 26
 export const THROTTLE_UP = 60
-/** 固体ロケットの切り離し：T+2 分 6 秒、高さ 約 45 km */
+/** 固体ロケットの切り離し：発射から 約 2 分（2 分 6 秒は UNVERIFIED）、高さ 約 50 km */
 export const SRB_SEP = 126
 
 /** 上昇の高さ（m、甲板から）の目安：[秒, 高さ] */
@@ -40,9 +40,9 @@ const ALT: [number, number][] = [
   [40, 5000],
   [60, 10_600],
   [80, 17_500],
-  [100, 26_500],
-  [126, 45_000],
-  [140, 54_000],
+  [100, 29_000],
+  [126, 50_000],
+  [140, 59_000],
 ]
 /** 東へ進んだ距離（m） */
 const DOWN: [number, number][] = [
@@ -124,9 +124,12 @@ export function srbThrust(t: number) {
 }
 
 /** 映画のカット：秒（T）から次のカットまで。shot は ShuttleLaunchWorld のカメラの名前 */
-export type LaunchShot = 'seat' | 'engines' | 'wide' | 'tower' | 'below' | 'chase' | 'seatShake' | 'sep' | 'far'
+export type LaunchShot = 'seat' | 'night' | 'engines' | 'wide' | 'tower' | 'below' | 'chase' | 'seatShake' | 'sep' | 'far'
 export const LAUNCH_CUTS: { at: number; shot: LaunchShot }[] = [
   { at: COUNT_FROM, shot: 'seat' },
+  // 席で待つあいだに一度、外の夜の発射台（8 秒より長く同じ絵にしない）
+  { at: -24, shot: 'night' },
+  { at: -15, shot: 'seat' },
   { at: SSME_START + 0.1, shot: 'engines' },
   { at: -3.2, shot: 'seat' },
   { at: -0.4, shot: 'wide' },

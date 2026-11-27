@@ -4,9 +4,14 @@ import * as THREE from 'three'
 //   色 = アトラス（UV0）× 光（UV1。焼いた値を 1/2.2 乗で 8 ビットにしたものを戻し、倍率をかける）× 露出
 // 昼と夜は uMix でなめらかに混ぜる。夜はアトラスの A（0.5〜1）にある刻印・ランプの光を足す（パネルの文字が薄く光る）。
 
-type Meta = { lightScale: { day: number; dark: number }; exposure: number }
+/** 焼いたときの明るさの値（tools/blender/build_shuttle_cabin.py が書く shuttle-cabin.json と同じ形） */
+export type CabinMeta = { lightScale: { day: number; dark: number }; exposure: number }
+type Meta = CabinMeta
 
+// 対数の奥行き（打ち上げの場面の Canvas）でも、ふつうの奥行きでも描けるように、three の部品を入れておく
 const vert = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_vertex>
 attribute vec2 uv1;
 varying vec2 vUv;
 varying vec2 vUv1;
@@ -14,9 +19,12 @@ void main() {
   vUv = uv;
   vUv1 = uv1;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  #include <logdepthbuf_vertex>
 }`
 
 const frag = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_fragment>
 uniform sampler2D uMap;
 uniform sampler2D uDay;
 uniform sampler2D uDark;
@@ -32,6 +40,7 @@ vec3 toSrgb(vec3 c) {
   return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
 }
 void main() {
+  #include <logdepthbuf_fragment>
   vec4 a = texture2D(uMap, vUv);
 #ifdef FLAT
   // 光の地図の無い小物（浮いている物）：その場の明るさを一つの値で
@@ -84,4 +93,16 @@ export function flatMaterial(atlas: THREE.Texture, room: THREE.ShaderMaterial) {
 /** 窓のガラス：ほんの少し青く、映り込みの代わりにうっすら白く */
 export function glassMaterial() {
   return new THREE.MeshBasicMaterial({ color: '#9fb8d0', transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })
+}
+
+/** shuttle-cabin.json を読む（無ければ控えめな値）。読み終わるまでは Suspense で待つ */
+let metaCache: CabinMeta | null = null
+let metaPromise: Promise<CabinMeta> | null = null
+export function useCabinMeta(): CabinMeta {
+  if (metaCache) return metaCache
+  metaPromise ??= fetch(`${import.meta.env.BASE_URL}models/shuttle-cabin.json`)
+    .then((r) => r.json() as Promise<CabinMeta>)
+    .catch(() => ({ lightScale: { day: 20, dark: 1 }, exposure: 0.4 }))
+    .then((m) => (metaCache = m))
+  throw metaPromise
 }

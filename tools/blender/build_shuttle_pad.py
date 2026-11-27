@@ -351,8 +351,11 @@ def water_tower(p):
             a, b = 2 * math.pi * k / 6, 2 * math.pi * (k + 1) / 6
             beam(p, (x + rr * math.cos(a), y + rr * math.sin(a), z), (x + rr * math.cos(b), y + rr * math.sin(b), z), 0.25, 0.25, 'Grey')
     tube(p, (x, y, base), (x, y, tz), 0.9, 'Grey', n=10)
-    S.lathe(p, [(tz - r * 0.8, 0.01), (tz - r * 0.6, r * 0.75), (tz, r), (tz + r * 0.35, r * 0.92), (tz + r * 0.75, r * 0.45), (tz + r * 0.9, 0.01)],
+    # 回転体は原点のまわりにできるので、別の組で作ってから塔の位置へ動かす（そのままだと外部タンクの先にかぶさっていた）
+    q = Part()
+    S.lathe(q, [(tz - r * 0.8, 0.01), (tz - r * 0.6, r * 0.75), (tz, r), (tz + r * 0.35, r * 0.92), (tz + r * 0.75, r * 0.45), (tz + r * 0.9, 0.01)],
             S.solid('Tank'), n=28)
+    p.add([(vx + x, vy + y, vz) for vx, vy, vz in q.verts], q.faces, lambda f, m=q.mats: m[f])
     box(p, (x, y, top + 0.4), (0.5, 0.5, 0.5), 'NavRed')
     # 発射台へ向かう太い管
     tube(p, (x, y, base + 1.5), (MLP_X + 30, 22.0, base + 1.5), 1.1, 'Pipe', n=10)

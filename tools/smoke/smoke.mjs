@@ -167,7 +167,7 @@ async function issExit(page) {
 /** スペースシャトルの乗員室（見本）：開いて、読み終わるのを待ち、少しただよって、見どころに入って出る */
 async function shuttleScene(page, name) {
   await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'high' }))
-  await page.evaluate(() => window.__sv.shuttle.open())
+  await page.evaluate(() => window.__sv.shuttle.open('orbit'))
   await page.waitForFunction(() => window.__sv.shuttle.state.getState().phase === 'cabin', null, { timeout: 240000 })
   await sleep(3000)
   for (const sel of ['.shuttle-exit', '.shuttle-top-buttons .shuttle-btn']) await visibleButton(page, sel)
@@ -186,6 +186,35 @@ async function shuttleScene(page, name) {
   await visibleButton(page, '.shuttle-spot')
   await page.evaluate(() => window.__sv.shuttle.leave())
   await sleep(1000)
+}
+
+/** シャトルの発射台と打ち上げ（見本）：夜の発射台 → 光る点 → 乗り込む → 秒読み → 点火 → 発射 → 軌道の乗員室へ */
+async function shuttlePadScene(page, name) {
+  await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'high' }))
+  await page.evaluate(() => window.__sv.shuttle.open('pad'))
+  await page.waitForFunction(() => window.__sv.shuttle.state.getState().phase === 'pad', null, { timeout: 240000 })
+  await sleep(3000)
+  for (const sel of ['.shuttle-exit', '.shuttle-board']) await visibleButton(page, sel)
+  const dots = await page.evaluate(() => document.querySelectorAll('.shuttle-dot').length)
+  if (dots !== 3) throw new Error(`${name}: ${dots} pad dots`)
+  await check3d(page, name)
+  await page.evaluate(() => window.__sv.shuttle.padSpot('et'))
+  await sleep(1500)
+  await visibleButton(page, '.shuttle-card')
+  await page.evaluate(() => document.querySelector('.shuttle-board').click())
+  await page.waitForFunction(() => window.__sv.shuttle.state.getState().stage === 'count', null, { timeout: 120000 })
+  // 点火を待つ所まで進めて、ボタンで点火
+  await page.evaluate(() => window.__sv.shuttle.debug.launchAt(-7.2))
+  await page.waitForFunction(() => window.__sv.shuttle.state.getState().stage === 'hold', null, { timeout: 120000 })
+  await visibleButton(page, '.shuttle-ignite')
+  await page.evaluate(() => document.querySelector('.shuttle-ignite').click())
+  await page.waitForFunction(() => window.__sv.shuttle.state.getState().stage === 'fire', null, { timeout: 30000 })
+  await page.evaluate(() => window.__sv.shuttle.debug.launchAt(3))
+  await sleep(3000)
+  await check3d(page, `${name}-liftoff`)
+  // とばす → 軌道の乗員室
+  await page.evaluate(() => window.__sv.shuttle.orbit())
+  await page.waitForFunction(() => window.__sv.shuttle.state.getState().phase === 'cabin', null, { timeout: 240000 })
 }
 
 const SCENARIOS = {
@@ -780,6 +809,9 @@ const SCENARIOS = {
   // スペースシャトルの乗員室（?shuttle=sample の見本）
   shuttle: { ctx: desktop, hash: '#debug', run: (page) => shuttleScene(page, 'shuttle') },
   'shuttle-phone': { ctx: phone, hash: '#debug', run: (page) => shuttleScene(page, 'shuttle-phone') },
+  // シャトルの発射台と打ち上げ
+  'shuttle-pad': { ctx: desktop, hash: '#debug', run: (page) => shuttlePadScene(page, 'shuttle-pad') },
+  'shuttle-pad-phone': { ctx: phone, hash: '#debug', run: (page) => shuttlePadScene(page, 'shuttle-pad-phone') },
   walk: {
     ctx: desktop,
     hash: '#debug&sf',

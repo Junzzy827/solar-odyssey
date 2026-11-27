@@ -35,7 +35,7 @@ const START_SCENE: ShuttleScene = /[?&#]at=orbit\b/.test(QUERY) ? 'orbit' : 'pad
 const COUNT_START = -31
 const HOLD_T = -7
 /** 打ち上げの時計（場面が毎フレーム書く。HUD が読む）。t は発射からの秒、ignitedAt は点火を押した T */
-export const shuttleLaunch = { t: COUNT_START, ignitedAt: null as number | null, skip: false }
+export const shuttleLaunch = { t: COUNT_START, ignitedAt: null as number | null, skip: false, fade: 0 }
 
 type Seen = Partial<Record<ShuttleSpot, true>>
 type Saved = { seen: Seen; light: ShuttleLight }
@@ -91,6 +91,8 @@ export function openShuttle(scene: ShuttleScene = START_SCENE) {
   }
   shuttleLaunch.t = COUNT_START
   shuttleLaunch.ignitedAt = null
+  shuttleLaunch.skip = false
+  shuttleLaunch.fade = 0
   useShuttle.setState({ phase: 'loading', scene, since: now(), deck: 'flight', spot: null, near: null, padSpot: null, stage: 'board' })
 }
 
@@ -107,6 +109,8 @@ export function boardShuttle() {
   if (useShuttle.getState().phase !== 'pad') return
   shuttleLaunch.t = COUNT_START
   shuttleLaunch.ignitedAt = null
+  shuttleLaunch.skip = false
+  shuttleLaunch.fade = 0
   useShuttle.setState({ phase: 'launch', stage: 'board', since: now(), padSpot: null })
 }
 

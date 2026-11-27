@@ -1,0 +1,7 @@
+shuttle-stack.glb — Space Shuttle launch stack (orbiter, external tank, two solid rocket boosters,
+three main engines) for the STS-61 launch film (src/components/shuttle/ShuttleLaunchWorld.tsx).
+Source: NASA 3D Resources (https://github.com/nasa/NASA-3D-Resources), "Space Shuttle (D)" orbiter
+and the external tank / solid rocket booster models. NASA models are public domain (not subject to
+copyright in the US; NASA media usage guidelines apply: no NASA logos/insignia used to imply endorsement).
+Assembled and scaled to real size with tools/blender/build_shuttle_stack.py. Logos, flags and lettering
+were painted out; the booster stripes were recoloured. meshopt compressed with tools/glb/compress.mjs.

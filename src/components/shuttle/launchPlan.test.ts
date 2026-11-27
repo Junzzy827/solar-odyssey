@@ -6,14 +6,14 @@ describe('shuttle launch plan', () => {
     expect(new Date(STS61_LIFTOFF).toISOString()).toBe('1993-12-02T09:27:00.000Z')
   })
 
-  it('climbs steadily and reaches about 45 km at booster separation', () => {
+  it('climbs steadily and reaches about 50 km at booster separation', () => {
     let prev = -1
     for (let t = 0; t <= 140; t += 0.5) {
       const h = altitudeAt(t)
       expect(h).toBeGreaterThanOrEqual(prev)
       prev = h
     }
-    expect(altitudeAt(SRB_SEP)).toBeCloseTo(45_000, -2)
+    expect(altitudeAt(SRB_SEP)).toBeCloseTo(50_000, -2)
     // 塔（甲板から 約 92 m）は 7 秒ほどで越える
     expect(altitudeAt(6)).toBeLessThan(92)
     expect(altitudeAt(8)).toBeGreaterThan(92)
@@ -45,7 +45,9 @@ describe('shuttle launch plan', () => {
 
   it('maps every moment to a film cut in order', () => {
     for (let i = 1; i < LAUNCH_CUTS.length; i++) expect(LAUNCH_CUTS[i].at).toBeGreaterThan(LAUNCH_CUTS[i - 1].at)
-    expect(shotAt(-20).shot).toBe('seat')
+    expect(shotAt(-28).shot).toBe('seat')
+    expect(shotAt(-20).shot).toBe('night')
+    expect(shotAt(-8).shot).toBe('seat')
     expect(shotAt(0).shot).toBe('wide')
     expect(shotAt(SRB_SEP).shot).toBe('sep')
   })

@@ -188,3 +188,173 @@
     font-size: 13px;
   }
 }
+
+/* 発射台の章と打ち上げ（ShuttleLaunchHud・ShuttleLaunchWorld の光る点） */
+.shuttle-dot {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transform: translate(-7px, -50%);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #f2f6fa;
+  font: 13px/1.2 system-ui, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.shuttle-dot i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 28%, rgba(140, 200, 255, 0.9) 34%, rgba(90, 160, 255, 0) 72%);
+  box-shadow: 0 0 10px rgba(130, 190, 255, 0.8);
+  animation: shuttle-dot-glow 1.8s ease-in-out infinite;
+}
+.shuttle-dot span {
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: rgba(6, 10, 18, 0.55);
+}
+.shuttle-dot.on span {
+  background: rgba(90, 160, 255, 0.45);
+}
+@keyframes shuttle-dot-glow {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.35);
+  }
+}
+.shuttle-card b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 16px;
+  color: #bfe0ff;
+}
+.shuttle-pad-ui .shuttle-card {
+  white-space: normal;
+  width: max-content;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.shuttle-board {
+  font-size: 16px;
+  padding: 12px 24px;
+  border-color: rgba(255, 210, 140, 0.8);
+  background: rgba(40, 28, 12, 0.82);
+  animation: shuttle-dot-glow-soft 2.4s ease-in-out infinite;
+}
+@keyframes shuttle-dot-glow-soft {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(255, 200, 120, 0);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(255, 200, 120, 0.55);
+  }
+}
+
+.shuttle-clock {
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: rgba(8, 12, 20, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+.shuttle-clock-t {
+  font: 600 22px/1.1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
+  color: #ffe2b0;
+}
+.shuttle-clock small {
+  display: block;
+  font-size: 12px;
+  opacity: 0.85;
+  min-height: 14px;
+}
+.shuttle-clock.hold .shuttle-clock-t,
+.shuttle-clock.hold small {
+  animation: shuttle-blink 1s steps(2, start) infinite;
+  color: #ffb070;
+}
+@keyframes shuttle-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.shuttle-caption {
+  position: absolute;
+  left: 50%;
+  bottom: max(120px, calc(env(safe-area-inset-bottom) + 110px));
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: rgba(6, 10, 18, 0.55);
+  font-size: 15px;
+  line-height: 1.45;
+  text-align: center;
+  animation: shuttle-caption-in 0.5s ease;
+}
+.shuttle-caption.big {
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  font-size: 22px;
+  padding: 14px 26px;
+  background: rgba(0, 0, 0, 0.7);
+}
+@keyframes shuttle-caption-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.shuttle-ignite {
+  pointer-events: auto;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  border: 3px solid #ffd7a0;
+  background: radial-gradient(circle at 50% 40%, #ff8a3c, #b2340e 70%);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-shadow: 0 0 24px rgba(255, 140, 60, 0.7);
+  animation: shuttle-ignite-pulse 1.1s ease-in-out infinite;
+  touch-action: none;
+  user-select: none;
+}
+.shuttle-ignite b {
+  font-size: 22px;
+  letter-spacing: 0.08em;
+}
+.shuttle-ignite small {
+  font-size: 11px;
+  opacity: 0.9;
+}
+@keyframes shuttle-ignite-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.07);
+  }
+}
+
+.shuttle-fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}

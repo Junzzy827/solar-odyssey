@@ -2,14 +2,18 @@ import { Suspense, memo, useEffect, useRef, type PointerEvent as RPointerEvent }
 import { Canvas } from '@react-three/fiber'
 import { useDpr } from '../../state/quality'
 import { isTouchDevice } from '../../state/input'
-import { closeShuttle, leaveSpot, shuttleInput, useShuttle } from '../../state/shuttle'
+import { closeShuttle, igniteShuttle, leaveSpot, openPadSpot, shuttleInput, useShuttle } from '../../state/shuttle'
 import { ShuttleWorld } from './ShuttleWorld'
+import { ShuttleLaunchWorld } from './ShuttleLaunchWorld'
 import { ShuttleHud } from './ShuttleHud'
+import { ShuttleLaunchHud } from './ShuttleLaunchHud'
 import { startCabinHum, stopCabinHum } from './hum'
+import { startLaunchAudio, stopLaunchAudio } from './rumble'
 import './shuttle.css'
 
-// スペースシャトルの乗員室の画面。宇宙の場面の上に、別の Canvas を全画面で出す。
-// 描き方は ShuttleWorld が自分で決める（外の地球 → 奥行きを消す → 乗員室）。near は 3 cm（顔の前の計器まで描けるように）。
+// スペースシャトルの画面。宇宙の場面の上に、別の Canvas を全画面で出す。
+//   軌道の乗員室：描き方は ShuttleWorld が自分で決める（外の地球 → 奥行きを消す → 乗員室）。near は 3 cm（顔の前の計器まで描けるように）。
+//   発射台と打ち上げ：ShuttleLaunchWorld。地上から高さ 60 km までを 1 つの場面で描くので、対数の奥行きを使う。
 
 const ShuttleCanvas = memo(function ShuttleCanvas() {
   const dpr = useDpr(1.75)
@@ -22,13 +26,35 @@ const ShuttleCanvas = memo(function ShuttleCanvas() {
   )
 })
 
+const LaunchCanvas = memo(function LaunchCanvas() {
+  const dpr = useDpr(1.5)
+  return (
+    <Canvas dpr={dpr} gl={{ alpha: false, antialias: true, logarithmicDepthBuffer: true }} camera={{ fov: 45, near: 0.3, far: 400_000, position: [-120, 20, 140] }}>
+      <Suspense fallback={null}>
+        <ShuttleLaunchWorld />
+      </Suspense>
+    </Canvas>
+  )
+})
+
 /** キー：押している間だけ。見どころの中では Esc で出る */
 function useKeys() {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return
-      if (e.code === 'Escape' && useShuttle.getState().spot) {
+      const st = useShuttle.getState()
+      if (e.code === 'Escape' && st.spot) {
         leaveSpot()
+        return
+      }
+      if (e.code === 'Escape' && st.padSpot) {
+        openPadSpot(null)
+        return
+      }
+      // 点火を待っているときは、Space・Enter でも点火できる
+      if ((e.code === 'Space' || e.code === 'Enter') && st.phase === 'launch' && st.stage === 'hold') {
+        igniteShuttle()
+        e.preventDefault()
         return
       }
       if (/^(Key[WASD]|Arrow|Space|Shift)/.test(e.code)) {
@@ -62,9 +88,12 @@ function useLookDrag() {
   const last = useRef<{ id: number; x: number; y: number } | null>(null)
   return {
     onPointerDown: (e: RPointerEvent) => {
-      startCabinHum()
+      const cabin = useShuttle.getState().scene === 'orbit'
+      if (cabin) startCabinHum()
+      else startLaunchAudio()
       if (!(e.target instanceof HTMLCanvasElement)) return
-      if (e.pointerType === 'mouse' && !document.pointerLockElement && !isTouchDevice()) {
+      // マウスの固定は軌道の乗員室だけ（発射台はドラッグで回る、席はなぞって見回す）
+      if (cabin && e.pointerType === 'mouse' && !document.pointerLockElement && !isTouchDevice()) {
         try {
           void e.target.requestPointerLock?.()
         } catch {
@@ -89,17 +118,23 @@ function useLookDrag() {
 
 export function ShuttleView() {
   const phase = useShuttle((s) => s.phase)
+  const scene = useShuttle((s) => s.scene)
   const look = useLookDrag()
   useKeys()
   useEffect(() => {
+    if (scene === 'pad') {
+      startLaunchAudio()
+      return stopLaunchAudio
+    }
     startCabinHum()
     return stopCabinHum
-  }, [])
+  }, [scene])
   if (phase === 'none') return null
+  const launch = scene === 'pad'
   return (
     <div className="surface-view solid shuttle-view" {...look}>
-      <ShuttleCanvas />
-      <ShuttleHud />
+      {launch ? <LaunchCanvas /> : <ShuttleCanvas />}
+      {launch && phase !== 'loading' ? <ShuttleLaunchHud /> : <ShuttleHud />}
       <div className={`shuttle-curtain${phase === 'loading' ? ' on' : ''}`} />
     </div>
   )

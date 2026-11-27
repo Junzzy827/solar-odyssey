@@ -18,7 +18,7 @@ await page.waitForFunction(() => window.__sv?.shuttle, null, { timeout: 300000 }
 await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'high' }))
 await sleep(8000)
 const before = await page.evaluate(() => performance.getEntriesByType('resource').map((e) => e.name))
-await page.evaluate(() => window.__sv.shuttle.open())
+await page.evaluate(() => window.__sv.shuttle.open('orbit'))
 await page.waitForFunction(() => window.__sv.shuttle.state.getState().phase === 'cabin', null, { timeout: 400000 })
 await sleep(4000)
 const res = await page.evaluate((before) => {

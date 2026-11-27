@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { lowMemory } from '../../state/quality'
 import { markShuttleReady, shuttleDebug, shuttleInput, useShuttle, type ShuttleSpot } from '../../state/shuttle'
 import { FloatController, createFloatInput } from './floatControl'
-import { cabinMaterial, flatMaterial, glassMaterial } from './cabinMaterial'
+import { cabinMaterial, flatMaterial, glassMaterial, useCabinMeta } from './cabinMaterial'
 import { OutsideSky } from './outside'
 import { adiTexture, crtTexture, drawCrt, monitorMaterial } from './screens'
 import { shrinkTexture } from '../surface/shrinkTexture'
@@ -19,9 +19,6 @@ const base = import.meta.env.BASE_URL
 const CABIN_URL = `${base}models/shuttle-cabin.glb`
 const ORBITER_URL = `${base}models/shuttle-orbiter.glb`
 const HUBBLE_URL = `${base}models/hubble.glb`
-
-/** 焼いたときの明るさの値（tools/blender/build_shuttle_cabin.py が書く shuttle-cabin.json と同じ形） */
-type CabinMeta = { lightScale: { day: number; dark: number }; exposure: number }
 
 /** 見どころ：近づくとボタンが出る所と、入ったときの目の位置・向き */
 const SPOTS: Record<ShuttleSpot, { at: THREE.Vector3; eye: THREE.Vector3; yaw: number; pitch: number }> = {
@@ -52,7 +49,7 @@ export function ShuttleWorld() {
   const hubble = useGLTF(HUBBLE_URL)
   const sfx = phone ? '.phone' : ''
   const [atlas, lmDay, lmDark] = useTexture([`${base}models/shuttle-cabin.atlas${sfx}.webp`, `${base}models/shuttle-cabin.light-day${sfx}.webp`, `${base}models/shuttle-cabin.light-dark${sfx}.webp`])
-  const meta = useMeta()
+  const meta = useCabinMeta()
 
   // ---- 部屋と部品の材質 ----
   const parts = useMemo(() => {
@@ -469,18 +466,6 @@ function SunLights({ mix }: { mix: { current: number } }) {
       <hemisphereLight ref={hemi} args={['#7d9cc8', '#0a0c10', 0.9]} />
     </>
   )
-}
-
-/** shuttle-cabin.json を読む（無ければ控えめな値） */
-let metaCache: CabinMeta | null = null
-let metaPromise: Promise<CabinMeta> | null = null
-function useMeta(): CabinMeta {
-  if (metaCache) return metaCache
-  metaPromise ??= fetch(`${base}models/shuttle-cabin.json`)
-    .then((r) => r.json() as Promise<CabinMeta>)
-    .catch(() => ({ lightScale: { day: 20, dark: 1 }, exposure: 0.4 }))
-    .then((m) => (metaCache = m))
-  throw metaPromise
 }
 
 /** 場面に入る前に、形と絵を先に読み始める */

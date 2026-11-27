@@ -1,0 +1,6 @@
+shuttle-pad.glb — Launch Complex 39B in the 1990s (mobile launcher platform, fixed service structure,
+crew access arm with white room, oxygen vent arm with the "beanie cap", rotating service structure
+parked back, water tower, lightning mast) for the STS-61 launch (src/components/shuttle/).
+Source: made for this app with tools/blender/build_shuttle_pad.py (Blender bpy, procedural) and baked with
+tools/blender/bake_mission.py. Dimensions from NASA Facts "Launch Complex 39 Pads A and B" and NASA KSC
+"Countdown!" (2003). No third-party model or texture. meshopt compressed with tools/glb/compress.mjs.

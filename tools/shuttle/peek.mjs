@@ -8,7 +8,7 @@ await page.addInitScript(() => localStorage.setItem('solar-voyager:settings', JS
 page.on('pageerror', (e) => console.log('ERR', String(e)))
 await page.goto('http://localhost:5202/#debug', { timeout: 300000 })
 await page.waitForFunction(() => window.__sv?.shuttle, null, { timeout: 300000 })
-await page.evaluate(() => window.__sv.shuttle.open())
+await page.evaluate(() => window.__sv.shuttle.open('orbit'))
 await page.waitForFunction(() => window.__sv.shuttle.state.getState().phase === 'cabin', null, { timeout: 400000 })
 await page.evaluate(([p, light, spot, hide]) => {
   window.__sv.shuttle.light(light)
