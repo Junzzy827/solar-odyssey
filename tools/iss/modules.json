@@ -1,0 +1,1962 @@
+{
+ "source": "NASA 3D Resources: International Space Station (ISS) (E) (Internal), ISS_Interior_PBR_24.05_revA",
+ "frame": "metres; three.js +X starboard, +Y zenith, -Z forward; origin = Node 1 centre",
+ "sourceOrigin": [
+  0.0013,
+  33.8138,
+  -0.0075
+ ],
+ "sourceUnit": 0.1,
+ "modules": [
+  {
+   "id": "node1",
+   "key": "unity",
+   "bboxMin": [
+    -1.8765,
+    -2.436,
+    -1.9049
+   ],
+   "bboxMax": [
+    1.8828,
+    2.4419,
+    3.0534
+   ],
+   "center": [
+    0.0032,
+    0.003,
+    0.5742
+   ],
+   "axis": "z",
+   "neighbours": [
+    "airlock",
+    "node3",
+    "us_lab"
+   ],
+   "hatches": [
+    {
+     "connector": "Module_Connect.000",
+     "to": "airlock",
+     "center": [
+      2.0052,
+      -0.0004,
+      -0.0016
+     ]
+    },
+    {
+     "connector": "Module_Connect.001",
+     "to": "node3",
+     "center": [
+      -2.0052,
+      0.0004,
+      0.0016
+     ]
+    },
+    {
+     "connector": "Module_Connect.002",
+     "to": "us_lab",
+     "center": [
+      0.0035,
+      0.0004,
+      -2.0226
+     ]
+    }
+   ],
+   "triangles": 32205,
+   "materials": {
+    "Generic_HubAndMetals": 28077,
+    "Node1_Int_Rack": 2504,
+    "Node1_Int_Bulkhead": 1372,
+    "Generic_Lights": 144,
+    "EXPRESS_Racks_ATLAS": 108
+   },
+   "objects": [
+    "EXPRESS_Racks_ATLAS_Biofuel FRIDGE_01",
+    "EXPRESS_Racks_ATLAS_Biofuel FRIDGE_02",
+    "EXPRESS_Racks_ATLAS_Galley Food Warmer_01",
+    "EXPRESS_Racks_ATLAS_Galley Food Warmer_02",
+    "EXPRESS_Racks_ATLAS_Galley_Base",
+    "EXPRESS_Racks_ATLAS_Galley_Middle",
+    "EXPRESS_Racks_ATLAS_PWD",
+    "Node1_Int",
+    "Node1_Int_Lights",
+    "Node1_Int_Metal_Hatch_Aft_Closed",
+    "Node1_Int_Metal_Hatch_Fwd",
+    "Node1_Int_Metal_Hatch_Nadir_Closed",
+    "Node1_Int_Metal_Hatch_Port",
+    "Node1_Int_Metal_Hatch_Stbd",
+    "Node1_Int_Metal_Hatch_Zenith_Closed"
+   ],
+   "hidden": [
+    "Node1_Patches_Cutout"
+   ],
+   "movable": [
+    {
+     "name": "Node1_Int_Metal_Hatch_Aft_Closed",
+     "origin": [
+      0.0032,
+      0.0008,
+      1.1452
+     ],
+     "center": [
+      0.0047,
+      -0.0146,
+      2.8503
+     ],
+     "closed": true,
+     "tris": 1264
+    },
+    {
+     "name": "Node1_Int_Metal_Hatch_Fwd",
+     "origin": [
+      0.0032,
+      0.0008,
+      0.0001
+     ],
+     "center": [
+      0.0033,
+      1.3111,
+      -1.4378
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node1_Int_Metal_Hatch_Nadir_Closed",
+     "origin": [
+      0.0032,
+      0.0008,
+      0.0001
+     ],
+     "center": [
+      -0.0104,
+      -1.7587,
+      0.0003
+     ],
+     "closed": true,
+     "tris": 1264
+    },
+    {
+     "name": "Node1_Int_Metal_Hatch_Port",
+     "origin": [
+      0.0032,
+      0.0008,
+      0.0001
+     ],
+     "center": [
+      -1.1141,
+      -1.1872,
+      0.0003
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node1_Int_Metal_Hatch_Stbd",
+     "origin": [
+      0.0032,
+      0.0008,
+      0.0001
+     ],
+     "center": [
+      1.1186,
+      1.1929,
+      0.0003
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node1_Int_Metal_Hatch_Zenith_Closed",
+     "origin": [
+      0.0032,
+      0.0008,
+      0.0001
+     ],
+     "center": [
+      0.0167,
+      1.7647,
+      0.0003
+     ],
+     "closed": true,
+     "tris": 1264
+    }
+   ]
+  },
+  {
+   "id": "us_lab",
+   "key": "destiny",
+   "bboxMin": [
+    -1.5107,
+    -2.1152,
+    -10.7629
+   ],
+   "bboxMax": [
+    1.3056,
+    1.687,
+    -1.9049
+   ],
+   "center": [
+    -0.1025,
+    -0.2141,
+    -6.3339
+   ],
+   "axis": "z",
+   "neighbours": [
+    "node1",
+    "node2"
+   ],
+   "hatches": [
+    {
+     "connector": "Module_Connect.002",
+     "to": "node1",
+     "center": [
+      0.0035,
+      0.0004,
+      -2.0226
+     ]
+    },
+    {
+     "connector": "Module_Connect.003",
+     "to": "node2",
+     "center": [
+      0.0002,
+      -0.0122,
+      -10.6431
+     ]
+    }
+   ],
+   "triangles": 66685,
+   "materials": {
+    "Generic_HubAndMetals": 31855,
+    "Generic_Misc_Details": 13330,
+    "USLab_Racks_01": 10226,
+    "USLab_Racks_03": 8606,
+    "USLab_Racks_02": 1002,
+    "EXPRESS_Racks_ATLAS": 562,
+    "USLab_AFT_Bulkhead": 438,
+    "USLab_FWD_Bulkhead": 342,
+    "Generic_Lights": 288,
+    "PMM_01": 16,
+    "Generic_Misc_Details_LIGHTS": 14,
+    "USLab_Racks_04": 6
+   },
+   "objects": [
+    "CEVIS.Bike",
+    "Cevis.Mount",
+    "EXPRESS_Racks_ATLAS_11B_Base",
+    "EXPRESS_Racks_ATLAS_11B_Generic_Locker_01",
+    "EXPRESS_Racks_ATLAS_11B_Generic_Locker_02",
+    "EXPRESS_Racks_ATLAS_11B_Generic_Locker_03",
+    "EXPRESS_Racks_ATLAS_11B_Generic_Locker_04",
+    "EXPRESS_Racks_ATLAS_11B_Generic_Locker_05",
+    "EXPRESS_Racks_ATLAS_11B_Generic_Locker_06",
+    "EXPRESS_Racks_ATLAS_11B_Generic_Locker_07",
+    "EXPRESS_Racks_ATLAS_11B_Generic_Locker_08",
+    "EXPRESS_Racks_ATLAS_1_Base",
+    "EXPRESS_Racks_ATLAS_1_Drawer_02",
+    "EXPRESS_Racks_ATLAS_1_Glacier",
+    "EXPRESS_Racks_ATLAS_1_Iceberg",
+    "EXPRESS_Racks_ATLAS_1_Locker_NoDoor_01",
+    "EXPRESS_Racks_ATLAS_1_Locker_NoDoor_02",
+    "EXPRESS_Racks_ATLAS_1_Merlin",
+    "EXPRESS_Racks_ATLAS_1_SAMS",
+    "EXPRESS_Racks_ATLAS_2_Base",
+    "EXPRESS_Racks_ATLAS_2_Drawer_01",
+    "EXPRESS_Racks_ATLAS_2_Maritime_Awareness",
+    "EXPRESS_Racks_ATLAS_2_SABL_01",
+    "EXPRESS_Racks_ATLAS_2_SABL_02",
+    "EXPRESS_Racks_ATLAS_2_Thermal_Amine_Scrubber",
+    "EXPRESS_Racks_ATLAS_6_BRIC-LED",
+    "EXPRESS_Racks_ATLAS_6_Base",
+    "EXPRESS_Racks_ATLAS_6_Drawer",
+    "EXPRESS_Racks_ATLAS_6_Polar",
+    "EXPRESS_Racks_ATLAS_6_T-CMM",
+    "EXPRESS_Racks_ATLAS_7_Base",
+    "EXPRESS_Racks_ATLAS_7_Drawer_01",
+    "EXPRESS_Racks_ATLAS_7_Drawer_02",
+    "EXPRESS_Racks_ATLAS_BRIC-LED",
+    "EXPRESS_Racks_ATLAS_CAL_Pwr._Elec.",
+    "EXPRESS_Racks_ATLAS_CAL_Sci_Instr",
+    "EXPRESS_Racks_ATLAS_CGBA",
+    "EXPRESS_Racks_ATLAS_Glacier",
+    "EXPRESS_Racks_ATLAS_MUSES_MDCS",
+    "EXPRESS_Racks_ATLAS_MVP",
+    "EXPRESS_Racks_ATLAS_Nanoracks Zero-G Oven",
+    "EXPRESS_Racks_ATLAS_Polar",
+    "EXPRESS_Racks_ATLAS_T-CMM",
+    "Module_Connect.002",
+    "Module_Connect.003",
+    "US_Lab_Int_AFT_Bulkhead",
+    "US_Lab_Int_Elbow_Screens",
+    "US_Lab_Int_Elbows",
+    "US_Lab_Int_FWD_Bulkhead",
+    "US_Lab_Int_Lights_Emissive",
+    "US_Lab_Int_Lights_EndCaps",
+    "US_Lab_Int_MSS_AV",
+    "US_Lab_Int_MSS_AV_Wires",
+    "US_Lab_Int_MainFrame",
+    "US_Lab_Int_MainFrame_Lower_Port",
+    "US_Lab_Int_MainFrame_Lower_Stbd",
+    "US_Lab_Int_MainFrame_Upper_Port",
+    "US_Lab_Int_MainFrame_Upper_Stbd",
+    "US_Lab_Int_Metals_AFT",
+    "US_Lab_Int_Metals_FWD",
+    "US_Lab_Int_Racks_001",
+    "US_Lab_Int_Racks_002",
+    "US_Lab_Int_Racks_003",
+    "US_Lab_Int_Racks_004",
+    "US_Lab_Int_Racks_005",
+    "US_Lab_Int_Racks_006",
+    "WORF_Camera Mount"
+   ],
+   "hidden": [
+    "USLab_Patches"
+   ],
+   "movable": [
+    {
+     "name": "CEVIS.Bike",
+     "origin": [
+      3.3814,
+      0.0008,
+      0.0001
+     ],
+     "center": [
+      -0.6843,
+      -0.7107,
+      -7.4563
+     ],
+     "closed": false,
+     "tris": 1984
+    }
+   ]
+  },
+  {
+   "id": "node2",
+   "key": "harmony",
+   "bboxMin": [
+    -1.8791,
+    -2.1349,
+    -16.9434
+   ],
+   "bboxMax": [
+    1.8803,
+    2.1007,
+    -10.7629
+   ],
+   "center": [
+    0.0006,
+    -0.0171,
+    -13.8531
+   ],
+   "axis": "z",
+   "neighbours": [
+    "columbus",
+    "jpm",
+    "us_lab"
+   ],
+   "hatches": [
+    {
+     "connector": "Module_Connect.003",
+     "to": "us_lab",
+     "center": [
+      0.0002,
+      -0.0122,
+      -10.6431
+     ]
+    },
+    {
+     "connector": "Module_Connect.004",
+     "to": "columbus",
+     "center": [
+      2.0027,
+      -0.0122,
+      -15.0555
+     ]
+    },
+    {
+     "connector": "Module_Connect.005",
+     "to": "jpm",
+     "center": [
+      -2.0001,
+      -0.0122,
+      -15.0538
+     ]
+    },
+    {
+     "connector": "Module_Connect.008",
+     "to": null,
+     "center": [
+      -0.0002,
+      -2.0125,
+      -15.0555
+     ]
+    }
+   ],
+   "triangles": 38562,
+   "materials": {
+    "Generic_HubAndMetals": 29400,
+    "Node2_Rack": 6480,
+    "Node2_Bulkhead": 2426,
+    "Generic_Lights": 192,
+    "Generic_Misc_Details": 64
+   },
+   "objects": [
+    "Module_Connect.008",
+    "Node2_CrrQtr_NoLookum",
+    "Node2_Int_Bulkhead.AFT",
+    "Node2_Int_Bulkhead.FWD",
+    "Node2_Int_CrwQtr_LftDoor.NDR",
+    "Node2_Int_CrwQtr_LftDoor.PRT",
+    "Node2_Int_CrwQtr_LftDoor.SBD",
+    "Node2_Int_CrwQtr_LftDoor.ZNH",
+    "Node2_Int_CrwQtr_RgtDoor.NDR",
+    "Node2_Int_CrwQtr_RgtDoor.PRT",
+    "Node2_Int_CrwQtr_RgtDoor.SBD",
+    "Node2_Int_CrwQtr_RgtDoor.ZNH",
+    "Node2_Int_Hub.AFT",
+    "Node2_Int_Hub.FWD",
+    "Node2_Int_Hub.NDR",
+    "Node2_Int_Hub.PRT",
+    "Node2_Int_Hub.SBD",
+    "Node2_Int_Hub.ZNH",
+    "Node2_Int_Metal_Hatch_Aft",
+    "Node2_Int_Metal_Hatch_Fwd_Closed",
+    "Node2_Int_Metal_Hatch_Nadir_Closed",
+    "Node2_Int_Metal_Hatch_Port",
+    "Node2_Int_Metal_Hatch_Stbd",
+    "Node2_Int_Metal_Hatch_Zenith",
+    "Node2_Int_Metal_Hatch_Zenith_Closed",
+    "Node2_Int_Metals",
+    "Node2_Int_Rack.LIGHTS",
+    "Node2_Int_Rack.NDR",
+    "Node2_Int_Rack.PRT",
+    "Node2_Int_Rack.SBD",
+    "Node2_Int_Rack.ZTH"
+   ],
+   "hidden": [
+    "Node2_Patches_Cutout"
+   ],
+   "movable": [
+    {
+     "name": "Node2_Int_CrwQtr_LftDoor.NDR",
+     "origin": [
+      -0.053,
+      0.7895,
+      -12.5298
+     ],
+     "center": [
+      -0.0529,
+      0.7894,
+      -12.3858
+     ],
+     "closed": false,
+     "tris": 120
+    },
+    {
+     "name": "Node2_Int_CrwQtr_LftDoor.PRT",
+     "origin": [
+      -0.8007,
+      0.0418,
+      -11.9768
+     ],
+     "center": [
+      -0.8006,
+      0.0417,
+      -12.1208
+     ],
+     "closed": false,
+     "tris": 120
+    },
+    {
+     "name": "Node2_Int_CrwQtr_LftDoor.SBD",
+     "origin": [
+      0.8019,
+      0.0418,
+      -12.5292
+     ],
+     "center": [
+      0.8018,
+      0.0417,
+      -12.3852
+     ],
+     "closed": false,
+     "tris": 120
+    },
+    {
+     "name": "Node2_Int_CrwQtr_LftDoor.ZNH",
+     "origin": [
+      -0.053,
+      -0.8131,
+      -11.9768
+     ],
+     "center": [
+      -0.0529,
+      -0.8131,
+      -12.1208
+     ],
+     "closed": false,
+     "tris": 120
+    },
+    {
+     "name": "Node2_Int_CrwQtr_RgtDoor.NDR",
+     "origin": [
+      -0.053,
+      0.7895,
+      -11.999
+     ],
+     "center": [
+      -0.0529,
+      0.7894,
+      -12.1207
+     ],
+     "closed": false,
+     "tris": 120
+    },
+    {
+     "name": "Node2_Int_CrwQtr_RgtDoor.PRT",
+     "origin": [
+      -0.8007,
+      0.0418,
+      -12.5076
+     ],
+     "center": [
+      -0.8006,
+      0.0417,
+      -12.3859
+     ],
+     "closed": false,
+     "tris": 120
+    },
+    {
+     "name": "Node2_Int_CrwQtr_RgtDoor.SBD",
+     "origin": [
+      0.8019,
+      0.0418,
+      -11.9984
+     ],
+     "center": [
+      0.8018,
+      0.0417,
+      -12.1202
+     ],
+     "closed": false,
+     "tris": 120
+    },
+    {
+     "name": "Node2_Int_CrwQtr_RgtDoor.ZNH",
+     "origin": [
+      -0.053,
+      -0.8131,
+      -12.5076
+     ],
+     "center": [
+      -0.0529,
+      -0.8131,
+      -12.3859
+     ],
+     "closed": false,
+     "tris": 120
+    },
+    {
+     "name": "Node2_Int_Metal_Hatch_Aft",
+     "origin": [
+      0.0032,
+      -0.0126,
+      -12.671
+     ],
+     "center": [
+      0.003,
+      1.2977,
+      -11.2331
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node2_Int_Metal_Hatch_Fwd_Closed",
+     "origin": [
+      0.0006,
+      -0.0118,
+      -15.0555
+     ],
+     "center": [
+      0.0017,
+      -0.0146,
+      -16.7561
+     ],
+     "closed": true,
+     "tris": 1264
+    },
+    {
+     "name": "Node2_Int_Metal_Hatch_Nadir_Closed",
+     "origin": [
+      0.0006,
+      -0.0118,
+      -15.0555
+     ],
+     "center": [
+      0.0034,
+      -1.7397,
+      -15.0548
+     ],
+     "closed": true,
+     "tris": 1424
+    },
+    {
+     "name": "Node2_Int_Metal_Hatch_Port",
+     "origin": [
+      0.0032,
+      -0.0126,
+      -15.0553
+     ],
+     "center": [
+      -1.1563,
+      -1.1705,
+      -15.0551
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node2_Int_Metal_Hatch_Stbd",
+     "origin": [
+      0.0032,
+      -0.0126,
+      -15.0553
+     ],
+     "center": [
+      1.1604,
+      1.1248,
+      -15.0551
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node2_Int_Metal_Hatch_Zenith",
+     "origin": [
+      0.0006,
+      -0.0118,
+      -15.0555
+     ],
+     "center": [
+      0.0162,
+      1.6731,
+      -15.0602
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node2_Int_Metal_Hatch_Zenith_Closed",
+     "origin": [
+      0.0006,
+      -0.0118,
+      -15.0555
+     ],
+     "center": [
+      0.0162,
+      1.6731,
+      -15.0602
+     ],
+     "closed": true,
+     "tris": 1264
+    }
+   ]
+  },
+  {
+   "id": "node3",
+   "key": "tranquility",
+   "bboxMin": [
+    -8.456,
+    -1.8789,
+    -2.1061
+   ],
+   "bboxMax": [
+    -1.8765,
+    2.1133,
+    1.8228
+   ],
+   "center": [
+    -5.1662,
+    0.1172,
+    -0.1416
+   ],
+   "axis": "x",
+   "neighbours": [
+    "node1",
+    "pmm"
+   ],
+   "hatches": [
+    {
+     "connector": "Module_Connect.001",
+     "to": "node1",
+     "center": [
+      -2.0052,
+      0.0004,
+      0.0016
+     ]
+    },
+    {
+     "connector": "Module_Connect.007",
+     "to": "pmm",
+     "center": [
+      -6.4279,
+      0.0005,
+      -1.9993
+     ]
+    }
+   ],
+   "triangles": 46749,
+   "materials": {
+    "Generic_HubAndMetals": 29280,
+    "Node3_Int_Rack_WHC": 7067,
+    "Node3_Int_Rack_01": 5082,
+    "Node3_Int_Rack_02": 3500,
+    "Node3_Bulkhead": 1590,
+    "Generic_Lights": 144,
+    "Generic_Misc_Details": 64,
+    "NewRacks59_60": 22
+   },
+   "objects": [
+    "Module_Connect.001",
+    "Node3_Int _Bulkhead.PRT",
+    "Node3_Int _Bulkhead.SBD",
+    "Node3_Int_Hub.AFT",
+    "Node3_Int_Hub.FWD",
+    "Node3_Int_Hub.NDR",
+    "Node3_Int_Hub.PRT",
+    "Node3_Int_Hub.SBD",
+    "Node3_Int_Hub.ZNH",
+    "Node3_Int_Metal_Hatch_Aft",
+    "Node3_Int_Metal_Hatch_Fwd",
+    "Node3_Int_Metal_Hatch_Nadir",
+    "Node3_Int_Metal_Hatch_Port_Closed",
+    "Node3_Int_Metal_Hatch_Stbd",
+    "Node3_Int_Metal_Hatch_Zenith_Closed",
+    "Node3_Int_Metals",
+    "Node3_Int_Rack.COLBERT",
+    "Node3_Int_Rack.FWD",
+    "Node3_Int_Rack.LIGHTS.001",
+    "Node3_Int_Rack.MID",
+    "Node3_Int_Rack.NDR",
+    "Node3_Int_Rack.ZNH",
+    "Node3_Int_Rack_WHC"
+   ],
+   "hidden": [],
+   "movable": [
+    {
+     "name": "Node3_Int_Metal_Hatch_Aft",
+     "origin": [
+      -6.4266,
+      0.0007,
+      0.0001
+     ],
+     "center": [
+      -6.4272,
+      -1.1478,
+      1.1344
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node3_Int_Metal_Hatch_Fwd",
+     "origin": [
+      -6.4266,
+      0.0007,
+      0.0001
+     ],
+     "center": [
+      -6.4272,
+      1.1493,
+      -1.1342
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node3_Int_Metal_Hatch_Nadir",
+     "origin": [
+      -6.4266,
+      0.0007,
+      0.0001
+     ],
+     "center": [
+      -6.4272,
+      -1.1336,
+      -1.1484
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node3_Int_Metal_Hatch_Port_Closed",
+     "origin": [
+      -4.4759,
+      -0.1636,
+      0.1075
+     ],
+     "center": [
+      -8.1676,
+      0.0029,
+      0.0041
+     ],
+     "closed": true,
+     "tris": 1264
+    },
+    {
+     "name": "Node3_Int_Metal_Hatch_Stbd",
+     "origin": [
+      -4.0258,
+      0.0008,
+      0.0001
+     ],
+     "center": [
+      -2.5879,
+      0.0009,
+      -1.3102
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "Node3_Int_Metal_Hatch_Zenith_Closed",
+     "origin": [
+      -6.4266,
+      0.0007,
+      0.0001
+     ],
+     "center": [
+      -6.4272,
+      1.7382,
+      0.0052
+     ],
+     "closed": true,
+     "tris": 1264
+    }
+   ]
+  },
+  {
+   "id": "cupola",
+   "key": "cupola",
+   "bboxMin": [
+    -7.5876,
+    -3.4164,
+    -1.0682
+   ],
+   "bboxMax": [
+    -5.2641,
+    -1.828,
+    1.0874
+   ],
+   "center": [
+    -6.4258,
+    -2.6222,
+    0.0096
+   ],
+   "axis": "x",
+   "neighbours": [],
+   "hatches": [],
+   "triangles": 31102,
+   "materials": {
+    "Cupola_Diffuse": 22878,
+    "Generic_Misc_Details": 7280,
+    "Cupola_Glass": 552,
+    "Generic_HubAndMetals": 392
+   },
+   "objects": [
+    "Cupola_Int_Cabin",
+    "Cupola_Int_Glass",
+    "Cupola_Int_MSS_AV",
+    "Cupola_Int_Metal",
+    "Cupola_WC_01",
+    "Cupola_WC_02",
+    "Cupola_WC_03",
+    "Cupola_WC_04",
+    "Cupola_WC_05",
+    "Cupola_WC_06",
+    "Cupola_WC_07"
+   ],
+   "hidden": [],
+   "movable": [
+    {
+     "name": "Cupola_Int_Glass",
+     "origin": [
+      -6.423,
+      -1.8281,
+      0.0001
+     ],
+     "center": [
+      -6.423,
+      -2.8633,
+      0.0001
+     ],
+     "closed": false,
+     "tris": 552
+    },
+    {
+     "name": "Cupola_WC_01",
+     "origin": [
+      -6.423,
+      -1.828,
+      0.0001
+     ],
+     "center": [
+      -6.3441,
+      -3.3069,
+      0.0145
+     ],
+     "closed": false,
+     "tris": 846
+    },
+    {
+     "name": "Cupola_WC_02",
+     "origin": [
+      -6.423,
+      -1.8281,
+      0.0001
+     ],
+     "center": [
+      -7.2931,
+      -2.8617,
+      0.0002
+     ],
+     "closed": false,
+     "tris": 904
+    },
+    {
+     "name": "Cupola_WC_03",
+     "origin": [
+      -6.423,
+      -1.8281,
+      0.0001
+     ],
+     "center": [
+      -6.8888,
+      -2.8381,
+      0.7487
+     ],
+     "closed": false,
+     "tris": 904
+    },
+    {
+     "name": "Cupola_WC_04",
+     "origin": [
+      -6.423,
+      -1.8281,
+      0.0001
+     ],
+     "center": [
+      -5.9762,
+      -2.8607,
+      0.7286
+     ],
+     "closed": false,
+     "tris": 904
+    },
+    {
+     "name": "Cupola_WC_05",
+     "origin": [
+      -6.423,
+      -1.8281,
+      0.0001
+     ],
+     "center": [
+      -5.5601,
+      -2.8651,
+      -0.0053
+     ],
+     "closed": false,
+     "tris": 904
+    },
+    {
+     "name": "Cupola_WC_06",
+     "origin": [
+      -6.423,
+      -1.8281,
+      0.0001
+     ],
+     "center": [
+      -5.9729,
+      -2.8638,
+      -0.7257
+     ],
+     "closed": false,
+     "tris": 904
+    },
+    {
+     "name": "Cupola_WC_07",
+     "origin": [
+      -6.423,
+      -1.8281,
+      0.0001
+     ],
+     "center": [
+      -6.8699,
+      -2.8683,
+      -0.7243
+     ],
+     "closed": false,
+     "tris": 904
+    }
+   ]
+  },
+  {
+   "id": "airlock",
+   "key": "quest",
+   "bboxMin": [
+    1.8828,
+    -2.101,
+    -2.1017
+   ],
+   "bboxMax": [
+    7.2449,
+    2.1025,
+    2.1019
+   ],
+   "center": [
+    4.5639,
+    0.0008,
+    0.0001
+   ],
+   "axis": "x",
+   "neighbours": [
+    "node1"
+   ],
+   "hatches": [
+    {
+     "connector": "Module_Connect.000",
+     "to": "node1",
+     "center": [
+      2.0052,
+      -0.0004,
+      -0.0016
+     ]
+    }
+   ],
+   "triangles": 26261,
+   "materials": {
+    "Generic_HubAndMetals": 15230,
+    "Airlock_1": 6221,
+    "Airlock_2": 4618,
+    "Generic_Lights": 128,
+    "Generic_Misc_Details": 64
+   },
+   "objects": [
+    "Airlock_InsideLight",
+    "Airlock_Int_CrewLock_Simp_Door",
+    "Airlock_Int_Enclosure",
+    "Airlock_Int_Handles_Metallics",
+    "Airlock_Int_Handles_Metallics.002",
+    "Airlock_Int_Hatch_Stbd",
+    "Airlock_Int_Lights_Illum",
+    "Airlock_Int_Lights_Illum.001",
+    "Airlock_Int_Wall_Starboard",
+    "Airlock_Int_se_191_stowage_rack_1",
+    "Module_Connect.000"
+   ],
+   "hidden": [
+    "Airlock_Patches_Cutout"
+   ],
+   "movable": [
+    {
+     "name": "Airlock_Int_Hatch_Stbd",
+     "origin": [
+      0.2939,
+      -0.172,
+      0.0083
+     ],
+     "center": [
+      3.9741,
+      1.3306,
+      -0.0045
+     ],
+     "closed": false,
+     "tris": 1264
+    }
+   ]
+  },
+  {
+   "id": "columbus",
+   "key": "columbus",
+   "bboxMin": [
+    1.8803,
+    -1.6875,
+    -16.9232
+   ],
+   "bboxMax": [
+    8.1298,
+    2.0902,
+    -12.9701
+   ],
+   "center": [
+    5.005,
+    0.2013,
+    -14.9466
+   ],
+   "axis": "x",
+   "neighbours": [
+    "node2"
+   ],
+   "hatches": [
+    {
+     "connector": "Module_Connect.004",
+     "to": "node2",
+     "center": [
+      2.0027,
+      -0.0122,
+      -15.0555
+     ]
+    }
+   ],
+   "triangles": 21366,
+   "materials": {
+    "Generic_HubAndMetals": 10384,
+    "Columbus_Racks01": 4078,
+    "EXPRESS_Racks_ATLAS": 3650,
+    "Columbus_Bulkhead": 2046,
+    "Columbus_Racks02": 534,
+    "USLab_Racks_03": 492,
+    "Generic_Lights": 112,
+    "Generic_Misc_Details": 64,
+    "Columbus_Racks03": 6
+   },
+   "objects": [
+    "Columbus_CollapsedForUnity.Aft",
+    "Columbus_CollapsedForUnity.Aft.001",
+    "Columbus_CollapsedForUnity.Forward",
+    "Columbus_CollapsedForUnity.Forward.001",
+    "Columbus_CollapsedForUnity.Nadir",
+    "Columbus_CollapsedForUnity.Nadir.001",
+    "Columbus_CollapsedForUnity.Nadir.COL_D1_A/F",
+    "Columbus_CollapsedForUnity.Port",
+    "Columbus_CollapsedForUnity.Starboard",
+    "Columbus_CollapsedForUnity.Zenith",
+    "Columbus_CollapsedForUnity.Zenith.001",
+    "Columbus_CollapsedForUnity_CASA",
+    "Columbus_Hatch_Port",
+    "EDR2",
+    "EXPRESS_Rack_ATLAS_Veggie Lightcap",
+    "EXPRESS_Racks_ATLAS_10B_Base",
+    "EXPRESS_Racks_ATLAS_3_Base",
+    "EXPRESS_Racks_ATLAS_9B_Base",
+    "EXPRESS_Racks_ATLAS_9_Nanoracks_Alpha/Bravo",
+    "EXPRESS_Racks_ATLAS_ADSEP",
+    "EXPRESS_Racks_ATLAS_Biofab",
+    "EXPRESS_Racks_ATLAS_Drawer_01",
+    "EXPRESS_Racks_ATLAS_Drawer_02",
+    "EXPRESS_Racks_ATLAS_Generic_Rack_01",
+    "EXPRESS_Racks_ATLAS_Generic_Rack_02",
+    "EXPRESS_Racks_ATLAS_Generic_Rack_03",
+    "EXPRESS_Racks_ATLAS_Manufacturing_Device",
+    "EXPRESS_Racks_ATLAS_Plate Reader",
+    "EXPRESS_Racks_ATLAS_SABL",
+    "EXPRESS_Racks_ATLAS_STaARS",
+    "EXPRESS_Racks_ATLAS_Space_Fibers",
+    "EXPRESS_Racks_ATLAS_Spaceborne_Computer_01",
+    "EXPRESS_Racks_ATLAS_Spaceborne_Computer_02",
+    "EXPRESS_Racks_ATLAS_TangoLab_01",
+    "EXPRESS_Racks_ATLAS_TangoLab_02",
+    "EXPRESS_Racks_ATLAS_Techshot",
+    "EXPRESS_Racks_ATLAS_XROOTS",
+    "Module_Connect.004"
+   ],
+   "hidden": [
+    "Columbus_Patches"
+   ],
+   "movable": [
+    {
+     "name": "Columbus_Hatch_Port",
+     "origin": [
+      5.3105,
+      -0.0035,
+      -15.0565
+     ],
+     "center": [
+      2.7156,
+      1.2784,
+      -15.0435
+     ],
+     "closed": false,
+     "tris": 1264
+    }
+   ]
+  },
+  {
+   "id": "jpm",
+   "key": "kiboPm",
+   "bboxMin": [
+    -12.4553,
+    -2.0846,
+    -17.1245
+   ],
+   "bboxMax": [
+    -1.8791,
+    2.093,
+    -12.9793
+   ],
+   "center": [
+    -7.1672,
+    0.0042,
+    -15.0519
+   ],
+   "axis": "x",
+   "neighbours": [
+    "jlp",
+    "node2"
+   ],
+   "hatches": [
+    {
+     "connector": "Module_Connect.005",
+     "to": "node2",
+     "center": [
+      -2.0001,
+      -0.0122,
+      -15.0538
+     ]
+    },
+    {
+     "connector": "Module_Connect.006",
+     "to": "jlp",
+     "center": [
+      -9.7463,
+      1.9798,
+      -15.0513
+     ]
+    }
+   ],
+   "triangles": 22565,
+   "materials": {
+    "Generic_HubAndMetals": 10152,
+    "JPM_Racks_01": 7076,
+    "JPM_Bulkhead": 3253,
+    "Generic_Metals": 1264,
+    "EXPRESS_Racks_ATLAS": 318,
+    "Generic_Lights": 224,
+    "JPM_Racks_02": 148,
+    "JPM_Racks_03": 64,
+    "Generic_Misc_Details": 64,
+    "NewRacks59_60": 2
+   },
+   "objects": [
+    "EXPRESS_Racks_ATLAS_4_Base",
+    "EXPRESS_Racks_ATLAS_4_Drawer_01",
+    "EXPRESS_Racks_ATLAS_4_Drawer_02",
+    "EXPRESS_Racks_ATLAS_4_Generic_Rack_01",
+    "EXPRESS_Racks_ATLAS_4_Iceberg",
+    "EXPRESS_Racks_ATLAS_4_MVP",
+    "EXPRESS_Racks_ATLAS_4_Polar",
+    "EXPRESS_Racks_ATLAS_5_ADSEP",
+    "EXPRESS_Racks_ATLAS_5_Base",
+    "EXPRESS_Racks_ATLAS_5_Bone_Densitometer",
+    "EXPRESS_Racks_ATLAS_5_Drawer_01",
+    "EXPRESS_Racks_ATLAS_5_Drawer_02",
+    "EXPRESS_Racks_ATLAS_5_Merlin_01",
+    "EXPRESS_Racks_ATLAS_5_Merlin_02",
+    "EXPRESS_Racks_ATLAS_8_Base",
+    "EXPRESS_Racks_ATLAS_8_Biofuel FRIDGE-SALI_01",
+    "EXPRESS_Racks_ATLAS_8_DECLIC_ELL",
+    "EXPRESS_Racks_ATLAS_8_DECLIC_EXL",
+    "EXPRESS_Racks_ATLAS_8_Drawer_01",
+    "EXPRESS_Racks_ATLAS_8_Drawer_02",
+    "EXPRESS_Racks_ATLAS_8_Polar_01",
+    "EXPRESS_Racks_ATLAS_8_Polar_02",
+    "EXPRESS_Racks_ATLAS_8_Polar_03",
+    "EXPRESS_Racks_ATLAS_8_SABL",
+    "EXPRESS_Racks_ATLAS_Cryo_Chiller",
+    "EXPRESS_Racks_ATLAS_MLI",
+    "JPM_CollapsedForUnity.Aft",
+    "JPM_CollapsedForUnity.Aft.Backing",
+    "JPM_CollapsedForUnity.Airlock",
+    "JPM_CollapsedForUnity.Forward",
+    "JPM_CollapsedForUnity.Forward.Backing",
+    "JPM_CollapsedForUnity.Nadir",
+    "JPM_CollapsedForUnity.Nadir.Backing",
+    "JPM_CollapsedForUnity.Port",
+    "JPM_CollapsedForUnity.Starboard",
+    "JPM_CollapsedForUnity.Zenith",
+    "JPM_CollapsedForUnity.Zenith.Backing",
+    "JPM_Hatch_Nadir",
+    "JPM_Hatch_Nadir_Closed",
+    "JPM_Hatch_Stbd",
+    "Module_Connect.005"
+   ],
+   "hidden": [
+    "JPM_Patches"
+   ],
+   "movable": [
+    {
+     "name": "JPM_Hatch_Nadir",
+     "origin": [
+      -9.774,
+      -1.2269,
+      -15.0438
+     ],
+     "center": [
+      -11.1145,
+      1.4177,
+      -15.0566
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "JPM_Hatch_Nadir_Closed",
+     "origin": [
+      -9.7626,
+      -0.0288,
+      -15.0555
+     ],
+     "center": [
+      -9.747,
+      1.6562,
+      -15.0602
+     ],
+     "closed": true,
+     "tris": 1264
+    },
+    {
+     "name": "JPM_Hatch_Stbd",
+     "origin": [
+      -5.1875,
+      0.0106,
+      -15.0438
+     ],
+     "center": [
+      -2.569,
+      1.3198,
+      -15.0571
+     ],
+     "closed": false,
+     "tris": 1264
+    }
+   ]
+  },
+  {
+   "id": "jlp",
+   "key": "kiboElm",
+   "bboxMin": [
+    -11.8498,
+    1.8574,
+    -17.1271
+   ],
+   "bboxMax": [
+    -7.6722,
+    5.1222,
+    -12.9818
+   ],
+   "center": [
+    -9.761,
+    3.4898,
+    -15.0545
+   ],
+   "axis": "x",
+   "neighbours": [
+    "jpm"
+   ],
+   "hatches": [
+    {
+     "connector": "Module_Connect.006",
+     "to": "jpm",
+     "center": [
+      -9.7463,
+      1.9798,
+      -15.0513
+     ]
+    }
+   ],
+   "triangles": 10438,
+   "materials": {
+    "Generic_HubAndMetals": 5360,
+    "JLP_Racks": 1464,
+    "Generic_Hub": 1264,
+    "Generic_Metals": 1264,
+    "JLP_Int_Bulkhead": 1022,
+    "Generic_Misc_Details": 64
+   },
+   "objects": [
+    "JLP_Int_Bulkhead",
+    "JLP_Int_Lights",
+    "JLP_Int_Metals",
+    "JLP_Int_Racks",
+    "JLP_Metal_Hatch_Nadir",
+    "JLP_Metal_Hatch_Nadir_Closed",
+    "Module_Connect.006"
+   ],
+   "hidden": [],
+   "movable": [
+    {
+     "name": "JLP_Metal_Hatch_Nadir",
+     "origin": [
+      -9.3619,
+      5.0079,
+      -15.0438
+     ],
+     "center": [
+      -11.0487,
+      2.5858,
+      -15.0309
+     ],
+     "closed": false,
+     "tris": 1264
+    },
+    {
+     "name": "JLP_Metal_Hatch_Nadir_Closed",
+     "origin": [
+      -9.7626,
+      3.9905,
+      -15.0555
+     ],
+     "center": [
+      -9.747,
+      2.3056,
+      -15.0509
+     ],
+     "closed": true,
+     "tris": 1264
+    }
+   ]
+  },
+  {
+   "id": "pmm",
+   "key": "leonardo",
+   "bboxMin": [
+    -8.6074,
+    -2.1747,
+    -8.1233
+   ],
+   "bboxMax": [
+    -4.2549,
+    2.1779,
+    -1.8795
+   ],
+   "center": [
+    -6.4311,
+    0.0016,
+    -5.0014
+   ],
+   "axis": "z",
+   "neighbours": [
+    "node3"
+   ],
+   "hatches": [
+    {
+     "connector": "Module_Connect.007",
+     "to": "node3",
+     "center": [
+      -6.4279,
+      0.0005,
+      -1.9993
+     ]
+    }
+   ],
+   "triangles": 23419,
+   "materials": {
+    "Generic_Hub": 13179,
+    "PMM_01": 6632,
+    "USLab_Racks_03": 3346,
+    "Generic_Misc_Details": 150,
+    "Generic_Lights": 112
+   },
+   "objects": [
+    "Module_Connect.007",
+    "PMM.Hatch.Aft",
+    "PMM_AftBulkhead",
+    "PMM_NoRack.DECK",
+    "PMM_NoRack.OVHD",
+    "PMM_NoRack.PORT",
+    "PMM_NoRack.STBD",
+    "PMM_PressureHull",
+    "PMM_Racks_Nadir",
+    "PMM_Racks_Port",
+    "PMM_Racks_Stbd",
+    "PMM_Racks_Zenith"
+   ],
+   "hidden": [],
+   "movable": [
+    {
+     "name": "PMM.Hatch.Aft",
+     "origin": [
+      -6.4181,
+      0.1876,
+      -6.3267
+     ],
+     "center": [
+      -6.4305,
+      -1.2738,
+      -2.636
+     ],
+     "closed": false,
+     "tris": 1264
+    }
+   ]
+  },
+  {
+   "id": "beam",
+   "key": "beam",
+   "bboxMin": [
+    -8.115,
+    -1.6891,
+    1.771
+   ],
+   "bboxMax": [
+    -4.7354,
+    1.6906,
+    5.5383
+   ],
+   "center": [
+    -6.4252,
+    0.0008,
+    3.6547
+   ],
+   "axis": "z",
+   "neighbours": [],
+   "hatches": [],
+   "triangles": 53247,
+   "materials": {
+    "BEAM_Internal.001": 53247
+   },
+   "objects": [
+    "BEAM_Interior"
+   ],
+   "hidden": [],
+   "movable": []
+  },
+  {
+   "id": "bishop",
+   "key": "bishop",
+   "bboxMin": [
+    -9.7956,
+    -0.8072,
+    -0.8125
+   ],
+   "bboxMax": [
+    -8.1973,
+    0.8125,
+    0.8068
+   ],
+   "center": [
+    -8.9965,
+    0.0026,
+    -0.0029
+   ],
+   "axis": "y",
+   "neighbours": [],
+   "hatches": [],
+   "triangles": 57278,
+   "materials": {
+    "BishopMaterial": 57278
+   },
+   "objects": [
+    "Bishop_Airlock",
+    "Bishop_Airlock_Hoses"
+   ],
+   "hidden": [],
+   "movable": []
+  }
+ ],
+ "materials": {
+  "Airlock_1": {
+   "texture": "airlock_1",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Airlock_2": {
+   "texture": "airlock_2",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "BEAM_Internal.001": {
+   "texture": "beam_int",
+   "textureSize": [
+    2048,
+    2048
+   ],
+   "alpha": true,
+   "emissive": false,
+   "hidden": false
+  },
+  "BishopMaterial": {
+   "texture": "bishop",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": true,
+   "emissive": false,
+   "hidden": false
+  },
+  "Columbus_Bulkhead": {
+   "texture": "columbus_int_bulkhead",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Columbus_Racks01": {
+   "texture": "columbus_racks01",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Columbus_Racks02": {
+   "texture": "columbus_racks02",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Columbus_Racks03": {
+   "texture": "columbus_racks03",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Cupola_Diffuse": {
+   "texture": "cupola_int",
+   "textureSize": [
+    1024,
+    1024
+   ],
+   "alpha": true,
+   "emissive": false,
+   "hidden": false
+  },
+  "Cupola_Glass": {
+   "texture": null,
+   "textureSize": null,
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "EXPRESS_Racks_ATLAS": {
+   "texture": "express_racks_atlas",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Generic_Hub": {
+   "texture": "generic_hubandmetals",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Generic_HubAndMetals": {
+   "texture": "generic_hubandmetals",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Generic_Lights": {
+   "texture": "generic_hubandmetals",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": true,
+   "hidden": false
+  },
+  "Generic_Metals": {
+   "texture": "generic_hubandmetals",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Generic_Misc_Details": {
+   "texture": "generic_misc_details",
+   "textureSize": [
+    4098,
+    4098
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Generic_Misc_Details_LIGHTS": {
+   "texture": "generic_misc_details",
+   "textureSize": [
+    4098,
+    4098
+   ],
+   "alpha": false,
+   "emissive": true,
+   "hidden": false
+  },
+  "JLP_Int_Bulkhead": {
+   "texture": "jlp_int_bulkhead",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": true,
+   "emissive": false,
+   "hidden": false
+  },
+  "JLP_Racks": {
+   "texture": "jlp_racks",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "JPM_Bulkhead": {
+   "texture": "jpm_bulkhead",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "JPM_Racks_01": {
+   "texture": "jpm_racks_01",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "JPM_Racks_02": {
+   "texture": "jpm_racks_02",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "JPM_Racks_03": {
+   "texture": "jpm_racks_03",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "NewRacks59_60": {
+   "texture": "newracks59_60",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Node1_Int_Bulkhead": {
+   "texture": null,
+   "textureSize": null,
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Node1_Int_Rack": {
+   "texture": null,
+   "textureSize": null,
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Node2_Bulkhead": {
+   "texture": "node2_int_bulkhead",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": true,
+   "emissive": false,
+   "hidden": false
+  },
+  "Node2_Rack": {
+   "texture": "node2_int_rack",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Node3_Bulkhead": {
+   "texture": "node3_int_bulkhead",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Node3_Int_Rack_01": {
+   "texture": "node3_int_rack_01",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Node3_Int_Rack_02": {
+   "texture": "node3_int_rack_02",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Node3_Int_Rack_WHC": {
+   "texture": "node3_int_rack_whc",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "Patches1": {
+   "texture": "patches1",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": true,
+   "emissive": false,
+   "hidden": true
+  },
+  "Patches2": {
+   "texture": "patches2",
+   "textureSize": [
+    1024,
+    1024
+   ],
+   "alpha": true,
+   "emissive": false,
+   "hidden": true
+  },
+  "PMM_01": {
+   "texture": "pmm_01",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "USLab_AFT_Bulkhead": {
+   "texture": "uslab_aft_bulkhead",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "USLab_FWD_Bulkhead": {
+   "texture": "uslab_fwd_bulkhead",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "USLab_Racks_01": {
+   "texture": "uslab_racks_01",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": true,
+   "emissive": false,
+   "hidden": false
+  },
+  "USLab_Racks_02": {
+   "texture": "uslab_racks_02",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  },
+  "USLab_Racks_03": {
+   "texture": "uslab_racks_03",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": true,
+   "emissive": false,
+   "hidden": false
+  },
+  "USLab_Racks_04": {
+   "texture": "uslab_racks_04",
+   "textureSize": [
+    4096,
+    4096
+   ],
+   "alpha": false,
+   "emissive": false,
+   "hidden": false
+  }
+ }
+}

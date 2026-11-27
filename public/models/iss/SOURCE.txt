@@ -1,0 +1,18 @@
+International Space Station (ISS) interior models in this folder
+
+Source: NASA 3D Resources, "International Space Station (ISS) [internal]"
+  https://science.nasa.gov/3d-resources/ (NASA 3D Resources)
+  The page states: "All of these assets are free to download and use."
+  NASA does not endorse this app. Use of NASA material follows the NASA media usage guidelines:
+  (NASA Images and Media Usage Guidelines, linked from the page above)
+
+Changes made for this app (tools/iss/):
+- The station was split into 12 modules by object name and position; only Destiny (us_lab) is shipped now.
+- Units were converted to metres. The model was re-centred on Node 1 and turned to the app axes (forward = -Z, zenith = +Y).
+- Static parts are merged per material. The CEVIS bike is a separate node.
+- Two closed hatches (copies of the Node 1 aft hatch) were added just outside both Destiny hatchways. They are for the sample only.
+- Normal, metallic and roughness maps were dropped. The lighting was baked with Cycles into a second UV (us_lab.light.*.jpg).
+- Colour textures were resized to 512-2048 px and saved as WebP.
+- Logos, agency insignia and crew patches were painted over with nearby colours (tools/iss/logo_masks.json).
+- Objects using the patch materials (Patches1, Patches2) were removed.
+- Vertex colours were removed. Geometry is meshopt-compressed (lossless, not quantised).
