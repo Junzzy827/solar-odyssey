@@ -214,6 +214,20 @@ def paint_out(img, rects):
     img.pack()
 
 
+def recolor_stripes(img):
+    """固体ロケットの後ろの黄色い帯（1993 年のロケットには無い）を、まわりのクリーム色に"""
+    W, H = img.size
+    px = np.array(img.pixels[:], dtype=np.float32).reshape(H, W, img.channels)
+    r, g, b = px[..., 0], px[..., 1], px[..., 2]
+    mask = (r > 0.75) & (g > 0.4) & (g < 0.8) & (b < 0.35)
+    cream = np.array([0.93, 0.91, 0.84, 1.0][:img.channels], dtype=np.float32)
+    px[mask] = cream
+    img.pixels[:] = px.ravel()
+    img.update()
+    img.pack()
+    print('recoloured', int(mask.sum()), 'stripe pixels in', img.name, flush=True)
+
+
 def clean_textures():
     done = []
     for img in bpy.data.images:
@@ -416,6 +430,8 @@ def external_tank():
 
 def boosters():
     V, F, M, U = textured_part(os.environ['SRB_SRC'])
+    for img in {n.image for m in set(M) if m and m.node_tree for n in m.node_tree.nodes if n.type == 'TEX_IMAGE' and n.image}:
+        recolor_stripes(img)
     W = upright(V)
     r = body_radius(W)
     z1 = max(v.z for v in W)

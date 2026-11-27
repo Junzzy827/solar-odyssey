@@ -380,7 +380,13 @@ def preview():
     gm.use_nodes = True
     gm.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.3, 0.29, 0.27, 1)
     g.data.materials.append(gm)
-    for k, (x, y) in enumerate(((-150, -170), (150, -200), (-200, 130))):
+    if os.environ.get('DAY'):
+        bg.inputs['Color'].default_value = (0.35, 0.45, 0.6, 1)
+        sun = bpy.data.objects.new('Sun', bpy.data.lights.new('Sun', 'SUN'))
+        sun.data.energy = 4.0
+        sun.rotation_euler = (math.radians(50), 0, math.radians(-35))
+        scene.collection.objects.link(sun)
+    for k, (x, y) in enumerate(((-150, -170), (150, -200), (-200, 130)) if not os.environ.get('DAY') else ()):
         L = bpy.data.objects.new(f'Xe{k}', bpy.data.lights.new(f'Xe{k}', 'SPOT'))
         L.data.energy = 3.0e6
         L.data.spot_size = math.radians(26)

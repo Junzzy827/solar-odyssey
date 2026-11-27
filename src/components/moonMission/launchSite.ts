@@ -305,8 +305,11 @@ function crawlerway(group: THREE.Group, mat: THREE.Material, geos: THREE.BufferG
   gravelRoad(group, mat, geos, new THREE.Vector2(-330, 0), new THREE.Vector2(-4500, 2300))
 }
 
-/** 39B 発射台：39A の北北西 2.7 km（x 東、z 南）。1972 年 12 月は使っていない（アポロ 10 号のあと空き）ので、台の上は空で、投光器だけ */
+/** もう一つの発射台。アポロ（39A から打つ）では 39B：39A の北北西 2.7 km（x 東、z 南）。1972 年 12 月は使っていない
+ *  （アポロ 10 号のあと空き）ので、台の上は空で、投光器だけ。シャトル（39B から打つ）では 39A：南南東 2.7 km、固定の塔が立つ */
 const PAD_B = new THREE.Vector2(-900, -2550)
+/** 場面の時代：apollo = 1972 年（39A から）、shuttle = 1993 年（39B から） */
+export type SiteEra = 'apollo' | 'shuttle'
 /** 2 つの発射台へのクローラーの道が分かれる所 */
 const FORK = new THREE.Vector2(-2400, 1142)
 /** 移動整備塔（MSS、高さ 125 m）：打ち上げの間は、クローラーの道のわきの待避所（発射台から約 2.1 km）に下がっている */
@@ -338,7 +341,7 @@ function lightPoints(pts: number[], cols: number[], size: number, geos: THREE.Bu
 }
 
 /** 39B の盛り土（39A と同じ形）・投光器と、移動整備塔 */
-function padB(group: THREE.Group, moundGeo: THREE.BufferGeometry, moundMat: THREE.Material, deflGeo: THREE.BufferGeometry, deflMat: THREE.Material, gravel: THREE.Material, geos: THREE.BufferGeometry[], mats: THREE.Material[]) {
+function padB(group: THREE.Group, moundGeo: THREE.BufferGeometry, moundMat: THREE.Material, deflGeo: THREE.BufferGeometry, deflMat: THREE.Material, gravel: THREE.Material, geos: THREE.BufferGeometry[], mats: THREE.Material[], era: SiteEra) {
   const pad = new THREE.Group()
   pad.position.set(PAD_B.x, 0, PAD_B.y)
   pad.add(new THREE.Mesh(moundGeo, moundMat), new THREE.Mesh(deflGeo, deflMat))
@@ -355,10 +358,16 @@ function padB(group: THREE.Group, moundGeo: THREE.BufferGeometry, moundMat: THRE
     const warm = i % 3 === 0 ? 0 : 1
     cols.push(1.3, 1.25 - 0.35 * warm, 1.15 - 0.75 * warm)
   }
-  // 移動整備塔：鉄骨の箱（夜は黒いかたまり）に、作業灯と赤い航空灯
+  // 移動整備塔：鉄骨の箱（夜は黒いかたまり）に、作業灯と赤い航空灯。
+  // シャトルの時代は待避所に塔は無く、もう一つの発射台に固定の塔と回る建屋が立つ（同じ黒い箱で、少し細く）
   const tower = new THREE.Group()
-  tower.position.set(MSS.x, LAND_Y, MSS.y)
-  tower.rotation.y = -0.5
+  if (era === 'shuttle') {
+    tower.position.set(PAD_B.x - 3, GROUND_Y, PAD_B.y - 27)
+    tower.scale.set(0.36, 0.62, 0.42)
+  } else {
+    tower.position.set(MSS.x, LAND_Y, MSS.y)
+    tower.rotation.y = -0.5
+  }
   const wall = new THREE.MeshStandardMaterial({ color: '#3c3a36', roughness: 0.9 })
   mats.push(wall)
   const body = new THREE.BoxGeometry(40, 125, 34)
@@ -398,7 +407,10 @@ export type LaunchSite = {
   dispose(): void
 }
 
-export function buildSite(small: boolean): LaunchSite {
+export function buildSite(small: boolean, era: SiteEra = 'apollo'): LaunchSite {
+  // シャトルの時代は、もう一つの発射台（39A）が南南東にある
+  if (era === 'shuttle') PAD_B.set(900, 2550)
+  else PAD_B.set(-900, -2550)
   const group = new THREE.Group()
   group.name = 'LaunchSite'
   const geos: THREE.BufferGeometry[] = []
@@ -440,7 +452,7 @@ export function buildSite(small: boolean): LaunchSite {
   mats.push(deflMat)
   group.add(new THREE.Mesh(deflGeo, deflMat))
   // 北北西の 39B 発射台と、待避所の移動整備塔
-  const padBLights = padB(group, moundGeo, moundMat, deflGeo, deflMat, gravel, geos, mats)
+  const padBLights = padB(group, moundGeo, moundMat, deflGeo, deflMat, gravel, geos, mats, era)
   // 炎の溝の火：点火すると溝が炎で満たされ、南北の出口から噴き出す
   const fireMat = new THREE.MeshBasicMaterial({ map: glowTexture(), color: '#ffc47e', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
   const trenchFire = flat(new THREE.PlaneGeometry(30, 150), fireMat, 0, GROUND_Y - 3, 0)
