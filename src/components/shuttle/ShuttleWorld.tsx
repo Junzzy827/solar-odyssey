@@ -26,7 +26,8 @@ type CabinMeta = { lightScale: { day: number; dark: number }; exposure: number }
 /** 見どころ：近づくとボタンが出る所と、入ったときの目の位置・向き */
 const SPOTS: Record<ShuttleSpot, { at: THREE.Vector3; eye: THREE.Vector3; yaw: number; pitch: number }> = {
   seat: { at: new THREE.Vector3(-0.58, 3.2, -2.75), eye: new THREE.Vector3(-0.58, 3.4, -2.78), yaw: 0, pitch: -0.08 },
-  arm: { at: new THREE.Vector3(0.36, 3.4, -0.6), eye: new THREE.Vector3(0.3, 3.62, -0.62), yaw: Math.PI, pitch: 0.12 },
+  // アームの台：窓のすぐ前から、少し下を見る（荷物室と、左の縁から起き上がる腕が見える。離れて上を向くと、ハッブルの胴しか見えなかった）
+  arm: { at: new THREE.Vector3(0.36, 3.4, -0.6), eye: new THREE.Vector3(0.3, 3.68, -0.36), yaw: Math.PI, pitch: -0.08 },
   bag: { at: new THREE.Vector3(0.95, 1.1, -2.25), eye: new THREE.Vector3(1.32, 1.15, -2.25), yaw: Math.PI / 2, pitch: 0.02 },
 }
 const NEAR_SPOT = 0.95
@@ -143,7 +144,9 @@ export function ShuttleWorld() {
     const arm: Record<string, THREE.Object3D> = {}
     root.traverse((o) => {
       if (o.name.startsWith('rms_')) arm[o.name] = o
-      if (o.name.startsWith('door_')) o.rotation.z = (o.name.includes('port') ? 1 : -1) * THREE.MathUtils.degToRad(172)
+      // 扉を開く。素材が 2 つある扉は、読み込むと「組（door_x）＋中の形（door_x_1, door_x_2）」になる。
+      // 中の形まで回すと 2 回分（344°）回って、ほとんど閉じた扉が荷物室の上をふさいでいた → 組だけを回す
+      if (o.name.startsWith('door_') && !o.parent?.name.startsWith('door_')) o.rotation.z = (o.name.includes('port') ? 1 : -1) * THREE.MathUtils.degToRad(172)
       const m = o as THREE.Mesh
       if (!m.isMesh) return
       // 照らし方は軽い Lambert で（金属の映り込みはいらない）
@@ -180,7 +183,9 @@ export function ShuttleWorld() {
       owned.push(mm)
     })
     const box = new THREE.Box3().setFromObject(hub)
-    hub.position.set(-(box.min.x + box.max.x) / 2, 0.1 - box.min.y, 15.2 - (box.min.z + box.max.z) / 2)
+    // 底の高さ 1.9 m：荷物室の縁の高さにある台の輪（tools/blender/build_shuttle.py の HUBBLE_BASE_Z）の上に立てる。
+    // ハッブルは荷物室の幅いっぱいの太さなので、床の近くに置くと壁にめりこむ
+    hub.position.set(-(box.min.x + box.max.x) / 2, 1.9 - box.min.y, 15.2 - (box.min.z + box.max.z) / 2)
     root.add(hub)
     return { root, arm, owned }
   }, [orbiter, hubble, gl, phone])

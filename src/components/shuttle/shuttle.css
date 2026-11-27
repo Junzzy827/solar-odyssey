@@ -168,6 +168,15 @@
   gap: 12px;
 }
 
+/* 横に広い画面では、カードを左上（階の名前の下）へ寄せる：真ん中の窓や計器をかくさない */
+@media (min-width: 900px) {
+  .shuttle-card {
+    left: 14px;
+    top: 70px;
+    transform: none;
+  }
+}
+
 @media (max-width: 520px) {
   .shuttle-card {
     font-size: 14px;
