@@ -136,7 +136,7 @@ export const LAUNCH_CUTS: { at: number; shot: LaunchShot }[] = [
   { at: 5.5, shot: 'tower' },
   { at: 11, shot: 'below' },
   { at: 19, shot: 'seatShake' },
-  { at: 30, shot: 'chase' },
+  { at: 25, shot: 'chase' },
   { at: 42, shot: 'far' },
   // ここで時間を早送りして、固体ロケットの切り離しへ
   { at: SRB_SEP - 5, shot: 'sep' },
