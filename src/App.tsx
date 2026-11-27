@@ -72,6 +72,7 @@ import { LazyScenes } from './ui/LazyScenes'
 import { useWalk, walkScene } from './state/walk'
 import { missionScene, useMoonMission } from './state/moonMission'
 import { issScene, useIss } from './state/iss'
+import { useShuttle } from './state/shuttle'
 
 import { PioneerUi, PioneerWorld } from './components/sf/pioneer/Pioneer'
 
@@ -104,7 +105,9 @@ export default function App() {
   const onMoonMission = useMoonMission((m) => missionScene(m.phase))
   // 宇宙ステーション（ISS）の中にいるあいだも
   const onIss = useIss((s) => issScene(s.phase))
-  const onSurface = onLand || onEva || onWalk || onMoonMission || onIss
+  // スペースシャトルの乗員室の中にいるあいだも（下で宇宙の場面を描き続けると、スマホで重い）
+  const onShuttle = useShuttle((s) => s.phase !== 'none')
+  const onSurface = onLand || onEva || onWalk || onMoonMission || onIss || onShuttle
 
   // 地表にいるあいだは、止めた宇宙の場面の最後の1枚を見えなくしておく。
   // 地表の Canvas が一瞬描けなかったフレーム（画面サイズの変化・画質の切り替え・GPU の都合）に、

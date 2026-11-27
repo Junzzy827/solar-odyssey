@@ -1,0 +1,8 @@
+shuttle-cabin.glb (+ shuttle-cabin.atlas*.webp, shuttle-cabin.light-{day,dark}*.webp, shuttle-cabin.json)
+Space Shuttle crew cabin (flight deck + middeck), STS-61 sample (src/components/shuttle/).
+Source: made for this app with tools/blender/build_shuttle_cabin.py and tools/blender/shuttle_panels.py
+(Blender bpy, procedural; panel faces drawn with Pillow). No third-party model or texture.
+Layout and sizes: tools/shuttle/cabin.md (1988 NASA News Reference Manual sizes + estimates from
+NASA photos listed in tools/shuttle/REFERENCES.md, used only to look at shape, colour and layout).
+No logos, insignia, patches or flags are drawn. Panel labels are short generic codes (F7, A8, MF14K ...),
+not copies of real panel text. Lighting is baked in Cycles (day / dark). meshopt compressed with tools/glb/compress.mjs.
