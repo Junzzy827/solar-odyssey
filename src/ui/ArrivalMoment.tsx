@@ -13,6 +13,7 @@ import { raceActive } from '../state/race'
 import { isTouchDevice } from '../state/input'
 import { useTouchUI } from '../state/touchUI'
 import { playBeep } from '../audio/sfx'
+import { holdToasts } from '../state/toastQueue'
 import { useLang } from '../i18n/lang'
 import { ui } from '../i18n'
 import './arrival.css'
@@ -108,6 +109,12 @@ export function ArrivalMoment() {
   const shownFor = useRef<string | null>(null)
   const [t, setT] = useState(0)
   useLang()
+
+  // 着いたカードが出ているあいだは、ほかのお知らせを待たせる（重ならないように。消えたら順に出る）
+  useEffect(() => {
+    holdToasts('arrival', id !== null)
+    return () => holdToasts('arrival', false)
+  }, [id])
 
   // 目標に着いたら一度だけ
   useEffect(() => {

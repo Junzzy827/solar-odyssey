@@ -12,6 +12,12 @@ registerNav({
   world: 'sf',
   className: 'walk-start',
   label: () => ui().walk.toAxis,
+  card: {
+    shelf: 'free',
+    image: 'play-cards/colony-axis.webp',
+    title: () => ui().playCards.cards.colonyAxis.title,
+    desc: () => ui().playCards.cards.colonyAxis.desc,
+  },
   use: () => {
     const { busy, flight } = useNavContext()
     return { disabled: busy || !flight }

@@ -13,6 +13,7 @@ import { openRocks, useRockBook } from '../../../state/rockBook'
 import { useSampleLog } from '../../../state/rover'
 import { ROCK_TOTAL, rockCount } from '../../../data/rockCollection'
 import { openProbes, useProbes } from '../../../state/probes'
+import { MISSIONS } from '../../../data/missions'
 
 // いまある遊び・学びの入口。order はタブの中の並び（10 きざみ。あいだに足せる）
 
@@ -22,7 +23,18 @@ registerNav({
   order: 10,
   className: 'mission-start',
   label: () => ui().missionsButton,
-  use: () => ({ on: useMission((m) => m.phase) !== 'closed', disabled: useNavContext().racing }),
+  card: {
+    shelf: 'story',
+    image: 'ships/sv01.jpg',
+    title: () => ui().playCards.cards.missions.title,
+    desc: () => ui().playCards.cards.missions.desc,
+    tried: () => Object.keys(useMission.getState().stars).length > 0,
+  },
+  use: () => {
+    const on = useMission((m) => m.phase) !== 'closed'
+    const cleared = useMission((m) => MISSIONS.filter((x) => (m.stars[x.id] ?? 0) > 0).length)
+    return { on, disabled: useNavContext().racing, badge: cleared > 0 ? `${cleared}/${MISSIONS.length}` : undefined, progress: cleared > 0 ? cleared / MISSIONS.length : undefined }
+  },
   run: () => {
     if (useMission.getState().phase !== 'active') closeEclipses()
     openMissions()
@@ -35,11 +47,25 @@ registerNav({
   order: 20,
   className: 'campaign-open mission-start',
   label: () => ui().campaign.navButton,
+  card: {
+    shelf: 'story',
+    image: 'play-cards/campaign.webp',
+    title: () => ui().playCards.cards.campaign.title,
+    desc: () => ui().playCards.cards.campaign.desc,
+    tried: () => useCampaign.getState().active || useCampaign.getState().stage > 0,
+  },
   use: () => {
     const { racing, onMission } = useNavContext()
     const on = useCampaign((c) => c.active)
     const stage = useCampaign((c) => c.stage)
-    return { on, disabled: racing || onMission, label: on && stage < CAMPAIGN_STAGES.length ? ui().campaign.navButtonActive(stage + 1, CAMPAIGN_STAGES.length) : undefined }
+    const n = CAMPAIGN_STAGES.length
+    return {
+      on,
+      disabled: racing || onMission,
+      label: on && stage < n ? ui().campaign.navButtonActive(stage + 1, n) : undefined,
+      badge: stage > 0 ? `${stage}/${n}` : undefined,
+      progress: stage > 0 ? stage / n : undefined,
+    }
   },
   run: () => (closeEclipses(), openCampaign()),
 })
@@ -61,6 +87,12 @@ registerNav({
   className: 'eva-start',
   kbd: 'K',
   label: () => ui().navPanel.spacewalk,
+  card: {
+    shelf: 'free',
+    image: 'play-cards/eva.webp',
+    title: () => ui().playCards.cards.eva.title,
+    desc: () => ui().playCards.cards.eva.desc,
+  },
   use: () => {
     const { busy, flight } = useNavContext()
     return { disabled: busy || !flight }
@@ -74,6 +106,12 @@ registerNav({
   order: 50,
   className: 'eva-start repair',
   label: () => ui().navPanel.spacewalkRepair,
+  card: {
+    shelf: 'free',
+    image: 'play-cards/eva-repair.webp',
+    title: () => ui().playCards.cards.evaRepair.title,
+    desc: () => ui().playCards.cards.evaRepair.desc,
+  },
   use: () => {
     const { busy, flight } = useNavContext()
     return { disabled: busy || !flight }
@@ -88,6 +126,12 @@ registerNav({
   world: 'sf',
   className: 'walk-start',
   label: () => ui().navPanel.walkPark,
+  card: {
+    shelf: 'free',
+    image: 'play-cards/walk.webp',
+    title: () => ui().playCards.cards.walk.title,
+    desc: () => ui().playCards.cards.walk.desc,
+  },
   use: () => {
     const { busy, flight } = useNavContext()
     return { disabled: busy || !flight }

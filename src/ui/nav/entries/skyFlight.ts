@@ -10,6 +10,12 @@ registerNav({
   order: 46,
   className: 'sky-flight-open',
   label: () => ui().skyFlight.navButton,
+  card: {
+    shelf: 'free',
+    image: 'play-cards/sky-flight.webp',
+    title: () => ui().playCards.cards.skyFlight.title,
+    desc: () => ui().playCards.cards.skyFlight.desc,
+  },
   use: () => {
     const { busy, onMission } = useNavContext()
     // フックは毎回かならず同じ順で呼ぶ（|| の後ろに置くと、任務中だけ呼ばれずに画面ごと落ちる）

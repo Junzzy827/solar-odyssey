@@ -1,0 +1,187 @@
+/* 航法コンピュータの「遊ぶ」タブ：絵のカードの棚（ui/nav/PlayCards.tsx） */
+
+/* パソコンでは「遊ぶ」を開いているあいだだけ、パネルを広げて絵を大きく */
+body:not(.touch) .nav-panel.nav-tab-play:not(.collapsed) {
+  width: 316px;
+}
+
+.play-shelves {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.play-shelf-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffd7a0;
+}
+
+.play-shelf-head .muted {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.play-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.nav-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 0 7px;
+  border: 1px solid rgba(155, 140, 217, 0.35);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  text-align: left;
+  transition:
+    transform 0.12s ease-out,
+    border-color 0.12s;
+}
+
+.nav-card:not(:disabled):hover {
+  border-color: #f2a65a;
+  transform: translateY(-1px);
+}
+
+.nav-card:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.nav-card.on {
+  border-color: #f2a65a;
+  background: rgba(242, 166, 90, 0.14);
+}
+
+/* 次のおすすめ：横いっぱいの大きなカード */
+.nav-card.rec {
+  grid-column: 1 / -1;
+  border-color: #f2a65a;
+  box-shadow: 0 0 0 1px rgba(242, 166, 90, 0.35), 0 4px 16px rgba(242, 166, 90, 0.18);
+}
+
+.nav-card-pic {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: #0b0912;
+  overflow: hidden;
+}
+
+.nav-card-pic img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-user-drag: none;
+}
+
+.nav-card:disabled .nav-card-pic img {
+  filter: grayscale(0.7);
+}
+
+.nav-card-rec,
+.nav-card-flag {
+  position: absolute;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.nav-card-rec {
+  left: 6px;
+  top: 6px;
+  background: #f2a65a;
+  color: #1a1222;
+}
+
+.nav-card-flag {
+  right: 6px;
+  bottom: 8px;
+  background: rgba(12, 10, 20, 0.8);
+  color: #e8e2ff;
+}
+
+.nav-card-flag.on {
+  background: #f2a65a;
+  color: #1a1222;
+}
+
+.nav-card-flag.done {
+  color: #9be3b0;
+}
+
+/* 進み具合の細い棒（絵の下の端） */
+.nav-card-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.nav-card-bar i {
+  display: block;
+  height: 100%;
+  background: #f2a65a;
+}
+
+.nav-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.nav-card-title kbd {
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.nav-card-desc {
+  padding: 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #b8b0d6;
+}
+
+.nav-card.rec .nav-card-title {
+  font-size: 15px;
+}
+
+.nav-card.rec .nav-card-desc {
+  font-size: 12px;
+}
+
+.play-more {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+body.touch .nav-card-title {
+  font-size: 14px;
+}
+
+body.touch .nav-card-desc {
+  font-size: 12px;
+}

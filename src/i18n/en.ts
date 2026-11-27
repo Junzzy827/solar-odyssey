@@ -29,6 +29,7 @@ import { hudEn } from './hud.en'
 import { landingEn } from './landing.en'
 import { logPanelEn } from './logPanel.en'
 import { navPanelEn } from './navPanel.en'
+import { playCardsEn } from './playCards.en'
 import { observeEn } from './observe.en'
 import { observePanelEn } from './observePanel.en'
 import { photoNoteEn } from './photoNote.en'
@@ -200,6 +201,7 @@ export const en: Translation<typeof ja> = {
   landing: landingEn,
   logPanel: logPanelEn,
   navPanel: navPanelEn,
+  playCards: playCardsEn,
   observe: observeEn,
   observePanel: observePanelEn,
   photoNote: photoNoteEn,
