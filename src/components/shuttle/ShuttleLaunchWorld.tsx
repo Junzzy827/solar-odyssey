@@ -629,7 +629,7 @@ export function ShuttleLaunchWorld() {
     // ---- 煙と湯気 ----
     shuttleSmoke(smoke, { tt, dt, fired, h, nose, veh: veh.position, srbK, ssmeAll, sepK })
     smoke.material.uniforms.uFlame.value.copy(tail)
-    smoke.material.uniforms.uFlamePower.value = srbK > 0 ? 1.4 * Math.max(0.15, 1 - h / 6000) : ssmeAll * 0.25
+    smoke.material.uniforms.uFlamePower.value = srbK > 0 ? 1.4 * Math.max(0.7, 1 - h / 6000) : ssmeAll * 0.25
     smoke.material.uniforms.uAmb.value = 1
     smoke.update(dt)
     smoke.material.uniforms.uPx.value = size.height / (2 * Math.tan((camera.fov * Math.PI) / 360))
@@ -820,10 +820,10 @@ function filmShot(shot: LaunchShot, u: number, tt: number, veh: THREE.Object3D, 
       return 42
     }
     case 'engines': {
-      // 甲板の上、エンジンの斜め下から。湯気がわき、3 基が順に点く
-      pos.set(-36 + u * 0.4, 3.6, 24 - u * 0.5)
-      tgt.set(-9.5, 6.8, 0)
-      return 40
+      // 真西の甲板の上から望遠で：配管塔の間に 3 基のエンジンが並び、湯気がわき、順に点く
+      pos.set(-46 + u * 0.8, 6.6, 2 - u * 0.4)
+      tgt.set(-9.5, 7, 0)
+      return 30
     }
     case 'wide': {
       // 西南西 900 m から：固体ロケットの点火、発射
@@ -850,10 +850,10 @@ function filmShot(shot: LaunchShot, u: number, tt: number, veh: THREE.Object3D, 
       return 38
     }
     case 'far': {
-      // 遠くの海辺から：弧を描いて上がる炎と、残る煙の柱
-      pos.set(-2400, 18, 3600)
-      tgt.copy(vp).addScaledVector(nose, -250)
-      return fovFor(pos, tgt, 1100)
+      // 遠くの海辺から望遠で：上っていく炎と、炎に照らされた煙の柱
+      pos.set(-1700, 18, 2500)
+      tgt.copy(vp).addScaledVector(nose, -170)
+      return fovFor(pos, tgt, 420)
     }
     case 'sep': {
       // 高さ 50 km：機体の横に並び、固体ロケットが離れていくのを見る
@@ -914,7 +914,7 @@ function shuttleSmoke(sm: Smoke, c: { tt: number; dt: number; fired: boolean; h:
   if (srbK > 0 && h > 60 && h < 40_000) {
     for (let i = Math.ceil(dt * 34); i > 0; i--) {
       _v3.set((Math.random() - 0.5) * 8, 0, (Math.random() - 0.5) * 8).add(veh).addScaledVector(nose, -120 - Math.random() * 60)
-      sm.emit(_v3.x, _v3.y, _v3.z, (Math.random() - 0.5) * 4, -2, (Math.random() - 0.5) * 4, 18 + h * 0.004, 28, 1.6)
+      sm.emit(_v3.x, _v3.y, _v3.z, (Math.random() - 0.5) * 4, -2, (Math.random() - 0.5) * 4, 18 + h * 0.004, 28, 1.6, Math.random() < 0.5 ? STEAM : SMOKE)
     }
   }
   // 切り離し：前と後ろの小さなロケットの煙

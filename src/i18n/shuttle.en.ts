@@ -59,7 +59,7 @@ export const shuttleEn: Translation<typeof shuttleJa> = {
       liftoff: 'Booster ignition. Liftoff!',
       roll: 'Clear of the tower, it rolls over onto its back',
       maxq: 'About a minute in, the push of the air is strongest',
-      far: 'An arc of fire and a white pillar of smoke in the night sky',
+      far: 'Lighting up the night sky as it climbs',
       skip: '2 minutes later · about 50 km up',
       sep: 'Booster separation. They fall into the sea, are picked up and reused',
       after: 'From here, the main engines alone carry it to space',
