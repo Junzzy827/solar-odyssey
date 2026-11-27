@@ -8,9 +8,9 @@ import { useMission } from '../../state/mission'
 // 新しい機能は ui/nav/entries/ に自分のファイルを足して registerNav を呼ぶだけ（NavPanel.tsx は触らない）。
 // NavPanel が ui/nav/entries/*.ts をまとめて読み込み、tab ごとに order の小さい順に並べる。
 
-/** 行く（天体・ワープ・着陸・入港）／見る（観察・日食・ギャラリー）／遊ぶ（レース・EVA・公園・キャンペーン・物語）／学ぶ（クイズ・探査機・図鑑・スタンプ帳） */
-export type NavTab = 'go' | 'see' | 'play' | 'learn'
-export const NAV_TABS: readonly NavTab[] = ['go', 'see', 'play', 'learn']
+/** 行く（天体・ワープ・着陸・入港・観察・時間・船）／遊ぶ（レース・EVA・公園・キャンペーン・物語）／学ぶ（クイズ・探査機・図鑑・スタンプ帳） */
+export type NavTab = 'go' | 'play' | 'learn'
+export const NAV_TABS: readonly NavTab[] = ['go', 'play', 'learn']
 
 /** ボタンのいまの様子（entry.use の返り値）。どれも省ける */
 export type NavEntryState = {

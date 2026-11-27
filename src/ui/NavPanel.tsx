@@ -462,17 +462,9 @@ export function NavPanel() {
           <button className={`secondary nav-auto${s.autopilot ? ' on' : ''}`} onClick={() => s.setAutopilot(!s.autopilot)} disabled={!s.targetId || busy}>
             {ui().navPanel.autopilot} <kbd>G</kbd>
           </button>
-          <Entries tab="go" sf={sf} onPick={pick} />
-        </>
-      )}
-
-      {tab === 'see' && (
-        <>
-          <div className="nav-target muted small">{s.targetId ? <>{ui().navPanel.target}{bodyInfo(s.targetId)?.name}</> : ui().navPanel.noTarget}</div>
           <button className={`secondary nav-observe${observing ? ' on' : ''}`} onClick={() => (pick(), toggleObserve())} disabled={!s.targetId || busy || racing}>
             {observing ? ui().navPanel.stopObserving : ui().navPanel.observe} <kbd>O</kbd>
           </button>
-          <Entries tab="see" sf={sf} onPick={pick} />
           {/* 1秒にどれだけ時間が進むか */}
           <div className="nav-time">
             <span className="nav-time-label">{ui().navPanel.timeSpeed}</span>
@@ -484,6 +476,7 @@ export function NavPanel() {
           </div>
           <SimDate />
           <ShipSection />
+          <Entries tab="go" sf={sf} onPick={pick} />
         </>
       )}
 

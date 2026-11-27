@@ -20,8 +20,8 @@ describe('nav registry', () => {
   })
 
   it('replaces an entry registered twice with the same id', () => {
-    registerNav({ id: 'a', tab: 'see', order: 1, label: () => 'A2', run: () => {} })
+    registerNav({ id: 'a', tab: 'go', order: 1, label: () => 'A2', run: () => {} })
     expect(navEntries('play').map((e) => e.id)).not.toContain('a')
-    expect(navEntries('see')[0].label()).toBe('A2')
+    expect(navEntries('go')[0].label()).toBe('A2')
   })
 })
