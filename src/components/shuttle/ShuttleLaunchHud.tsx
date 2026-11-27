@@ -21,7 +21,7 @@ const CAPTIONS: [number, number, CaptionKey][] = [
   [0, 6, 'liftoff'],
   [8, 18, 'roll'],
   [30, 41, 'maxq'],
-  [43, 52, 'far'],
+  [43, 49, 'far'],
   [SRB_SEP - 5, SRB_SEP - 0.2, 'skip'],
   [SRB_SEP, SRB_SEP + 5, 'sep'],
   [SRB_SEP + 5, SRB_SEP + 9, 'after'],

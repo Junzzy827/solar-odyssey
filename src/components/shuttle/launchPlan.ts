@@ -142,7 +142,7 @@ export const LAUNCH_CUTS: { at: number; shot: LaunchShot }[] = [
   { at: SRB_SEP - 5, shot: 'sep' },
 ]
 /** 早送りの区間：[ここから, ここまで]（画面に「2 分後」のカードを出す） */
-export const SKIP_FROM = 52
+export const SKIP_FROM = 49
 export const SKIP_TO = SRB_SEP - 5
 /** 映画の終わり（このあと幕を閉じて、軌道の乗員室へ） */
 export const FILM_END = SRB_SEP + 9
