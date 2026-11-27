@@ -35,10 +35,12 @@ export const OutsideSky = forwardRef<OutsideHandle>(function OutsideSky(_, ref) 
   const phone = lowMemory()
   // PC（画質が「軽い」以外）は昼の地図を 4k に、雲を 2k のまま使う：真上の窓いっぱいに地球が見えるので、2k ではぼやけた
   const sharp = !phone && currentLevel() !== 'low'
-  // スマホは雲の絵を読まない（ダウンロードを 1 MB 減らす。雲は 1 点の黒い絵で代用）
-  const urls = [`${base}textures/${sharp ? '4k' : '2k'}_earth_daymap.jpg`, `${base}textures/earth/bm_night_2k.jpg`]
-  if (!phone) urls.push(`${base}textures/2k_earth_clouds.jpg`)
-  const [day0, night0, clouds0 = day0] = useTexture(urls)
+  // スマホは小さい雲の絵（1024、109 KB）を読む：雲なしでは、真上の窓が青 1 色に見えた
+  const [day0, night0, clouds0] = useTexture([
+    `${base}textures/${sharp ? '4k' : '2k'}_earth_daymap.jpg`,
+    `${base}textures/earth/bm_night_2k.jpg`,
+    `${base}textures/${phone ? '1k' : '2k'}_earth_clouds.jpg`,
+  ])
   const [stars, setStars] = useState<THREE.BufferGeometry | null>(null)
   useEffect(() => {
     let alive = true
@@ -48,7 +50,7 @@ export const OutsideSky = forwardRef<OutsideHandle>(function OutsideSky(_, ref) 
     }
   }, [])
   const world = useMemo(() => {
-    // メモリ対策：夜の明かりは 1024 に縮める。雲は PC の「軽い」画質で 1024。スマホは昼の地図も 1024、雲は使わない
+    // メモリ対策：夜の明かりは 1024 に縮める。雲は PC の「軽い」画質とスマホで 1024。スマホは昼の地図も 1024
     const owned: { dispose: () => void }[] = []
     const shrink = (t: THREE.Texture, n: number) => {
       const s = shrinkTexture(t, n)
@@ -57,11 +59,7 @@ export const OutsideSky = forwardRef<OutsideHandle>(function OutsideSky(_, ref) 
     }
     const day = phone ? shrink(day0, 1024) : day0
     const night = shrink(night0, 1024)
-    const clouds = phone ? new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1) : shrink(clouds0, sharp ? 2048 : 1024)
-    if (phone) {
-      clouds.needsUpdate = true
-      owned.push(clouds)
-    }
+    const clouds = shrink(clouds0, sharp ? 2048 : 1024)
     day.colorSpace = THREE.SRGBColorSpace
     night.colorSpace = THREE.SRGBColorSpace
     day.anisotropy = 8
