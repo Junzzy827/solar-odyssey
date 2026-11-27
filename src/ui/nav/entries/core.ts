@@ -4,7 +4,6 @@ import { closeEclipses, openEclipses, useEclipse } from '../../../state/eclipse'
 import { closeMissions, openMissions, useMission } from '../../../state/mission'
 import { openCampaign, useCampaign } from '../../../state/campaign'
 import { CAMPAIGN_STAGES } from '../../../data/campaign'
-import { useRace } from '../../../state/race'
 import { QUIZ_LENGTH, startQuiz, useQuiz } from '../../../state/quiz'
 import { startEva, startRepairEva } from '../../../state/eva'
 import { startWalkDirect } from '../../../state/walk'
@@ -43,19 +42,6 @@ registerNav({
     return { on, disabled: racing || onMission, label: on && stage < CAMPAIGN_STAGES.length ? ui().campaign.navButtonActive(stage + 1, CAMPAIGN_STAGES.length) : undefined }
   },
   run: () => (closeEclipses(), openCampaign()),
-})
-
-registerNav({
-  id: 'race',
-  tab: 'play',
-  order: 30,
-  className: 'race-start',
-  label: () => ui().navPanel.race,
-  use: () => {
-    const { busy, onMission } = useNavContext()
-    return { disabled: busy || onMission }
-  },
-  run: () => useRace.getState().start(),
 })
 
 registerNav({

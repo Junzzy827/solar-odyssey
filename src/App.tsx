@@ -27,8 +27,6 @@ import { ContextLost } from './ui/ContextLost'
 import { LabelDeclutter } from './ui/LabelDeclutter'
 import { CleanScreenButton } from './ui/CleanScreen'
 import { Telescopes } from './components/telescope/Telescopes'
-import { Race } from './components/race/Race'
-import { RacePanel } from './ui/RacePanel'
 import { Hud, useGlobalKeys } from './ui/Hud'
 import { NavPanel } from './ui/NavPanel'
 import { LogPanel } from './ui/LogPanel'
@@ -57,13 +55,7 @@ import { ObservePanel } from './ui/ObservePanel'
 import { useEclipse } from './state/eclipse'
 import { StampBook } from './ui/StampBook'
 import { RockBook } from './ui/RockBook'
-import { BodyCards } from './ui/BodyCards'
 import { SizeCompare } from './ui/SizeCompare'
-import { TodayPanel } from './ui/TodayPanel'
-import { ScannerHud } from './ui/ScannerHud'
-import { DiscoveryNote } from './ui/DiscoveryNote'
-import { ScanTracker } from './components/ScanTracker'
-import { DiscoveryFx } from './components/DiscoveryFx'
 import { ArrivalRow } from './components/ArrivalRow'
 import { ArrivalMoment } from './ui/ArrivalMoment'
 import { HistoricBook } from './ui/HistoricBook'
@@ -141,7 +133,6 @@ export default function App() {
         <StructureLook detail={false}>
           <Telescopes />
         </StructureLook>
-        <Race />
         <MissionRunner />
         <Ship />
         {mode === 'gallery' && <GalleryCamera />}
@@ -149,8 +140,6 @@ export default function App() {
         <SpaceDust />
         <WarpStreaks />
         <TargetMarker />
-        <ScanTracker />
-        <DiscoveryFx />
         <ArrivalRow />
         <ProbeScene />
         <EclipseScene />
@@ -178,7 +167,6 @@ export default function App() {
       <ObservePanel />
       <TouchBar />
       <BridgePanel />
-      <RacePanel />
       <MissionPanel />
       <LogPanel />
       <QuizPanel />
@@ -196,12 +184,8 @@ export default function App() {
       <ContextLost />
       <LazyScenes />
       <RockBook />
-      <BodyCards />
       <SizeCompare />
-      <TodayPanel />
       <PioneerUi />
-      <ScannerHud />
-      <DiscoveryNote />
       <HistoricBook />
       <LabelDeclutter />
       <CleanScreenButton />

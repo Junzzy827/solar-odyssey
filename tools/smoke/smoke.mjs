@@ -198,7 +198,7 @@ const SCENARIOS = {
     hash: '#debug',
     run: async (page) => {
       await page.click('.nav-tab[data-tab="play"]')
-      await visibleButton(page, '.nav-entry.race-start')
+      await visibleButton(page, '.nav-entry.moon-mission-start')
       await page.click('.nav-tab[data-tab="learn"]')
       await visibleButton(page, '.nav-entry.quiz-start')
       await page.click('.nav-tab[data-tab="go"]')
@@ -207,26 +207,6 @@ const SCENARIOS = {
   },
   // スマホ
   phone: { ctx: phone, hash: '#debug' },
-  // 天体カード（PC とスマホ）：開いて、めくるボタンと閉じるボタンが隠れていない
-  cards: {
-    ctx: desktop,
-    hash: '#debug',
-    run: async (page) => {
-      await page.evaluate(() => window.__sv.bodyCards.open('mars'))
-      await sleep(800)
-      for (const sel of ['.body-cards .bc-step', '.body-cards .close']) await visibleButton(page, sel)
-    },
-  },
-  // 今日の宇宙（スマホ）：閉じるボタンが隠れていない
-  'today-phone': {
-    ctx: phone,
-    hash: '#debug',
-    run: async (page) => {
-      await page.evaluate(() => window.__sv.today.open())
-      await sleep(800)
-      await visibleButton(page, '.today-panel .close')
-    },
-  },
   // 探査機の旅（ボイジャー2号）：本物の道すじと、右の模型の画面。木星の最接近の少し前で止めて撮る
   'probe-voyager': { ctx: desktop, hash: '#debug', run: (page) => probeScene(page, 1, -0.3) },
   // スマホの縦：上に模型の画面、下に説明。閉じるボタンが隠れていない
@@ -235,54 +215,6 @@ const SCENARIOS = {
   'probe-hayabusa2': { ctx: desktop, hash: '#debug', run: (page) => probeScene(page, 2, 239.925, 'hayabusa2') },
   // カッシーニ：ホイヘンスを切りはなした20秒後（土星を回るあいだの値は別のファイルから読み込む）
   'probe-cassini': { ctx: desktop, hash: '#debug', run: (page) => probeScene(page, 5, 176.97245, 'cassini') },
-  // 発見スキャン：小惑星帯の岩のそばでスキャンすると、発見のカードが出る
-  scan: {
-    ctx: desktop,
-    hash: '#debug',
-    run: async (page) => {
-      await page.evaluate(async () => {
-        const sv = window.__sv
-        sv.discovery.start()
-        // 出発点では船が地球に合わせて動くので、それを外してから帯の岩のそばへ
-        sv.flightControl.releaseHold = true
-        await new Promise((r) => setTimeout(r, 300))
-        const mesh = sv.discovery.asteroids.meshes[0]
-        const m = new sv.THREE.Matrix4()
-        mesh.getMatrixAt(0, m)
-        const p = new sv.THREE.Vector3().setFromMatrixPosition(m.premultiply(mesh.matrixWorld))
-        sv.ship.position.copy(p).add(new sv.THREE.Vector3(2, 0.5, 2))
-        sv.ship.velocity.set(0, 0, 0)
-      })
-      await page.waitForFunction(() => window.__sv.discovery.state.getState().candidate, null, { timeout: 30000 })
-      await page.evaluate(() => window.__sv.discovery.state.setState({ progress: 0.95 }))
-      await page.waitForFunction(() => window.__sv.discovery.state.getState().fresh, null, { timeout: 30000 })
-      // 発見の瞬間：写真が撮れて、ポラロイドに出る
-      await page.waitForFunction(() => document.querySelector('.fresh-polaroid img'), null, { timeout: 30000 })
-      await visibleButton(page, '.scan-fresh button')
-    },
-  },
-  // 発見スキャン（スマホ）：スキャナーの表示と発見ノートが画面に収まる
-  'scan-phone': {
-    ctx: phone,
-    hash: '#debug',
-    run: async (page) => {
-      await page.evaluate(() => window.__sv.discovery.start())
-      await sleep(800)
-      await visibleButton(page, '.scanner-hud .scan-stop')
-      await page.evaluate(() => window.__sv.discovery.note())
-      await sleep(500)
-      await visibleButton(page, '.discovery-note .close')
-    },
-  },
-  'cards-phone': {
-    ctx: phone,
-    hash: '#debug',
-    run: async (page) => {
-      await page.evaluate(() => window.__sv.bodyCards.open('phobos'))
-      await sleep(800)
-      for (const sel of ['.body-cards .bc-step', '.body-cards .close']) await visibleButton(page, sel)
-    },
-  },
   // 到着の瞬間：木星に着くと、木星の前に地球が 11 個ならび、「もっと知る」が押せる（時間を止めて撮る）
   arrival: {
     ctx: desktop,

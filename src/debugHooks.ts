@@ -52,9 +52,6 @@ import { wideNow } from './components/surface/wideGround'
 import { weatherNow } from './components/surface/weather'
 import { useSuitWalk, startSuitWalk, endSuitWalk, suitInput, suitDebug, suitCam, suitPose } from './state/suitWalk'
 import { useSizeCompare, openSizeCompare, closeSizeCompare, focusOn as sizeFocus, togglePick as sizePick } from './state/sizeCompare'
-import { useDiscovery, startScanner, stopScanner, openNote, discoveryDebug } from './state/discovery'
-import { closeToday, openToday, useToday } from './state/today'
-import { closeBodyCard, openBodyCard, stepBodyCard, useBodyCards } from './state/bodyCards'
 import { isRare } from './data/pioneer'
 import { acceptJob, cancelJob, handoffDone, jobBoard, useDelivery } from './state/delivery'
 import { begin as beginColony, build as buildColonyZone, catchUp as colonyCatchUp, useColony } from './state/colony'
@@ -85,8 +82,6 @@ const sv = {
   probeTrajectory: (id: string) => PROBES.find((p) => p.id === id)?.trajectory,
   /** 再生の速さ（日／秒）。動画のコマ撮り用 */
   probePace: (t: Trajectory, ms: number) => encounterPace(t, ms, 0.55),
-  bodyCards: { state: useBodyCards, open: openBodyCard, close: closeBodyCard, step: stepBodyCard },
-  today: { state: useToday, open: openToday, close: closeToday },
   jump: { state: useJump, start: startJump, stop: stopJump, debug: jumpDebug },
   arrival: { state: useArrival, show: showArrival, close: closeArrival, debug: arrivalDebug },
   pioneer: { state: usePioneer, start: startPioneer, stop: stopPioneer, give: pioneerGive, collect: pioneerCollect, deliver: pioneerDeliver, build: pioneerBuild, skip: endCinema, upgrade: buyUpgrade, name: nameColony, site: constructionSite,
@@ -115,7 +110,6 @@ const sv = {
   sizeCompare: { state: useSizeCompare, open: openSizeCompare, close: closeSizeCompare, focus: sizeFocus, pick: sizePick },
   delivery: { state: useDelivery, board: jobBoard, accept: acceptJob, cancel: cancelJob, handoff: handoffDone, lab: labPlace },
   colony: { state: useColony, begin: beginColony, build: buildColonyZone, catchUp: colonyCatchUp },
-  discovery: { state: useDiscovery, start: startScanner, stop: stopScanner, note: openNote, asteroids, debug: discoveryDebug },
   eclipse: { state: useEclipse, clock: eclipseClock, now: eclipseNow, uniforms: eclipseUniforms, open: openEclipses, play: playEclipse, seek: seekEclipse },
   landing: { state: useLanding, start: startLanding, skip: skipDescent, takeoff: startTakeoff, site: goToSite },
   rally: { state: useRally, start: startRally, quit: quitRally },
