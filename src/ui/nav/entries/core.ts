@@ -1,10 +1,9 @@
 import { registerNav, useNavContext } from '../registry'
 import { ui } from '../../../i18n'
-import { closeEclipses, openEclipses, useEclipse } from '../../../state/eclipse'
-import { closeMissions, openMissions, useMission } from '../../../state/mission'
+import { closeEclipses } from '../../../state/eclipse'
+import { openMissions, useMission } from '../../../state/mission'
 import { openCampaign, useCampaign } from '../../../state/campaign'
 import { CAMPAIGN_STAGES } from '../../../data/campaign'
-import { useRace } from '../../../state/race'
 import { QUIZ_LENGTH, startQuiz, useQuiz } from '../../../state/quiz'
 import { startEva, startRepairEva } from '../../../state/eva'
 import { startWalkDirect } from '../../../state/walk'
@@ -43,19 +42,6 @@ registerNav({
     return { on, disabled: racing || onMission, label: on && stage < CAMPAIGN_STAGES.length ? ui().campaign.navButtonActive(stage + 1, CAMPAIGN_STAGES.length) : undefined }
   },
   run: () => (closeEclipses(), openCampaign()),
-})
-
-registerNav({
-  id: 'race',
-  tab: 'play',
-  order: 30,
-  className: 'race-start',
-  label: () => ui().navPanel.race,
-  use: () => {
-    const { busy, onMission } = useNavContext()
-    return { disabled: busy || onMission }
-  },
-  run: () => useRace.getState().start(),
 })
 
 registerNav({
@@ -137,17 +123,4 @@ registerNav({
   label: () => ui().navPanel.probeJourneys,
   use: () => ({ on: useProbes((p) => p.open), disabled: useNavContext().busy }),
   run: () => (closeEclipses(), openProbes()),
-})
-
-registerNav({
-  id: 'eclipses',
-  tab: 'see',
-  order: 10,
-  className: 'eclipse-start',
-  label: () => ui().navPanel.eclipsesFromSpace,
-  use: () => {
-    const { busy, onMission } = useNavContext()
-    return { on: useEclipse((e) => e.open), disabled: busy || onMission }
-  },
-  run: () => (closeMissions(), openEclipses()),
 })

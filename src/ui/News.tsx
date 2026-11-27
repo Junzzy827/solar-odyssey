@@ -6,7 +6,7 @@ import { campaignFocus } from '../state/campaign'
 
 // 新しい遊び方のお知らせ。起動して読み込みの画面が消えたら、まだ見ていないものを1回だけ出す
 // （スマホでは「お知らせ」の一覧に入る）。見たものはセーブ（state/save.ts）に覚える
-const NEWS = ['raceSites', 'colonyLap', 'bodyCards', 'raceMedals', 'today', 'discovery', 'pioneer', 'arrival', 'colonyAxis', 'colonyWings', 'colonyPeople'] as const
+const NEWS = ['raceSites', 'colonyLap', 'raceMedals', 'pioneer', 'arrival', 'colonyAxis', 'colonyWings', 'colonyPeople'] as const
 const KEY = 'news-seen'
 
 function seen(): string[] {

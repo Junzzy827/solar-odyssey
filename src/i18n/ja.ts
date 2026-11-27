@@ -40,14 +40,10 @@ import { probeCamJa } from './probeCam.ja'
 import { quizJa } from './quiz.ja'
 import { quizPanelJa } from './quizPanel.ja'
 import { raceJa } from './race.ja'
-import { racePanelJa } from './racePanel.ja'
 import { rallyHiscoreJa } from './rallyHiscore.ja'
 import { rallyPanelJa } from './rallyPanel.ja'
 import { skyFlightJa } from './skyFlight.ja'
 import { rockBookJa } from './rockBook.ja'
-import { bodyCardsJa } from './bodyCards.ja'
-import { todayJa } from './today.ja'
-import { discoveryJa } from './discovery.ja'
 import { arrivalJa } from './arrival.ja'
 import { jumpJa } from './jump.ja'
 import { suitWalkJa } from './suitWalk.ja'
@@ -218,14 +214,10 @@ export const ja = {
   quiz: quizJa,
   quizPanel: quizPanelJa,
   race: raceJa,
-  racePanel: racePanelJa,
   rallyHiscore: rallyHiscoreJa,
   rallyPanel: rallyPanelJa,
   skyFlight: skyFlightJa,
   rockBook: rockBookJa,
-  bodyCards: bodyCardsJa,
-  today: todayJa,
-  discovery: discoveryJa,
   arrival: arrivalJa,
   jump: jumpJa,
   suitWalk: suitWalkJa,

@@ -42,14 +42,10 @@ import { probeCamEn } from './probeCam.en'
 import { quizEn } from './quiz.en'
 import { quizPanelEn } from './quizPanel.en'
 import { raceEn } from './race.en'
-import { racePanelEn } from './racePanel.en'
 import { rallyHiscoreEn } from './rallyHiscore.en'
 import { rallyPanelEn } from './rallyPanel.en'
 import { skyFlightEn } from './skyFlight.en'
 import { rockBookEn } from './rockBook.en'
-import { bodyCardsEn } from './bodyCards.en'
-import { todayEn } from './today.en'
-import { discoveryEn } from './discovery.en'
 import { arrivalEn } from './arrival.en'
 import { jumpEn } from './jump.en'
 import { suitWalkEn } from './suitWalk.en'
@@ -217,14 +213,10 @@ export const en: Translation<typeof ja> = {
   quiz: quizEn,
   quizPanel: quizPanelEn,
   race: raceEn,
-  racePanel: racePanelEn,
   rallyHiscore: rallyHiscoreEn,
   rallyPanel: rallyPanelEn,
   skyFlight: skyFlightEn,
   rockBook: rockBookEn,
-  bodyCards: bodyCardsEn,
-  today: todayEn,
-  discovery: discoveryEn,
   arrival: arrivalEn,
   jump: jumpEn,
   suitWalk: suitWalkEn,
