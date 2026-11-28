@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 
 import { ui } from '../../i18n'
 import { useLang } from '../../i18n/lang'
 import { isTouchDevice } from '../../state/input'
-import { closeShuttle, enterSpot, leaveSpot, shuttleInput, toggleShuttleLight, useShuttle } from '../../state/shuttle'
+import { berthHubble, closeShuttle, enterSpot, grabHubble, leaveSpot, openBayDoors, shuttleInput, toggleShuttleLight, useShuttle } from '../../state/shuttle'
 
 // 乗員室の上に重ねる操作：階の名前、明かり、もどる、操作の案内（しばらくで消える）、見どころのボタンとカード、
 // スマホの左のスティックと上下のボタン。スマホの縦でも重ならないように、上の端と下の端に分けて置く。
@@ -23,8 +23,44 @@ export function ShuttleHud() {
     return () => clearTimeout(timer)
   }, [phase])
   const scene = useShuttle((s) => s.scene)
+  // 軌道の章：今の段階のカードと、押すボタン（立てたカードは 12 秒で消える）
+  const orbit = useShuttle((s) => s.orbit)
+  const armReady = useShuttle((s) => s.armReady)
+  const [doneCard, setDoneCard] = useState(true)
+  useEffect(() => {
+    if (orbit !== 'done') return setDoneCard(true)
+    const timer = setTimeout(() => setDoneCard(false), 12000)
+    return () => clearTimeout(timer)
+  }, [orbit])
   if (phase === 'loading') return <div className="shuttle-loading">{scene === 'pad' ? t.loadingPad : t.loading}</div>
   const spotHelp = spot === 'seat' ? t.seatHelp[touch ? 'touch' : 'pc'] : spot === 'arm' ? t.armHelp[touch ? 'touch' : 'pc'] : spot === 'bag' ? t.bagHelp : null
+  const armWork = spot === 'arm' && (orbit === 'grab' || orbit === 'berth')
+  // 案内（最初の 12 秒）が出ている間はカードを待つ。席・寝ぶくろでは、その場所のカードを先に
+  const mission = phase === 'cabin' && (orbit !== 'done' || doneCard) && (!spot || spot === 'arm') && !(help && !spot)
+  const action =
+    orbit === 'doors' ? (
+      <button
+        className="shuttle-btn shuttle-spot shuttle-go"
+        onClick={() => {
+          openBayDoors()
+          if (spot !== 'arm') enterSpot('arm')
+        }}
+      >
+        {t.orbit.doorsBtn}
+      </button>
+    ) : (orbit === 'grab' || orbit === 'berth') && spot !== 'arm' ? (
+      <button className="shuttle-btn shuttle-spot shuttle-go" onClick={() => enterSpot('arm')}>
+        {t.orbit.goArm}
+      </button>
+    ) : orbit === 'grab' ? (
+      <button className="shuttle-btn shuttle-spot shuttle-go" disabled={!armReady} onClick={grabHubble}>
+        {t.orbit.grabBtn}
+      </button>
+    ) : orbit === 'berth' ? (
+      <button className="shuttle-btn shuttle-spot shuttle-go" disabled={!armReady} onClick={berthHubble}>
+        {t.orbit.berthBtn}
+      </button>
+    ) : null
   return (
     <div className="surface-ui shuttle-ui">
       <div className="shuttle-top">
@@ -48,21 +84,39 @@ export function ShuttleHud() {
           ))}
         </div>
       )}
-      {spot && (
-        <div className="shuttle-card">
-          {t.card[spot].map((line) => (
+      {mission ? (
+        <div className="shuttle-card shuttle-mission" data-step={orbit}>
+          {t.orbit[orbit].map((line) => (
             <div key={line}>{line}</div>
           ))}
-          {spotHelp && <small>{spotHelp}</small>}
+          {armWork && spotHelp && <small>{spotHelp}</small>}
+        </div>
+      ) : (
+        spot && (
+          <div className="shuttle-card">
+            {t.card[spot].map((line) => (
+              <div key={line}>{line}</div>
+            ))}
+            {spotHelp && <small>{spotHelp}</small>}
+          </div>
+        )
+      )}
+      {armWork && (
+        <div className="shuttle-pip">
+          <div className="shuttle-pip-view" />
+          <i />
+          <span>{t.orbit.pip}</span>
         </div>
       )}
       <div className="shuttle-bottom">
+        {action}
         {spot ? (
           <button className="shuttle-btn shuttle-spot" onClick={leaveSpot}>
             {t.leave}
           </button>
         ) : (
-          near && (
+          near &&
+          !(near === 'arm' && orbit !== 'doors' && action) && (
             <button className="shuttle-btn shuttle-spot" onClick={() => enterSpot(near)}>
               {t.spot[near]}
             </button>
@@ -70,13 +124,13 @@ export function ShuttleHud() {
         )}
       </div>
       {touch && spot !== 'bag' && <Stick />}
-      {touch && !spot && (
+      {touch && (!spot || armWork) && (
         <div className="shuttle-lift">
           <button className="shuttle-btn" {...hold(1)}>
-            ▲ {t.up}
+            ▲ {armWork ? t.orbit.far : t.up}
           </button>
           <button className="shuttle-btn" {...hold(-1)}>
-            ▼ {t.down}
+            ▼ {armWork ? t.orbit.near : t.down}
           </button>
         </div>
       )}

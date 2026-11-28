@@ -22,6 +22,7 @@ const ShuttleCanvas = memo(function ShuttleCanvas() {
       <Suspense fallback={null}>
         <ShuttleWorld />
       </Suspense>
+      <FilmHook />
     </Canvas>
   )
 })

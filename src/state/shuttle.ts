@@ -21,6 +21,9 @@ export type LaunchStage = 'board' | 'count' | 'hold' | 'fire'
 export type ShuttleDeck = 'flight' | 'mid'
 /** 乗員室の明かり：day = 窓から日が入り照明もつく、dark = 地球の夜側・照明を消す */
 export type ShuttleLight = 'day' | 'dark'
+/** 軌道の章の進み（段階 3）：doors = 荷物室の扉を開ける、opening = 開いている途中、approach = ハッブルに近づく（自動）、
+ *  grab = アームでつかむ、berth = 荷物室の台に立てる、done = 終わり（あとは自由に見て回る） */
+export type OrbitStep = 'doors' | 'opening' | 'approach' | 'grab' | 'berth' | 'done'
 /** 見どころ：seat = 船長の席、arm = アームの台、bag = 寝ぶくろ */
 export type ShuttleSpot = 'seat' | 'arm' | 'bag'
 export const SHUTTLE_SPOTS: readonly ShuttleSpot[] = ['seat', 'arm', 'bag']
@@ -38,7 +41,8 @@ const HOLD_T = -7
 export const shuttleLaunch = { t: COUNT_START, ignitedAt: null as number | null, skip: false, fade: 0 }
 
 type Seen = Partial<Record<ShuttleSpot, true>>
-type Saved = { seen: Seen; light: ShuttleLight }
+/** hubble = ハッブルを荷物室に立てた（あとで宇宙飛行士手帳が読む） */
+type Saved = { seen: Seen; light: ShuttleLight; hubble?: true }
 
 // 見どころを見たかと、明かりの好みだけを残す（どこにいたかは残さない。毎回、後ろのフライトデッキから始める）
 const slot = saveSlot<Saved>('shuttle', { seen: {}, light: 'day' }, (v) => {
@@ -46,7 +50,7 @@ const slot = saveSlot<Saved>('shuttle', { seen: {}, light: 'day' }, (v) => {
   if (!o || typeof o !== 'object') return null
   const seen: Seen = {}
   for (const id of SHUTTLE_SPOTS) if (o.seen && (o.seen as Seen)[id]) seen[id] = true
-  return { seen, light: o.light === 'dark' ? 'dark' : 'day' }
+  return { seen, light: o.light === 'dark' ? 'dark' : 'day', ...(o.hubble === true ? { hubble: true as const } : {}) }
 })
 
 type ShuttleState = {
@@ -64,18 +68,24 @@ type ShuttleState = {
   /** 近くにある見どころ（ボタンを出す） */
   near: ShuttleSpot | null
   seen: Seen
+  /** 軌道の章の進み */
+  orbit: OrbitStep
+  /** アームの先がつかむ所・立てる所に届いている（ボタンを光らせる） */
+  armReady: boolean
+  /** ハッブルを立てたことがある */
+  hubbleDone: boolean
 }
 
 const now = () => performance.now() / 1000
 
 export const useShuttle = create<ShuttleState>(() => {
   const s = slot.load()
-  return { phase: 'none', scene: 'pad', padSpot: null, stage: 'board', since: 0, deck: 'flight', light: s.light, spot: null, near: null, seen: s.seen }
+  return { phase: 'none', scene: 'pad', padSpot: null, stage: 'board', since: 0, deck: 'flight', light: s.light, spot: null, near: null, seen: s.seen, orbit: 'doors', armReady: false, hubbleDone: !!s.hubble }
 })
 
 const persist = () => {
   const s = useShuttle.getState()
-  slot.save({ seen: s.seen, light: s.light })
+  slot.save({ seen: s.seen, light: s.light, ...(s.hubbleDone ? { hubble: true as const } : {}) })
 }
 
 export const shuttleActive = () => useShuttle.getState().phase !== 'none'
@@ -93,7 +103,7 @@ export function openShuttle(scene: ShuttleScene = START_SCENE) {
   shuttleLaunch.ignitedAt = null
   shuttleLaunch.skip = false
   shuttleLaunch.fade = 0
-  useShuttle.setState({ phase: 'loading', scene, since: now(), deck: 'flight', spot: null, near: null, padSpot: null, stage: 'board' })
+  useShuttle.setState({ phase: 'loading', scene, since: now(), deck: 'flight', spot: null, near: null, padSpot: null, stage: 'board', orbit: 'doors', armReady: false })
 }
 
 export function markShuttleReady() {
@@ -129,7 +139,7 @@ export function reachOrbit() {
   const s = useShuttle.getState()
   if (s.phase !== 'launch' && s.phase !== 'pad') return
   if (document.pointerLockElement) void document.exitPointerLock?.()
-  useShuttle.setState({ phase: 'loading', scene: 'orbit', since: now(), padSpot: null })
+  useShuttle.setState({ phase: 'loading', scene: 'orbit', since: now(), padSpot: null, orbit: 'doors', armReady: false })
 }
 
 /** 乗員室を出て、宇宙の自由探索へもどる */
@@ -156,9 +166,35 @@ export function enterSpot(spot: ShuttleSpot) {
 
 export const leaveSpot = () => useShuttle.setState({ spot: null })
 
+/** 軌道の章：荷物室の扉を開ける（アームの台のボタン。開き終わると場面が approach へ進める） */
+export function openBayDoors() {
+  const s = useShuttle.getState()
+  if (s.phase !== 'cabin' || s.orbit !== 'doors') return
+  useShuttle.setState({ orbit: 'opening', armReady: false })
+}
+
+/** 場面が進める（扉が開いた、近づき終えた） */
+export const setOrbitStep = (orbit: OrbitStep) => useShuttle.getState().orbit !== orbit && useShuttle.setState({ orbit, armReady: false })
+export const setArmReady = (armReady: boolean) => useShuttle.getState().armReady !== armReady && useShuttle.setState({ armReady })
+
+/** アームの先がつかむ所に届いているときだけ、つかむ */
+export function grabHubble() {
+  const s = useShuttle.getState()
+  if (s.phase !== 'cabin' || s.orbit !== 'grab' || !s.armReady) return
+  useShuttle.setState({ orbit: 'berth', armReady: false })
+}
+
+/** 台の真上に来ているときだけ、立てて留める */
+export function berthHubble() {
+  const s = useShuttle.getState()
+  if (s.phase !== 'cabin' || s.orbit !== 'berth' || !s.armReady) return
+  useShuttle.setState({ orbit: 'done', armReady: false, hubbleDone: true })
+  persist()
+}
+
 /** セーブデータを消したときなど：見た印を忘れる */
 export function forgetShuttle() {
-  useShuttle.setState({ seen: {} })
+  useShuttle.setState({ seen: {}, hubbleDone: false })
   persist()
 }
 
@@ -198,4 +234,10 @@ export const shuttleDebug: {
   /** 発射台・打ち上げ：カメラを置く（撮影用）、打ち上げの時計を T 秒へ */
   padCam?: (x: number, y: number, z: number, tx: number, ty: number, tz: number, fov?: number) => void
   launchAt?: (t: number) => void
+  /** 軌道の章：その段階へ飛ぶ（アームの先も、つかめる所・立てられる所へ運ぶ） */
+  orbitTo?: (step: OrbitStep) => void
+  /** アームの先（つかむ輪の中心）と、つかむ所・立てる所までの距離 */
+  arm?: () => { tip: number[]; target: number[]; dist: number; hub: number[] }
+  /** アームの先の狙い（m、オービターの座標）を置く */
+  aimAt?: (x: number, y: number, z: number) => void
 } = {}

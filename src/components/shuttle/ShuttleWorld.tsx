@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { lowMemory } from '../../state/quality'
-import { markShuttleReady, shuttleDebug, shuttleInput, useShuttle, type ShuttleSpot } from '../../state/shuttle'
+import { markShuttleReady, setArmReady, setOrbitStep, shuttleDebug, shuttleInput, useShuttle, type OrbitStep, type ShuttleSpot } from '../../state/shuttle'
 import { FloatController, createFloatInput } from './floatControl'
 import { cabinMaterial, flatMaterial, glassMaterial, useCabinMeta } from './cabinMaterial'
 import { OutsideSky } from './outside'
@@ -24,7 +24,8 @@ const HUBBLE_URL = `${base}models/hubble.glb`
 const SPOTS: Record<ShuttleSpot, { at: THREE.Vector3; eye: THREE.Vector3; yaw: number; pitch: number }> = {
   seat: { at: new THREE.Vector3(-0.58, 3.2, -2.75), eye: new THREE.Vector3(-0.58, 3.4, -2.78), yaw: 0, pitch: -0.08 },
   // アームの台：窓のすぐ前から、少し下を見る（荷物室と、左の縁から起き上がる腕が見える。離れて上を向くと、ハッブルの胴しか見えなかった）
-  arm: { at: new THREE.Vector3(0.36, 3.4, -0.6), eye: new THREE.Vector3(0.3, 3.68, -0.36), yaw: Math.PI, pitch: -0.08 },
+  // 目は窓のガラスのすぐ手前（窓は 37 × 28 cm と小さいので、離れると枠しか見えない）
+  arm: { at: new THREE.Vector3(0.36, 3.4, -0.6), eye: new THREE.Vector3(0.34, 3.7, -0.17), yaw: Math.PI, pitch: -0.08 },
   bag: { at: new THREE.Vector3(0.95, 1.1, -2.25), eye: new THREE.Vector3(1.32, 1.15, -2.25), yaw: Math.PI / 2, pitch: 0.02 },
 }
 const NEAR_SPOT = 0.95
@@ -38,6 +39,42 @@ const HOLES = [
 const INSIDE = new THREE.Box3(new THREE.Vector3(-2.0, -0.1, -5.2), new THREE.Vector3(2.0, 4.6, 0.2))
 
 const v1 = new THREE.Vector3()
+const v3 = new THREE.Vector3()
+const vGoal = new THREE.Vector3()
+const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)
+const smooth = (x: number) => x * x * (3 - 2 * x)
+
+// ---- 軌道の章（段階 3）：扉、ハッブル、アーム ----
+// 座標はオービターの glb と同じ（乗員室と共通。tools/blender/build_shuttle.py の X 右・Y 前・Z 上を、three の X・-Z・Y に読みかえたもの）
+/** アームの肩（左の縁）。上腕 6.4 m、下腕 7.1 m、手首から先（つかむ輪）1.1 m。全長およそ 15 m（FACTS.md 3） */
+const SHOULDER = new THREE.Vector3(-2.45, 2.25, 1.2)
+const L1 = 6.4
+const LW = 7.1
+const EE = 1.1
+/** 起こしたアームの先が最初に止まる所（つかむ所の少し手前・下。ここから子どもが合わせる） */
+const READY = new THREE.Vector3(0.9, 7.0, 10.0)
+const RAISE_SEC = 4
+/** アームの先が動ける箱（荷物室の上。乗員室や扉にめりこまないように） */
+const AIM_BOX = new THREE.Box3(new THREE.Vector3(-3.2, 2.7, 5), new THREE.Vector3(3.2, 13, 17))
+/** 扉が開ききった角度（172°）と、開く時間（本物は 1 枚 63 秒。ここでは 2 枚ずつ、まとめて 12 秒で） */
+const DOOR_OPEN = THREE.MathUtils.degToRad(172)
+const DOOR_SEC = 12
+/** ハッブルを立てる台（底の中心）。ハッブルの底は台の輪の上 1.9 m（荷物室の後ろ） */
+const BERTH = new THREE.Vector3(0, 1.9, 15.2)
+/** つかむ前に浮かんで待つ所（荷物室の後ろの真上）と、近づいてくる前の所（後ろ遠く） */
+const HOVER = new THREE.Vector3(0.3, 6.4, 15.2)
+const APPROACH_FROM = new THREE.Vector3(0.3, 9.5, 70)
+const APPROACH_SEC = 10
+/** つかむ所（グラップル・フィクスチャ）：ハッブルの底から 2 m 上、乗員室の側の面から突き出た棒の先（底の中心から見た位置。半径はモデルから） */
+const FIXTURE_UP = 2.0
+/** 届いたとみなす距離（m）。子ども向けに広め。近づくと少し吸い寄せる */
+const GRAB_R = 0.4
+const MAGNET_R = 1.3
+/** アームの先の速さ（m/秒）。本物は荷物を持って秒速 6 cm（FACTS.md 3）。遊びとして速くしている */
+const TIP_SPEED = 1.1
+const TIP_SPEED_HELD = 0.7
+/** 立てるときの時間（秒） */
+const BERTH_SEC = 1.6
 
 export function ShuttleWorld() {
   const gl = useThree((s) => s.gl)
@@ -121,11 +158,12 @@ export function ShuttleWorld() {
     const owned: { dispose: () => void }[] = []
     const mats = new Map<THREE.Material, THREE.Material>()
     const arm: Record<string, THREE.Object3D> = {}
+    const doors: { o: THREE.Object3D; sign: number }[] = []
     root.traverse((o) => {
       if (o.name.startsWith('rms_')) arm[o.name] = o
-      // 扉を開く。素材が 2 つある扉は、読み込むと「組（door_x）＋中の形（door_x_1, door_x_2）」になる。
+      // 扉（開け閉めは毎フレーム）。素材が 2 つある扉は、読み込むと「組（door_x）＋中の形（door_x_1, door_x_2）」になる。
       // 中の形まで回すと 2 回分（344°）回って、ほとんど閉じた扉が荷物室の上をふさいでいた → 組だけを回す
-      if (o.name.startsWith('door_') && !o.parent?.name.startsWith('door_')) o.rotation.z = (o.name.includes('port') ? 1 : -1) * THREE.MathUtils.degToRad(172)
+      if (o.name.startsWith('door_') && !o.parent?.name.startsWith('door_')) doors.push({ o, sign: o.name.includes('port') ? 1 : -1 })
       const m = o as THREE.Mesh
       if (!m.isMesh) return
       // 照らし方は軽い Lambert で（金属の映り込みはいらない）
@@ -162,11 +200,56 @@ export function ShuttleWorld() {
       owned.push(mm)
     })
     const box = new THREE.Box3().setFromObject(hub)
-    // 底の高さ 1.9 m：荷物室の縁の高さにある台の輪（tools/blender/build_shuttle.py の HUBBLE_BASE_Z）の上に立てる。
-    // ハッブルは荷物室の幅いっぱいの太さなので、床の近くに置くと壁にめりこむ
-    hub.position.set(-(box.min.x + box.max.x) / 2, 1.9 - box.min.y, 15.2 - (box.min.z + box.max.z) / 2)
-    root.add(hub)
-    return { root, arm, owned }
+    // ハッブルを「底の中心」を原点にした組に入れる（台に立てるとき、底の高さ 1.9 m：荷物室の縁の高さにある台の輪
+    // tools/blender/build_shuttle.py の HUBBLE_BASE_Z の上。ハッブルは荷物室の幅いっぱいの太さなので、床の近くに置くと壁にめりこむ）
+    hub.position.set(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2)
+    const hubWrap = new THREE.Group()
+    hubWrap.name = 'hubble'
+    hubWrap.add(hub)
+    hubWrap.position.copy(BERTH)
+    root.add(hubWrap)
+    // つかむ所：乗員室の側の面に、台の板と突き出た棒、目印の的（白い十字と黒い円。手首のカメラで狙う）
+    const hubR = Math.min(2.4, (box.max.z - box.min.z) / 2)
+    const fixture = new THREE.Group()
+    fixture.name = 'hubble_fixture'
+    fixture.position.set(0, FIXTURE_UP, -hubR)
+    const fixMat = new THREE.MeshLambertMaterial({ color: '#c9ccd2' })
+    const dark = new THREE.MeshBasicMaterial({ color: '#111' })
+    const white = new THREE.MeshBasicMaterial({ color: '#f4f4f4' })
+    owned.push(fixMat, dark, white)
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.08), fixMat)
+    plate.position.z = -0.04
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.42, 10).rotateX(Math.PI / 2), fixMat)
+    pin.position.z = -0.29
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), fixMat)
+    knob.position.z = -0.5
+    // 的：棒の少し上の板（本物は棒のそばの目印を、手首のカメラの十字と重ねて狙う）
+    const target = new THREE.Group()
+    target.position.set(0, 0.55, -0.1)
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.2, 24).rotateY(Math.PI), dark)
+    const barH = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.04).rotateY(Math.PI), white)
+    const barV = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.34).rotateY(Math.PI), white)
+    barH.position.z = barV.position.z = -0.005
+    target.add(disc, barH, barV)
+    fixture.add(plate, pin, knob, target)
+    for (const m of [plate, pin, knob, disc, barH, barV]) owned.push(m.geometry)
+    hubWrap.add(fixture)
+    /** 棒の先（つかむ輪の中心がここへ来ればよい）：底の中心から見た位置 */
+    const grip = new THREE.Vector3(0, FIXTURE_UP, -hubR - 0.5)
+    // 台の上の光る輪（立てる所の目印。立てる段のときだけ）
+    const ringMat = new THREE.MeshBasicMaterial({ color: '#5fd4ff', transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide })
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.85, 2.3, 48).rotateX(-Math.PI / 2), ringMat)
+    // 台の輪（fss_ring）と同じ高さだと隠れるので、少し上に浮かせる
+    ring.position.copy(BERTH).add(new THREE.Vector3(0, 0.14, 0))
+    ring.visible = false
+    root.add(ring)
+    owned.push(ringMat, ring.geometry)
+    // つかむ輪の先の光（届くと明るくなる）
+    const tipMat = new THREE.MeshBasicMaterial({ color: '#7dffb0', transparent: true, opacity: 0, depthWrite: false })
+    const tipGlow = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), tipMat)
+    root.add(tipGlow)
+    owned.push(tipMat, tipGlow.geometry)
+    return { root, arm, doors, hubWrap, grip, ring, ringMat, tipGlow, tipMat, owned }
   }, [orbiter, hubble, gl, phone])
   useEffect(() => () => outside.owned.forEach((o) => o.dispose()), [outside])
 
@@ -191,8 +274,10 @@ export function ShuttleWorld() {
   const frames = useRef(0)
   // 光の切り替え（0 = 昼、1 = 夜）と、見どころ・アームの状態
   const mix = useRef(useShuttle.getState().light === 'dark' ? 1 : 0)
-  const st = useRef({ spot: null as ShuttleSpot | null, blend: 0, blendAt: 0, arrived: false, mixT: 0, from: new THREE.Vector3(), fromYaw: 0, fromPitch: 0, stick: new THREE.Vector2(), stickR: new THREE.Vector2(), att: new THREE.Euler(), arm: { yaw: 0, pitch: 0, elbow: 0, wrist: 0 }, crtT: 0, monT: 0, push: null as null | { v: THREE.Vector3; left: number } })
+  const st = useRef({ spot: null as ShuttleSpot | null, blend: 0, blendAt: 0, arrived: false, mixT: 0, from: new THREE.Vector3(), fromYaw: 0, fromPitch: 0, stick: new THREE.Vector2(), depth: 0, att: new THREE.Euler(), arm: { yaw: 0, pitch: 0, elbow: 0, wrist: 0, wristYaw: 0 }, crtT: 0, monT: 0, push: null as null | { v: THREE.Vector3; left: number }, orbit: null as OrbitStep | null, orbitAt: 0, doorK: 0, tip: new THREE.Vector3(), aim: new THREE.Vector3(), hubPos: new THREE.Vector3().copy(APPROACH_FROM), berthFrom: new THREE.Vector3(), armK: 0, armOn: false, raiseFrom: new THREE.Vector3(), focus: new THREE.Vector3(), hasFocus: false, lookIdle: 9 })
   const sky = useRef<{ setAttitude: (e: THREE.Euler) => void; render: (r: THREE.WebGLRenderer, cam: THREE.PerspectiveCamera, dark: number, dt: number) => void } | null>(null)
+  const wristCam = useMemo(() => new THREE.PerspectiveCamera(55, 4 / 3, 0.05, 400), [])
+  const pipEl = useRef<HTMLElement | null>(null)
   const bayCam = useMemo(() => {
     const c = new THREE.PerspectiveCamera(40, 4 / 3, 0.3, 120)
     // 荷物室の前の壁の上から、後ろのハッブルを見る
@@ -238,11 +323,32 @@ export function ShuttleWorld() {
       const skyInfo = (window as unknown as { __shuttleSkyTex?: () => number }).__shuttleSkyTex?.() ?? 0
       return { calls: i.render.calls, triangles: i.render.triangles, textures: i.memory.textures, geometries: i.memory.geometries, cabinTexMB: tex / 1048576, skyTexMB: skyInfo / 1048576 }
     }
+    // 軌道の章：その段階へ飛ぶ（扉は開いた所、ハッブルは荷物室の上、アームは起こした所から）
+    shuttleDebug.orbitTo = (step) => {
+      const S = st.current
+      S.doorK = step === 'doors' ? 0 : step === 'opening' ? S.doorK : 1
+      if (step === 'grab' || step === 'berth' || step === 'done') {
+        S.hubPos.copy(HOVER)
+        S.armOn = true
+        S.armK = 1
+        S.aim.copy(step === 'grab' ? READY : v3.copy(HOVER).add(outside.grip))
+      }
+      setOrbitStep(step)
+    }
+    shuttleDebug.aimAt = (x, y, z) => void st.current.aim.set(x, y, z)
+    shuttleDebug.arm = () => {
+      const S = st.current
+      const goal = v3.copy(S.orbit === 'berth' ? BERTH : S.hubPos).add(outside.grip)
+      return { tip: S.tip.toArray(), target: goal.toArray(), dist: S.tip.distanceTo(goal), hub: S.hubPos.toArray() }
+    }
     return () => {
       delete shuttleDebug.place
       delete shuttleDebug.pose
       delete shuttleDebug.info
       delete shuttleDebug.push
+      delete shuttleDebug.orbitTo
+      delete shuttleDebug.aimAt
+      delete shuttleDebug.arm
     }
   }, [ctl, gl, scene, outside])
 
@@ -301,17 +407,27 @@ export function ShuttleWorld() {
           ctl.pitch = sp.pitch
         }
         // 席では見回しだけできる（向きは少しの範囲で）
+        S.lookIdle = input.lookX || input.lookY ? 0 : S.lookIdle + dt
         ctl.yaw = sp.yaw + THREE.MathUtils.clamp(angleDiff(sp.yaw, ctl.yaw - input.lookX), -1.2, 1.2)
         ctl.pitch = THREE.MathUtils.clamp(ctl.pitch - input.lookY, -0.9, 0.9)
+        // アームの台：しばらく見回さなければ、アームの先やハッブルの方へ目が向く（窓がせまく、腕がすぐ見えなくなるので）
+        if (S.spot === 'arm' && S.hasFocus && S.lookIdle > 1.5) {
+          v1.subVectors(S.focus, ctl.pos)
+          const yawT = sp.yaw + THREE.MathUtils.clamp(angleDiff(sp.yaw, Math.atan2(-v1.x, -v1.z)), -1.2, 1.2)
+          const pitchT = THREE.MathUtils.clamp(Math.atan2(v1.y, Math.hypot(v1.x, v1.z)), -0.9, 0.9)
+          const e2 = Math.min(1, dt * 1.6)
+          ctl.yaw += angleDiff(ctl.yaw, yawT) * e2
+          ctl.pitch += (pitchT - ctl.pitch) * e2
+        }
       }
       input.lookX = 0
       input.lookY = 0
-      // 操縦かん・アームのにぎり
+      // 操縦かん・アームのにぎり（左は上下左右、右は前・手前）
       S.stick.lerp(v2(sx, sz), Math.min(1, dt * 6))
-      S.stickR.lerp(v2(ax, az), Math.min(1, dt * 6))
+      S.depth += (THREE.MathUtils.clamp(ky + shuttleInput.lift, -1, 1) - S.depth) * Math.min(1, dt * 6)
     } else {
       S.stick.lerp(v2(0, 0), Math.min(1, dt * 4))
-      S.stickR.lerp(v2(0, 0), Math.min(1, dt * 4))
+      S.depth *= Math.exp(-dt * 4)
       input.move.set(sx, ky + shuttleInput.lift, sz)
       if (S.push && S.push.left > 0) {
         input.move.copy(S.push.v)
@@ -354,24 +470,113 @@ export function ShuttleWorld() {
       if (m) m.rotation.set(-S.att.x, 0, -S.att.z, 'ZXY')
     }
 
-    // アームの台：左のにぎり（並進）で肩、右のにぎり（回転）でひじと手首
+    // ---- 軌道の章：扉を開ける → ハッブルが来る → アームでつかむ → 荷物室に立てる ----
+    if (s.orbit !== S.orbit) {
+      S.orbit = s.orbit
+      S.orbitAt = 0
+      if (s.orbit === 'doors') {
+        S.doorK = 0
+        S.armOn = false
+        S.armK = 0
+        S.hubPos.copy(APPROACH_FROM)
+      }
+      if (s.orbit === 'grab' && !S.armOn) {
+        // アームを荷物室の縁から起こす（今の先の位置から、つかむ所の手前へ）
+        S.armOn = true
+        S.armK = 0
+        S.raiseFrom.copy(S.tip.lengthSq() ? S.tip : v1.set(SHOULDER.x, SHOULDER.y, SHOULDER.z + L1 + LW + EE))
+      }
+      if (s.orbit === 'berth') S.aim.copy(S.hubPos).add(outside.grip)
+      if (s.orbit === 'done') S.berthFrom.copy(S.hubPos)
+    }
+    S.orbitAt += dt
+    if (S.orbit === 'opening') {
+      S.doorK = Math.min(1, S.doorK + dt / DOOR_SEC)
+      if (S.doorK >= 1) setOrbitStep('approach')
+    }
+    // 扉：右（stbd）が先、左（port）があと
+    for (const d of outside.doors) {
+      const k = d.sign < 0 ? THREE.MathUtils.clamp(S.doorK * 2, 0, 1) : THREE.MathUtils.clamp(S.doorK * 2 - 1, 0, 1)
+      d.o.rotation.z = d.sign * DOOR_OPEN * smooth(k)
+    }
+    if (S.orbit === 'approach') {
+      // 2 日後：後ろの遠くから、荷物室の上へゆっくり来る（最後はそっと止まる）
+      const k = Math.min(1, S.orbitAt / APPROACH_SEC)
+      S.hubPos.lerpVectors(APPROACH_FROM, HOVER, 1 - (1 - k) ** 3)
+      if (k >= 1) setOrbitStep('grab')
+    } else if (S.orbit === 'done') {
+      // 固定：台の輪の上へ、すっと下りる
+      if (S.orbitAt <= BERTH_SEC + 0.05) {
+        S.hubPos.lerpVectors(S.berthFrom, BERTH, smooth(Math.min(1, S.orbitAt / BERTH_SEC)))
+        S.aim.copy(S.hubPos).add(outside.grip)
+      }
+    }
+
+    // アーム：先の狙い（aim）を動かし、2 本の腕の角度を毎回計算する（肩の左右・上下、ひじ、手首。手首から先は水平に保つ）
     const thc = parts.named['rms_thc']
     const rhc = parts.named['rms_rhc']
-    const armOn = S.spot === 'arm'
-    if (thc) thc.rotation.set(armOn ? -S.stick.y * 0.3 : 0, 0, armOn ? -S.stick.x * 0.3 : 0)
-    if (rhc) rhc.rotation.set(armOn ? -S.stickR.y * 0.3 : 0, 0, armOn ? -S.stickR.x * 0.3 : 0)
+    const armSeat = S.spot === 'arm'
+    if (thc) thc.rotation.set(armSeat ? -S.stick.y * 0.3 : 0, 0, armSeat ? -S.stick.x * 0.3 : 0)
+    if (rhc) rhc.rotation.set(armSeat ? -S.depth * 0.3 : 0, 0, 0)
     const A = S.arm
-    if (armOn) {
-      // 入ったら、まずハッブルの方へ腕を起こす（手で動かせるのはそのあと）
-      A.pitch = Math.max(-1.1, Math.min(0, A.pitch + (S.blend < 1 ? -0.25 * dt : 0) - S.stick.y * 0.18 * dt))
-      A.yaw = THREE.MathUtils.clamp(A.yaw - S.stick.x * 0.15 * dt, -0.6, 0.6)
-      A.elbow = THREE.MathUtils.clamp(A.elbow + (S.blend < 1 ? 0.35 * dt : 0) + S.stickR.y * 0.2 * dt, 0, 2.2)
-      A.wrist = THREE.MathUtils.clamp(A.wrist + S.stickR.x * 0.3 * dt, -1, 1)
+    const holding = S.orbit === 'berth'
+    vGoal.copy(holding ? BERTH : S.hubPos).add(outside.grip)
+    if (S.armOn) {
+      if (S.armK < 1) {
+        S.armK = Math.min(1, S.armK + dt / RAISE_SEC)
+        S.aim.lerpVectors(S.raiseFrom, READY, smooth(S.armK))
+      } else if (armSeat && (S.orbit === 'grab' || holding || (S.orbit === 'done' && S.orbitAt > BERTH_SEC + 0.5))) {
+        const sp = holding ? TIP_SPEED_HELD : TIP_SPEED
+        // 見ている向きで動かす：左のにぎりで右・左・上・下、右のにぎりで前（奥）・手前
+        v1.set(Math.cos(ctl.yaw), 0, -Math.sin(ctl.yaw)).multiplyScalar(S.stick.x * sp * dt)
+        v3.set(-Math.sin(ctl.yaw), 0, -Math.cos(ctl.yaw)).multiplyScalar(S.depth * sp * dt)
+        S.aim.add(v1).add(v3)
+        S.aim.y += S.stick.y * sp * dt
+        // 近くまで来たら、少し吸い寄せる（子ども向け。立てたあとは、はなして自由に動かせる）
+        const d = S.aim.distanceTo(vGoal)
+        if (d < MAGNET_R && S.orbit !== 'done') S.aim.lerp(vGoal, Math.min(1, dt * (0.6 + 2 * (1 - d / MAGNET_R))))
+      }
+      clampAim(S.aim, holding ? outside.grip : null)
+      solveArm(S.aim, A)
     }
     if (outside.arm.rms_yaw) outside.arm.rms_yaw.rotation.y = A.yaw
     if (outside.arm.rms_pitch) outside.arm.rms_pitch.rotation.x = A.pitch
     if (outside.arm.rms_elbow) outside.arm.rms_elbow.rotation.x = A.elbow
-    if (outside.arm.rms_wrist) outside.arm.rms_wrist.rotation.x = -A.elbow * 0.5 + A.wrist
+    if (outside.arm.rms_wrist) outside.arm.rms_wrist.rotation.x = A.wrist
+    // 手首の左右：先の筒（rms_ee）を手首のまわりに回す（手首から先が真後ろを向く）
+    const wrist = outside.arm.rms_ee ?? outside.arm.rms_wrist
+    if (wrist) {
+      if (wrist !== outside.arm.rms_wrist) wrist.rotation.y = A.wristYaw
+      outside.arm.rms_yaw?.updateMatrixWorld(true)
+      outside.root.worldToLocal(wrist.localToWorld(S.tip.set(0, 0, EE)))
+    }
+    // つかんでいる間は、ハッブルがアームの先についていく
+    if (holding) S.hubPos.copy(S.tip).sub(outside.grip)
+    outside.hubWrap.position.copy(S.hubPos)
+    // 届いたか：つかむ所まで / 台の輪の上まで
+    let ready = false
+    let glow = 0
+    if (S.orbit === 'grab' && S.armK >= 1) {
+      const d = S.tip.distanceTo(vGoal)
+      ready = d < GRAB_R
+      glow = ready ? 0.9 : d < 2 ? 0.25 + 0.35 * (1 - d / 2) : 0.2
+    } else if (holding) {
+      ready = Math.hypot(S.hubPos.x - BERTH.x, S.hubPos.z - BERTH.z) < 0.35 && S.hubPos.y - BERTH.y < 0.45
+    }
+    if (ready !== s.armReady) setArmReady(ready)
+    outside.tipGlow.visible = glow > 0
+    outside.tipGlow.position.copy(S.tip)
+    outside.tipMat.opacity = glow * (0.75 + 0.25 * Math.sin(t * 6))
+    outside.ring.visible = holding
+    outside.ringMat.color.set(ready ? '#7dffb0' : '#5fd4ff')
+    outside.ringMat.opacity = 0.7 + 0.2 * Math.sin(t * 4)
+    // 目が向く先（アームの台で、見回していないとき）
+    S.hasFocus = S.orbit !== 'doors'
+    if (S.orbit === 'opening') S.focus.set(0, 2.5, 9)
+    else if (S.orbit === 'approach') S.focus.copy(S.hubPos).add(v1.set(0, 5, 0))
+    else if (S.orbit === 'grab') S.focus.copy(S.tip).lerp(vGoal, 0.5)
+    else if (holding) S.focus.copy(S.hubPos).lerp(BERTH, 0.5).add(v1.set(0, 1.2, 0))
+    else S.focus.copy(BERTH).add(v1.set(0, 4, 0))
 
     // 浮いている小物：ゆっくり回りながら、少しずつ漂う
     for (const [name, sp] of [['float_pen', 0.11], ['float_card', 0.07], ['float_pouch', 0.05]] as const) {
@@ -413,6 +618,34 @@ export function ShuttleWorld() {
       parts.mon.material.visible = vis
     }
     gl.render(scene, camera)
+    // 手首のカメラ：画面の小窓（HUD の枠 .shuttle-pip の所）に、アームの先から見た景色を描く
+    const pipOn = S.spot === 'arm' && (S.orbit === 'grab' || S.orbit === 'berth') && wrist
+    if (pipOn && !pipEl.current?.isConnected) pipEl.current = document.querySelector<HTMLElement>('.shuttle-pip-view')
+    if (pipOn && pipEl.current?.isConnected) {
+      const r = pipEl.current.getBoundingClientRect()
+      const c = gl.domElement.getBoundingClientRect()
+      if (r.width > 4 && r.height > 4) {
+        // 手首から先の上、少し後ろ（つかむ所の上の的が、つかめる位置で真ん中に来る）
+        wrist.localToWorld(wristCam.position.set(0, 0.55, 0.55))
+        wrist.getWorldQuaternion(wristCam.quaternion).multiply(qY)
+        wristCam.aspect = r.width / r.height
+        wristCam.updateProjectionMatrix()
+        const x = r.left - c.left
+        const y = c.bottom - r.bottom
+        gl.setViewport(x, y, r.width, r.height)
+        gl.setScissor(x, y, r.width, r.height)
+        gl.setScissorTest(true)
+        gl.clear()
+        sky.current?.render(gl, wristCam, mix.current, 0)
+        gl.clearDepth()
+        parts.root.visible = false
+        outside.tipGlow.visible = false
+        gl.render(scene, wristCam)
+        parts.root.visible = true
+        gl.setScissorTest(false)
+        gl.setViewport(0, 0, c.width, c.height)
+      }
+    }
   }, 1)
 
   return (
@@ -428,6 +661,55 @@ export function ShuttleWorld() {
 
 const _v2 = new THREE.Vector2()
 const v2 = (x: number, y: number) => _v2.set(x, y)
+
+/**
+ * アームの角度：先（つかむ輪の中心）を T に置く。肩の左右（yaw）で T の方を向き、その縦の面の中で
+ * 上腕と下腕の三角形を解く（ひじは上に出す）。手首は、手首から先が水平になるように。
+ * 回す向き：pitch は負で起きる、elbow は正で下へ曲がる（tools/blender/build_shuttle.py の RMS）
+ */
+function solveArm(T: THREE.Vector3, out: { yaw: number; pitch: number; elbow: number; wrist: number; wristYaw: number }) {
+  // 手首の位置：先から 1.1 m 手前（手首から先は、いつも真後ろ ＝ つかむ所の板に まっすぐ向ける）
+  const dx = T.x - SHOULDER.x
+  const dz = T.z - EE - SHOULDER.z
+  out.yaw = Math.atan2(dx, dz)
+  out.wristYaw = -out.yaw
+  const h = Math.hypot(dx, dz)
+  const v = T.y - SHOULDER.y
+  const D = THREE.MathUtils.clamp(Math.hypot(h, v), L1 - LW + 0.05, L1 + LW - 0.01)
+  const phi = Math.atan2(v, h)
+  const beta = Math.acos(THREE.MathUtils.clamp((L1 * L1 + D * D - LW * LW) / (2 * L1 * D), -1, 1))
+  const gamma = Math.acos(THREE.MathUtils.clamp((L1 * L1 + LW * LW - D * D) / (2 * L1 * LW), -1, 1))
+  out.pitch = -(phi + beta)
+  out.elbow = Math.PI - gamma
+  out.wrist = -(out.pitch + out.elbow)
+}
+
+/** 狙いを、届く所・荷物室の上の箱の中に収める。grip があれば（ハッブルを持っているとき）、ハッブルが荷物室の壁にめりこまないよう、下ほど台の真上へ寄せる */
+function clampAim(T: THREE.Vector3, grip: THREE.Vector3 | null) {
+  AIM_BOX.clampPoint(T, T)
+  if (grip) {
+    const hx = T.x - grip.x - BERTH.x
+    const hz = T.z - grip.z - BERTH.z
+    const hy = Math.max(0, T.y - grip.y - BERTH.y)
+    T.y = BERTH.y + grip.y + hy
+    const r = 0.3 + 1.5 * hy
+    const d = Math.hypot(hx, hz)
+    if (d > r) {
+      T.x = BERTH.x + grip.x + (hx * r) / d
+      T.z = BERTH.z + grip.z + (hz * r) / d
+    }
+  }
+  // 手首が届く長さより遠ければ、肩の方へ引き戻す（手首から先は真後ろ向きなので、手首の位置で考える）
+  const dx = T.x - SHOULDER.x
+  const dy = T.y - SHOULDER.y
+  const dz = T.z - EE - SHOULDER.z
+  const D = Math.hypot(dx, dy, dz)
+  const max = L1 + LW - 0.05
+  if (D > max) {
+    const k = max / D
+    T.set(SHOULDER.x + dx * k, SHOULDER.y + dy * k, SHOULDER.z + dz * k + EE)
+  }
+}
 
 /** a から b への、いちばん近い回り方の角度 */
 function angleDiff(a: number, b: number) {
