@@ -41,6 +41,43 @@ CONNECTORS = {
     'Module_Connect.008': ('node2', None),  # ノード 2 の下（今は何もつながっていない）
 }
 
+# 段階 2：つなぎ目の物（Module_Connect）が無いつながり（キューポラ・BEAM・ビショップはノード 3 に付く）は、
+# split_modules.py が箱の接し方から見つける（2 つのモジュールの箱が 1 つの向きで接し、ほかの 2 つの向きで 1 m 以上重なる）
+TOUCH_TOL = 0.3
+TOUCH_OVERLAP = 1.0
+
+# 外へ向かう（模型に無い所へつながる）閉じたハッチの種類。アプリの札（i18n の iss.outer）に使う
+#   russian … この先はロシアの区画（ノード 1 の後ろ → PMA-1 → ザーリャ）
+#   dock    … 宇宙船がつく港（ノード 2 の前と天頂：PMA-2/IDA-2、PMA-3/IDA-3）
+#   berth   … 貨物船をつなぐ口（ノード 1・2 の下）
+#   closed  … 閉じたままのハッチ（ノード 1 の天頂は Z1 トラス、ノード 3 の天頂は空き）
+#   space   … 宇宙への出口（クエストのクルーロックの船外活動のハッチ）
+OUTER_KIND = {
+    'Node1_Int_Metal_Hatch_Aft_Closed': 'russian',
+    'Node1_Int_Metal_Hatch_Nadir_Closed': 'berth',
+    'Node1_Int_Metal_Hatch_Zenith_Closed': 'closed',
+    'Node2_Int_Metal_Hatch_Fwd_Closed': 'dock',
+    'Node2_Int_Metal_Hatch_Zenith_Closed': 'dock',
+    'Node2_Int_Metal_Hatch_Nadir_Closed': 'berth',
+    'Node3_Int_Metal_Hatch_Zenith_Closed': 'closed',
+    'Airlock_Int_CrewLock_Simp_Door': 'space',
+}
+# ハッチの物ではないが、外への出口として札を付ける物（クルーロックの床の扉）
+OUTER_EXTRA = ['Airlock_Int_CrewLock_Simp_Door']
+
+# 開いた形が模型に無いハッチ：同じモジュールの開いたハッチを、縦の軸のまわりに 180° 回して作る。
+# ノード 3 の左舷（ビショップ側）は閉じた形だけ。右舷の開いたハッチを、2 つの隔壁の外の面の真ん中で回す
+SYNTH_HATCHES = {
+    'Node3_Int_Metal_Hatch_Port_Closed': {
+        'from': 'Node3_Int_Metal_Hatch_Stbd',
+        'name': 'Node3_Int_Metal_Hatch_Port',
+        # 回す軸の x（Blender の x = three の x）：右舷の隔壁の外の面と左舷の隔壁の外の面の真ん中
+        'pivot_from': ('Node3_Int _Bulkhead.SBD', 'Node3_Int _Bulkhead.PRT'),
+        # 回す軸の y：この 2 つの口（ノード 1 側とビショップ側）の真ん中を通る、モジュールの軸
+        'axis_links': ('node1', 'bishop'),
+    },
+}
+
 # ワッペン・シール（乗組員のパッチ）は出さない
 HIDE_MATERIALS = {'Patches1', 'Patches2'}
 
@@ -52,6 +89,10 @@ DIFFUSE_FALLBACK = {
 
 # 動く物・さわる物（まとめずに別の部品として残す）。名前に含まれる文字で決める
 MOVABLE_KEYS = ['Hatch', 'CEVIS.Bike', 'Cupola_WC_', 'Cupola_Int_Glass', 'CrwQtr_LftDoor', 'CrwQtr_RgtDoor']
+
+
+def is_hatch(name):
+    return 'Hatch' in name
 
 
 def module_of(name):

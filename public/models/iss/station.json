@@ -1,0 +1,1879 @@
+{
+ "version": 2,
+ "frame": "metres; three.js +X starboard, +Y zenith, -Z forward; origin = Node 1 centre",
+ "lightIntensity": 6.283185307179586,
+ "textures": {
+  "airlock_1": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "airlock"
+   ]
+  },
+  "airlock_2": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "airlock"
+   ]
+  },
+  "beam_int": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": true,
+   "users": [
+    "beam"
+   ]
+  },
+  "bishop": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": true,
+   "users": [
+    "bishop"
+   ]
+  },
+  "columbus_int_bulkhead": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "columbus"
+   ]
+  },
+  "columbus_racks01": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "columbus"
+   ]
+  },
+  "columbus_racks02": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    512,
+    256
+   ],
+   "alpha": false,
+   "users": [
+    "columbus"
+   ]
+  },
+  "columbus_racks03": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    512,
+    256
+   ],
+   "alpha": false,
+   "users": [
+    "columbus"
+   ]
+  },
+  "cupola_int": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": true,
+   "users": [
+    "cupola"
+   ]
+  },
+  "express_racks_atlas": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "columbus",
+    "jpm",
+    "node1",
+    "us_lab"
+   ]
+  },
+  "generic_hubandmetals": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "airlock",
+    "columbus",
+    "cupola",
+    "jlp",
+    "jpm",
+    "node1",
+    "node2",
+    "node3",
+    "pmm",
+    "us_lab"
+   ]
+  },
+  "generic_misc_details": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    512,
+    256
+   ],
+   "alpha": false,
+   "users": [
+    "airlock",
+    "columbus",
+    "cupola",
+    "jlp",
+    "jpm",
+    "node2",
+    "node3",
+    "pmm",
+    "us_lab"
+   ]
+  },
+  "jlp_int_bulkhead": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": true,
+   "users": [
+    "jlp"
+   ]
+  },
+  "jlp_racks": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "jlp"
+   ]
+  },
+  "jpm_bulkhead": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "jpm"
+   ]
+  },
+  "jpm_racks_01": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "jpm"
+   ]
+  },
+  "jpm_racks_02": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    512,
+    256
+   ],
+   "alpha": false,
+   "users": [
+    "jpm"
+   ]
+  },
+  "jpm_racks_03": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "jpm"
+   ]
+  },
+  "newracks59_60": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    512,
+    256
+   ],
+   "alpha": false,
+   "users": [
+    "jpm",
+    "node3"
+   ]
+  },
+  "node2_int_bulkhead": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": true,
+   "users": [
+    "node2"
+   ]
+  },
+  "node2_int_rack": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "node2"
+   ]
+  },
+  "node3_int_bulkhead": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "node3"
+   ]
+  },
+  "node3_int_rack_01": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "node3"
+   ]
+  },
+  "node3_int_rack_02": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    512,
+    256
+   ],
+   "alpha": false,
+   "users": [
+    "node3"
+   ]
+  },
+  "node3_int_rack_whc": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "node3"
+   ]
+  },
+  "pmm_01": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": false,
+   "users": [
+    "pmm",
+    "us_lab"
+   ]
+  },
+  "uslab_aft_bulkhead": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    512,
+    256
+   ],
+   "alpha": false,
+   "users": [
+    "us_lab"
+   ]
+  },
+  "uslab_fwd_bulkhead": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    512,
+    256
+   ],
+   "alpha": false,
+   "users": [
+    "us_lab"
+   ]
+  },
+  "uslab_racks_01": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": true,
+   "users": [
+    "us_lab"
+   ]
+  },
+  "uslab_racks_02": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    512,
+    256
+   ],
+   "alpha": false,
+   "users": [
+    "us_lab"
+   ]
+  },
+  "uslab_racks_03": {
+   "pc": [
+    2048,
+    1024
+   ],
+   "phone": [
+    1024,
+    512
+   ],
+   "alpha": true,
+   "users": [
+    "columbus",
+    "pmm",
+    "us_lab"
+   ]
+  },
+  "uslab_racks_04": {
+   "pc": [
+    1024,
+    512
+   ],
+   "phone": [
+    512,
+    256
+   ],
+   "alpha": false,
+   "users": [
+    "us_lab"
+   ]
+  }
+ },
+ "modules": [
+  {
+   "id": "node1",
+   "key": "unity",
+   "glb": "node1.glb",
+   "light": {
+    "pc": [
+     2048,
+     1024
+    ],
+    "phone": [
+     1024,
+     512
+    ]
+   },
+   "bboxMin": [
+    -1.8765,
+    -2.436,
+    -1.9049
+   ],
+   "bboxMax": [
+    1.8828,
+    2.4419,
+    3.0534
+   ],
+   "center": [
+    0.0032,
+    0.003,
+    0.5742
+   ],
+   "neighbours": [
+    "airlock",
+    "node3",
+    "us_lab"
+   ],
+   "hatches": [
+    {
+     "id": "node1>airlock",
+     "to": "airlock",
+     "center": [
+      2.0052,
+      -0.0004,
+      -0.0016
+     ],
+     "normal": [
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "node1>node3",
+     "to": "node3",
+     "center": [
+      -2.0052,
+      0.0004,
+      0.0016
+     ],
+     "normal": [
+      -1,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "node1>us_lab",
+     "to": "us_lab",
+     "center": [
+      0.0035,
+      0.0004,
+      -2.0226
+     ],
+     "normal": [
+      0,
+      0,
+      -1
+     ]
+    },
+    {
+     "id": "node1>out0",
+     "to": null,
+     "kind": "russian",
+     "center": [
+      0.0047,
+      -0.0146,
+      2.8503
+     ],
+     "normal": [
+      0,
+      0,
+      1
+     ]
+    },
+    {
+     "id": "node1>out1",
+     "to": null,
+     "kind": "berth",
+     "center": [
+      -0.0104,
+      -1.7587,
+      0.0003
+     ],
+     "normal": [
+      0,
+      -1,
+      0
+     ]
+    },
+    {
+     "id": "node1>out2",
+     "to": null,
+     "kind": "closed",
+     "center": [
+      0.0167,
+      1.7647,
+      0.0003
+     ],
+     "normal": [
+      0,
+      1,
+      0
+     ]
+    }
+   ],
+   "materials": {
+    "Generic_HubAndMetals": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Node1_Int_Rack": {
+     "tex": null,
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Node1_Int_Bulkhead": {
+     "tex": null,
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Lights": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": true,
+     "emissive": true,
+     "window": false
+    },
+    "EXPRESS_Racks_ATLAS": {
+     "tex": "express_racks_atlas",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": []
+  },
+  {
+   "id": "us_lab",
+   "key": "destiny",
+   "glb": "us_lab.glb",
+   "light": {
+    "pc": [
+     2048,
+     1024
+    ],
+    "phone": [
+     1024,
+     512
+    ]
+   },
+   "bboxMin": [
+    -1.5107,
+    -2.1152,
+    -10.7629
+   ],
+   "bboxMax": [
+    1.3056,
+    1.687,
+    -1.9049
+   ],
+   "center": [
+    -0.1025,
+    -0.2141,
+    -6.3339
+   ],
+   "neighbours": [
+    "node1",
+    "node2"
+   ],
+   "hatches": [
+    {
+     "id": "us_lab>node1",
+     "to": "node1",
+     "center": [
+      0.0035,
+      0.0004,
+      -2.0226
+     ],
+     "normal": [
+      0,
+      0,
+      1
+     ]
+    },
+    {
+     "id": "us_lab>node2",
+     "to": "node2",
+     "center": [
+      0.0002,
+      -0.0122,
+      -10.6431
+     ],
+     "normal": [
+      0,
+      0,
+      -1
+     ]
+    }
+   ],
+   "materials": {
+    "Generic_HubAndMetals": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Misc_Details": {
+     "tex": "generic_misc_details",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "USLab_Racks_01": {
+     "tex": "uslab_racks_01",
+     "alpha": true,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "USLab_Racks_03": {
+     "tex": "uslab_racks_03",
+     "alpha": true,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "USLab_Racks_02": {
+     "tex": "uslab_racks_02",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "EXPRESS_Racks_ATLAS": {
+     "tex": "express_racks_atlas",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "USLab_AFT_Bulkhead": {
+     "tex": "uslab_aft_bulkhead",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "USLab_FWD_Bulkhead": {
+     "tex": "uslab_fwd_bulkhead",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Lights": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": true,
+     "emissive": true,
+     "window": false
+    },
+    "PMM_01": {
+     "tex": "pmm_01",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Misc_Details_LIGHTS": {
+     "tex": "generic_misc_details",
+     "alpha": false,
+     "lamp": false,
+     "emissive": true,
+     "window": false
+    },
+    "USLab_Racks_04": {
+     "tex": "uslab_racks_04",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": [
+    "pmm_01",
+    "uslab_racks_04"
+   ]
+  },
+  {
+   "id": "node2",
+   "key": "harmony",
+   "glb": "node2.glb",
+   "light": {
+    "pc": [
+     2048,
+     1024
+    ],
+    "phone": [
+     1024,
+     512
+    ]
+   },
+   "bboxMin": [
+    -1.8791,
+    -2.1349,
+    -16.9434
+   ],
+   "bboxMax": [
+    1.8803,
+    2.1007,
+    -10.7629
+   ],
+   "center": [
+    0.0006,
+    -0.0171,
+    -13.8531
+   ],
+   "neighbours": [
+    "columbus",
+    "jpm",
+    "us_lab"
+   ],
+   "hatches": [
+    {
+     "id": "node2>us_lab",
+     "to": "us_lab",
+     "center": [
+      0.0002,
+      -0.0122,
+      -10.6431
+     ],
+     "normal": [
+      0,
+      0,
+      1
+     ]
+    },
+    {
+     "id": "node2>columbus",
+     "to": "columbus",
+     "center": [
+      2.0027,
+      -0.0122,
+      -15.0555
+     ],
+     "normal": [
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "node2>jpm",
+     "to": "jpm",
+     "center": [
+      -2.0001,
+      -0.0122,
+      -15.0538
+     ],
+     "normal": [
+      -1,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "node2>out0",
+     "to": null,
+     "kind": "dock",
+     "center": [
+      0.0017,
+      -0.0146,
+      -16.7561
+     ],
+     "normal": [
+      0,
+      0,
+      -1
+     ]
+    },
+    {
+     "id": "node2>out1",
+     "to": null,
+     "kind": "berth",
+     "center": [
+      0.0034,
+      -1.7397,
+      -15.0548
+     ],
+     "normal": [
+      0,
+      -1,
+      0
+     ]
+    },
+    {
+     "id": "node2>out2",
+     "to": null,
+     "kind": "dock",
+     "center": [
+      0.0162,
+      1.6731,
+      -15.0602
+     ],
+     "normal": [
+      0,
+      1,
+      0
+     ]
+    }
+   ],
+   "materials": {
+    "Generic_HubAndMetals": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Node2_Rack": {
+     "tex": "node2_int_rack",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Node2_Bulkhead": {
+     "tex": "node2_int_bulkhead",
+     "alpha": true,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Lights": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": true,
+     "emissive": true,
+     "window": false
+    },
+    "Generic_Misc_Details": {
+     "tex": "generic_misc_details",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": [
+    "generic_misc_details"
+   ]
+  },
+  {
+   "id": "node3",
+   "key": "tranquility",
+   "glb": "node3.glb",
+   "light": {
+    "pc": [
+     2048,
+     1024
+    ],
+    "phone": [
+     1024,
+     512
+    ]
+   },
+   "bboxMin": [
+    -8.456,
+    -1.8789,
+    -2.1061
+   ],
+   "bboxMax": [
+    -1.8765,
+    2.1133,
+    1.8228
+   ],
+   "center": [
+    -5.1662,
+    0.1172,
+    -0.1416
+   ],
+   "neighbours": [
+    "beam",
+    "bishop",
+    "cupola",
+    "node1",
+    "pmm"
+   ],
+   "hatches": [
+    {
+     "id": "node3>node1",
+     "to": "node1",
+     "center": [
+      -2.0052,
+      0.0004,
+      0.0016
+     ],
+     "normal": [
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "node3>pmm",
+     "to": "pmm",
+     "center": [
+      -6.4279,
+      0.0005,
+      -1.9993
+     ],
+     "normal": [
+      0,
+      0,
+      -1
+     ]
+    },
+    {
+     "id": "node3>cupola",
+     "to": "cupola",
+     "center": [
+      -6.4258,
+      -1.828,
+      0.0096
+     ],
+     "normal": [
+      0,
+      -1,
+      0
+     ]
+    },
+    {
+     "id": "node3>beam",
+     "to": "beam",
+     "center": [
+      -6.4252,
+      0.0008,
+      1.771
+     ],
+     "normal": [
+      0,
+      0,
+      1
+     ]
+    },
+    {
+     "id": "node3>bishop",
+     "to": "bishop",
+     "center": [
+      -8.1973,
+      0.0026,
+      -0.0029
+     ],
+     "normal": [
+      -1,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "node3>out0",
+     "to": null,
+     "kind": "closed",
+     "center": [
+      -6.4272,
+      1.7382,
+      0.0052
+     ],
+     "normal": [
+      0,
+      1,
+      0
+     ]
+    }
+   ],
+   "materials": {
+    "Generic_HubAndMetals": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Node3_Int_Rack_WHC": {
+     "tex": "node3_int_rack_whc",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Node3_Int_Rack_01": {
+     "tex": "node3_int_rack_01",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Node3_Int_Rack_02": {
+     "tex": "node3_int_rack_02",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Node3_Bulkhead": {
+     "tex": "node3_int_bulkhead",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Lights": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": true,
+     "emissive": true,
+     "window": false
+    },
+    "Generic_Misc_Details": {
+     "tex": "generic_misc_details",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "NewRacks59_60": {
+     "tex": "newracks59_60",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": [
+    "generic_misc_details",
+    "newracks59_60"
+   ]
+  },
+  {
+   "id": "cupola",
+   "key": "cupola",
+   "glb": "cupola.glb",
+   "light": {
+    "pc": [
+     1024,
+     512
+    ],
+    "phone": [
+     512,
+     256
+    ]
+   },
+   "bboxMin": [
+    -7.5876,
+    -3.4164,
+    -1.0682
+   ],
+   "bboxMax": [
+    -5.2641,
+    -1.828,
+    1.0874
+   ],
+   "center": [
+    -6.4258,
+    -2.6222,
+    0.0096
+   ],
+   "neighbours": [
+    "node3"
+   ],
+   "hatches": [
+    {
+     "id": "cupola>node3",
+     "to": "node3",
+     "center": [
+      -6.4258,
+      -1.828,
+      0.0096
+     ],
+     "normal": [
+      0,
+      1,
+      0
+     ]
+    }
+   ],
+   "materials": {
+    "Cupola_Diffuse": {
+     "tex": "cupola_int",
+     "alpha": true,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Misc_Details": {
+     "tex": "generic_misc_details",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Cupola_Glass": {
+     "tex": null,
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": true
+    },
+    "Generic_HubAndMetals": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": [
+    "generic_hubandmetals"
+   ]
+  },
+  {
+   "id": "airlock",
+   "key": "quest",
+   "glb": "airlock.glb",
+   "light": {
+    "pc": [
+     2048,
+     1024
+    ],
+    "phone": [
+     1024,
+     512
+    ]
+   },
+   "bboxMin": [
+    1.8828,
+    -2.101,
+    -2.1017
+   ],
+   "bboxMax": [
+    7.2449,
+    2.1025,
+    2.1019
+   ],
+   "center": [
+    4.5639,
+    0.0008,
+    0.0001
+   ],
+   "neighbours": [
+    "node1"
+   ],
+   "hatches": [
+    {
+     "id": "airlock>node1",
+     "to": "node1",
+     "center": [
+      2.0052,
+      -0.0004,
+      -0.0016
+     ],
+     "normal": [
+      -1,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "airlock>out0",
+     "to": null,
+     "kind": "space",
+     "center": [
+      6.2772,
+      -0.7765,
+      -0.0001
+     ],
+     "normal": [
+      0,
+      -1,
+      0
+     ]
+    }
+   ],
+   "materials": {
+    "Generic_HubAndMetals": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Airlock_1": {
+     "tex": "airlock_1",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Airlock_2": {
+     "tex": "airlock_2",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Lights": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": true,
+     "emissive": true,
+     "window": false
+    },
+    "Generic_Misc_Details": {
+     "tex": "generic_misc_details",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": [
+    "generic_misc_details"
+   ]
+  },
+  {
+   "id": "columbus",
+   "key": "columbus",
+   "glb": "columbus.glb",
+   "light": {
+    "pc": [
+     2048,
+     1024
+    ],
+    "phone": [
+     1024,
+     512
+    ]
+   },
+   "bboxMin": [
+    1.8803,
+    -1.6875,
+    -16.9232
+   ],
+   "bboxMax": [
+    8.1298,
+    2.0902,
+    -12.9701
+   ],
+   "center": [
+    5.005,
+    0.2013,
+    -14.9466
+   ],
+   "neighbours": [
+    "node2"
+   ],
+   "hatches": [
+    {
+     "id": "columbus>node2",
+     "to": "node2",
+     "center": [
+      2.0027,
+      -0.0122,
+      -15.0555
+     ],
+     "normal": [
+      -1,
+      0,
+      0
+     ]
+    }
+   ],
+   "materials": {
+    "Generic_HubAndMetals": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Columbus_Racks01": {
+     "tex": "columbus_racks01",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "EXPRESS_Racks_ATLAS": {
+     "tex": "express_racks_atlas",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Columbus_Bulkhead": {
+     "tex": "columbus_int_bulkhead",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Columbus_Racks02": {
+     "tex": "columbus_racks02",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "USLab_Racks_03": {
+     "tex": "uslab_racks_03",
+     "alpha": true,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Lights": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": true,
+     "emissive": true,
+     "window": false
+    },
+    "Generic_Misc_Details": {
+     "tex": "generic_misc_details",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Columbus_Racks03": {
+     "tex": "columbus_racks03",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": [
+    "generic_misc_details"
+   ]
+  },
+  {
+   "id": "jpm",
+   "key": "kiboPm",
+   "glb": "jpm.glb",
+   "light": {
+    "pc": [
+     2048,
+     1024
+    ],
+    "phone": [
+     1024,
+     512
+    ]
+   },
+   "bboxMin": [
+    -12.4553,
+    -2.0846,
+    -17.1245
+   ],
+   "bboxMax": [
+    -1.8791,
+    2.093,
+    -12.9793
+   ],
+   "center": [
+    -7.1672,
+    0.0042,
+    -15.0519
+   ],
+   "neighbours": [
+    "jlp",
+    "node2"
+   ],
+   "hatches": [
+    {
+     "id": "jpm>node2",
+     "to": "node2",
+     "center": [
+      -2.0001,
+      -0.0122,
+      -15.0538
+     ],
+     "normal": [
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "jpm>jlp",
+     "to": "jlp",
+     "center": [
+      -9.7463,
+      1.9798,
+      -15.0513
+     ],
+     "normal": [
+      0,
+      1,
+      0
+     ]
+    }
+   ],
+   "materials": {
+    "Generic_HubAndMetals": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "JPM_Racks_01": {
+     "tex": "jpm_racks_01",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "JPM_Bulkhead": {
+     "tex": "jpm_bulkhead",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "EXPRESS_Racks_ATLAS": {
+     "tex": "express_racks_atlas",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Lights": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": true,
+     "emissive": true,
+     "window": false
+    },
+    "JPM_Racks_02": {
+     "tex": "jpm_racks_02",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "JPM_Racks_03": {
+     "tex": "jpm_racks_03",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Misc_Details": {
+     "tex": "generic_misc_details",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "NewRacks59_60": {
+     "tex": "newracks59_60",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": [
+    "generic_misc_details",
+    "newracks59_60"
+   ]
+  },
+  {
+   "id": "jlp",
+   "key": "kiboElm",
+   "glb": "jlp.glb",
+   "light": {
+    "pc": [
+     1024,
+     512
+    ],
+    "phone": [
+     512,
+     256
+    ]
+   },
+   "bboxMin": [
+    -11.8498,
+    1.8574,
+    -17.1271
+   ],
+   "bboxMax": [
+    -7.6722,
+    5.1222,
+    -12.9818
+   ],
+   "center": [
+    -9.761,
+    3.4898,
+    -15.0545
+   ],
+   "neighbours": [
+    "jpm"
+   ],
+   "hatches": [
+    {
+     "id": "jlp>jpm",
+     "to": "jpm",
+     "center": [
+      -9.7463,
+      1.9798,
+      -15.0513
+     ],
+     "normal": [
+      0,
+      -1,
+      0
+     ]
+    }
+   ],
+   "materials": {
+    "Generic_HubAndMetals": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "JLP_Racks": {
+     "tex": "jlp_racks",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Hub": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "JLP_Int_Bulkhead": {
+     "tex": "jlp_int_bulkhead",
+     "alpha": true,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Misc_Details": {
+     "tex": "generic_misc_details",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": [
+    "generic_misc_details"
+   ]
+  },
+  {
+   "id": "pmm",
+   "key": "leonardo",
+   "glb": "pmm.glb",
+   "light": {
+    "pc": [
+     2048,
+     1024
+    ],
+    "phone": [
+     1024,
+     512
+    ]
+   },
+   "bboxMin": [
+    -8.6074,
+    -2.1747,
+    -8.1233
+   ],
+   "bboxMax": [
+    -4.2549,
+    2.1779,
+    -1.8795
+   ],
+   "center": [
+    -6.4311,
+    0.0016,
+    -5.0014
+   ],
+   "neighbours": [
+    "node3"
+   ],
+   "hatches": [
+    {
+     "id": "pmm>node3",
+     "to": "node3",
+     "center": [
+      -6.4279,
+      0.0005,
+      -1.9993
+     ],
+     "normal": [
+      0,
+      0,
+      1
+     ]
+    }
+   ],
+   "materials": {
+    "Generic_Hub": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "PMM_01": {
+     "tex": "pmm_01",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "USLab_Racks_03": {
+     "tex": "uslab_racks_03",
+     "alpha": true,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Misc_Details": {
+     "tex": "generic_misc_details",
+     "alpha": false,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    },
+    "Generic_Lights": {
+     "tex": "generic_hubandmetals",
+     "alpha": false,
+     "lamp": true,
+     "emissive": true,
+     "window": false
+    }
+   },
+   "minorTex": [
+    "generic_misc_details"
+   ]
+  },
+  {
+   "id": "beam",
+   "key": "beam",
+   "glb": "beam.glb",
+   "light": {
+    "pc": [
+     2048,
+     1024
+    ],
+    "phone": [
+     1024,
+     512
+    ]
+   },
+   "bboxMin": [
+    -8.115,
+    -1.6891,
+    1.771
+   ],
+   "bboxMax": [
+    -4.7354,
+    1.6906,
+    5.5383
+   ],
+   "center": [
+    -6.4252,
+    0.0008,
+    3.6547
+   ],
+   "neighbours": [
+    "node3"
+   ],
+   "hatches": [
+    {
+     "id": "beam>node3",
+     "to": "node3",
+     "center": [
+      -6.4252,
+      0.0008,
+      1.771
+     ],
+     "normal": [
+      0,
+      0,
+      -1
+     ]
+    }
+   ],
+   "materials": {
+    "BEAM_Internal.001": {
+     "tex": "beam_int",
+     "alpha": true,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": []
+  },
+  {
+   "id": "bishop",
+   "key": "bishop",
+   "glb": "bishop.glb",
+   "light": {
+    "pc": [
+     1024,
+     512
+    ],
+    "phone": [
+     512,
+     256
+    ]
+   },
+   "bboxMin": [
+    -9.7956,
+    -0.8072,
+    -0.8125
+   ],
+   "bboxMax": [
+    -8.1973,
+    0.8125,
+    0.8068
+   ],
+   "center": [
+    -8.9965,
+    0.0026,
+    -0.0029
+   ],
+   "neighbours": [
+    "node3"
+   ],
+   "hatches": [
+    {
+     "id": "bishop>node3",
+     "to": "node3",
+     "center": [
+      -8.1973,
+      0.0026,
+      -0.0029
+     ],
+     "normal": [
+      1,
+      0,
+      0
+     ]
+    }
+   ],
+   "materials": {
+    "BishopMaterial": {
+     "tex": "bishop",
+     "alpha": true,
+     "lamp": false,
+     "emissive": false,
+     "window": false
+    }
+   },
+   "minorTex": []
+  }
+ ]
+}

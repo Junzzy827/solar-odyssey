@@ -31,6 +31,35 @@
 | 窓の内径は約 0.5 m | WINDOW_R 0.26 m | 模型（NASA 3D Resources）の寸法を測った値。本物の寸法は確かめていない（UNVERIFIED） |
 | 部屋の大きさ（デスティニーは長さ約 8.5 m、直径約 4.3 m） | — | 模型の寸法をそのまま使った。数字はカードに出していない |
 
+## 段階 2：部屋の役目（入ったときの「名前 ・ 役目」）と、外への口の札
+
+2026-11-27 に確認。
+
+| 部屋・札 | 文（ja） | 事実 | 出典 |
+|---|---|---|---|
+| ユニティ | つなぎの部屋 | ロシアの区画（ザーリャ）と PMA-1 でつながり、ほかの部屋をつなぐ中心 | Wikipedia「US Orbital Segment」 https://en.wikipedia.org/wiki/US_Orbital_Segment |
+| デスティニー | アメリカの実験室 | "The Destiny laboratory is the American-built laboratory module" | 同上 |
+| ハーモニー | 寝室と港 | 寝室（Crew Quarters）は Node 2 に 4 つまで置く ・ 前と宇宙側の口に宇宙船のドッキング用アダプター | NTRS 20080013462「ISS USOS Crew Quarters Development」 https://ntrs.nasa.gov/citations/20080013462 ・ NASA「Harmony Module」 https://nasa.gov/international-space-station/harmony-module |
+| トランクウィリティー | トイレと運動の部屋 | "waste and hygiene compartment and a treadmill"、ARED。生命維持の装置も | NASA「Tranquility Module」 https://www.nasa.gov/international-space-station/tranquility-module |
+| キューポラ | 地球を見る窓 | トランクウィリティーにつく窓の部屋 | 同上 ・ ESA「Cupola」 https://www.esa.int/Science_Exploration/Human_and_Robotic_Exploration/International_Space_Station/Cupola |
+| クエスト | 宇宙へ出る出入り口 | "used to host spacewalks from the USOS segment" | Wikipedia「US Orbital Segment」（上） |
+| コロンバス | ヨーロッパの実験室 | ESA の実験室 | ESA「Columbus」の各ページ（UNVERIFIED：個別のページは開いて確かめていない） |
+| きぼう 実験室 | 日本の実験室 | JAXA の実験室（JEM の船内実験室） | UNVERIFIED（一般に知られた事実。出典のページは開いていない） |
+| きぼう 保管室 | 日本の倉庫 | "pressurized cargo container"（船内保管室） | Wikipedia「US Orbital Segment」（上） |
+| レオナルド | 荷物の倉庫 | "a module used for stowage space"、トランクウィリティーの前の口 | 同上 |
+| ビーム | ふくらませた部屋 | "an experimental expandable space station module"、2016 年 5 月にふくらませた。いまは荷物置き | 同上 |
+| ビショップ | 小さなエアロック | 民間のエアロック。小さな衛星などを外へ出す | NASA「A New Doorway to Space」 https://www.nasa.gov/humans-in-space/a-new-doorway-to-space |
+| 札：russian | この先はロシアの区画 | ユニティの後ろの口は PMA-1 でザーリャへ | Wikipedia「US Orbital Segment」（上） |
+| 札：dock | この先は宇宙船がつく港 | ハーモニーの前と宇宙側の口（IDA） | NASA「Harmony Module」（上） |
+| 札：berth | ここに貨物船がつながる | ハーモニーの地球側の口に HTV・Dragon・Cygnus ・ ユニティの地球側の口に Cygnus | Wikipedia「US Orbital Segment」（上） ・ NASA Space Station Blog 2021-02-22「Cygnus Resupply Ship Bolted to Station's Unity Module」 https://www.nasa.gov/blogs/spacestation/2021/02/22/cygnus-resupply-ship-bolted-to-stations-unity-module |
+| 札：closed | このハッチは閉めたまま | ユニティの宇宙側（Z1 トラス）、トランクウィリティーの宇宙側（中は運動の道具が使っている）。外に部屋は無い | トランクウィリティー：Wikipedia「US Orbital Segment」（上）。ユニティの宇宙側：UNVERIFIED |
+| 札：space | この先は宇宙（船外活動の出口） | クエストの外側の部屋（クルーロック）から船外活動に出る | 同上（Quest） |
+
+場面の作り：
+- 部屋のつながり・口の場所は模型（NASA 3D Resources）の Module_Connect と部屋の箱の接し方から求めた（tools/iss/modules.json）。
+  模型にはロシアの区画と、ドッキング中の宇宙船は入っていない。
+- 模型のトランクウィリティーの左舷の口（ビショップ側）は閉じたハッチしか無いので、右舷の開いたハッチを回して置いた（build_module.py）。
+
 ## 出さないと決めたもの
 
 - 実在の宇宙飛行士の名前・言葉は出さない。

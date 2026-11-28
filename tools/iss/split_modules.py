@@ -90,6 +90,9 @@ for o in unassigned:
     by_module[best[0]].append(o)
 
 
+module_of_obj = {o.name: mid for mid, objs in by_module.items() for o in objs}
+
+
 # ---- 材質ごとの面積（m²）と絵の上の面積（0..1）を数える --------------------------------------
 def mesh_areas(o):
     me = o.data
@@ -132,6 +135,151 @@ def mesh_areas(o):
     return out
 
 
+# ---- つながり（ハッチの位置）を見つける -----------------------------------------------------------
+# 1. つなぎ目の物（Module_Connect.*）があるもの：その物の真ん中
+# 2. 無いもの（キューポラ・BEAM・ビショップ）：2 つのモジュールの箱が 1 つの向きで接していたら、小さい方の箱の
+#    接する面の真ん中（ハッチの穴の真ん中）
+# 軸（axis）と向き（このモジュールから相手へ ±1）も書く。アプリはそこに幕（まだ読んでいない部屋）を置く
+AXES = 'xyz'
+
+
+def bcenter(o):
+    a, b = C.world_bbox(o)
+    return (a + b) / 2
+
+
+def thin_axis(o):
+    a, b = C.world_bbox(o)
+    d = b - a
+    return min(range(3), key=lambda i: d[i])
+
+
+links = []  # {a, b, center(Blender), axis(0..2), connector}
+for cname, (own, other) in C.CONNECTORS.items():
+    o = bpy.data.objects[cname]
+    links.append({'a': own, 'b': other, 'center': bcenter(o), 'axis': thin_axis(o), 'connector': cname})
+ids = [m[0] for m in C.MODULES]
+for i, ma in enumerate(ids):
+    for mb in ids[i + 1:]:
+        if any({l['a'], l['b']} == {ma, mb} for l in links):
+            continue
+        (amn, amx), (bmn, bmx) = core[ma], core[mb]
+        for k in range(3):
+            touch = abs(amx[k] - bmn[k]) < C.TOUCH_TOL or abs(bmx[k] - amn[k]) < C.TOUCH_TOL
+            others = [j for j in range(3) if j != k]
+            ov = [min(amx[j], bmx[j]) - max(amn[j], bmn[j]) for j in others]
+            if touch and min(ov) > C.TOUCH_OVERLAP:
+                # 小さい方の箱の、相手に接する面の真ん中
+                va = (amx - amn).x * (amx - amn).y * (amx - amn).z
+                vb = (bmx - bmn).x * (bmx - bmn).y * (bmx - bmn).z
+                small, smn, smx, big = (ma, amn, amx, mb) if va < vb else (mb, bmn, bmx, ma)
+                bc = (core[big][0] + core[big][1]) / 2
+                c = (smn + smx) / 2
+                c[k] = smx[k] if bc[k] > c[k] else smn[k]
+                links.append({'a': ma, 'b': mb, 'center': c, 'axis': k, 'connector': None})
+                print('found link', ma, mb, 'axis', AXES[k], tuple(round(v, 3) for v in c))
+                break
+
+
+def mod_center(mid):
+    mn, mx = core[mid]
+    return (mn + mx) / 2
+
+
+def three_axis(k, sgn):
+    """Blender の軸と向き → three の向き（x→x、y→−z、z→y）"""
+    v = [0, 0, 0]
+    v[k] = sgn
+    return [v[0], v[2], -v[1]]
+
+
+# ハッチの名前の向き → three の向き（ノード 1〜3・PMM・コロンバスなどは、名前の向きがアプリの向きと同じ）
+NAME_DIR = {'fwd': [0, 0, -1], 'aft': [0, 0, 1], 'port': [-1, 0, 0], 'stbd': [1, 0, 0], 'zenith': [0, 1, 0], 'nadir': [0, -1, 0]}
+
+
+def link_normal(l, mid):
+    """つながりの口の向き（mid から外へ、three）"""
+    k = l['axis']
+    mc = mod_center(mid)
+    return three_axis(k, 1 if l['center'][k] > mc[k] else -1)
+
+
+def out_axis(o, mid):
+    """外への口の向き（Blender の軸と ±1）。薄い物（閉じたハッチの板）はその薄い向き。厚い物（枠ごとの形）は、
+    モジュールの真ん中からのずれが、モジュールの大きさに比べていちばん大きい向き"""
+    a, b = C.world_bbox(o)
+    d = sorted(b - a)
+    mn, mx = core[mid]
+    c = bcenter(o)
+    mc = (mn + mx) / 2
+    if d[0] < 0.35 * d[1]:
+        k = thin_axis(o)
+    else:
+        k = max(range(3), key=lambda i: abs(c[i] - mc[i]) / max((mx[i] - mn[i]) / 2, 1e-3))
+    return k, (1 if c[k] > mc[k] else -1)
+
+
+# ハッチの物（開いた形・閉じた形）を、つながり・外への口に振り分ける
+#   つながっている口：開いた形だけ出す（閉じた形しか無ければ、開いた形を作る：C.SYNTH_HATCHES）
+#   外への口（模型に無い所へ）：閉じた形だけ出す。札の種類は C.OUTER_KIND
+#   どこにも当たらない開いたハッチ（クエストの中の仕切り）は、そのまま
+drop = set()
+synth = collections.defaultdict(list)
+outer = collections.defaultdict(list)
+hatch_of_link = {}
+for mid in ids:
+    hs = [o for o in by_module.get(mid, []) if C.is_hatch(o.name)]
+    names = {o.name for o in hs}
+    for o in hs:
+        if o.name.endswith('_Closed'):
+            continue
+        # 閉じた形と組になっている開いた形は、閉じた形の方で決める
+        if o.name + '_Closed' in names:
+            continue
+        # 開いた形だけ：近いつながり（1.8 m 以内）の開いたハッチ。開いたハッチは 2 つの口の間の角にあることがあり
+        # （ノード 3）、近さだけでは決まらないので、名前の向き（Fwd・Aft…）と口の向きが合うものを先に選ぶ
+        c = bcenter(o)
+        near = [l for l in links if mid in (l['a'], l['b']) and l['b'] is not None and (l['center'] - c).length < 1.8]
+        word = next((w for w in NAME_DIR if w in o.name.lower()), None)
+        named = [l for l in near if word and link_normal(l, mid) == NAME_DIR[word]]
+        pick = named[0] if named else (min(near, key=lambda l: (l['center'] - c).length) if near else None)
+        if pick:
+            hatch_of_link.setdefault(id(pick), []).append(o.name)
+        else:
+            print('internal hatch (kept open)', mid, o.name)
+    for o in hs:
+        if not o.name.endswith('_Closed'):
+            continue
+        c = bcenter(o)
+        near = [l for l in links if mid in (l['a'], l['b']) and (l['center'] - c).length < 0.6]
+        open_name = o.name[: -len('_Closed')]
+        if near and near[0]['b'] is not None:
+            # つながっている：開いた形を出す
+            drop.add(o.name)
+            if open_name in names:
+                hatch_of_link.setdefault(id(near[0]), []).append(open_name)
+            elif o.name in C.SYNTH_HATCHES:
+                synth[mid].append(o.name)
+                hatch_of_link.setdefault(id(near[0]), []).append(C.SYNTH_HATCHES[o.name]['name'])
+                print('synth open hatch for', o.name)
+            else:
+                print('WARNING: connected but only closed', o.name)
+        else:
+            # 外への口：閉じた形を出し、開いた形は出さない
+            if open_name in names:
+                drop.add(open_name)
+            k, sgn = out_axis(o, mid)
+            outer[mid].append({'object': o.name, 'kind': C.OUTER_KIND.get(o.name, 'closed'), 'center': c, 'axis': k, 'dir': sgn})
+            if o.name not in C.OUTER_KIND:
+                print('WARNING: outer hatch without kind', o.name)
+    for name in C.OUTER_EXTRA:
+        o = bpy.data.objects.get(name)
+        if o is not None and module_of_obj.get(name) == mid:
+            k, sgn = out_axis(o, mid)
+            outer[mid].append({'object': name, 'kind': C.OUTER_KIND[name], 'center': bcenter(o), 'axis': k, 'dir': sgn})
+print('dropped hatch variants', sorted(drop))
+
+
 mat_use = collections.defaultdict(lambda: collections.defaultdict(lambda: [0.0, 0.0, 0]))
 modules = []
 names = {m[0]: m[1] for m in C.MODULES}
@@ -139,6 +287,8 @@ for mid, _key, _p in C.MODULES:
     objs = by_module.get(mid, [])
     mn, mx = box_of([o for o in objs if not o.name.startswith('Node1_Int_Lights')] or objs)
     hidden = [o.name for o in objs if any(s.material and s.material.name in C.HIDE_MATERIALS for s in o.material_slots)]
+    # 出さないハッチの形（つながっている口の閉じた形・外への口の開いた形）
+    hidden += [o.name for o in objs if o.name in drop]
     tris = 0
     mats = collections.Counter()
     movable = []
@@ -164,13 +314,31 @@ for mid, _key, _p in C.MODULES:
             })
     size = mx - mn
     axis = 'xyz'[max(range(3), key=lambda i: size[i])]
-    # つなぎ目（ハッチの位置）
+    # ハッチ：つながり（to = 相手）と外への口（to = null、kind）。normal はこのモジュールから外へ向く向き（three）
     hatches = []
-    for cname, (own, other) in C.CONNECTORS.items():
-        if mid not in (own, other):
+    mc = mod_center(mid)
+    for l in links:
+        if mid not in (l['a'], l['b']):
             continue
-        a, b = C.world_bbox(bpy.data.objects[cname])
-        hatches.append({'connector': cname, 'to': other if mid == own else own, 'center': C.b2three((a + b) / 2)})
+        to = l['b'] if mid == l['a'] else l['a']
+        k = l['axis']
+        sgn = 1 if l['center'][k] > mc[k] else -1
+        h = {'id': f"{mid}>{to or 'out'}", 'connector': l['connector'], 'to': to, 'center': C.b2three(l['center']), 'normal': three_axis(k, sgn)}
+        if to is None:
+            # つなぎ目はあるが先が無い（ノード 2 の下）：閉じたハッチの札は outer の方で付ける
+            continue
+        h['hatchObjects'] = hatch_of_link.get(id(l), [])
+        hatches.append(h)
+    for i, oh in enumerate(outer.get(mid, [])):
+        hatches.append({
+            'id': f'{mid}>out{i}',
+            'connector': None,
+            'to': None,
+            'kind': oh['kind'],
+            'object': oh['object'],
+            'center': C.b2three(oh['center']),
+            'normal': three_axis(oh['axis'], oh['dir']),
+        })
     modules.append({
         'id': mid,
         'key': names[mid],
@@ -181,6 +349,7 @@ for mid, _key, _p in C.MODULES:
         'axis': {'x': 'x', 'y': 'z', 'z': 'y'}[axis],
         'neighbours': sorted({h['to'] for h in hatches if h['to']}),
         'hatches': hatches,
+        'synthHatches': synth.get(mid, []),
         'triangles': tris,
         'materials': dict(mats.most_common()),
         'objects': sorted(o.name for o in objs if o.name not in hidden),

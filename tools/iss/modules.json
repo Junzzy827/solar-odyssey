@@ -34,33 +34,113 @@
    ],
    "hatches": [
     {
+     "id": "node1>airlock",
      "connector": "Module_Connect.000",
      "to": "airlock",
      "center": [
       2.0052,
       -0.0004,
       -0.0016
+     ],
+     "normal": [
+      1,
+      0,
+      0
+     ],
+     "hatchObjects": [
+      "Node1_Int_Metal_Hatch_Stbd"
      ]
     },
     {
+     "id": "node1>node3",
      "connector": "Module_Connect.001",
      "to": "node3",
      "center": [
       -2.0052,
       0.0004,
       0.0016
+     ],
+     "normal": [
+      -1,
+      0,
+      0
+     ],
+     "hatchObjects": [
+      "Node1_Int_Metal_Hatch_Port",
+      "Node3_Int_Metal_Hatch_Stbd"
      ]
     },
     {
+     "id": "node1>us_lab",
      "connector": "Module_Connect.002",
      "to": "us_lab",
      "center": [
       0.0035,
       0.0004,
       -2.0226
+     ],
+     "normal": [
+      0,
+      0,
+      -1
+     ],
+     "hatchObjects": [
+      "Node1_Int_Metal_Hatch_Fwd"
+     ]
+    },
+    {
+     "id": "node1>out0",
+     "connector": null,
+     "to": null,
+     "kind": "russian",
+     "object": "Node1_Int_Metal_Hatch_Aft_Closed",
+     "center": [
+      0.0047,
+      -0.0146,
+      2.8503
+     ],
+     "normal": [
+      0,
+      0,
+      1
+     ]
+    },
+    {
+     "id": "node1>out1",
+     "connector": null,
+     "to": null,
+     "kind": "berth",
+     "object": "Node1_Int_Metal_Hatch_Nadir_Closed",
+     "center": [
+      -0.0104,
+      -1.7587,
+      0.0003
+     ],
+     "normal": [
+      0,
+      -1,
+      0
+     ]
+    },
+    {
+     "id": "node1>out2",
+     "connector": null,
+     "to": null,
+     "kind": "closed",
+     "object": "Node1_Int_Metal_Hatch_Zenith_Closed",
+     "center": [
+      0.0167,
+      1.7647,
+      0.0003
+     ],
+     "normal": [
+      0,
+      1,
+      0
      ]
     }
    ],
+   "synthHatches": [],
    "triangles": 32205,
    "materials": {
     "Generic_HubAndMetals": 28077,
@@ -207,24 +287,43 @@
    ],
    "hatches": [
     {
+     "id": "us_lab>node1",
      "connector": "Module_Connect.002",
      "to": "node1",
      "center": [
       0.0035,
       0.0004,
       -2.0226
+     ],
+     "normal": [
+      0,
+      0,
+      1
+     ],
+     "hatchObjects": [
+      "Node1_Int_Metal_Hatch_Fwd"
      ]
     },
     {
+     "id": "us_lab>node2",
      "connector": "Module_Connect.003",
      "to": "node2",
      "center": [
       0.0002,
       -0.0122,
       -10.6431
+     ],
+     "normal": [
+      0,
+      0,
+      -1
+     ],
+     "hatchObjects": [
+      "Node2_Int_Metal_Hatch_Aft"
      ]
     }
    ],
+   "synthHatches": [],
    "triangles": 66685,
    "materials": {
     "Generic_HubAndMetals": 31855,
@@ -356,45 +455,117 @@
    ],
    "hatches": [
     {
+     "id": "node2>us_lab",
      "connector": "Module_Connect.003",
      "to": "us_lab",
      "center": [
       0.0002,
       -0.0122,
       -10.6431
+     ],
+     "normal": [
+      0,
+      0,
+      1
+     ],
+     "hatchObjects": [
+      "Node2_Int_Metal_Hatch_Aft"
      ]
     },
     {
+     "id": "node2>columbus",
      "connector": "Module_Connect.004",
      "to": "columbus",
      "center": [
       2.0027,
       -0.0122,
       -15.0555
+     ],
+     "normal": [
+      1,
+      0,
+      0
+     ],
+     "hatchObjects": [
+      "Node2_Int_Metal_Hatch_Stbd",
+      "Columbus_Hatch_Port"
      ]
     },
     {
+     "id": "node2>jpm",
      "connector": "Module_Connect.005",
      "to": "jpm",
      "center": [
       -2.0001,
       -0.0122,
       -15.0538
+     ],
+     "normal": [
+      -1,
+      0,
+      0
+     ],
+     "hatchObjects": [
+      "Node2_Int_Metal_Hatch_Port",
+      "JPM_Hatch_Stbd"
      ]
     },
     {
-     "connector": "Module_Connect.008",
+     "id": "node2>out0",
+     "connector": null,
      "to": null,
+     "kind": "dock",
+     "object": "Node2_Int_Metal_Hatch_Fwd_Closed",
      "center": [
-      -0.0002,
-      -2.0125,
-      -15.0555
+      0.0017,
+      -0.0146,
+      -16.7561
+     ],
+     "normal": [
+      0,
+      0,
+      -1
+     ]
+    },
+    {
+     "id": "node2>out1",
+     "connector": null,
+     "to": null,
+     "kind": "berth",
+     "object": "Node2_Int_Metal_Hatch_Nadir_Closed",
+     "center": [
+      0.0034,
+      -1.7397,
+      -15.0548
+     ],
+     "normal": [
+      0,
+      -1,
+      0
+     ]
+    },
+    {
+     "id": "node2>out2",
+     "connector": null,
+     "to": null,
+     "kind": "dock",
+     "object": "Node2_Int_Metal_Hatch_Zenith_Closed",
+     "center": [
+      0.0162,
+      1.6731,
+      -15.0602
+     ],
+     "normal": [
+      0,
+      1,
+      0
      ]
     }
    ],
-   "triangles": 38562,
+   "synthHatches": [],
+   "triangles": 37298,
    "materials": {
-    "Generic_HubAndMetals": 29400,
+    "Generic_HubAndMetals": 28136,
     "Node2_Rack": 6480,
     "Node2_Bulkhead": 2426,
     "Generic_Lights": 192,
@@ -424,7 +595,6 @@
     "Node2_Int_Metal_Hatch_Nadir_Closed",
     "Node2_Int_Metal_Hatch_Port",
     "Node2_Int_Metal_Hatch_Stbd",
-    "Node2_Int_Metal_Hatch_Zenith",
     "Node2_Int_Metal_Hatch_Zenith_Closed",
     "Node2_Int_Metals",
     "Node2_Int_Rack.LIGHTS",
@@ -434,7 +604,8 @@
     "Node2_Int_Rack.ZTH"
    ],
    "hidden": [
-    "Node2_Patches_Cutout"
+    "Node2_Patches_Cutout",
+    "Node2_Int_Metal_Hatch_Zenith"
    ],
    "movable": [
     {
@@ -633,21 +804,6 @@
      "tris": 1264
     },
     {
-     "name": "Node2_Int_Metal_Hatch_Zenith",
-     "origin": [
-      0.0006,
-      -0.0118,
-      -15.0555
-     ],
-     "center": [
-      0.0162,
-      1.6731,
-      -15.0602
-     ],
-     "closed": false,
-     "tris": 1264
-    },
-    {
      "name": "Node2_Int_Metal_Hatch_Zenith_Closed",
      "origin": [
       0.0006,
@@ -684,32 +840,129 @@
    ],
    "axis": "x",
    "neighbours": [
+    "beam",
+    "bishop",
+    "cupola",
     "node1",
     "pmm"
    ],
    "hatches": [
     {
+     "id": "node3>node1",
      "connector": "Module_Connect.001",
      "to": "node1",
      "center": [
       -2.0052,
       0.0004,
       0.0016
+     ],
+     "normal": [
+      1,
+      0,
+      0
+     ],
+     "hatchObjects": [
+      "Node1_Int_Metal_Hatch_Port",
+      "Node3_Int_Metal_Hatch_Stbd"
      ]
     },
     {
+     "id": "node3>pmm",
      "connector": "Module_Connect.007",
      "to": "pmm",
      "center": [
       -6.4279,
       0.0005,
       -1.9993
+     ],
+     "normal": [
+      0,
+      0,
+      -1
+     ],
+     "hatchObjects": [
+      "Node3_Int_Metal_Hatch_Fwd",
+      "PMM.Hatch.Aft"
+     ]
+    },
+    {
+     "id": "node3>cupola",
+     "connector": null,
+     "to": "cupola",
+     "center": [
+      -6.4258,
+      -1.828,
+      0.0096
+     ],
+     "normal": [
+      0,
+      -1,
+      0
+     ],
+     "hatchObjects": [
+      "Node3_Int_Metal_Hatch_Nadir"
+     ]
+    },
+    {
+     "id": "node3>beam",
+     "connector": null,
+     "to": "beam",
+     "center": [
+      -6.4252,
+      0.0008,
+      1.771
+     ],
+     "normal": [
+      0,
+      0,
+      1
+     ],
+     "hatchObjects": [
+      "Node3_Int_Metal_Hatch_Aft"
+     ]
+    },
+    {
+     "id": "node3>bishop",
+     "connector": null,
+     "to": "bishop",
+     "center": [
+      -8.1973,
+      0.0026,
+      -0.0029
+     ],
+     "normal": [
+      -1,
+      0,
+      0
+     ],
+     "hatchObjects": [
+      "Node3_Int_Metal_Hatch_Port"
+     ]
+    },
+    {
+     "id": "node3>out0",
+     "connector": null,
+     "to": null,
+     "kind": "closed",
+     "object": "Node3_Int_Metal_Hatch_Zenith_Closed",
+     "center": [
+      -6.4272,
+      1.7382,
+      0.0052
+     ],
+     "normal": [
+      0,
+      1,
+      0
      ]
     }
    ],
-   "triangles": 46749,
+   "synthHatches": [
+    "Node3_Int_Metal_Hatch_Port_Closed"
+   ],
+   "triangles": 45485,
    "materials": {
-    "Generic_HubAndMetals": 29280,
+    "Generic_HubAndMetals": 28016,
     "Node3_Int_Rack_WHC": 7067,
     "Node3_Int_Rack_01": 5082,
     "Node3_Int_Rack_02": 3500,
@@ -731,7 +984,6 @@
     "Node3_Int_Metal_Hatch_Aft",
     "Node3_Int_Metal_Hatch_Fwd",
     "Node3_Int_Metal_Hatch_Nadir",
-    "Node3_Int_Metal_Hatch_Port_Closed",
     "Node3_Int_Metal_Hatch_Stbd",
     "Node3_Int_Metal_Hatch_Zenith_Closed",
     "Node3_Int_Metals",
@@ -743,7 +995,9 @@
     "Node3_Int_Rack.ZNH",
     "Node3_Int_Rack_WHC"
    ],
-   "hidden": [],
+   "hidden": [
+    "Node3_Int_Metal_Hatch_Port_Closed"
+   ],
    "movable": [
     {
      "name": "Node3_Int_Metal_Hatch_Aft",
@@ -788,21 +1042,6 @@
       -1.1484
      ],
      "closed": false,
-     "tris": 1264
-    },
-    {
-     "name": "Node3_Int_Metal_Hatch_Port_Closed",
-     "origin": [
-      -4.4759,
-      -0.1636,
-      0.1075
-     ],
-     "center": [
-      -8.1676,
-      0.0029,
-      0.0041
-     ],
-     "closed": true,
      "tris": 1264
     },
     {
@@ -856,8 +1095,30 @@
     0.0096
    ],
    "axis": "x",
-   "neighbours": [],
-   "hatches": [],
+   "neighbours": [
+    "node3"
+   ],
+   "hatches": [
+    {
+     "id": "cupola>node3",
+     "connector": null,
+     "to": "node3",
+     "center": [
+      -6.4258,
+      -1.828,
+      0.0096
+     ],
+     "normal": [
+      0,
+      1,
+      0
+     ],
+     "hatchObjects": [
+      "Node3_Int_Metal_Hatch_Nadir"
+     ]
+    }
+   ],
+   "synthHatches": [],
    "triangles": 31102,
    "materials": {
     "Cupola_Diffuse": 22878,
@@ -1026,15 +1287,42 @@
    ],
    "hatches": [
     {
+     "id": "airlock>node1",
      "connector": "Module_Connect.000",
      "to": "node1",
      "center": [
       2.0052,
       -0.0004,
       -0.0016
+     ],
+     "normal": [
+      -1,
+      0,
+      0
+     ],
+     "hatchObjects": [
+      "Node1_Int_Metal_Hatch_Stbd"
+     ]
+    },
+    {
+     "id": "airlock>out0",
+     "connector": null,
+     "to": null,
+     "kind": "space",
+     "object": "Airlock_Int_CrewLock_Simp_Door",
+     "center": [
+      6.2772,
+      -0.7765,
+      -0.0001
+     ],
+     "normal": [
+      0,
+      -1,
+      0
      ]
     }
    ],
+   "synthHatches": [],
    "triangles": 26261,
    "materials": {
     "Generic_HubAndMetals": 15230,
@@ -1101,15 +1389,26 @@
    ],
    "hatches": [
     {
+     "id": "columbus>node2",
      "connector": "Module_Connect.004",
      "to": "node2",
      "center": [
       2.0027,
       -0.0122,
       -15.0555
+     ],
+     "normal": [
+      -1,
+      0,
+      0
+     ],
+     "hatchObjects": [
+      "Node2_Int_Metal_Hatch_Stbd",
+      "Columbus_Hatch_Port"
      ]
     }
    ],
+   "synthHatches": [],
    "triangles": 21366,
    "materials": {
     "Generic_HubAndMetals": 10384,
@@ -1208,30 +1507,50 @@
    ],
    "hatches": [
     {
+     "id": "jpm>node2",
      "connector": "Module_Connect.005",
      "to": "node2",
      "center": [
       -2.0001,
       -0.0122,
       -15.0538
+     ],
+     "normal": [
+      1,
+      0,
+      0
+     ],
+     "hatchObjects": [
+      "Node2_Int_Metal_Hatch_Port",
+      "JPM_Hatch_Stbd"
      ]
     },
     {
+     "id": "jpm>jlp",
      "connector": "Module_Connect.006",
      "to": "jlp",
      "center": [
       -9.7463,
       1.9798,
       -15.0513
+     ],
+     "normal": [
+      0,
+      1,
+      0
+     ],
+     "hatchObjects": [
+      "JPM_Hatch_Nadir",
+      "JLP_Metal_Hatch_Nadir"
      ]
     }
    ],
-   "triangles": 22565,
+   "synthHatches": [],
+   "triangles": 21301,
    "materials": {
     "Generic_HubAndMetals": 10152,
     "JPM_Racks_01": 7076,
     "JPM_Bulkhead": 3253,
-    "Generic_Metals": 1264,
     "EXPRESS_Racks_ATLAS": 318,
     "Generic_Lights": 224,
     "JPM_Racks_02": 148,
@@ -1278,12 +1597,12 @@
     "JPM_CollapsedForUnity.Zenith",
     "JPM_CollapsedForUnity.Zenith.Backing",
     "JPM_Hatch_Nadir",
-    "JPM_Hatch_Nadir_Closed",
     "JPM_Hatch_Stbd",
     "Module_Connect.005"
    ],
    "hidden": [
-    "JPM_Patches"
+    "JPM_Patches",
+    "JPM_Hatch_Nadir_Closed"
    ],
    "movable": [
     {
@@ -1299,21 +1618,6 @@
       -15.0566
      ],
      "closed": false,
-     "tris": 1264
-    },
-    {
-     "name": "JPM_Hatch_Nadir_Closed",
-     "origin": [
-      -9.7626,
-      -0.0288,
-      -15.0555
-     ],
-     "center": [
-      -9.747,
-      1.6562,
-      -15.0602
-     ],
-     "closed": true,
      "tris": 1264
     },
     {
@@ -1357,21 +1661,31 @@
    ],
    "hatches": [
     {
+     "id": "jlp>jpm",
      "connector": "Module_Connect.006",
      "to": "jpm",
      "center": [
       -9.7463,
       1.9798,
       -15.0513
+     ],
+     "normal": [
+      0,
+      -1,
+      0
+     ],
+     "hatchObjects": [
+      "JPM_Hatch_Nadir",
+      "JLP_Metal_Hatch_Nadir"
      ]
     }
    ],
-   "triangles": 10438,
+   "synthHatches": [],
+   "triangles": 9174,
    "materials": {
     "Generic_HubAndMetals": 5360,
     "JLP_Racks": 1464,
     "Generic_Hub": 1264,
-    "Generic_Metals": 1264,
     "JLP_Int_Bulkhead": 1022,
     "Generic_Misc_Details": 64
    },
@@ -1381,10 +1695,11 @@
     "JLP_Int_Metals",
     "JLP_Int_Racks",
     "JLP_Metal_Hatch_Nadir",
-    "JLP_Metal_Hatch_Nadir_Closed",
     "Module_Connect.006"
    ],
-   "hidden": [],
+   "hidden": [
+    "JLP_Metal_Hatch_Nadir_Closed"
+   ],
    "movable": [
     {
      "name": "JLP_Metal_Hatch_Nadir",
@@ -1399,21 +1714,6 @@
       -15.0309
      ],
      "closed": false,
-     "tris": 1264
-    },
-    {
-     "name": "JLP_Metal_Hatch_Nadir_Closed",
-     "origin": [
-      -9.7626,
-      3.9905,
-      -15.0555
-     ],
-     "center": [
-      -9.747,
-      2.3056,
-      -15.0509
-     ],
-     "closed": true,
      "tris": 1264
     }
    ]
@@ -1442,15 +1742,26 @@
    ],
    "hatches": [
     {
+     "id": "pmm>node3",
      "connector": "Module_Connect.007",
      "to": "node3",
      "center": [
       -6.4279,
       0.0005,
       -1.9993
+     ],
+     "normal": [
+      0,
+      0,
+      1
+     ],
+     "hatchObjects": [
+      "Node3_Int_Metal_Hatch_Fwd",
+      "PMM.Hatch.Aft"
      ]
     }
    ],
+   "synthHatches": [],
    "triangles": 23419,
    "materials": {
     "Generic_Hub": 13179,
@@ -1511,8 +1822,30 @@
     3.6547
    ],
    "axis": "z",
-   "neighbours": [],
-   "hatches": [],
+   "neighbours": [
+    "node3"
+   ],
+   "hatches": [
+    {
+     "id": "beam>node3",
+     "connector": null,
+     "to": "node3",
+     "center": [
+      -6.4252,
+      0.0008,
+      1.771
+     ],
+     "normal": [
+      0,
+      0,
+      -1
+     ],
+     "hatchObjects": [
+      "Node3_Int_Metal_Hatch_Aft"
+     ]
+    }
+   ],
+   "synthHatches": [],
    "triangles": 53247,
    "materials": {
     "BEAM_Internal.001": 53247
@@ -1542,8 +1875,30 @@
     -0.0029
    ],
    "axis": "y",
-   "neighbours": [],
-   "hatches": [],
+   "neighbours": [
+    "node3"
+   ],
+   "hatches": [
+    {
+     "id": "bishop>node3",
+     "connector": null,
+     "to": "node3",
+     "center": [
+      -8.1973,
+      0.0026,
+      -0.0029
+     ],
+     "normal": [
+      1,
+      0,
+      0
+     ],
+     "hatchObjects": [
+      "Node3_Int_Metal_Hatch_Port"
+     ]
+    }
+   ],
+   "synthHatches": [],
    "triangles": 57278,
    "materials": {
     "BishopMaterial": 57278

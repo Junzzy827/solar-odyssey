@@ -1,24 +1,42 @@
-// 宇宙ステーション（ISS）の一日（components/iss/）の文言（日本語）。見本（?iss=sample）の段階
+// 宇宙ステーション（ISS）の一日（components/iss/）の文言（日本語）。試しの URL（?iss=sample）の段階 2：全部の部屋
 
 export const issJa = {
   title: '宇宙ステーションの一日',
   saveLabel: '宇宙ステーションの記録',
   loading: '宇宙ステーションへ…',
   exit: 'もどる',
-  /** 入ったときに出すモジュールの名前と、ひとこと */
+  /** 入ったときに出す部屋（モジュール）の名前と、役目のひとこと（「名前 ・ 役目」で 1 行）。地図の名前も name */
   modules: {
-    destiny: { name: '実験棟「デスティニー」', sub: 'アメリカの実験室' },
-    unity: { name: 'ノード1「ユニティ」', sub: 'つなぎの部屋' },
-    harmony: { name: 'ノード2「ハーモニー」', sub: 'つなぎの部屋' },
-    tranquility: { name: 'ノード3「トランクウィリティー」', sub: 'くらしの部屋' },
+    destiny: { name: 'デスティニー', sub: 'アメリカの実験室' },
+    unity: { name: 'ユニティ', sub: 'つなぎの部屋' },
+    harmony: { name: 'ハーモニー', sub: '寝室と港' },
+    tranquility: { name: 'トランクウィリティー', sub: 'トイレと運動の部屋' },
     cupola: { name: 'キューポラ', sub: '地球を見る窓' },
-    quest: { name: 'エアロック「クエスト」', sub: '船外活動の出入り口' },
-    columbus: { name: '実験棟「コロンバス」', sub: 'ヨーロッパの実験室' },
-    kiboPm: { name: '「きぼう」船内実験室', sub: '日本の実験室' },
-    kiboElm: { name: '「きぼう」船内保管室', sub: '日本の倉庫' },
-    leonardo: { name: '「レオナルド」', sub: '倉庫' },
-    beam: { name: 'BEAM', sub: 'ふくらませた部屋' },
+    quest: { name: 'クエスト', sub: '宇宙へ出る出入り口' },
+    columbus: { name: 'コロンバス', sub: 'ヨーロッパの実験室' },
+    kiboPm: { name: 'きぼう 実験室', sub: '日本の実験室' },
+    kiboElm: { name: 'きぼう 保管室', sub: '日本の倉庫' },
+    leonardo: { name: 'レオナルド', sub: '荷物の倉庫' },
+    beam: { name: 'ビーム', sub: 'ふくらませた部屋' },
     bishop: { name: 'ビショップ', sub: '小さなエアロック' },
+  },
+  /** 名前と役目のあいだ */
+  nameSep: ' ・ ',
+  /** 外へ向かう閉じたハッチの札（1 行） */
+  outer: {
+    russian: 'この先はロシアの区画',
+    dock: 'この先は宇宙船がつく港',
+    berth: 'ここに貨物船がつながる',
+    closed: 'このハッチは閉めたまま',
+    space: 'この先は宇宙（船外活動の出口）',
+  },
+  /** 地図（右上の小さな地図。押すと大きく） */
+  map: {
+    open: '地図',
+    title: 'ステーションの地図',
+    here: 'いまここ',
+    visited: '行った部屋',
+    close: 'タップでとじる',
   },
   /** 操作の説明（はじめに動くと消える） */
   help: 'W A S D・矢印で進む／ドラッグで見回す／スペース・シフトで上下',
@@ -43,6 +61,4 @@ export const issJa = {
   },
   bikeOff: 'おりる',
   close: 'とじる',
-  /** ハッチの先は、まだ（見本ではここまで） */
-  soon: 'この先は、つぎのお楽しみ',
 }

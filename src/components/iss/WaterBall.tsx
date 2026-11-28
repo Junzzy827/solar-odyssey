@@ -37,14 +37,19 @@ const frag = /* glsl */ `
   void main() {
     vec3 n = normalize(vN);
     vec3 v = normalize(cameraPosition - vP);
-    float f = pow(1.0 - abs(dot(n, v)), 2.2);
+    float ndv = abs(dot(n, v));
+    float f = pow(1.0 - ndv, 2.0);
     // 天井のランプ（上）と、ふちの明るい輪
     vec3 h = normalize(vec3(0.2, 1.0, 0.1) + v);
     float spec = pow(max(dot(n, h), 0.0), 60.0);
     vec3 h2 = normalize(vec3(-0.4, 0.8, -0.5) + v);
     spec += 0.6 * pow(max(dot(n, h2), 0.0), 90.0);
-    vec3 col = mix(vec3(0.55, 0.72, 0.82), vec3(0.95, 0.98, 1.0), f) + spec * 1.4;
-    float a = 0.22 + f * 0.6 + spec;
+    // 白い壁の前でも玉に見えるように：中は水色を濃く、ふちのすぐ内側は明るい輪、いちばん外は細い暗い線
+    // （本物の水の玉も、まわりが曲がって映るので、ふちが暗く見える）
+    vec3 col = mix(vec3(0.30, 0.60, 0.86), vec3(0.93, 0.98, 1.0), f);
+    float edge = smoothstep(0.0, 0.16, ndv);
+    col = mix(vec3(0.08, 0.2, 0.32), col, edge) + spec * 1.4;
+    float a = mix(0.92, 0.36 + f * 0.5 + spec, edge);
     gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
   }
 `
