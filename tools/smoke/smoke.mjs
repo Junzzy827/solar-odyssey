@@ -174,9 +174,13 @@ async function shuttleScene(page, name) {
   // 前へそっと押す（動いたか確かめる）
   const before = await page.evaluate(() => window.__sv.shuttle.debug.pose().pos)
   await page.evaluate(() => window.__sv.shuttle.debug.push(0, 0, 1, 2))
-  await sleep(4000)
-  const after = await page.evaluate(() => window.__sv.shuttle.debug.pose().pos)
-  const moved = Math.hypot(after[0] - before[0], after[1] - before[1], after[2] - before[2])
+  // 押す長さは場面の時間で数える。1 コマが数秒かかる CI でも、動き出すまで最大 30 秒待つ
+  let moved = 0
+  for (let i = 0; i < 15 && !(moved > 0.005); i++) {
+    await sleep(2000)
+    const after = await page.evaluate(() => window.__sv.shuttle.debug.pose().pos)
+    moved = Math.hypot(after[0] - before[0], after[1] - before[1], after[2] - before[2])
+  }
   // ヘッドレス（GPU なし）は 1 コマ数秒かかり、1 コマに進む時間は 0.1 秒までなので、動く量はわずか。動いたことだけ見る
   if (!(moved > 0.005)) throw new Error(`${name}: did not move (${moved})`)
   await check3d(page, name)

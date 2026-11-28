@@ -191,7 +191,7 @@ export function ShuttleWorld() {
   const frames = useRef(0)
   // 光の切り替え（0 = 昼、1 = 夜）と、見どころ・アームの状態
   const mix = useRef(useShuttle.getState().light === 'dark' ? 1 : 0)
-  const st = useRef({ spot: null as ShuttleSpot | null, blend: 0, blendAt: 0, arrived: false, mixT: 0, from: new THREE.Vector3(), fromYaw: 0, fromPitch: 0, stick: new THREE.Vector2(), stickR: new THREE.Vector2(), att: new THREE.Euler(), arm: { yaw: 0, pitch: 0, elbow: 0, wrist: 0 }, crtT: 0, monT: 0, push: null as null | { v: THREE.Vector3; until: number } })
+  const st = useRef({ spot: null as ShuttleSpot | null, blend: 0, blendAt: 0, arrived: false, mixT: 0, from: new THREE.Vector3(), fromYaw: 0, fromPitch: 0, stick: new THREE.Vector2(), stickR: new THREE.Vector2(), att: new THREE.Euler(), arm: { yaw: 0, pitch: 0, elbow: 0, wrist: 0 }, crtT: 0, monT: 0, push: null as null | { v: THREE.Vector3; left: number } })
   const sky = useRef<{ setAttitude: (e: THREE.Euler) => void; render: (r: THREE.WebGLRenderer, cam: THREE.PerspectiveCamera, dark: number, dt: number) => void } | null>(null)
   const bayCam = useMemo(() => {
     const c = new THREE.PerspectiveCamera(40, 4 / 3, 0.3, 120)
@@ -214,7 +214,8 @@ export function ShuttleWorld() {
       if (o) o.visible = on
     }
     shuttleDebug.pose = () => ({ pos: ctl.pos.toArray(), yaw: ctl.yaw, pitch: ctl.pitch })
-    shuttleDebug.push = (x, y, z, sec) => (st.current.push = { v: new THREE.Vector3(x, y, z), until: performance.now() / 1000 + sec })
+    // 押す長さは場面の時間で数える（1 コマが重いヘッドレスでも、時計だけ進んで一度も押さずに終わらないように）
+    shuttleDebug.push = (x, y, z, sec) => (st.current.push = { v: new THREE.Vector3(x, y, z), left: sec })
     shuttleDebug.info = () => {
       const i = gl.info
       let tex = 0
@@ -312,7 +313,10 @@ export function ShuttleWorld() {
       S.stick.lerp(v2(0, 0), Math.min(1, dt * 4))
       S.stickR.lerp(v2(0, 0), Math.min(1, dt * 4))
       input.move.set(sx, ky + shuttleInput.lift, sz)
-      if (S.push && t < S.push.until) input.move.copy(S.push.v)
+      if (S.push && S.push.left > 0) {
+        input.move.copy(S.push.v)
+        S.push.left -= dt
+      }
       ctl.update(dt, input)
       if (!INSIDE.containsPoint(ctl.pos)) ctl.place(SPAWN, ctl.yaw, 0)
       // 近くの見どころ
