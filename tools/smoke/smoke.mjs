@@ -227,7 +227,8 @@ async function shuttleOrbitChapter(page, name) {
     const st = await sh(() => ({ ready: window.__sv.shuttle.state.getState().armReady, arm: window.__sv.shuttle.debug.arm() }))
     if (!st.ready) throw new Error(`${name}: arm not ready to ${step} (at aim ${JSON.stringify(at)} → now ${JSON.stringify(st.arm)})`)
     await sh(() => document.querySelector('.shuttle-go:not([disabled])').click())
-    await page.waitForFunction((next) => window.__sv.shuttle.state.getState().orbit === next, next, { timeout: 30000 })
+    // 場面の側（毎コマの処理）が次の段階に入るまで待つ
+    await page.waitForFunction((next) => window.__sv.shuttle.debug.arm().step === next, next, { timeout: 60000, polling: 500 })
   }
   if (!(await sh(() => window.__sv.shuttle.state.getState().hubbleDone))) throw new Error(`${name}: Hubble berth was not saved`)
   await page.evaluate(() => window.__sv.shuttle.leave())

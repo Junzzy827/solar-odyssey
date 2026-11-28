@@ -331,7 +331,8 @@ export function ShuttleWorld() {
     shuttleDebug.aimAt = (x, y, z) => void (st.current.pendingAim = new THREE.Vector3(x, y, z))
     shuttleDebug.arm = () => {
       const S = st.current
-      const goal = v3.copy(S.orbit === 'berth' ? BERTH : S.hubPos).add(outside.grip)
+      // 段階はお店（store）の方で見る：ボタンを押した直後は、場面の側がまだ前の段階のまま（CI の遅いコマで、立てる所でなく、つかむ所を返していた）
+      const goal = v3.copy(useShuttle.getState().orbit === 'berth' ? BERTH : S.hubPos).add(outside.grip)
       return { tip: S.tip.toArray(), target: goal.toArray(), dist: S.tip.distanceTo(goal), hub: S.hubPos.toArray(), aim: S.aim.toArray(), frame: S.frameN, step: S.orbit, armK: S.armK }
     }
     return () => {
