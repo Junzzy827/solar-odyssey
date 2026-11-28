@@ -101,6 +101,27 @@ export function adiTexture() {
   return t
 }
 
+/**
+ * 姿勢球の形を、回せるように整える：形の中心を原点に移し、頂点の向きから正距円筒の UV を作る
+ * （書き出した形の UV は全部 0 で、絵の左上の白だけが出ていた）
+ */
+export function prepareAdi(m: THREE.Mesh) {
+  m.geometry = m.geometry.clone()
+  m.geometry.computeBoundingSphere()
+  const c = m.geometry.boundingSphere!.center.clone()
+  m.geometry.translate(-c.x, -c.y, -c.z)
+  m.position.add(c)
+  const pos = m.geometry.getAttribute('position')
+  const uv = new Float32Array(pos.count * 2)
+  const d = new THREE.Vector3()
+  for (let i = 0; i < pos.count; i++) {
+    d.set(pos.getX(i), pos.getY(i), pos.getZ(i)).normalize()
+    uv[i * 2] = Math.atan2(d.x, d.z) / (Math.PI * 2) + 0.5
+    uv[i * 2 + 1] = Math.asin(THREE.MathUtils.clamp(d.y, -1, 1)) / Math.PI + 0.5
+  }
+  m.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+}
+
 /** CCTV モニター：荷物室のカメラで撮った絵を、白黒で少しにじませて出す */
 export function monitorMaterial() {
   const target = new THREE.WebGLRenderTarget(256, 192, { depthBuffer: true })

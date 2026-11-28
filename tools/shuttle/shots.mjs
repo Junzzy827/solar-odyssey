@@ -16,7 +16,7 @@ await page.goto(url + '#debug', { timeout: 300000 })
 await page.waitForFunction(() => window.__sv?.shuttle, null, { timeout: 300000 })
 await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'high' }))
 await sleep(6000)
-await page.evaluate(() => window.__sv.shuttle.open())
+await page.evaluate(() => window.__sv.shuttle.open('orbit'))
 await page.waitForFunction(() => window.__sv.shuttle.state.getState().phase === 'cabin', null, { timeout: 400000 })
 await sleep(5000)
 for (const [name, s] of shots) {

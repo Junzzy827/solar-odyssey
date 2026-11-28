@@ -5,9 +5,9 @@ import * as THREE from 'three'
 import { lowMemory } from '../../state/quality'
 import { markShuttleReady, shuttleDebug, shuttleInput, useShuttle, type ShuttleSpot } from '../../state/shuttle'
 import { FloatController, createFloatInput } from './floatControl'
-import { cabinMaterial, flatMaterial, glassMaterial } from './cabinMaterial'
+import { cabinMaterial, flatMaterial, glassMaterial, useCabinMeta } from './cabinMaterial'
 import { OutsideSky } from './outside'
-import { adiTexture, crtTexture, drawCrt, monitorMaterial } from './screens'
+import { adiTexture, crtTexture, drawCrt, monitorMaterial, prepareAdi } from './screens'
 import { shrinkTexture } from '../surface/shrinkTexture'
 import { roomEnvironment } from '../telescope/parts'
 
@@ -19,9 +19,6 @@ const base = import.meta.env.BASE_URL
 const CABIN_URL = `${base}models/shuttle-cabin.glb`
 const ORBITER_URL = `${base}models/shuttle-orbiter.glb`
 const HUBBLE_URL = `${base}models/hubble.glb`
-
-/** 焼いたときの明るさの値（tools/blender/build_shuttle_cabin.py が書く shuttle-cabin.json と同じ形） */
-type CabinMeta = { lightScale: { day: number; dark: number }; exposure: number }
 
 /** 見どころ：近づくとボタンが出る所と、入ったときの目の位置・向き */
 const SPOTS: Record<ShuttleSpot, { at: THREE.Vector3; eye: THREE.Vector3; yaw: number; pitch: number }> = {
@@ -52,7 +49,7 @@ export function ShuttleWorld() {
   const hubble = useGLTF(HUBBLE_URL)
   const sfx = phone ? '.phone' : ''
   const [atlas, lmDay, lmDark] = useTexture([`${base}models/shuttle-cabin.atlas${sfx}.webp`, `${base}models/shuttle-cabin.light-day${sfx}.webp`, `${base}models/shuttle-cabin.light-dark${sfx}.webp`])
-  const meta = useMeta()
+  const meta = useCabinMeta()
 
   // ---- 部屋と部品の材質 ----
   const parts = useMemo(() => {
@@ -87,26 +84,8 @@ export function ShuttleWorld() {
       } else if (o.name.startsWith('float_')) m.material = flat
       else m.material = m.geometry.getAttribute('uv1') ? mat : flat
     })
-    // 姿勢球：形の中心を原点にして回せるように
-    for (const id of ['adi_cdr', 'adi_plt']) {
-      const m = screens[id]
-      if (!m) continue
-      m.geometry = m.geometry.clone()
-      m.geometry.computeBoundingSphere()
-      const c = m.geometry.boundingSphere!.center.clone()
-      m.geometry.translate(-c.x, -c.y, -c.z)
-      m.position.add(c)
-      // 球の UV：書き出した形の UV は全部 0 で、絵の左上の白だけが出ていた。頂点の向きから正距円筒の UV を作る
-      const pos = m.geometry.getAttribute('position')
-      const uv = new Float32Array(pos.count * 2)
-      const d = new THREE.Vector3()
-      for (let i = 0; i < pos.count; i++) {
-        d.set(pos.getX(i), pos.getY(i), pos.getZ(i)).normalize()
-        uv[i * 2] = Math.atan2(d.x, d.z) / (Math.PI * 2) + 0.5
-        uv[i * 2 + 1] = Math.asin(THREE.MathUtils.clamp(d.y, -1, 1)) / Math.PI + 0.5
-      }
-      m.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
-    }
+    // 姿勢球：形の中心を原点にして回せるように（UV も作り直す）
+    for (const id of ['adi_cdr', 'adi_plt']) if (screens[id]) prepareAdi(screens[id])
     // 画面：前の CRT 3 台・後ろの CRT 1 台は緑の文字、後ろのモニター 2 台は荷物室のカメラ
     const crts: { tex: THREE.CanvasTexture; kind: number }[] = []
     let k = 0
@@ -212,7 +191,7 @@ export function ShuttleWorld() {
   const frames = useRef(0)
   // 光の切り替え（0 = 昼、1 = 夜）と、見どころ・アームの状態
   const mix = useRef(useShuttle.getState().light === 'dark' ? 1 : 0)
-  const st = useRef({ spot: null as ShuttleSpot | null, blend: 0, blendAt: 0, arrived: false, mixT: 0, from: new THREE.Vector3(), fromYaw: 0, fromPitch: 0, stick: new THREE.Vector2(), stickR: new THREE.Vector2(), att: new THREE.Euler(), arm: { yaw: 0, pitch: 0, elbow: 0, wrist: 0 }, crtT: 0, monT: 0, push: null as null | { v: THREE.Vector3; until: number } })
+  const st = useRef({ spot: null as ShuttleSpot | null, blend: 0, blendAt: 0, arrived: false, mixT: 0, from: new THREE.Vector3(), fromYaw: 0, fromPitch: 0, stick: new THREE.Vector2(), stickR: new THREE.Vector2(), att: new THREE.Euler(), arm: { yaw: 0, pitch: 0, elbow: 0, wrist: 0 }, crtT: 0, monT: 0, push: null as null | { v: THREE.Vector3; left: number } })
   const sky = useRef<{ setAttitude: (e: THREE.Euler) => void; render: (r: THREE.WebGLRenderer, cam: THREE.PerspectiveCamera, dark: number, dt: number) => void } | null>(null)
   const bayCam = useMemo(() => {
     const c = new THREE.PerspectiveCamera(40, 4 / 3, 0.3, 120)
@@ -235,7 +214,8 @@ export function ShuttleWorld() {
       if (o) o.visible = on
     }
     shuttleDebug.pose = () => ({ pos: ctl.pos.toArray(), yaw: ctl.yaw, pitch: ctl.pitch })
-    shuttleDebug.push = (x, y, z, sec) => (st.current.push = { v: new THREE.Vector3(x, y, z), until: performance.now() / 1000 + sec })
+    // 押す長さは場面の時間で数える（1 コマが重いヘッドレスでも、時計だけ進んで一度も押さずに終わらないように）
+    shuttleDebug.push = (x, y, z, sec) => (st.current.push = { v: new THREE.Vector3(x, y, z), left: sec })
     shuttleDebug.info = () => {
       const i = gl.info
       let tex = 0
@@ -333,7 +313,10 @@ export function ShuttleWorld() {
       S.stick.lerp(v2(0, 0), Math.min(1, dt * 4))
       S.stickR.lerp(v2(0, 0), Math.min(1, dt * 4))
       input.move.set(sx, ky + shuttleInput.lift, sz)
-      if (S.push && t < S.push.until) input.move.copy(S.push.v)
+      if (S.push && S.push.left > 0) {
+        input.move.copy(S.push.v)
+        S.push.left -= dt
+      }
       ctl.update(dt, input)
       if (!INSIDE.containsPoint(ctl.pos)) ctl.place(SPAWN, ctl.yaw, 0)
       // 近くの見どころ
@@ -469,18 +452,6 @@ function SunLights({ mix }: { mix: { current: number } }) {
       <hemisphereLight ref={hemi} args={['#7d9cc8', '#0a0c10', 0.9]} />
     </>
   )
-}
-
-/** shuttle-cabin.json を読む（無ければ控えめな値） */
-let metaCache: CabinMeta | null = null
-let metaPromise: Promise<CabinMeta> | null = null
-function useMeta(): CabinMeta {
-  if (metaCache) return metaCache
-  metaPromise ??= fetch(`${base}models/shuttle-cabin.json`)
-    .then((r) => r.json() as Promise<CabinMeta>)
-    .catch(() => ({ lightScale: { day: 20, dark: 1 }, exposure: 0.4 }))
-    .then((m) => (metaCache = m))
-  throw metaPromise
 }
 
 /** 場面に入る前に、形と絵を先に読み始める */

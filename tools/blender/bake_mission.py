@@ -49,6 +49,9 @@ MODELS = {
     # 発射台（build_launchpad.py）：鋼の板の継ぎ目、雨の筋、炎の穴のまわりの焦げ
     'launchpad': dict(file='launchpad.glb', ao=3.0, panel=0.3, crinkle=2.0, soot=False, scorch=True,
                       seam_dark=0.25, seam_bump=0.4, panel_var=0.12),
+    # シャトルの発射台 39B（build_shuttle_pad.py）：同じ鋼の板。炎の穴のまわりの焦げ
+    'shuttlepad': dict(file='shuttle-pad.glb', ao=3.0, panel=0.3, crinkle=2.0, soot=False, scorch=True,
+                       seam_dark=0.25, seam_bump=0.4, panel_var=0.12),
 }
 
 

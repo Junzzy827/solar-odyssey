@@ -11,7 +11,7 @@ export function ShuttleEntry() {
     <button
       className="shuttle-entry"
       style={{ position: 'fixed', left: 12, bottom: 150, zIndex: 40, padding: '8px 14px', borderRadius: 16, border: '1px solid rgba(160,200,240,0.6)', background: 'rgba(12,20,34,0.85)', color: '#e3eefa', cursor: 'pointer' }}
-      title={ui().shuttle.enterTip} onClick={openShuttle}>
+      title={ui().shuttle.enterTip} onClick={() => openShuttle()}>
       {ui().shuttle.enter}
     </button>
   )

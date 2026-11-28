@@ -22,7 +22,8 @@ export function ShuttleHud() {
     const timer = setTimeout(() => setHelp(false), 12000)
     return () => clearTimeout(timer)
   }, [phase])
-  if (phase === 'loading') return <div className="shuttle-loading">{t.loading}</div>
+  const scene = useShuttle((s) => s.scene)
+  if (phase === 'loading') return <div className="shuttle-loading">{scene === 'pad' ? t.loadingPad : t.loading}</div>
   const spotHelp = spot === 'seat' ? t.seatHelp[touch ? 'touch' : 'pc'] : spot === 'arm' ? t.armHelp[touch ? 'touch' : 'pc'] : spot === 'bag' ? t.bagHelp : null
   return (
     <div className="surface-ui shuttle-ui">
