@@ -202,6 +202,37 @@ async function shuttleScene(page, name) {
   await visibleButton(page, '.shuttle-spot')
   await page.evaluate(() => window.__sv.shuttle.leave())
   await sleep(1000)
+  await shuttleOrbitChapter(page, name)
+}
+
+/** 軌道の章：扉を開けるボタン（アームの席へ移る）→ 扉と近づく所は飛ばす → アームの先を合わせてつかむ → 荷物室の輪の上でとめる */
+async function shuttleOrbitChapter(page, name) {
+  const sh = (fn) => page.evaluate(fn)
+  await visibleButton(page, '.shuttle-go')
+  await sh(() => document.querySelector('.shuttle-go').click())
+  await page.waitForFunction(() => {
+    const s = window.__sv.shuttle.state.getState()
+    return s.orbit === 'opening' && s.spot === 'arm'
+  }, null, { timeout: 30000 })
+  await sh(() => window.__sv.shuttle.debug.orbitTo('grab'))
+  await page.waitForSelector('.shuttle-pip-view', { timeout: 30000 })
+  for (const [step, next] of [['grab', 'berth'], ['berth', 'done']]) {
+    // 狙いをつかむ所（立てる所）へ置き、届いた印が出るのを待って、ボタンを押す（1 コマが数秒の CI でも待てるように、場面の側を見て待つ）
+    const at = await sh(() => {
+      const a = window.__sv.shuttle.debug.arm()
+      window.__sv.shuttle.debug.aimAt(a.target[0], a.target[1], a.target[2])
+      return a
+    })
+    await page.waitForFunction(() => window.__sv.shuttle.state.getState().armReady, null, { timeout: 90000, polling: 500 }).catch(() => {})
+    const st = await sh(() => ({ ready: window.__sv.shuttle.state.getState().armReady, arm: window.__sv.shuttle.debug.arm() }))
+    if (!st.ready) throw new Error(`${name}: arm not ready to ${step} (at aim ${JSON.stringify(at)} → now ${JSON.stringify(st.arm)})`)
+    await sh(() => document.querySelector('.shuttle-go:not([disabled])').click())
+    // 場面の側（毎コマの処理）が次の段階に入るまで待つ
+    await page.waitForFunction((next) => window.__sv.shuttle.debug.arm().step === next, next, { timeout: 60000, polling: 500 })
+  }
+  if (!(await sh(() => window.__sv.shuttle.state.getState().hubbleDone))) throw new Error(`${name}: Hubble berth was not saved`)
+  await page.evaluate(() => window.__sv.shuttle.leave())
+  await sleep(1000)
 }
 
 /** シャトルの発射台と打ち上げ（見本）：夜の発射台 → 光る点 → 乗り込む → 秒読み → 点火 → 発射 → 軌道の乗員室へ */
