@@ -218,13 +218,14 @@ async function shuttleOrbitChapter(page, name) {
   await page.waitForSelector('.shuttle-pip-view', { timeout: 30000 })
   for (const [step, next] of [['grab', 'berth'], ['berth', 'done']]) {
     // 狙いをつかむ所（立てる所）へ置き、届いた印が出るのを待って、ボタンを押す（1 コマが数秒の CI でも待てるように、場面の側を見て待つ）
-    await sh(() => {
-      const g = window.__sv.shuttle.debug.arm().target
-      window.__sv.shuttle.debug.aimAt(g[0], g[1], g[2])
+    const at = await sh(() => {
+      const a = window.__sv.shuttle.debug.arm()
+      window.__sv.shuttle.debug.aimAt(a.target[0], a.target[1], a.target[2])
+      return a
     })
     await page.waitForFunction(() => window.__sv.shuttle.state.getState().armReady, null, { timeout: 90000, polling: 500 }).catch(() => {})
     const st = await sh(() => ({ ready: window.__sv.shuttle.state.getState().armReady, arm: window.__sv.shuttle.debug.arm() }))
-    if (!st.ready) throw new Error(`${name}: arm not ready to ${step} (${JSON.stringify(st.arm)})`)
+    if (!st.ready) throw new Error(`${name}: arm not ready to ${step} (at aim ${JSON.stringify(at)} → now ${JSON.stringify(st.arm)})`)
     await sh(() => document.querySelector('.shuttle-go:not([disabled])').click())
     await page.waitForFunction((next) => window.__sv.shuttle.state.getState().orbit === next, next, { timeout: 30000 })
   }

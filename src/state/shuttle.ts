@@ -237,7 +237,7 @@ export const shuttleDebug: {
   /** 軌道の章：その段階へ飛ぶ（アームの先も、つかめる所・立てられる所へ運ぶ） */
   orbitTo?: (step: OrbitStep) => void
   /** アームの先（つかむ輪の中心）と、つかむ所・立てる所までの距離 */
-  arm?: () => { tip: number[]; target: number[]; dist: number; hub: number[] }
+  arm?: () => { tip: number[]; target: number[]; dist: number; hub: number[]; aim: number[]; frame: number; step: string | null; armK: number }
   /** アームの先の狙い（m、オービターの座標）を置く */
   aimAt?: (x: number, y: number, z: number) => void
 } = {}

@@ -266,7 +266,7 @@ export function ShuttleWorld() {
   const frames = useRef(0)
   // 光の切り替え（0 = 昼、1 = 夜）と、見どころ・アームの状態
   const mix = useRef(useShuttle.getState().light === 'dark' ? 1 : 0)
-  const st = useRef({ spot: null as ShuttleSpot | null, blend: 0, blendAt: 0, arrived: false, mixT: 0, from: new THREE.Vector3(), fromYaw: 0, fromPitch: 0, stick: new THREE.Vector2(), depth: 0, att: new THREE.Euler(), arm: { yaw: 0, pitch: 0, elbow: 0, wrist: 0, wristYaw: 0 }, crtT: 0, monT: 0, push: null as null | { v: THREE.Vector3; left: number }, orbit: null as OrbitStep | null, orbitAt: 0, doorK: 0, tip: new THREE.Vector3(), aim: new THREE.Vector3(), hubPos: new THREE.Vector3().copy(APPROACH_FROM), berthFrom: new THREE.Vector3(), armK: 0, pendingAim: null as THREE.Vector3 | null, armOn: false, raiseFrom: new THREE.Vector3(), focus: new THREE.Vector3(), hasFocus: false, lookIdle: 9 })
+  const st = useRef({ spot: null as ShuttleSpot | null, blend: 0, blendAt: 0, arrived: false, mixT: 0, from: new THREE.Vector3(), fromYaw: 0, fromPitch: 0, stick: new THREE.Vector2(), depth: 0, att: new THREE.Euler(), arm: { yaw: 0, pitch: 0, elbow: 0, wrist: 0, wristYaw: 0 }, crtT: 0, monT: 0, push: null as null | { v: THREE.Vector3; left: number }, orbit: null as OrbitStep | null, orbitAt: 0, doorK: 0, tip: new THREE.Vector3(), aim: new THREE.Vector3(), hubPos: new THREE.Vector3().copy(APPROACH_FROM), berthFrom: new THREE.Vector3(), armK: 0, frameN: 0, pendingAim: null as THREE.Vector3 | null, armOn: false, raiseFrom: new THREE.Vector3(), focus: new THREE.Vector3(), hasFocus: false, lookIdle: 9 })
   const sky = useRef<{ setAttitude: (e: THREE.Euler) => void; render: (r: THREE.WebGLRenderer, cam: THREE.PerspectiveCamera, dark: number, dt: number) => void } | null>(null)
   const wristCam = useMemo(() => new THREE.PerspectiveCamera(55, 4 / 3, 0.05, 400), [])
   const pipEl = useRef<HTMLElement | null>(null)
@@ -332,7 +332,7 @@ export function ShuttleWorld() {
     shuttleDebug.arm = () => {
       const S = st.current
       const goal = v3.copy(S.orbit === 'berth' ? BERTH : S.hubPos).add(outside.grip)
-      return { tip: S.tip.toArray(), target: goal.toArray(), dist: S.tip.distanceTo(goal), hub: S.hubPos.toArray() }
+      return { tip: S.tip.toArray(), target: goal.toArray(), dist: S.tip.distanceTo(goal), hub: S.hubPos.toArray(), aim: S.aim.toArray(), frame: S.frameN, step: S.orbit, armK: S.armK }
     }
     return () => {
       delete shuttleDebug.place
@@ -350,6 +350,7 @@ export function ShuttleWorld() {
     const t = performance.now() / 1000
     const s = useShuttle.getState()
     const S = st.current
+    S.frameN++
     if (frames.current < 4 && ++frames.current === 4) markShuttleReady()
 
     // 入力：キー・スティック・上下のボタン
