@@ -6,11 +6,12 @@ import { currentLevel, lowMemory } from '../../state/quality'
 import { isTouchDevice } from '../../state/input'
 import { issDebug } from '../../state/iss'
 
-// 窓の外の地球（本物の大きさ、ステーションの 約 410 km 下）。
+// 部屋を描き、窓の外の地球（本物の大きさ、ステーションの 約 410 km 下）を窓の中にだけ描く。
 // 部屋（m の大きさ、near 3 cm）と地球（数千 km 先）は、同じ奥行きの範囲では描けないので、2 回に分けて描く：
 //   1. 部屋を描く。窓のガラスの形をした型（色は描かない）が、見えている所にだけステンシルの印 1 を付ける
+//      （デスティニーの床の窓は丸い型、キューポラは模型の窓のガラスそのもの。moduleLoader.ts）
 //   2. 奥行きだけ消して、地球を別のカメラ（near 100 m）で、印 1 の所にだけ描く
-// だから、模型のすきまや部屋の外からは地球が見えない（窓の中だけ）。
+// だから、模型のすきまや部屋の外からは地球が見えない（窓の中だけ）。窓のある部屋を読んでいないときは、地球を作らない。
 // 地球は、ステーションの前（−Z）へ飛ぶのに合わせて、足もとを後ろへ流れる（約 92 分で 1 周）。見本は昼の側
 
 const R_EARTH = 6_371_000
@@ -32,39 +33,34 @@ function lonLatDir(lat: number, lon: number) {
   return new THREE.Vector3(-Math.cos(phi) * Math.cos(b), Math.sin(b), Math.sin(phi) * Math.cos(b))
 }
 
-export function IssEarth({ window: at, radius }: { window: THREE.Vector3; radius: number }) {
-  const gl = useThree((s) => s.gl)
-  const scene = useThree((s) => s.scene)
-  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
+/** 窓：型（シーンの中のステンシルの物）と、その範囲（画面に入っているかを調べる） */
+export type IssWindow = { id: string; sphere: THREE.Sphere }
 
-  // 窓の型：ガラスの円。色も奥行きも書かず、ステンシルに 1 を書く。部屋の後に描く
-  const mask = useMemo(() => {
-    const m = new THREE.Mesh(
-      new THREE.CircleGeometry(radius, 40).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({
-        colorWrite: false,
-        depthWrite: false,
-        stencilWrite: true,
-        stencilRef: 1,
-        stencilFunc: THREE.AlwaysStencilFunc,
-        stencilZPass: THREE.ReplaceStencilOp,
-        side: THREE.DoubleSide,
-      }),
-    )
-    m.position.copy(at)
-    m.renderOrder = 100
-    m.name = 'iss-window-mask'
-    return m
-  }, [at, radius])
+/** 地球の絵。スマホは 1k に縮めて GPU に載せる（2k の昼と雲で 22 MB → 6 MB。窓は小さいので見た目はほぼ同じ） */
+function earthTexture(url: string, small: boolean) {
+  const tex = new THREE.Texture()
+  tex.colorSpace = THREE.SRGBColorSpace
+  new THREE.ImageLoader().load(url, (img) => {
+    if (small && img.width > 1024) {
+      const c = document.createElement('canvas')
+      c.width = 1024
+      c.height = 512
+      c.getContext('2d')!.drawImage(img, 0, 0, 1024, 512)
+      tex.image = c
+    } else tex.image = img
+    tex.needsUpdate = true
+  })
+  return tex
+}
 
-  const earth = useMemo(() => {
-    const small = lowMemory() || isTouchDevice() || currentLevel() === 'low'
-    const loader = new THREE.TextureLoader()
+/** 地球の場面（窓のある部屋を読んだときだけ作る） */
+function makeEarth() {
+  const small = lowMemory() || isTouchDevice() || currentLevel() === 'low'
+  {
     // 窓は小さい（見えるのは 200 km ほど）ので、PC でも 2k で足りる（4k だとテクスチャのメモリが 33 MB 増える）
-    const day = loader.load(`${base}textures/2k_earth_daymap.jpg`)
-    day.colorSpace = THREE.SRGBColorSpace
+    const day = earthTexture(`${base}textures/2k_earth_daymap.jpg`, small)
     day.anisotropy = 4
-    const clouds = loader.load(`${base}textures/2k_earth_clouds.jpg`)
+    const clouds = earthTexture(`${base}textures/2k_earth_clouds.jpg`, small)
     // 昼の側だけなので、夜の街あかりの絵は使わない（黒い 1 画素）
     const night = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1)
     night.needsUpdate = true
@@ -90,18 +86,18 @@ export function IssEarth({ window: at, radius }: { window: THREE.Vector3; radius
     const q0 = new THREE.Quaternion().setFromUnitVectors(lonLatDir(START_LAT, START_LON), new THREE.Vector3(0, -1, 0))
     const cam = new THREE.PerspectiveCamera(60, 1, 100, 2e7)
     return { scene: s, spin, ball, mat, day, clouds, night, q0, cam }
-  }, [])
+  }
+}
 
-  useEffect(() => {
-    scene.add(mask)
-    return () => {
-      scene.remove(mask)
-      mask.geometry.dispose()
-      ;(mask.material as THREE.Material).dispose()
-    }
-  }, [scene, mask])
+export function IssEarth({ windows }: { windows: IssWindow[] }) {
+  const gl = useThree((s) => s.gl)
+  const scene = useThree((s) => s.scene)
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
+  const need = windows.length > 0
+  const earth = useMemo(() => (need ? makeEarth() : null), [need])
   useEffect(
     () => () => {
+      if (!earth) return
       earth.ball.geometry.dispose()
       earth.mat.dispose()
       earth.day.dispose()
@@ -112,7 +108,6 @@ export function IssEarth({ window: at, radius }: { window: THREE.Vector3; radius
   )
 
   const frustum = useMemo(() => new THREE.Frustum(), [])
-  const sphere = useMemo(() => new THREE.Sphere(at.clone(), radius), [at, radius])
   const pv = useMemo(() => new THREE.Matrix4(), [])
   const qx = useMemo(() => new THREE.Quaternion(), [])
   const X = useMemo(() => new THREE.Vector3(1, 0, 0), [])
@@ -120,11 +115,13 @@ export function IssEarth({ window: at, radius }: { window: THREE.Vector3; radius
   // 描くのはここ（部屋 → 窓の中の地球）。優先度 1 なので、R3F は自分では描かない
   useFrame((state) => {
     const t = state.clock.elapsedTime
-    // ステーションは −Z へ進む → 足もとの地面は +Z へ流れる（X 軸のまわりに回す）
-    qx.setFromAxisAngle(X, (-t / ORBIT_SEC) * Math.PI * 2)
-    earth.spin.quaternion.copy(qx).multiply(earth.q0)
-    earth.spin.updateMatrixWorld(true)
-    earth.mat.uniforms.uCenter.value.setFromMatrixPosition(earth.spin.matrixWorld)
+    if (earth) {
+      // ステーションは −Z へ進む → 足もとの地面は +Z へ流れる（X 軸のまわりに回す）
+      qx.setFromAxisAngle(X, (-t / ORBIT_SEC) * Math.PI * 2)
+      earth.spin.quaternion.copy(qx).multiply(earth.q0)
+      earth.spin.updateMatrixWorld(true)
+      earth.mat.uniforms.uCenter.value.setFromMatrixPosition(earth.spin.matrixWorld)
+    }
 
     const autoClear = gl.autoClear
     gl.autoClear = false
@@ -135,7 +132,7 @@ export function IssEarth({ window: at, radius }: { window: THREE.Vector3; radius
     gl.render(scene, camera)
     pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
     frustum.setFromProjectionMatrix(pv)
-    if (frustum.intersectsSphere(sphere)) {
+    if (earth && windows.some((w) => frustum.intersectsSphere(w.sphere))) {
       const c = earth.cam
       c.fov = camera.fov
       c.aspect = camera.aspect

@@ -1,11 +1,14 @@
 # 焼いた光（build_module.py が書く $WORK/<module>.light.raw.npy、線形の放射照度）を、アプリ用の絵にする。
 #   MODULE=us_lab .venv/bin/python -I tools/iss/light_finish.py
 # Blender は使わない（焼き直さずに、明るさの調子だけ何度でもやり直せる）。
+# 0. 段階 2：build_module.py が、すきまを埋めてから OpenImageDenoise でならした絵と、島の画素（<module>.light.mask.npy）を
+#    書く。そのときは、ここでのぼかしは弱くする（DENOISE 0.8）
 # 1. 島（焼いた画素）の中だけでぼかしてノイズを取り、とがった点（ホタル）をおさえる
 # 2. すきま（島の外）を近い島の値で埋める（にじみ・継ぎ目を隠す）
 # 3. 明るさの調子：明るい面の中央値を TARGET にそろえ、明暗の差を GAMMA で縮める。
 #    本物の ISS の写真は、白い壁と多くの照明で、ほぼ一様に明るい（ランプの近くだけ真っ白・奥が真っ黒、にしない）
-# 4. ×0.5 で保存（アプリで lightMapIntensity = 2π）。sRGB の JPEG（2048 と 1024）
+# 4. ×0.5 で保存（アプリで lightMapIntensity = 2π）。sRGB の JPEG（焼いた大きさ、その 1/2、1/4：
+#    アプリは、いる部屋を大きい方で、となりの部屋を小さい方で読む）
 import json
 import os
 import sys
@@ -24,13 +27,18 @@ def finish(module, size=None, target=None, gamma=None, floor=None, denoise=None,
     target = float(os.environ.get('TARGET', '0.9')) if target is None else target
     gamma = float(os.environ.get('GAMMA', '0.55')) if gamma is None else gamma
     floor = float(os.environ.get('FLOOR', '0.22')) if floor is None else floor
-    sig = float(os.environ.get('DENOISE', '1.4')) if denoise is None else denoise
     px = np.load(os.path.join(WORK, f'{module}.light.raw.npy')).astype(np.float32)
+    mask_path = os.path.join(WORK, f'{module}.light.mask.npy')
+    denoised = os.path.exists(mask_path)
+    sig = float(os.environ.get('DENOISE', '0.8' if denoised else '1.4')) if denoise is None else denoise
     n = px.shape[0]
     size = size or n
     lum = px[..., 0] * 0.2126 + px[..., 1] * 0.7152 + px[..., 2] * 0.0722
     # 焼いた画素（島の中）：値が入っている所。真っ黒な隠れた面もすきまと同じに扱う（見えないので、となりの値で埋まってよい）
-    mask = (lum > 1e-5).astype(np.float32)
+    if denoised:
+        mask = np.load(mask_path).astype(np.float32)
+    else:
+        mask = (lum > 1e-5).astype(np.float32)
     # ランプの面そのもの（とても明るい）は、まわりのぼかしにまぜない
     cap = np.percentile(lum[mask > 0], 98)
     px = np.minimum(px, cap)
@@ -57,7 +65,7 @@ def finish(module, size=None, target=None, gamma=None, floor=None, denoise=None,
         im = im.resize((size, size), Image.LANCZOS)
     os.makedirs(OUT_DIR, exist_ok=True)
     paths = []
-    for s in (size, size // 2):
+    for s in (size, size // 2, size // 4):
         p = os.path.join(OUT_DIR, f'{module}.light.{s}.jpg')
         (im if s == size else im.resize((s, s), Image.LANCZOS)).save(p, quality=88, optimize=True)
         paths.append(p)

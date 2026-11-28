@@ -141,11 +141,14 @@ async function visibleButton(page, selector) {
   if (r !== 'ok') throw new Error(`${selector}: ${r}`)
 }
 
-/** 宇宙ステーション（ISS）の見本（#iss=sample）：起動するとデスティニーの中に入り、前へ浮かんで進み、印で遊べて、もどるで宇宙へ */
+/**
+ * 宇宙ステーション（ISS）の見本（#iss=sample）：起動するとデスティニーの中に入り、前へ浮かんで進み、印で遊べて、
+ * 前の口からハーモニーへ移る（となりの部屋が読みこまれて、口をまたげる）。もどるで宇宙へ
+ */
 async function issScene(page, phone) {
   await page.evaluate(() => window.__sv.store.getState().updateSettings({ quality: 'low' }))
   await page.waitForFunction(() => window.__sv.iss.state.getState().phase === 'inside' && window.__sv.iss.debug.loaded, null, { timeout: 180000, polling: 500 })
-  for (const sel of ['.iss-exit', '.iss-flip', ...(phone ? ['.iss-stick', '.iss-up'] : [])]) await visibleButton(page, sel)
+  for (const sel of ['.iss-exit', '.iss-flip', '.iss-map', ...(phone ? ['.iss-stick', '.iss-up'] : [])]) await visibleButton(page, sel)
   const z0 = await page.evaluate(() => window.__sv.iss.debug.pose.z)
   await page.evaluate(() => (window.__sv.iss.debug.move = [0, 0, 1]))
   await page.waitForFunction((z0) => window.__sv.iss.debug.pose.z < z0 - 0.4, z0, { timeout: 60000, polling: 250 }).catch(() => {})
@@ -157,6 +160,15 @@ async function issScene(page, phone) {
   const lines = await page.evaluate(() => document.querySelectorAll('.iss-card p').length)
   if (lines > 3) throw new Error(`iss: card has ${lines} lines`)
   await page.evaluate(() => window.__sv.iss.play(null))
+  // デスティニーの前の口の手前へ飛び、ハーモニーが読みこまれるのを待って、口をくぐる
+  await page.evaluate(() => (window.__sv.iss.debug.goto = [0, 0.05, -9.9, 0, 0]))
+  await page.waitForFunction(() => window.__sv.iss.loaded().includes('node2'), null, { timeout: 180000, polling: 500 })
+  await page.evaluate(() => (window.__sv.iss.debug.move = [0, 0, 1]))
+  await page.waitForFunction(() => window.__sv.iss.state.getState().module === 'node2', null, { timeout: 90000, polling: 250 }).catch(() => {})
+  await page.evaluate(() => (window.__sv.iss.debug.move = null))
+  const st = await page.evaluate(() => ({ module: window.__sv.iss.state.getState().module, z: window.__sv.iss.debug.pose.z, loaded: window.__sv.iss.loaded() }))
+  if (st.module !== 'node2') throw new Error(`iss: did not reach Harmony (${JSON.stringify(st)})`)
+  await page.waitForSelector('.iss-name[data-module="node2"]', { timeout: 10000 })
   await sleep(1500)
 }
 async function issExit(page) {
@@ -807,7 +819,7 @@ const SCENARIOS = {
       await page.waitForFunction(() => window.__sv.moonMission.state.getState().phase === 'none', null, { timeout: 30000 })
     },
   },
-  // 宇宙ステーション（ISS）の見本（#iss=sample）：実験棟デスティニーの中を浮かぶ
+  // 宇宙ステーション（ISS）の見本（#iss=sample）：実験棟デスティニーの中を浮かび、ハーモニーへ移る
   iss: { ctx: desktop, hash: '#debug&iss=sample', run: (page) => issScene(page, false), after: issExit },
   'iss-phone': { ctx: phone, hash: '#debug&iss=sample', run: (page) => issScene(page, true), after: issExit },
   // スペースシャトルの乗員室（?shuttle=sample の見本）

@@ -2,14 +2,32 @@ import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 
 import { useLang } from '../../i18n/lang'
 import { ui } from '../../i18n'
 import { isTouchDevice } from '../../state/input'
-import { ISS_SPOTS, closeIss, issInput, playSpot, useIss, type IssSpot } from '../../state/iss'
+import { ISS_SPOTS, SPOT_MODULE, closeIss, issInput, playSpot, useIss, type IssSpot } from '../../state/iss'
 import { bindAnchorEl } from './anchors'
 import { pokeRef } from './WaterBall'
+import { IssMap } from './IssMap'
+import { loadStation, type Station } from './station'
 
-// ISS の場面の画面：読みこみの幕、モジュールの名前、もどるボタン、遊んだ印のしるし、操作の説明、
-// 3D の中の光る印（押すと遊べる）、カード（3 行まで）、スマホのスティックと上下・宙返りのボタン
+// ISS の場面の画面：読みこみの幕、部屋（モジュール）の名前と役目（1 行）、もどるボタン、右上の地図、
+// 遊んだ印のしるし（デスティニーにいるとき）、操作の説明、3D の中の光る印（押すと遊べる）と外への口の札、
+// カード（3 行まで）、スマホのスティックと上下・宙返りのボタン
 
-const MODULE_KEY: Record<string, keyof ReturnType<typeof ui>['iss']['modules']> = { us_lab: 'destiny', node1: 'unity', node2: 'harmony' }
+type ModuleKey = keyof ReturnType<typeof ui>['iss']['modules']
+
+/** 全体の地図（部屋の名前のキー・外への口）。IssWorld と同じものを 1 回だけ読む */
+function useStation() {
+  const [station, setStation] = useState<Station | null>(null)
+  useEffect(() => {
+    let alive = true
+    loadStation()
+      .then((s) => alive && setStation(s))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+  return station
+}
 
 /** 左下のスティック（押す向き） */
 function Stick() {
@@ -103,6 +121,7 @@ export function IssHud() {
   const done = useIss((s) => s.done)
   const moved = useIss((s) => s.moved)
   const touch = isTouchDevice()
+  const station = useStation()
   // 入ったときは名前を大きく、4 秒たったら小さく
   const [big, setBig] = useState(true)
   useEffect(() => {
@@ -111,7 +130,10 @@ export function IssHud() {
     const timer = setTimeout(() => setBig(false), 4000)
     return () => clearTimeout(timer)
   }, [phase, module])
-  const name = t.modules[MODULE_KEY[module] ?? 'destiny']
+  const key = (station?.modules.find((m) => m.id === module)?.key ?? 'destiny') as ModuleKey
+  const name = t.modules[key] ?? t.modules.destiny
+  const outer = station?.modules.flatMap((m) => m.hatches.filter((h) => !h.to && h.kind)) ?? []
+  const inLab = module === SPOT_MODULE
   return (
     <div className={`iss-hud${touch ? ' touch' : ''}`}>
       {phase === 'loading' && (
@@ -124,27 +146,33 @@ export function IssHud() {
         {ISS_SPOTS.map((id) => (
           <SpotDot key={id} id={id} />
         ))}
-        {['node1', 'node2'].map((to) => (
-          <div key={to} className="iss-soon" ref={(el) => bindAnchorEl(`hatch:${to}`, el)}>
-            {t.soon}
+        {outer.map((h) => (
+          <div key={h.id} className="iss-outer" data-hatch={h.id} ref={(el) => bindAnchorEl(`outer:${h.id}`, el)}>
+            {t.outer[h.kind!]}
           </div>
         ))}
       </div>
-      <div className={`iss-name${big ? ' big' : ''}`}>
+      <div className={`iss-name${big ? ' big' : ''}`} data-module={module}>
         <b>{name.name}</b>
-        <small>{name.sub}</small>
+        <span>
+          {t.nameSep}
+          {name.sub}
+        </span>
       </div>
-      <div className="iss-stamps">
-        {ISS_SPOTS.map((id) => (
-          <span key={id} className={done.includes(id) ? 'ok' : ''}>
-            <i>{done.includes(id) ? '✓' : ''}</i>
-            {t.spots[id].name}
-          </span>
-        ))}
-      </div>
+      {inLab && (
+        <div className="iss-stamps">
+          {ISS_SPOTS.map((id) => (
+            <span key={id} className={done.includes(id) ? 'ok' : ''}>
+              <i>{done.includes(id) ? '✓' : ''}</i>
+              {t.spots[id].name}
+            </span>
+          ))}
+        </div>
+      )}
       <button className="iss-exit" onClick={closeIss}>
         {t.exit}
       </button>
+      {phase === 'inside' && <IssMap station={station} />}
       {phase === 'inside' && !moved && !spot && <div className="iss-help">{touch ? t.helpTouch : t.help}</div>}
       {spot && (
         <div className="iss-card" data-spot={spot}>

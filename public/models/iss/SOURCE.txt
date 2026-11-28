@@ -7,11 +7,15 @@ Source: NASA 3D Resources, "International Space Station (ISS) [internal]"
   (NASA Images and Media Usage Guidelines, linked from the page above)
 
 Changes made for this app (tools/iss/):
-- The station was split into 12 modules by object name and position; only Destiny (us_lab) is shipped now.
+- The station was split into 12 modules by object name and position (<module>.glb). station.json lists the modules,
+  how they connect and the outer hatches.
 - Units were converted to metres. The model was re-centred on Node 1 and turned to the app axes (forward = -Z, zenith = +Y).
-- Static parts are merged per material. The CEVIS bike is a separate node.
-- Two closed hatches (copies of the Node 1 aft hatch) were added just outside both Destiny hatchways. They are for the sample only.
-- Normal, metallic and roughness maps were dropped. The lighting was baked with Cycles into a second UV (us_lab.light.*.jpg).
+- Static parts are merged per material. The CEVIS bike, the crew quarter doors and the Cupola glass are separate nodes.
+- Tranquility's port hatch was missing as an open hatch; a copy of its starboard hatch was turned to fill it.
+- The Cupola window shutters were removed (open shutters). BEAM and Bishop were simplified to about half the triangles.
+- Normal, metallic and roughness maps were dropped. The lighting was baked with Cycles into a second UV and denoised
+  (<module>.light.*.jpg). Extra fill lights were added in the dim modules.
+- (Stage 1 only) two closed hatches outside the Destiny hatchways were removed in stage 2.
 - Colour textures were resized to 512-2048 px and saved as WebP.
 - Logos, agency insignia and crew patches were painted over with nearby colours (tools/iss/logo_masks.json).
 - Objects using the patch materials (Patches1, Patches2) were removed.

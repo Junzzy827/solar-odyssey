@@ -64,44 +64,45 @@
   }
 }
 
-/* モジュールの名前：入ったときは大きく真ん中に、そのあと左上に小さく */
+/* 部屋（モジュール）の名前と役目（1 行）：入ったときは大きく真ん中に、そのあと左上に小さく */
 .iss-name {
   position: absolute;
   left: 16px;
   top: calc(env(safe-area-inset-top) + 14px);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  max-width: calc(100vw - 150px);
   padding: 8px 14px;
   border-radius: 14px;
   background: rgba(8, 16, 26, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: all 0.8s ease;
 }
 .iss-name b {
   font-size: 16px;
 }
-.iss-name small {
-  font-size: 12px;
+.iss-name span {
+  font-size: 13px;
   color: #a9c6e2;
 }
 .iss-name.big {
   left: 50%;
   top: 30%;
+  max-width: 94vw;
   transform: translate(-50%, -50%);
-  padding: 14px 26px;
-  text-align: center;
-  align-items: center;
+  padding: 12px 22px;
 }
 .iss-name.big b {
-  font-size: 28px;
+  font-size: 26px;
 }
-.iss-name.big small {
-  font-size: 15px;
+.iss-name.big span {
+  font-size: 17px;
 }
 .iss-root[data-phase='loading'] .iss-name,
 .iss-root[data-phase='loading'] .iss-stamps,
 .iss-root[data-phase='loading'] .iss-anchors,
-.iss-root[data-phase='loading'] .iss-moves {
+.iss-root[data-phase='loading'] .iss-moves,
+.iss-root[data-phase='loading'] .iss-map {
   visibility: hidden;
 }
 
@@ -210,15 +211,122 @@
     transform: scale(1.18);
   }
 }
-.iss-soon {
-  margin: -12px 0 0 -90px;
-  width: 180px;
+.iss-outer {
+  margin: -12px 0 0 -100px;
+  width: 200px;
   padding: 5px 10px;
   border-radius: 12px;
   background: rgba(8, 16, 26, 0.7);
   font-size: 12px;
   text-align: center;
   color: #cfe3f7;
+}
+
+/* 右上の地図（もどるの下）。押すと大きく */
+.iss-map {
+  position: absolute;
+  right: 16px;
+  top: calc(env(safe-area-inset-top) + 60px);
+  width: 92px;
+  height: 118px;
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(160, 210, 255, 0.35);
+  background: rgba(8, 16, 26, 0.55);
+}
+.iss-map-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.iss-map-room {
+  fill: rgba(120, 160, 200, 0.08);
+  stroke: rgba(170, 205, 240, 0.6);
+  stroke-width: 0.22;
+}
+.iss-map-room.visited {
+  fill: rgba(110, 170, 230, 0.45);
+}
+.iss-map-room.here {
+  fill: #ffd76a;
+  stroke: #fff3c4;
+}
+.iss-map-link {
+  stroke: rgba(170, 205, 240, 0.6);
+  stroke-width: 0.22;
+  stroke-dasharray: 0.4 0.3;
+}
+.iss-map-you path {
+  fill: #ff6b5a;
+  stroke: #fff;
+  stroke-width: 0.16;
+}
+.iss-map-name {
+  fill: #f2f8ff;
+  stroke: rgba(4, 10, 18, 0.85);
+  stroke-width: 0.16;
+  paint-order: stroke;
+  font-weight: 700;
+}
+.iss-map-big {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 4, 10, 0.55);
+  pointer-events: auto;
+  z-index: 5;
+}
+.iss-map-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(440px, 94vw);
+  height: min(640px, 86vh);
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(140, 200, 255, 0.35);
+  background: linear-gradient(160deg, rgba(14, 26, 40, 0.94), rgba(6, 12, 20, 0.92));
+}
+.iss-map-panel .iss-map-svg {
+  flex: 1;
+  min-height: 0;
+}
+.iss-map-title {
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+}
+.iss-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  font-size: 13px;
+  color: #cfe3f7;
+}
+.iss-map-legend span::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 5px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+.iss-map-legend .here::before {
+  background: #ffd76a;
+}
+.iss-map-legend .visited::before {
+  background: rgba(110, 170, 230, 0.7);
+}
+.iss-map-legend .close {
+  width: 100%;
+  text-align: center;
+  color: #8fb0cf;
+}
+.iss-map-legend .close::before {
+  display: none;
 }
 
 /* カード（3 行まで） */
@@ -316,11 +424,27 @@
     max-width: calc(100vw - 120px);
   }
   .iss-name.big {
-    max-width: 88vw;
+    max-width: 94vw;
     left: 50%;
+    padding: 10px 14px;
+  }
+  .iss-name b {
+    font-size: 14px;
+  }
+  .iss-name span {
+    font-size: 11px;
   }
   .iss-name.big b {
-    font-size: 22px;
+    font-size: 17px;
+  }
+  .iss-name.big span {
+    font-size: 12px;
+  }
+  .iss-map {
+    right: 10px;
+    top: calc(env(safe-area-inset-top) + 56px);
+    width: 76px;
+    height: 98px;
   }
   .iss-stamps {
     left: 10px;

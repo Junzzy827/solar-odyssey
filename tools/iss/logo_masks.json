@@ -6,19 +6,19 @@
   ],
   "express_racks_atlas": [
     { "what": "Zero-G Oven: 0GK / DoubleTree / Nanoracks company logos", "rect": [670, 120, 960, 210] },
-    { "what": "Cryo Chiller experiment patch", "rect": [2280, 290, 2380, 400] },
+    { "what": "Cryo Chiller: Rapid Freeze experiment patch (stage 2: moved onto the patch)", "rect": [2290, 160, 2372, 242] },
     { "what": "MERLIN experiment patch", "rect": [320, 460, 410, 580] },
     { "what": "POLAR experiment patch", "rect": [850, 460, 965, 585] },
     { "what": "T-CMM: Made In Space logo", "rect": [1165, 370, 1285, 440] },
-    { "what": "T-CMM: Redwire logo", "rect": [1365, 445, 1455, 505] },
-    { "what": "XROOTS: Sierra Nevada Corp (SNC) logo", "rect": [1675, 510, 1765, 560] },
+    { "what": "T-CMM: Redwire logo (stage 2: moved onto the logo)", "rect": [1318, 440, 1378, 490] },
+    { "what": "XROOTS: Sierra Nevada Corp (SNC) logo (stage 2: moved onto the logo)", "rect": [1748, 512, 1840, 548] },
     { "what": "Bone Densitometer: experiment patch", "rect": [2115, 395, 2225, 525] },
     { "what": "Bone Densitometer: techshot logo", "rect": [2395, 375, 2485, 435] },
     { "what": "MVP experiment patch", "rect": [785, 735, 905, 835] },
-    { "what": "BIOFAB small company logo", "rect": [935, 765, 995, 815] },
+    { "what": "BIOFAB: techshot logo (stage 2: moved onto the logo)", "rect": [318, 775, 382, 812] },
     { "what": "ADSEP experiment patch", "rect": [55, 1010, 175, 1135] },
     { "what": "ADSEP techshot logo", "rect": [325, 1015, 450, 1095] },
-    { "what": "Spectrum experiment logo", "rect": [765, 1035, 875, 1145] },
+    { "what": "Spectrum experiment logo (stage 2: moved onto the logo)", "rect": [772, 1098, 862, 1190] },
     { "what": "Manufacturing Device: Made In Space logo", "rect": [1845, 1010, 1935, 1062] },
     { "what": "Manufacturing Device: Lowe's logo", "rect": [1835, 1050, 1925, 1100] },
     { "what": "Mobile SpaceLab: Scorpio logo", "rect": [2325, 1055, 2445, 1110] },
@@ -43,8 +43,8 @@
     { "what": "xPWD: small round logo", "rect": [225, 3725, 302, 3791] },
     { "what": "xPWD: small yellow logo", "rect": [105, 3480, 166, 3531] },
     { "what": "MAMS: memorial patch", "rect": [3760, 370, 3910, 510] },
-    { "what": "NASA meatball on rack trim", "rect": [3700, 795, 3755, 860] },
-    { "what": "SAMS-II logo", "rect": [2968, 3001, 3177, 3088] },
+    { "what": "NASA meatball on rack trim (stage 2: moved onto the logo)", "rect": [3808, 812, 3860, 870] },
+    { "what": "SAMS-II logo (stage 2: taller, the logo text was cut)", "rect": [2968, 3001, 3177, 3106] },
     { "what": "Scrubber experiment patch", "rect": [3401, 3390, 3499, 3499] }
   ],
   "columbus_racks01": [
@@ -63,15 +63,20 @@
   "jpm_racks_03": [
     { "what": "NASA meatball (EXPRESS 4 header)", "rect": [1933, 90, 2010, 153] },
     { "what": "NASA meatball (EXPRESS 5 header)", "rect": [916, 1949, 983, 2013] },
-    { "what": "SAMS-II logo", "rect": [1590, 1590, 1724, 1639] }
+    { "what": "SAMS-II logo", "rect": [1590, 1590, 1724, 1639] },
+    { "what": "EXPRESS 5 PSS door: Guigné, Astrium and research-institute logos (stage 2 re-check)", "rect": [75, 3072, 228, 3230] }
   ],
   "node3_int_rack_01": [
-    { "what": "Orbital Outhouse Team patch", "rect": [1035, 970, 1230, 1145] }
+    { "what": "Orbital Outhouse Team patch", "rect": [1035, 970, 1230, 1145] },
+    { "what": "TOCA (Total Organic Carbon Analyzer) patch (stage 2 re-check)", "rect": [2964, 2800, 3038, 2878] }
   ],
   "node3_int_rack_02": [
     { "what": "C.O.L.B.E.R.T. treadmill patch (shows a real person's face)", "rect": [2135, 3595, 2290, 3730] }
   ],
   "bishop": [
     { "what": "Nanoracks company logo plate", "rect": [1935, 3910, 2390, 4050] }
+  ],
+  "generic_misc_details": [
+    { "what": "NASA meatball on a laptop screen picture (stage 2 re-check)", "rect": [4015, 2485, 4080, 2560] }
   ]
 }

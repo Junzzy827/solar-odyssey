@@ -76,21 +76,16 @@ function buildItems(matcap: THREE.Texture) {
   return { items, dispose: () => own.forEach((o) => o.dispose()) }
 }
 
-/** 漂う場所（three の座標 m）：実験棟の通路のあちこち */
-const SPOTS: [number, number, number][] = [
-  [-0.35, 0.35, -3.6],
-  [0.45, -0.25, -5.2],
-  [-0.2, 0.55, -6.2],
-  [0.3, 0.4, -7.9],
-  [-0.45, -0.3, -8.8],
-  [0.15, -0.5, -9.6],
-]
-
-export function Drifters({ ctrl, bvh }: { ctrl: FloatController; bvh: MeshBVH }) {
+/** spots：漂う場所（three の座標 m、部屋の通路のあちこち）。小物は場所の数だけ（6 つまで、ペンから順に） */
+export function Drifters({ ctrl, bvh, spots }: { ctrl: FloatController; bvh: MeshBVH; spots: [number, number, number][] }) {
   const set = useMemo(() => {
     const matcap = makeMatcap()
     const built = buildItems(matcap)
-    const list: Item[] = built.items.map((mesh, i) => {
+    const SPOTS = spots
+    // 部屋ごとに、小物の並びを少しずらす（どの部屋も同じ順にならないように）
+    const shift = Math.round(Math.abs(spots[0][0] * 7 + spots[0][2] * 3)) % built.items.length
+    const items = [...built.items.slice(shift), ...built.items.slice(0, shift)].slice(0, spots.length)
+    const list: Item[] = items.map((mesh, i) => {
       const body = new FloatController({ radius: 0.06, accel: 0, maxSpeed: 0.8, drag: 0.04, bounce: 0.55 })
       body.pos.set(...SPOTS[i % SPOTS.length])
       // はじめから、ほんの少しだけ動いている
@@ -99,7 +94,7 @@ export function Drifters({ ctrl, bvh }: { ctrl: FloatController; bvh: MeshBVH })
       return { mesh, body, spin: new THREE.Vector3(Math.sin(i) * 0.3, 0.2, Math.cos(i) * 0.25) }
     })
     return { list, matcap, dispose: built.dispose }
-  }, [])
+  }, [spots])
   useEffect(() => {
     set.list.forEach((it) => it.body.setCollider(bvh))
     return () => set.list.forEach((it) => it.body.setCollider(null))
