@@ -7,6 +7,7 @@ import { markShuttleReady, setArmReady, setOrbitStep, shuttleDebug, shuttleInput
 import { FloatController, createFloatInput } from './floatControl'
 import { cabinMaterial, flatMaterial, glassMaterial, useCabinMeta } from './cabinMaterial'
 import { OutsideSky } from './outside'
+import { BERTH, EE, L1, LW, SHOULDER, clampAim, solveArm } from './armIk'
 import { adiTexture, crtTexture, drawCrt, monitorMaterial, prepareAdi } from './screens'
 import { shrinkTexture } from '../surface/shrinkTexture'
 import { roomEnvironment } from '../telescope/parts'
@@ -46,21 +47,12 @@ const smooth = (x: number) => x * x * (3 - 2 * x)
 
 // ---- 軌道の章（段階 3）：扉、ハッブル、アーム ----
 // 座標はオービターの glb と同じ（乗員室と共通。tools/blender/build_shuttle.py の X 右・Y 前・Z 上を、three の X・-Z・Y に読みかえたもの）
-/** アームの肩（左の縁）。上腕 6.4 m、下腕 7.1 m、手首から先（つかむ輪）1.1 m。全長およそ 15 m（FACTS.md 3） */
-const SHOULDER = new THREE.Vector3(-2.45, 2.25, 1.2)
-const L1 = 6.4
-const LW = 7.1
-const EE = 1.1
-/** 起こしたアームの先が最初に止まる所（つかむ所の少し手前・下。ここから子どもが合わせる） */
+/** 起こしたアームの先が最初に止まる所（つかむ所の少し手前・下。ここから子どもが合わせる）。肩・腕の長さ・台は armIk.ts */
 const READY = new THREE.Vector3(0.9, 7.0, 10.0)
 const RAISE_SEC = 4
-/** アームの先が動ける箱（荷物室の上。乗員室や扉にめりこまないように） */
-const AIM_BOX = new THREE.Box3(new THREE.Vector3(-3.2, 2.7, 5), new THREE.Vector3(3.2, 13, 17))
 /** 扉が開ききった角度（172°）と、開く時間（本物は 1 枚 63 秒。ここでは 2 枚ずつ、まとめて 12 秒で） */
 const DOOR_OPEN = THREE.MathUtils.degToRad(172)
 const DOOR_SEC = 12
-/** ハッブルを立てる台（底の中心）。ハッブルの底は台の輪の上 1.9 m（荷物室の後ろ） */
-const BERTH = new THREE.Vector3(0, 1.9, 15.2)
 /** つかむ前に浮かんで待つ所（荷物室の後ろの真上）と、近づいてくる前の所（後ろ遠く） */
 const HOVER = new THREE.Vector3(0.3, 6.4, 15.2)
 const APPROACH_FROM = new THREE.Vector3(0.3, 9.5, 70)
@@ -661,55 +653,6 @@ export function ShuttleWorld() {
 
 const _v2 = new THREE.Vector2()
 const v2 = (x: number, y: number) => _v2.set(x, y)
-
-/**
- * アームの角度：先（つかむ輪の中心）を T に置く。肩の左右（yaw）で T の方を向き、その縦の面の中で
- * 上腕と下腕の三角形を解く（ひじは上に出す）。手首は、手首から先が水平になるように。
- * 回す向き：pitch は負で起きる、elbow は正で下へ曲がる（tools/blender/build_shuttle.py の RMS）
- */
-function solveArm(T: THREE.Vector3, out: { yaw: number; pitch: number; elbow: number; wrist: number; wristYaw: number }) {
-  // 手首の位置：先から 1.1 m 手前（手首から先は、いつも真後ろ ＝ つかむ所の板に まっすぐ向ける）
-  const dx = T.x - SHOULDER.x
-  const dz = T.z - EE - SHOULDER.z
-  out.yaw = Math.atan2(dx, dz)
-  out.wristYaw = -out.yaw
-  const h = Math.hypot(dx, dz)
-  const v = T.y - SHOULDER.y
-  const D = THREE.MathUtils.clamp(Math.hypot(h, v), L1 - LW + 0.05, L1 + LW - 0.01)
-  const phi = Math.atan2(v, h)
-  const beta = Math.acos(THREE.MathUtils.clamp((L1 * L1 + D * D - LW * LW) / (2 * L1 * D), -1, 1))
-  const gamma = Math.acos(THREE.MathUtils.clamp((L1 * L1 + LW * LW - D * D) / (2 * L1 * LW), -1, 1))
-  out.pitch = -(phi + beta)
-  out.elbow = Math.PI - gamma
-  out.wrist = -(out.pitch + out.elbow)
-}
-
-/** 狙いを、届く所・荷物室の上の箱の中に収める。grip があれば（ハッブルを持っているとき）、ハッブルが荷物室の壁にめりこまないよう、下ほど台の真上へ寄せる */
-function clampAim(T: THREE.Vector3, grip: THREE.Vector3 | null) {
-  AIM_BOX.clampPoint(T, T)
-  if (grip) {
-    const hx = T.x - grip.x - BERTH.x
-    const hz = T.z - grip.z - BERTH.z
-    const hy = Math.max(0, T.y - grip.y - BERTH.y)
-    T.y = BERTH.y + grip.y + hy
-    const r = 0.3 + 1.5 * hy
-    const d = Math.hypot(hx, hz)
-    if (d > r) {
-      T.x = BERTH.x + grip.x + (hx * r) / d
-      T.z = BERTH.z + grip.z + (hz * r) / d
-    }
-  }
-  // 手首が届く長さより遠ければ、肩の方へ引き戻す（手首から先は真後ろ向きなので、手首の位置で考える）
-  const dx = T.x - SHOULDER.x
-  const dy = T.y - SHOULDER.y
-  const dz = T.z - EE - SHOULDER.z
-  const D = Math.hypot(dx, dy, dz)
-  const max = L1 + LW - 0.05
-  if (D > max) {
-    const k = max / D
-    T.set(SHOULDER.x + dx * k, SHOULDER.y + dy * k, SHOULDER.z + dz * k + EE)
-  }
-}
 
 /** a から b への、いちばん近い回り方の角度 */
 function angleDiff(a: number, b: number) {
